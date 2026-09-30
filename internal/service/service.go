@@ -157,3 +157,37 @@ WantedBy=default.target
 	}
 	return path, nil
 }
+
+// Stop stops the installed service without removing it: the daemon and its
+// sync end, as they would with the computer off, until Start.
+func Stop() error {
+	switch runtime.GOOS {
+	case "darwin":
+		out, err := exec.Command("launchctl", "bootout", "gui/"+strconv.Itoa(os.Getuid()), launchdPath()).CombinedOutput()
+		if err != nil && !strings.Contains(string(out), "No such process") {
+			return fmt.Errorf("launchctl bootout: %v: %s", err, strings.TrimSpace(string(out)))
+		}
+		return nil
+	case "linux":
+		return exec.Command("systemctl", "--user", "stop", "whatsapp-mcp-v2.service").Run()
+	}
+	return fmt.Errorf("no service support on %s", runtime.GOOS)
+}
+
+// Start starts the installed service again.
+func Start() error {
+	switch runtime.GOOS {
+	case "darwin":
+		if _, err := os.Stat(launchdPath()); err != nil {
+			return fmt.Errorf("the service is not installed; run whatsapp-mcp-v2 service install")
+		}
+		out, err := exec.Command("launchctl", "bootstrap", "gui/"+strconv.Itoa(os.Getuid()), launchdPath()).CombinedOutput()
+		if err != nil && !strings.Contains(string(out), "already") {
+			return fmt.Errorf("launchctl bootstrap: %v: %s", err, strings.TrimSpace(string(out)))
+		}
+		return nil
+	case "linux":
+		return exec.Command("systemctl", "--user", "start", "whatsapp-mcp-v2.service").Run()
+	}
+	return fmt.Errorf("no service support on %s", runtime.GOOS)
+}

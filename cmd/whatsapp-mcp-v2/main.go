@@ -5,6 +5,7 @@
 //	whatsapp-mcp-v2 bridge              stdio MCP for Claude Desktop, forwarding to the daemon
 //	whatsapp-mcp-v2 service install     start the daemon at login and keep it running
 //	whatsapp-mcp-v2 service uninstall
+//	whatsapp-mcp-v2 service stop|start  stop and start it again, without removing it
 //	whatsapp-mcp-v2 open                open the control panel
 //	whatsapp-mcp-v2 config              print the client configuration
 //	whatsapp-mcp-v2 version
@@ -158,6 +159,7 @@ const usage = `whatsapp-mcp-v2 — WhatsApp for MCP clients, on localhost, over 
   bridge              stdio MCP server for Claude Desktop that forwards to the daemon
   service install     run the daemon at login and restart it if it stops (launchd / systemd --user)
   service uninstall   remove that service
+  service stop|start  stop the service (as if the computer were off) and start it again
   config              print the configuration for Claude Code and Claude Desktop
   open                open the control panel in the browser
   version             print the version
@@ -227,7 +229,7 @@ func serve(cfg config) error {
 
 func serviceCmd(cfg config, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: whatsapp-mcp-v2 service install|uninstall")
+		return errors.New("usage: whatsapp-mcp-v2 service install|uninstall|stop|start")
 	}
 	switch args[0] {
 	case "install":
@@ -257,6 +259,18 @@ func serviceCmd(cfg config, args []string) error {
 			return err
 		}
 		fmt.Println("service removed")
+		return nil
+	case "stop":
+		if err := service.Stop(); err != nil {
+			return err
+		}
+		fmt.Println("service stopped: WhatsApp is not being received until `whatsapp-mcp-v2 service start`")
+		return nil
+	case "start":
+		if err := service.Start(); err != nil {
+			return err
+		}
+		fmt.Printf("service started; panel at %s/\n", cfg.baseURL())
 		return nil
 	}
 	return fmt.Errorf("unknown service command %q", args[0])

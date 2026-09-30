@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -61,6 +62,7 @@ lock = open(os.path.join(os.path.dirname(p), "LOCK"), "a")
 try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
 except OSError:
     sys.stderr.write("store is locked\n"); sys.exit(1)
+lock.truncate(0); lock.write("pid=%d\n" % os.getpid()); lock.flush()
 try: os.unlink(p)
 except OSError: pass
 s = socket.socket(socket.AF_UNIX); s.bind(p); s.listen(8)
@@ -333,4 +335,50 @@ func TestPairingHandsOverToSyncAfterLinking(t *testing.T) {
 		t.Fatalf("auth was not handed over; pairing is %q", st)
 	}
 	waitState(t, s, "connected")
+}
+
+// A daemon killed with SIGKILL leaves its sync running, holding the store.
+// The next daemon must stop that orphan and take over.
+func TestSupervisorReclaimsAnOrphanedSync(t *testing.T) {
+	store, cli := fakeStore(t)
+	if err := os.WriteFile(filepath.Join(store, "AUTHED"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// The previous daemon's sync, still running after its parent died.
+	orphan := exec.Command(cli.Bin, "sync", "--follow")
+	orphan.Env = append(os.Environ(), "WACLI_STORE_DIR="+store)
+	orphan.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := orphan.Start(); err != nil {
+		t.Fatal(err)
+	}
+	exited := make(chan struct{})
+	go func() { _ = orphan.Wait(); close(exited) }()
+	defer func() { _ = orphan.Process.Kill() }()
+	deadline := time.Now().Add(5 * time.Second)
+	for lockHolder(store) != orphan.Process.Pid && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if lockHolder(store) != orphan.Process.Pid {
+		t.Fatal("the orphan never took the lock")
+	}
+
+	old := isOrphanedWacli
+	isOrphanedWacli = func(pid int) bool { return pid == orphan.Process.Pid }
+	defer func() { isOrphanedWacli = old }()
+
+	s := NewSupervisor(cli, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	defer func() { cancel(); <-done }()
+
+	select {
+	case <-exited:
+	case <-time.After(15 * time.Second):
+		t.Fatal("the orphaned sync was not stopped")
+	}
+	waitState(t, s, "connected")
+	if st := s.Status(); st.Restarts != 0 {
+		t.Fatalf("taking over should not look like a crash loop: %+v", st)
+	}
 }

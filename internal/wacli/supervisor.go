@@ -120,6 +120,7 @@ func (s *Supervisor) Run(ctx context.Context) {
 	// outlives the daemon holding the store lock.
 	defer s.pairWG.Wait()
 	defer s.CancelPairing()
+	s.reclaimOrphan()
 	backoff := 2 * time.Second
 	for ctx.Err() == nil {
 		s.mu.Lock()
@@ -167,6 +168,9 @@ func (s *Supervisor) Run(ctx context.Context) {
 			s.setState("exited", "")
 		}
 		if time.Since(started) > 5*time.Minute {
+			backoff = 2 * time.Second
+		}
+		if s.reclaimOrphan() {
 			backoff = 2 * time.Second
 		}
 		s.waitWake(ctx, backoff)
