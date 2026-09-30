@@ -1,0 +1,276 @@
+// Command whatsapp-mcp-v2 serves WhatsApp to MCP clients on localhost, on top
+// of wacli.
+//
+//	whatsapp-mcp-v2 serve               run the daemon (sync + MCP endpoint)
+//	whatsapp-mcp-v2 bridge              stdio MCP for Claude Desktop, forwarding to the daemon
+//	whatsapp-mcp-v2 service install     start the daemon at login and keep it running
+//	whatsapp-mcp-v2 service uninstall
+//	whatsapp-mcp-v2 config              print the client configuration
+//	whatsapp-mcp-v2 version
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"strconv"
+	"syscall"
+
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/bridge"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/httpserver"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/mcp"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/service"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/wacli"
+)
+
+var version = "dev"
+
+// defaultPort is uncommon on purpose: the daemon should not collide with the
+// dev servers that live on 3000, 5173 or 8080.
+const defaultPort = 47821
+
+type config struct {
+	Port     int
+	Token    string
+	WacliBin string
+	StoreDir string
+	DataDir  string
+}
+
+func (c config) addr() string { return net.JoinHostPort("127.0.0.1", strconv.Itoa(c.Port)) }
+func (c config) baseURL() string {
+	return "http://" + c.addr()
+}
+
+func load() (config, error) {
+	c := config{Port: defaultPort, Token: os.Getenv("WHATSAPP_MCP_TOKEN")}
+	if v := os.Getenv("WHATSAPP_MCP_PORT"); v != "" {
+		p, err := strconv.Atoi(v)
+		if err != nil || p < 1 || p > 65535 {
+			return c, fmt.Errorf("WHATSAPP_MCP_PORT must be a port number, got %q", v)
+		}
+		c.Port = p
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return c, err
+	}
+	c.WacliBin = os.Getenv("WACLI_BIN")
+	if c.WacliBin == "" {
+		c.WacliBin = findWacli()
+	}
+	c.StoreDir = os.Getenv("WACLI_STORE_DIR")
+	if c.StoreDir == "" {
+		c.StoreDir = defaultStore(home)
+	}
+	c.DataDir = os.Getenv("WHATSAPP_MCP_DATA")
+	if c.DataDir == "" {
+		c.DataDir = filepath.Join(home, ".whatsapp-mcp-v2")
+	}
+	return c, nil
+}
+
+// findWacli looks beyond PATH because a login service starts with a minimal
+// one that does not include Homebrew.
+func findWacli() string {
+	if p, err := exec.LookPath("wacli"); err == nil {
+		if abs, err := filepath.Abs(p); err == nil {
+			return abs
+		}
+		return p
+	}
+	for _, p := range []string{"/opt/homebrew/bin/wacli", "/usr/local/bin/wacli", "/home/linuxbrew/.linuxbrew/bin/wacli"} {
+		if _, err := os.Stat(p); err == nil {
+			return p
+		}
+	}
+	return "wacli"
+}
+
+// defaultStore mirrors wacli's own default, so a store paired with plain
+// `wacli auth` is the one the daemon uses.
+func defaultStore(home string) string {
+	legacy := filepath.Join(home, ".wacli")
+	if runtime.GOOS != "linux" {
+		return legacy
+	}
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	if xdg := os.Getenv("XDG_STATE_HOME"); xdg != "" {
+		return filepath.Join(xdg, "wacli")
+	}
+	return filepath.Join(home, ".local", "state", "wacli")
+}
+
+func main() {
+	cmd := "serve"
+	if len(os.Args) > 1 {
+		cmd = os.Args[1]
+	}
+	cfg, err := load()
+	if err != nil {
+		fatal(err)
+	}
+	switch cmd {
+	case "serve":
+		err = serve(cfg)
+	case "bridge":
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		err = bridge.Run(ctx, cfg.baseURL()+"/mcp", cfg.Token, os.Stdin, os.Stdout)
+	case "service":
+		err = serviceCmd(cfg, os.Args[2:])
+	case "config":
+		printConfig(cfg)
+	case "version", "--version", "-v":
+		fmt.Println(version)
+	case "help", "--help", "-h":
+		fmt.Print(usage)
+	default:
+		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", cmd, usage)
+		os.Exit(2)
+	}
+	if err != nil {
+		fatal(err)
+	}
+}
+
+const usage = `whatsapp-mcp-v2 — WhatsApp for MCP clients, on localhost, over wacli
+
+  serve               run the daemon: supervises wacli sync and serves MCP at http://127.0.0.1:47821/mcp
+  bridge              stdio MCP server for Claude Desktop that forwards to the daemon
+  service install     run the daemon at login and restart it if it stops (launchd / systemd --user)
+  service uninstall   remove that service
+  config              print the configuration for Claude Code and Claude Desktop
+  version             print the version
+
+Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
+`
+
+func fatal(err error) {
+	fmt.Fprintln(os.Stderr, "whatsapp-mcp-v2:", err)
+	os.Exit(1)
+}
+
+func serve(cfg config) error {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	mcp.Version = version
+
+	if _, err := os.Stat(cfg.WacliBin); err != nil {
+		if _, lookErr := exec.LookPath(cfg.WacliBin); lookErr != nil {
+			return fmt.Errorf("wacli not found (%s); install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", cfg.WacliBin)
+		}
+	}
+	if err := os.MkdirAll(cfg.StoreDir, 0o700); err != nil {
+		return err
+	}
+	// Claim the port before starting sync: a second daemon must fail here
+	// rather than fight the first one for the WhatsApp session.
+	ln, err := net.Listen("tcp", cfg.addr())
+	if err != nil {
+		return fmt.Errorf("cannot listen on %s: %w (is another whatsapp-mcp-v2 already running?)", cfg.addr(), err)
+	}
+	ln.Close()
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	cli := &wacli.CLI{Bin: cfg.WacliBin, StoreDir: cfg.StoreDir}
+	idx, err := index.Open(filepath.Join(cfg.StoreDir, "wacli.db"))
+	if err != nil {
+		return err
+	}
+	defer idx.Close()
+	st, err := state.Open(cfg.DataDir)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+
+	supervisor := wacli.NewSupervisor(cli, logger)
+	syncDone := make(chan struct{})
+	go func() {
+		supervisor.Run(ctx)
+		close(syncDone)
+	}()
+
+	server := mcp.New(mcp.Config{CLI: cli, Supervisor: supervisor, Index: idx, State: st, Logger: logger,
+		BaseURL: cfg.baseURL(), MediaDir: filepath.Join(cfg.DataDir, "media")})
+	handler := httpserver.Handler(server, httpserver.Options{Addr: cfg.addr(), Token: cfg.Token, Logger: logger})
+	logger.Info("serving MCP", "url", cfg.baseURL()+"/mcp", "wacli", cfg.WacliBin, "store", cfg.StoreDir, "token", cfg.Token != "")
+	err = httpserver.Serve(ctx, handler, cfg.addr())
+	stop()
+	<-syncDone
+	return err
+}
+
+func serviceCmd(cfg config, args []string) error {
+	if len(args) == 0 {
+		return errors.New("usage: whatsapp-mcp-v2 service install|uninstall")
+	}
+	switch args[0] {
+	case "install":
+		bin, err := os.Executable()
+		if err != nil {
+			return err
+		}
+		bin, _ = filepath.EvalSymlinks(bin)
+		env := map[string]string{"WACLI_BIN": cfg.WacliBin, "WACLI_STORE_DIR": cfg.StoreDir,
+			"WHATSAPP_MCP_DATA": cfg.DataDir, "WHATSAPP_MCP_PORT": strconv.Itoa(cfg.Port)}
+		if cfg.Token != "" {
+			env["WHATSAPP_MCP_TOKEN"] = cfg.Token
+		}
+		home, _ := os.UserHomeDir()
+		path, err := service.Install(service.Spec{Binary: bin, Args: []string{"serve"}, Env: env,
+			LogDir: filepath.Join(home, "Library", "Logs")})
+		if err != nil {
+			return err
+		}
+		fmt.Printf("installed %s\nthe daemon now runs at login and restarts if it stops; MCP at %s/mcp\n", path, cfg.baseURL())
+		return nil
+	case "uninstall":
+		if err := service.Uninstall(); err != nil {
+			return err
+		}
+		fmt.Println("service removed")
+		return nil
+	}
+	return fmt.Errorf("unknown service command %q", args[0])
+}
+
+func printConfig(cfg config) {
+	bin, _ := os.Executable()
+	bin, _ = filepath.EvalSymlinks(bin)
+	url := cfg.baseURL() + "/mcp"
+	fmt.Println("Claude Code:")
+	if cfg.Token != "" {
+		fmt.Printf("  claude mcp add --scope user --transport http whatsapp %s --header \"Authorization: Bearer %s\"\n\n", url, cfg.Token)
+	} else {
+		fmt.Printf("  claude mcp add --scope user --transport http whatsapp %s\n\n", url)
+	}
+	server := map[string]any{"command": bin, "args": []string{"bridge"}}
+	env := map[string]string{}
+	if cfg.Port != defaultPort {
+		env["WHATSAPP_MCP_PORT"] = strconv.Itoa(cfg.Port)
+	}
+	if cfg.Token != "" {
+		env["WHATSAPP_MCP_TOKEN"] = cfg.Token
+	}
+	if len(env) > 0 {
+		server["env"] = env
+	}
+	body, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{"whatsapp": server}}, "  ", "  ")
+	fmt.Println("Claude Desktop (Chat and Cowork) — ~/Library/Application Support/Claude/claude_desktop_config.json:")
+	fmt.Println("  " + string(body))
+}
