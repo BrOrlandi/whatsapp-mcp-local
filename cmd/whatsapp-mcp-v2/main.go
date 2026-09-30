@@ -214,7 +214,7 @@ func serve(cfg config) error {
 
 	server := mcp.New(mcp.Config{CLI: cli, Supervisor: supervisor, Index: idx, State: st, Logger: logger,
 		BaseURL: cfg.baseURL(), MediaDir: filepath.Join(cfg.DataDir, "media")})
-	control := &panel.Panel{Server: server, Supervisor: supervisor, MCPURL: cfg.baseURL() + "/mcp", Token: cfg.Token,
+	control := &panel.Panel{Server: server, Supervisor: supervisor, Index: idx, State: st, MCPURL: cfg.baseURL() + "/mcp", Token: cfg.Token,
 		Binary: executable(), Port: cfg.Port, DefaultPort: defaultPort}
 	handler := httpserver.Handler(server, httpserver.Options{Addr: cfg.addr(), Token: cfg.Token, Logger: logger, Register: control.Register})
 	logger.Info("serving MCP", "url", cfg.baseURL()+"/mcp", "panel", cfg.baseURL()+"/", "wacli", cfg.WacliBin, "store", cfg.StoreDir, "token", cfg.Token != "")

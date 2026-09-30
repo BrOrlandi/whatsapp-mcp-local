@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,9 +31,77 @@ type Server struct {
 	links    *mediaLinks
 
 	historyMu sync.Mutex
-	history   *historyJob
+	history   *HistoryJob
 
 	started time.Time
+
+	// clients maps the transport's hint for a caller (the bridge's header, or
+	// an HTTP client's User-Agent) to the name that caller gave at initialize,
+	// so later calls, which carry no name, still count as that client's use.
+	clientsMu sync.Mutex
+	clients   map[string]string
+	touched   map[string]time.Time
+}
+
+type clientHintKey struct{}
+
+// WithClientHint tells the server which caller a request comes from.
+func WithClientHint(ctx context.Context, hint string) context.Context {
+	return context.WithValue(ctx, clientHintKey{}, hint)
+}
+
+// seeClient records a client's use, at most every half minute per client.
+func (s *Server) seeClient(ctx context.Context, name, version string) {
+	if s.state == nil || name == "" {
+		return
+	}
+	s.clientsMu.Lock()
+	last := s.touched[name]
+	if version == "" && time.Since(last) < 30*time.Second {
+		s.clientsMu.Unlock()
+		return
+	}
+	s.touched[name] = time.Now()
+	s.clientsMu.Unlock()
+	_ = s.state.SeeClient(context.WithoutCancel(ctx), name, version, time.Now())
+}
+
+func (s *Server) noteInitialize(ctx context.Context, params json.RawMessage) {
+	var p struct {
+		ClientInfo struct {
+			Name    string `json:"name"`
+			Version string `json:"version"`
+		} `json:"clientInfo"`
+	}
+	_ = json.Unmarshal(params, &p)
+	name := truncate(strings.TrimSpace(p.ClientInfo.Name), 60)
+	if name == "" {
+		return
+	}
+	if hint, _ := ctx.Value(clientHintKey{}).(string); hint != "" {
+		s.clientsMu.Lock()
+		s.clients[hint] = name
+		s.clientsMu.Unlock()
+	}
+	s.seeClient(ctx, name, truncate(strings.TrimSpace(p.ClientInfo.Version), 40))
+}
+
+func (s *Server) noteUse(ctx context.Context) {
+	hint, _ := ctx.Value(clientHintKey{}).(string)
+	if hint == "" {
+		return
+	}
+	s.clientsMu.Lock()
+	name := s.clients[hint]
+	s.clientsMu.Unlock()
+	s.seeClient(ctx, name, "")
+}
+
+func truncate(v string, n int) string {
+	if len(v) > n {
+		return v[:n]
+	}
+	return v
 }
 
 type Config struct {
@@ -50,7 +119,8 @@ func New(c Config) *Server {
 		c.Logger = slog.Default()
 	}
 	return &Server{cli: c.CLI, supervisor: c.Supervisor, index: c.Index, state: c.State, logger: c.Logger,
-		baseURL: c.BaseURL, mediaDir: c.MediaDir, links: newMediaLinks(), started: time.Now()}
+		baseURL: c.BaseURL, mediaDir: c.MediaDir, links: newMediaLinks(), started: time.Now(),
+		clients: map[string]string{}, touched: map[string]time.Time{}}
 }
 
 // Links serves the temporary media links download_media hands out.
@@ -87,6 +157,7 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 			ProtocolVersion string `json:"protocolVersion"`
 		}
 		_ = json.Unmarshal(req.Params, &p)
+		s.noteInitialize(ctx, req.Params)
 		version := latestVersion
 		if supportedVersions[p.ProtocolVersion] {
 			version = p.ProtocolVersion
@@ -106,6 +177,7 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 		if err := json.Unmarshal(req.Params, &params); err != nil {
 			return encode(req.ID, nil, rpcError(-32602, "invalid params"))
 		}
+		s.noteUse(ctx)
 		started := time.Now()
 		result := s.call(ctx, params)
 		s.logger.Info("tool call", "tool", params.Name, "ms", time.Since(started).Milliseconds(), "error", result["isError"])

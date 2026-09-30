@@ -57,7 +57,12 @@ func Open(dir string) (*State, error) {
 		return nil, err
 	}
 	_ = os.Chmod(path, 0o600)
-	return &State{db: db}, nil
+	st := &State{db: db}
+	if err := st.migrateClients(); err != nil {
+		db.Close()
+		return nil, err
+	}
+	return st, nil
 }
 
 func (s *State) Close() error { return s.db.Close() }
@@ -148,5 +153,53 @@ func (s *State) SetSetting(ctx context.Context, key, value string) error {
 		return err
 	}
 	_, err := s.db.ExecContext(ctx, `INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`, key, value)
+	return err
+}
+
+// Client is an MCP client that has connected to the daemon: what it calls
+// itself in the initialize handshake, and when it was last heard from.
+type Client struct {
+	Name      string    `json:"name"`
+	Version   string    `json:"version,omitempty"`
+	FirstSeen time.Time `json:"first_seen"`
+	LastSeen  time.Time `json:"last_seen"`
+}
+
+func (s *State) migrateClients() error {
+	_, err := s.db.Exec(`CREATE TABLE IF NOT EXISTS clients (
+		name TEXT PRIMARY KEY, version TEXT NOT NULL DEFAULT '', first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL)`)
+	return err
+}
+
+// SeeClient records that a client connected or made a call.
+func (s *State) SeeClient(ctx context.Context, name, version string, at time.Time) error {
+	_, err := s.db.ExecContext(ctx, `INSERT INTO clients (name, version, first_seen, last_seen) VALUES (?, ?, ?, ?)
+		ON CONFLICT (name) DO UPDATE SET last_seen = excluded.last_seen,
+			version = CASE WHEN excluded.version != '' THEN excluded.version ELSE clients.version END`,
+		name, version, at.Unix(), at.Unix())
+	return err
+}
+
+func (s *State) Clients(ctx context.Context) ([]Client, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT name, version, first_seen, last_seen FROM clients ORDER BY last_seen DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Client
+	for rows.Next() {
+		var c Client
+		var first, last int64
+		if err := rows.Scan(&c.Name, &c.Version, &first, &last); err != nil {
+			return nil, err
+		}
+		c.FirstSeen, c.LastSeen = time.Unix(first, 0), time.Unix(last, 0)
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
+func (s *State) ForgetClient(ctx context.Context, name string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM clients WHERE name = ?`, name)
 	return err
 }

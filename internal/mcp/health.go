@@ -39,7 +39,7 @@ type healthInputs struct {
 	Activity       index.Activity
 	ActivityErr    error
 	Gaps           []index.Gap
-	History        *historyJob
+	History        *HistoryJob
 	MaxSilence     time.Duration
 }
 

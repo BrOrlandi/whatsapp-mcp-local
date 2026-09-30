@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -20,13 +21,18 @@ import (
 // answers back to out. Requests run concurrently, so a long tool call does not
 // hold up a ping.
 func Run(ctx context.Context, url, token string, in io.Reader, out io.Writer) error {
-	client := &http.Client{Timeout: 15 * time.Minute}
+	httpClient := &http.Client{Timeout: 15 * time.Minute}
 	var writeMu sync.Mutex
 	write := func(line []byte) {
 		writeMu.Lock()
 		defer writeMu.Unlock()
 		_, _ = out.Write(append(bytes.TrimSpace(line), '\n'))
 	}
+
+	// The client's name, learned from its initialize request, travels on every
+	// request so the daemon can tell which app a call came from.
+	var client atomic.Value
+	client.Store("bridge:unknown")
 
 	var wg sync.WaitGroup
 	scanner := bufio.NewScanner(in)
@@ -36,10 +42,14 @@ func Run(ctx context.Context, url, token string, in io.Reader, out io.Writer) er
 		if len(bytes.TrimSpace(line)) == 0 {
 			continue
 		}
+		if name := initializeClient(line); name != "" {
+			client.Store("bridge:" + name)
+		}
+		hint := client.Load().(string)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if resp := forward(ctx, client, url, token, line); resp != nil {
+			if resp := forward(ctx, httpClient, url, token, hint, line); resp != nil {
 				write(resp)
 			}
 		}()
@@ -48,7 +58,22 @@ func Run(ctx context.Context, url, token string, in io.Reader, out io.Writer) er
 	return scanner.Err()
 }
 
-func forward(ctx context.Context, client *http.Client, url, token string, line []byte) []byte {
+func initializeClient(line []byte) string {
+	var msg struct {
+		Method string `json:"method"`
+		Params struct {
+			ClientInfo struct {
+				Name string `json:"name"`
+			} `json:"clientInfo"`
+		} `json:"params"`
+	}
+	if json.Unmarshal(line, &msg) != nil || msg.Method != "initialize" {
+		return ""
+	}
+	return msg.Params.ClientInfo.Name
+}
+
+func forward(ctx context.Context, client *http.Client, url, token, hint string, line []byte) []byte {
 	var msg struct {
 		ID json.RawMessage `json:"id"`
 	}
@@ -67,6 +92,7 @@ func forward(ctx context.Context, client *http.Client, url, token string, line [
 		return fail("%v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-MCP-Client", hint)
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)

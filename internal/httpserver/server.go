@@ -59,7 +59,13 @@ func Handler(server *mcp.Server, opts Options) http.Handler {
 		}
 		// Tool calls that pause sync (history, live lookups) can take minutes;
 		// the context ends when the client hangs up.
-		response := server.Handle(r.Context(), body)
+		// The bridge names the client it speaks for; a direct HTTP client is
+		// known by its User-Agent.
+		hint := r.Header.Get("X-MCP-Client")
+		if hint == "" {
+			hint = "ua:" + r.UserAgent()
+		}
+		response := server.Handle(mcp.WithClientHint(r.Context(), hint), body)
 		if response == nil {
 			w.WriteHeader(http.StatusAccepted)
 			return

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img">
+  <title>WhatsApp MCP</title>
+  <defs>
+    <linearGradient id="wamcp-favicon" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2ec49a"/>
+      <stop offset="0.55" stop-color="#128c7e"/>
+      <stop offset="1" stop-color="#075e54"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#wamcp-favicon)"/>
+  <path d="M20 11h24a11 11 0 0 1 11 11v12a11 11 0 0 1-11 11H28L15 56V45A11 11 0 0 1 9 34V22A11 11 0 0 1 20 11Z" fill="#fff"/>
+  <g stroke="#0b6b5d" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M21 23l11 5 11-5M32 28v9"/>
+  </g>
+  <g fill="#0b6b5d">
+    <circle cx="21" cy="23" r="3.4"/>
+    <circle cx="43" cy="23" r="3.4"/>
+    <circle cx="32" cy="37" r="3.4"/>
+    <circle cx="32" cy="28" r="4"/>
+  </g>
+</svg>

@@ -1,102 +1,178 @@
-// Package panel is the local control page: pair WhatsApp by QR code, see
-// whether it is healthy, and connect Claude Code and Claude Desktop to the
-// daemon, without a terminal.
+// Package panel is the local control page: pair WhatsApp by QR code, check
+// the sync against the phone, and connect Claude, step by step, the way the
+// hosted v1's panel does.
 //
 // Its actions run commands and edit client configuration on this machine, so
-// every API call must come from the page itself: same-origin, never from
-// another site or another localhost app open in the browser.
+// every state-changing request must come from the page itself: same-origin,
+// never from another site or another localhost app open in the browser.
 package panel
 
 import (
-	"bytes"
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
+	"io/fs"
 	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
+	"net/url"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	qrcode "github.com/skip2/go-qrcode"
 
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/brand"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/mcp"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/transcribe"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/wacli"
 )
 
-//go:embed index.html
-var page []byte
-
-// ServerName is how this MCP appears in the clients. It differs from the
-// hosted v1's "whatsapp" so both can be installed side by side.
-const ServerName = "whatsapp-local"
+//go:embed assets
+var assets embed.FS
 
 type Panel struct {
 	Server      *mcp.Server
 	Supervisor  *wacli.Supervisor
+	Index       *index.Index
+	State       *state.State
 	MCPURL      string
 	Token       string
 	Binary      string // absolute path of this program, for the Desktop bridge
 	Port        int
 	DefaultPort int
+
+	pages *template.Template
+	code  codeCache
 }
+
+const (
+	setupSetting   = "setup_step" // "claude" once the chats were checked, "done" at the end
+	openAISetting  = "openai_api_key"
+	recentChats    = 10
+	recentIncoming = 10
+)
 
 func (p *Panel) Register(mux *http.ServeMux) {
-	mux.HandleFunc("GET /{$}", p.index)
-	mux.HandleFunc("GET /api/state", p.api(p.state))
+	p.pages = parseTemplates()
+
+	mux.HandleFunc("GET /{$}", p.page(p.conectar))
+	mux.HandleFunc("GET /instalacao", p.page(p.instalacao))
+	mux.HandleFunc("POST /instalacao/avancar", p.form(p.advance))
+	mux.HandleFunc("GET /whatsapp", p.page(p.whatsapp))
+	mux.HandleFunc("POST /whatsapp/sair", p.form(p.logout))
+	mux.HandleFunc("GET /estado", p.page(p.estado))
+	mux.HandleFunc("GET /transcricao", p.page(p.transcricao))
+	mux.HandleFunc("POST /transcricao", p.form(p.saveKey))
+	mux.HandleFunc("POST /transcricao/remover", p.form(p.removeKey))
+	mux.HandleFunc("GET /documentacao", p.page(p.documentacao))
+	mux.HandleFunc("GET /receitas", p.page(p.receitas))
+	mux.HandleFunc("POST /conexoes/remover", p.form(p.removeConnection))
+
+	mux.HandleFunc("GET /api/state", p.api(p.apiState))
+	mux.HandleFunc("GET /api/chats", p.api(p.apiChats))
+	mux.HandleFunc("GET /api/chats/{jid}", p.api(p.apiConversation))
+	mux.HandleFunc("POST /api/history", p.api(p.apiHistory))
 	mux.HandleFunc("GET /api/pair/qr.png", p.qr)
-	mux.HandleFunc("POST /api/pair", p.api(p.startPairing))
-	mux.HandleFunc("POST /api/pair/cancel", p.api(p.cancelPairing))
-	mux.HandleFunc("POST /api/logout", p.api(p.logout))
-	mux.HandleFunc("GET /api/clients", p.api(p.clients))
-	mux.HandleFunc("POST /api/clients/claude-code", p.api(p.addClaudeCode))
-	mux.HandleFunc("POST /api/clients/claude-desktop", p.api(p.addClaudeDesktop))
+	mux.HandleFunc("POST /api/pair", p.api(p.apiPair))
+	mux.HandleFunc("POST /api/pair/cancel", p.api(p.apiCancelPair))
+	mux.HandleFunc("POST /api/clients/{client}", p.api(p.apiAddClient))
+
+	sub, _ := fs.Sub(assets, "assets")
+	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(sub))))
+	icon := func(ctype string, body []byte) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", ctype)
+			w.Header().Set("Cache-Control", "public, max-age=86400")
+			_, _ = w.Write(body)
+		}
+	}
+	mux.HandleFunc("GET /favicon.svg", icon("image/svg+xml", brand.FaviconSVG()))
+	mux.HandleFunc("GET /favicon.ico", icon("image/x-icon", brand.FaviconICO()))
+	mux.HandleFunc("GET /apple-touch-icon.png", icon("image/png", brand.AppleTouchIcon()))
 }
 
-func (p *Panel) index(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Cache-Control", "no-store")
-	w.Header().Set("X-Frame-Options", "DENY")
-	w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
-	_, _ = w.Write(page)
+func parseTemplates() *template.Template {
+	return template.Must(template.New("panel").Funcs(funcs()).Parse(pageSource))
 }
+
+// ---- plumbing ----
 
 // sameOrigin reports whether a request was made by this page. Browsers mark
-// every fetch with Sec-Fetch-Site and send Origin on POST; a request from any
-// other site, or from another app on another localhost port, fails one of the
-// two. The custom header additionally forces a CORS preflight that nothing
-// here answers.
+// every fetch and form post with Sec-Fetch-Site and send Origin on POST; a
+// request from any other site, or from another app on another localhost port,
+// fails one of the two. A POST carrying neither is not from a browser page of
+// ours, so it is refused too.
 func sameOrigin(r *http.Request) bool {
-	if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" {
+	site := r.Header.Get("Sec-Fetch-Site")
+	origin := r.Header.Get("Origin")
+	if site != "" && site != "same-origin" && !(site == "none" && r.Method == http.MethodGet) {
 		return false
 	}
-	if origin := r.Header.Get("Origin"); origin != "" && origin != "http://"+r.Host {
+	if origin != "" && origin != "http://"+r.Host {
 		return false
 	}
-	if r.Method == http.MethodPost && r.Header.Get("X-Panel") != "1" {
+	if r.Method == http.MethodPost && site == "" && origin == "" {
 		return false
 	}
 	return true
 }
 
-type apiFunc func(*http.Request) (any, error)
-
-// userError is a refusal worth showing as it is.
 type userError struct{ msg string }
 
 func (e userError) Error() string { return e.msg }
 
-func (p *Panel) api(f apiFunc) http.HandlerFunc {
+func (p *Panel) page(f func(http.ResponseWriter, *http.Request) (string, any)) http.HandlerFunc {
+	// A page is a plain navigation, which may come from anywhere (the
+	// installer opening the browser, a link in the README): another origin can
+	// neither read nor frame it, so only the requests that act are guarded.
+	return func(w http.ResponseWriter, r *http.Request) {
+		name, data := f(w, r)
+		if name == "" {
+			return // f answered already, with a redirect
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'")
+		if err := p.pages.ExecuteTemplate(w, name, data); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+}
+
+// form handles a plain HTML form post and redirects to where f says.
+func (p *Panel) form(f func(*http.Request) (string, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !sameOrigin(r) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+		to, err := f(r)
+		if err != nil {
+			sep := "?"
+			if strings.Contains(to, "?") {
+				sep = "&"
+			}
+			to += sep + "erro=" + url.QueryEscape(err.Error())
+		}
+		http.Redirect(w, r, to, http.StatusSeeOther)
+	}
+}
+
+func (p *Panel) api(f func(*http.Request) (any, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		if !sameOrigin(r) {
 			http.Error(w, "this API answers only its own page", http.StatusForbidden)
 			return
 		}
+		r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 		v, err := f(r)
 		w.Header().Set("Content-Type", "application/json")
 		if err != nil {
@@ -113,23 +189,486 @@ func (p *Panel) api(f apiFunc) http.HandlerFunc {
 	}
 }
 
-func (p *Panel) state(r *http.Request) (any, error) {
-	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+// ---- shared page data ----
+
+type layout struct {
+	Title      string
+	Active     string
+	HealthTone string
+	Error      string
+	OK         string
+}
+
+// snapshot is what most pages need about the account, gathered once.
+type snapshot struct {
+	Account   wacli.Account
+	Name      string
+	Phone     string
+	Sync      wacli.Status
+	SyncTone  string
+	SyncLabel string
+	Health    mcp.Health
+	Checks    []check
+	Activity  index.Activity
+	Coverage  index.Coverage
+	Gaps      []index.Gap
+	Pairing   wacli.Pairing
+	History   *mcp.HistoryJob
+	Endpoint  string
+}
+
+type check struct {
+	Name   string
+	Status string
+	Title  string
+	Text   string
+}
+
+func (p *Panel) snapshot(ctx context.Context) snapshot {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	account, err := p.Supervisor.Account(ctx)
-	if err != nil {
-		account = wacli.Account{}
+	s := snapshot{Endpoint: p.MCPURL, Pairing: p.Supervisor.Pairing(), History: p.Server.HistoryStatus()}
+	s.Account, _ = p.Supervisor.Account(ctx)
+	s.Sync = p.Supervisor.Status()
+	s.Health = p.Server.Health(ctx, 0)
+	s.Activity = s.Health.Activity
+	s.Coverage, _ = p.Index.Coverage(ctx)
+	s.Gaps, _ = p.Index.Gaps(ctx, 10*time.Hour, 7*24*time.Hour, 20)
+	if s.Account.Authenticated {
+		s.Name = p.Index.OwnName(ctx, s.Account.JID)
+		s.Phone = formatPhone(s.Account.Phone)
 	}
-	sync := p.Supervisor.Status()
+	s.SyncTone, s.SyncLabel = syncLabel(s.Sync)
+	for _, c := range s.Health.Checks {
+		title, text := describeCheck(c, s)
+		s.Checks = append(s.Checks, check{Name: c.Name, Status: c.Status, Title: title, Text: text})
+	}
+	return s
+}
+
+func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout {
+	return layout{Title: title, Active: active, HealthTone: s.Health.Status, Error: r.URL.Query().Get("erro"), OK: r.URL.Query().Get("ok")}
+}
+
+func syncLabel(s wacli.Status) (tone, label string) {
+	switch s.State {
+	case "connected":
+		return "ok", "Conectado"
+	case "paused":
+		if s.PausedFor == "pairing" {
+			return "warn", "Conectando"
+		}
+		return "warn", "Pausado por instantes"
+	case "starting":
+		return "warn", "Iniciando"
+	case "reconnecting":
+		return "warn", "Reconectando"
+	case "not_paired":
+		return "off", "Não conectado"
+	case "logged_out":
+		return "off", "Desconectado pelo WhatsApp"
+	}
+	return "off", "Parado"
+}
+
+// describeCheck says each health check in Portuguese, from the report's own
+// data, so the panel does not show the model-facing English.
+func describeCheck(c mcp.Check, s snapshot) (string, string) {
+	a := s.Activity
+	switch c.Name {
+	case "daemon":
+		return "Serviço", "Respondendo em " + s.Endpoint + "."
+	case "wacli":
+		return "wacli", "O wacli não respondeu. Instale com brew install openclaw/tap/wacli."
+	case "paired":
+		if c.Status == "ok" {
+			return "WhatsApp pareado", "Este computador é um dispositivo conectado da sua conta."
+		}
+		return "WhatsApp pareado", "Nenhuma conta conectada. Conecte o seu WhatsApp pelo QR code."
+	case "sync":
+		switch s.Sync.State {
+		case "connected":
+			return "Sincronização", "Conectado ao WhatsApp e recebendo em tempo real."
+		case "paused":
+			return "Sincronização", "Pausada por alguns segundos para " + pauseReason(s.Sync.PausedFor) + ". Volta sozinha."
+		case "starting":
+			return "Sincronização", "Iniciando."
+		case "reconnecting":
+			return "Sincronização", "Reconectando ao WhatsApp. Confira a internet deste computador."
+		case "not_paired":
+			return "Sincronização", "Aguardando o WhatsApp ser conectado."
+		case "logged_out":
+			return "Sincronização", "O WhatsApp desconectou este computador. Conecte de novo pelo QR code."
+		}
+		text := "Parada"
+		if s.Sync.LastError != "" {
+			text += ": " + s.Sync.LastError
+		}
+		return "Sincronização", text + ". Veja o log em ~/Library/Logs/whatsapp-mcp-v2.log."
+	case "receiving":
+		if a.NewestIncoming == nil {
+			return "Recebendo mensagens", "Nenhuma mensagem guardada ainda. A primeira sincronização pode estar em andamento."
+		}
+		text := fmt.Sprintf("Última mensagem recebida %s; %d na última hora, %d em 24 horas.", relativeSince(*a.NewestIncoming), a.LastHour, a.LastDay)
+		switch c.Status {
+		case "warn":
+			text += " Mais quieto que o normal: comum de madrugada. Para ter certeza, peça para alguém mandar uma mensagem."
+		case "fail":
+			text += " Um dia inteiro sem mensagens costuma indicar que não está recebendo."
+		}
+		return "Recebendo mensagens", text
+	case "coverage":
+		if c.Status == "ok" {
+			return "Cobertura", "Sem lacunas nos últimos 7 dias."
+		}
+		return "Cobertura", "Houve períodos nos últimos 7 dias sem mensagem em nenhuma conversa, o rastro de um computador desligado."
+	case "history_request":
+		return "Pedido de histórico", "O último pedido de histórico falhou em algumas conversas. O celular precisa estar com internet."
+	}
+	return c.Name, c.Detail
+}
+
+func pauseReason(r string) string {
+	if strings.HasPrefix(r, "history backfill") {
+		return "buscar histórico antigo no celular"
+	}
+	reasons := map[string]string{"revoke message": "apagar uma mensagem", "check numbers": "verificar números", "profile picture": "buscar uma foto de perfil",
+		"group info": "atualizar um grupo", "logout": "desconectar", "pairing": "conectar o WhatsApp",
+		"archive chat": "arquivar uma conversa", "unarchive chat": "desarquivar uma conversa", "pin chat": "fixar uma conversa",
+		"unpin chat": "desafixar uma conversa", "mute chat": "silenciar uma conversa", "unmute chat": "reativar uma conversa"}
+	if v, ok := reasons[r]; ok {
+		return v
+	}
+	return "uma operação"
+}
+
+// ---- the setup flow ----
+
+type wizardStep struct {
+	Number int
+	Label  string
+	State  string // done, now, todo
+}
+
+// setupStep is where the first run stands: 1 until WhatsApp is paired, 2 while
+// the person checks the sync against the phone, 3 while a client is connected,
+// 0 once it is over.
+func (p *Panel) setupStep(ctx context.Context, s snapshot) int {
+	if !s.Account.Authenticated {
+		return 1
+	}
+	switch v, _ := p.State.Setting(ctx, setupSetting); v {
+	case "done":
+		return 0
+	case "claude":
+		return 3
+	}
+	return 2
+}
+
+func steps(now int) []wizardStep {
+	labels := []string{"WhatsApp", "Conversas", "Claude"}
+	out := make([]wizardStep, len(labels))
+	for i, l := range labels {
+		st := "todo"
+		switch {
+		case i+1 < now:
+			st = "done"
+		case i+1 == now:
+			st = "now"
+		}
+		out[i] = wizardStep{Number: i + 1, Label: l, State: st}
+	}
+	return out
+}
+
+func (p *Panel) instalacao(w http.ResponseWriter, r *http.Request) (string, any) {
+	s := p.snapshot(r.Context())
+	step := p.setupStep(r.Context(), s)
+	if step == 0 {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return "", nil
+	}
+	set := p.setup(r.Context())
+	conns := p.connections(r.Context(), set)
+	live := 0
+	for _, c := range conns {
+		if c.Live {
+			live++
+		}
+	}
+	l := p.layout(r, "Instalação", "", s)
+	// Setting up is not a problem to be alarmed about.
+	l.HealthTone = ""
+	return "instalacao", struct {
+		layout
+		snapshot
+		Step         int
+		Steps        []wizardStep
+		Setup        setup
+		Connections  []Connection
+		LiveCount    int
+		Verification string
+	}{l, s, step, steps(step), set, conns, live, verificationPrompt}
+}
+
+func (p *Panel) advance(r *http.Request) (string, error) {
+	switch r.FormValue("to") {
+	case "claude":
+		return "/instalacao", p.State.SetSetting(r.Context(), setupSetting, "claude")
+	case "done":
+		return "/", p.State.SetSetting(r.Context(), setupSetting, "done")
+	}
+	return "/instalacao", nil
+}
+
+// ---- pages ----
+
+func (p *Panel) conectar(w http.ResponseWriter, r *http.Request) (string, any) {
+	s := p.snapshot(r.Context())
+	if p.setupStep(r.Context(), s) != 0 {
+		http.Redirect(w, r, "/instalacao", http.StatusSeeOther)
+		return "", nil
+	}
+	set := p.setup(r.Context())
+	conns := p.connections(r.Context(), set)
+	live := 0
+	var last time.Time
+	for _, c := range conns {
+		if c.Live {
+			live++
+			if c.LastUsed.After(last) {
+				last = c.LastUsed
+			}
+		}
+	}
+	return "conectar", struct {
+		layout
+		snapshot
+		Setup       setup
+		Connections []Connection
+		LiveCount   int
+		LastUse     time.Time
+		Prompts     []string
+	}{p.layout(r, "Conectar", "conectar", s), s, set, conns, live, last, suggestedPrompts}
+}
+
+func (p *Panel) whatsapp(w http.ResponseWriter, r *http.Request) (string, any) {
+	s := p.snapshot(r.Context())
+	if !s.Account.Authenticated {
+		http.Redirect(w, r, "/instalacao", http.StatusSeeOther)
+		return "", nil
+	}
+	return "whatsapp", struct {
+		layout
+		snapshot
+	}{p.layout(r, "WhatsApp", "whatsapp", s), s}
+}
+
+func (p *Panel) estado(w http.ResponseWriter, r *http.Request) (string, any) {
+	s := p.snapshot(r.Context())
+	return "estado", struct {
+		layout
+		snapshot
+	}{p.layout(r, "Estado", "estado", s), s}
+}
+
+func (p *Panel) transcricao(w http.ResponseWriter, r *http.Request) (string, any) {
+	s := p.snapshot(r.Context())
+	key, _ := p.State.Setting(r.Context(), openAISetting)
+	hint := ""
+	if len(key) > 8 {
+		hint = key[:3] + "…" + key[len(key)-4:]
+	}
+	return "transcricao", struct {
+		layout
+		KeyHint string
+	}{p.layout(r, "Transcrição de áudios", "transcricao", s), hint}
+}
+
+func (p *Panel) saveKey(r *http.Request) (string, error) {
+	key := strings.TrimSpace(r.FormValue("api_key"))
+	if !strings.HasPrefix(key, "sk-") || len(key) < 20 {
+		return "/transcricao", userError{"isso não parece uma chave da OpenAI: ela começa com sk- e é bem mais longa"}
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+	if err := transcribe.CheckKey(ctx, key); err != nil {
+		if errors.Is(err, transcribe.ErrRejectedKey) {
+			return "/transcricao", userError{"a OpenAI recusou esta chave; confira se ela foi copiada inteira e se ainda está ativa"}
+		}
+		return "/transcricao", userError{"não foi possível conferir a chave com a OpenAI agora: " + err.Error()}
+	}
+	if err := p.State.SetSetting(r.Context(), openAISetting, key); err != nil {
+		return "/transcricao", err
+	}
+	return "/transcricao?ok=" + url.QueryEscape("Chave salva. A transcrição já está disponível para a sua ferramenta de IA."), nil
+}
+
+func (p *Panel) removeKey(r *http.Request) (string, error) {
+	if err := p.State.SetSetting(r.Context(), openAISetting, ""); err != nil {
+		return "/transcricao", err
+	}
+	return "/transcricao?ok=" + url.QueryEscape("Chave removida. As transcrições já feitas continuam guardadas."), nil
+}
+
+func (p *Panel) documentacao(w http.ResponseWriter, r *http.Request) (string, any) {
+	s := p.snapshot(r.Context())
+	tools := mcp.Catalogue()
+	return "documentacao", struct {
+		layout
+		Tools []mcp.Tool
+		Count int
+	}{p.layout(r, "Documentação", "documentacao", s), tools, len(tools)}
+}
+
+func (p *Panel) receitas(w http.ResponseWriter, r *http.Request) (string, any) {
+	s := p.snapshot(r.Context())
+	return "receitas", struct {
+		layout
+		Recipes []recipe
+	}{p.layout(r, "Receitas", "receitas", s), recipeBook()}
+}
+
+func (p *Panel) logout(r *http.Request) (string, error) {
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	if err := p.Supervisor.Logout(ctx); err != nil {
+		return "/whatsapp", err
+	}
+	_ = p.State.SetSetting(r.Context(), setupSetting, "")
+	return "/instalacao", nil
+}
+
+func (p *Panel) removeConnection(r *http.Request) (string, error) {
+	key := r.FormValue("client")
+	var err error
+	switch {
+	case key == "claude-desktop":
+		err = p.removeClaudeDesktop()
+		_ = p.State.ForgetClient(r.Context(), "claude-ai")
+	case key == "claude-code":
+		err = p.removeClaudeCode(r.Context())
+		_ = p.State.ForgetClient(r.Context(), "claude-code")
+	case strings.HasPrefix(key, "client:"):
+		err = p.State.ForgetClient(r.Context(), strings.TrimPrefix(key, "client:"))
+	}
+	if err != nil {
+		return "/", err
+	}
+	return "/", nil
+}
+
+// ---- API ----
+
+func (p *Panel) apiState(r *http.Request) (any, error) {
+	s := p.snapshot(r.Context())
+	set := setup{Desktop: p.desktopInfo(), Code: p.code.info}
+	live := 0
+	for _, c := range p.connections(r.Context(), set) {
+		if c.Live {
+			live++
+		}
+	}
+	sync := s.Sync
 	sync.Recent = nil
 	return map[string]any{
-		"account":  account,
-		"sync":     sync,
-		"pairing":  p.Supervisor.Pairing(),
-		"health":   p.Server.Health(ctx, 0),
-		"endpoint": p.MCPURL,
-		"version":  mcp.Version,
+		"account": s.Account, "name": s.Name, "phone": s.Phone,
+		"sync": sync, "pairing": s.Pairing, "health": s.Health,
+		"history": s.History, "clients_live": live, "endpoint": p.MCPURL, "version": mcp.Version,
 	}, nil
+}
+
+func (p *Panel) apiChats(r *http.Request) (any, error) {
+	chats, err := p.Index.RecentChats(r.Context(), recentChats)
+	if err != nil {
+		return nil, err
+	}
+	inbox, err := p.Index.RecentIncoming(r.Context(), recentIncoming)
+	if err != nil {
+		return nil, err
+	}
+	if chats == nil {
+		chats = []index.ChatPreview{}
+	}
+	if inbox == nil {
+		inbox = []index.Bubble{}
+	}
+	return map[string]any{"chats": chats, "incoming": inbox, "history": p.Server.HistoryStatus()}, nil
+}
+
+func (p *Panel) apiConversation(r *http.Request) (any, error) {
+	jid := r.PathValue("jid")
+	msgs, err := p.Index.Conversation(r.Context(), jid, 40)
+	if err != nil {
+		return nil, err
+	}
+	oldest, _ := p.Index.ChatOldest(r.Context(), jid)
+	if msgs == nil {
+		msgs = []index.Bubble{}
+	}
+	return map[string]any{"messages": msgs, "oldest": oldest}, nil
+}
+
+func (p *Panel) apiHistory(r *http.Request) (any, error) {
+	var body struct {
+		ChatJID string `json:"chat_jid"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	rounds := 1
+	if body.ChatJID != "" {
+		rounds = 3
+	}
+	job, started, err := p.Server.RequestHistory(r.Context(), body.ChatJID, 50, rounds, recentChats)
+	if err != nil {
+		return nil, userError{"não há de onde partir: a busca começa pela mensagem mais antiga que este computador já tem"}
+	}
+	return map[string]any{"started": started, "job": job}, nil
+}
+
+func (p *Panel) apiPair(r *http.Request) (any, error) {
+	var body struct {
+		Phone string `json:"phone"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	account, _ := p.Supervisor.Account(r.Context())
+	if account.Authenticated {
+		return nil, userError{"este computador já está conectado a um WhatsApp; desconecte antes de conectar outro"}
+	}
+	phone := strings.Map(func(r rune) rune {
+		if unicode.IsDigit(r) {
+			return r
+		}
+		return -1
+	}, body.Phone)
+	if body.Phone != "" && (len(phone) < 8 || len(phone) > 15) {
+		return nil, userError{"informe o número com DDI e DDD, por exemplo +55 11 91234-5678"}
+	}
+	if err := p.Supervisor.StartPairing(phone); err != nil && !errors.Is(err, wacli.ErrPairingRunning) {
+		return nil, err
+	}
+	return p.Supervisor.Pairing(), nil
+}
+
+func (p *Panel) apiCancelPair(r *http.Request) (any, error) {
+	p.Supervisor.CancelPairing()
+	return p.Supervisor.Pairing(), nil
+}
+
+func (p *Panel) apiAddClient(r *http.Request) (any, error) {
+	var err error
+	switch r.PathValue("client") {
+	case "claude-code":
+		err = p.addClaudeCode(r.Context())
+	case "claude-desktop":
+		err = p.addClaudeDesktop()
+	default:
+		return nil, userError{"cliente desconhecido"}
+	}
+	if err != nil {
+		return nil, err
+	}
+	return map[string]bool{"ok": true}, nil
 }
 
 func (p *Panel) qr(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +681,7 @@ func (p *Panel) qr(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no QR code right now", http.StatusNotFound)
 		return
 	}
-	png, err := qrcode.Encode(pairing.QR, qrcode.Medium, 512)
+	png, err := qrcode.Encode(pairing.QR, qrcode.Medium, 520)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -152,234 +691,120 @@ func (p *Panel) qr(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(png)
 }
 
-func (p *Panel) startPairing(r *http.Request) (any, error) {
-	var body struct {
-		Phone string `json:"phone"`
+// ---- template helpers ----
+
+func funcs() template.FuncMap {
+	return template.FuncMap{
+		"css":           func() template.CSS { return template.CSS(stylesheet) },
+		"logo":          brand.LogoSVG,
+		"author":        func() string { return brand.Author },
+		"authorURL":     func() string { return brand.AuthorURL },
+		"repositoryURL": func() string { return brand.RepositoryURL },
+		"supportURL":    func() string { return brand.SupportURL },
+		"version":       func() string { return strings.TrimPrefix(mcp.Version, "v") },
+		"serverName":    func() string { return ServerName },
+		"relativeSince": relativeSinceAny,
+		"moment":        momentAny,
+		"count":         countFormat,
+		"plural": func(n int, one, many string) string {
+			if n == 1 {
+				return "1 " + one
+			}
+			return strconv.Itoa(n) + " " + many
+		},
+		"initial": func(s string) string {
+			for _, r := range s {
+				if unicode.IsLetter(r) || unicode.IsDigit(r) {
+					return strings.ToUpper(string(r))
+				}
+			}
+			return "W"
+		},
+		"hours": func(h float64) string {
+			if h >= 48 {
+				return fmt.Sprintf("%.0f dias", h/24)
+			}
+			return fmt.Sprintf("%.0f horas", h)
+		},
 	}
-	_ = json.NewDecoder(http.MaxBytesReader(nil, r.Body, 4096)).Decode(&body)
-	account, _ := p.Supervisor.Account(r.Context())
-	if account.Authenticated {
-		return nil, userError{"este computador já está conectado a um WhatsApp; desconecte antes de conectar outro"}
+}
+
+func timeOf(v any) (time.Time, bool) {
+	switch t := v.(type) {
+	case time.Time:
+		return t, !t.IsZero()
+	case *time.Time:
+		if t == nil {
+			return time.Time{}, false
+		}
+		return *t, !t.IsZero()
 	}
-	phone := strings.Map(func(r rune) rune {
-		if r >= '0' && r <= '9' {
+	return time.Time{}, false
+}
+
+func relativeSinceAny(v any) string {
+	t, ok := timeOf(v)
+	if !ok {
+		return "—"
+	}
+	return relativeSince(t)
+}
+
+func relativeSince(t time.Time) string {
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "agora"
+	case d < time.Hour:
+		return fmt.Sprintf("há %d min", int(d.Minutes()))
+	case d < 48*time.Hour:
+		return fmt.Sprintf("há %d h", int(d.Hours()))
+	}
+	return fmt.Sprintf("há %d dias", int(d.Hours()/24))
+}
+
+func momentAny(v any) string {
+	t, ok := timeOf(v)
+	if !ok {
+		return "—"
+	}
+	return t.Local().Format("02/01/2006 15:04")
+}
+
+func countFormat(v any) string {
+	var n int64
+	switch x := v.(type) {
+	case int:
+		n = int64(x)
+	case int64:
+		n = x
+	}
+	s := strconv.FormatInt(n, 10)
+	var out []byte
+	for i := range s {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			out = append(out, '.')
+		}
+		out = append(out, s[i])
+	}
+	return string(out)
+}
+
+// formatPhone writes a number the way it is read in Brazil, and leaves others
+// in international form.
+func formatPhone(p string) string {
+	d := strings.Map(func(r rune) rune {
+		if unicode.IsDigit(r) {
 			return r
 		}
 		return -1
-	}, body.Phone)
-	if body.Phone != "" && (len(phone) < 8 || len(phone) > 15) {
-		return nil, userError{"informe o número com DDI e DDD, por exemplo +55 11 91234-5678"}
+	}, p)
+	if d == "" {
+		return ""
 	}
-	if err := p.Supervisor.StartPairing(phone); err != nil {
-		if errors.Is(err, wacli.ErrPairingRunning) {
-			return nil, userError{"já existe uma conexão em andamento"}
-		}
-		return nil, err
+	if strings.HasPrefix(d, "55") && (len(d) == 12 || len(d) == 13) {
+		local := d[4:]
+		return fmt.Sprintf("+55 (%s) %s-%s", d[2:4], local[:len(local)-4], local[len(local)-4:])
 	}
-	return p.Supervisor.Pairing(), nil
-}
-
-func (p *Panel) cancelPairing(r *http.Request) (any, error) {
-	p.Supervisor.CancelPairing()
-	return p.Supervisor.Pairing(), nil
-}
-
-func (p *Panel) logout(r *http.Request) (any, error) {
-	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
-	defer cancel()
-	if err := p.Supervisor.Logout(ctx); err != nil {
-		return nil, err
-	}
-	return map[string]bool{"logged_out": true}, nil
-}
-
-// ---- clients ----
-
-type clientState struct {
-	ClaudeCode    clientInfo `json:"claude_code"`
-	ClaudeDesktop clientInfo `json:"claude_desktop"`
-	CodeCommand   string     `json:"claude_code_command"`
-	DesktopJSON   string     `json:"claude_desktop_json"`
-	DesktopPath   string     `json:"claude_desktop_path"`
-}
-
-type clientInfo struct {
-	Found      bool   `json:"found"`
-	Configured bool   `json:"configured"`
-	Detail     string `json:"detail,omitempty"`
-}
-
-func (p *Panel) codeArgs() []string {
-	args := []string{"mcp", "add", "--scope", "user", "--transport", "http", ServerName, p.MCPURL}
-	if p.Token != "" {
-		args = append(args, "--header", "Authorization: Bearer "+p.Token)
-	}
-	return args
-}
-
-func (p *Panel) desktopEntry() map[string]any {
-	entry := map[string]any{"command": p.Binary, "args": []string{"bridge"}}
-	env := map[string]string{}
-	if p.Port != p.DefaultPort {
-		env["WHATSAPP_MCP_PORT"] = fmt.Sprint(p.Port)
-	}
-	if p.Token != "" {
-		env["WHATSAPP_MCP_TOKEN"] = p.Token
-	}
-	if len(env) > 0 {
-		entry["env"] = env
-	}
-	return entry
-}
-
-func (p *Panel) clients(r *http.Request) (any, error) {
-	st := clientState{DesktopPath: desktopConfigPath()}
-	st.CodeCommand = "claude " + shellJoin(p.codeArgs())
-	snippet, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{ServerName: p.desktopEntry()}}, "", "  ")
-	st.DesktopJSON = string(snippet)
-
-	if bin := findClaude(); bin != "" {
-		st.ClaudeCode.Found = true
-		ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
-		defer cancel()
-		out, err := exec.CommandContext(ctx, bin, "mcp", "get", ServerName).CombinedOutput()
-		st.ClaudeCode.Configured = err == nil && strings.Contains(string(out), p.MCPURL)
-	} else {
-		st.ClaudeCode.Detail = "o comando claude não foi encontrado neste computador"
-	}
-
-	cfg, err := readDesktopConfig()
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-		_, dirErr := os.Stat(filepath.Dir(st.DesktopPath))
-		st.ClaudeDesktop.Found = dirErr == nil
-		if !st.ClaudeDesktop.Found {
-			st.ClaudeDesktop.Detail = "o Claude Desktop não parece estar instalado"
-		}
-	case err != nil:
-		st.ClaudeDesktop.Found = true
-		st.ClaudeDesktop.Detail = "não foi possível ler a configuração: " + err.Error()
-	default:
-		st.ClaudeDesktop.Found = true
-		if servers, ok := cfg["mcpServers"].(map[string]any); ok {
-			if entry, ok := servers[ServerName].(map[string]any); ok {
-				st.ClaudeDesktop.Configured = entry["command"] == p.Binary
-			}
-		}
-	}
-	return st, nil
-}
-
-func (p *Panel) addClaudeCode(r *http.Request) (any, error) {
-	bin := findClaude()
-	if bin == "" {
-		return nil, userError{"o comando claude não foi encontrado; instale o Claude Code ou rode o comando mostrado abaixo"}
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), 60*time.Second)
-	defer cancel()
-	// Replace rather than fail on an older entry with another URL.
-	_ = exec.CommandContext(ctx, bin, "mcp", "remove", "--scope", "user", ServerName).Run()
-	out, err := exec.CommandContext(ctx, bin, p.codeArgs()...).CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("claude mcp add falhou: %s", strings.TrimSpace(string(out)))
-	}
-	return p.clients(r)
-}
-
-func (p *Panel) addClaudeDesktop(r *http.Request) (any, error) {
-	path := desktopConfigPath()
-	cfg, err := readDesktopConfig()
-	if errors.Is(err, os.ErrNotExist) {
-		cfg = map[string]any{}
-	} else if err != nil {
-		return nil, userError{"a configuração do Claude Desktop não é um JSON válido; corrija " + path + " antes"}
-	} else if raw, err := os.ReadFile(path); err == nil {
-		backup := path + ".bak-" + time.Now().Format("20060102-150405")
-		if err := os.WriteFile(backup, raw, 0o600); err != nil {
-			return nil, fmt.Errorf("não foi possível salvar uma cópia da configuração: %w", err)
-		}
-	}
-	servers, _ := cfg["mcpServers"].(map[string]any)
-	if servers == nil {
-		servers = map[string]any{}
-	}
-	servers[ServerName] = p.desktopEntry()
-	cfg["mcpServers"] = servers
-	body, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, err
-	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(body, '\n'), 0o600); err != nil {
-		return nil, err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		return nil, err
-	}
-	return p.clients(r)
-}
-
-func desktopConfigPath() string {
-	home, _ := os.UserHomeDir()
-	switch runtime.GOOS {
-	case "darwin":
-		return filepath.Join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json")
-	case "windows":
-		return filepath.Join(os.Getenv("APPDATA"), "Claude", "claude_desktop_config.json")
-	}
-	return filepath.Join(home, ".config", "Claude", "claude_desktop_config.json")
-}
-
-// readDesktopConfig keeps numbers as written, so rewriting the file changes
-// only the entry this panel adds.
-func readDesktopConfig() (map[string]any, error) {
-	raw, err := os.ReadFile(desktopConfigPath())
-	if err != nil {
-		return nil, err
-	}
-	cfg := map[string]any{}
-	if len(bytes.TrimSpace(raw)) == 0 {
-		return cfg, nil
-	}
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.UseNumber()
-	if err := dec.Decode(&cfg); err != nil {
-		return nil, err
-	}
-	return cfg, nil
-}
-
-// findClaude looks beyond PATH, because a login service starts with a minimal
-// one.
-func findClaude() string {
-	if p, err := exec.LookPath("claude"); err == nil {
-		return p
-	}
-	home, _ := os.UserHomeDir()
-	for _, p := range []string{
-		filepath.Join(home, ".local", "bin", "claude"),
-		filepath.Join(home, ".claude", "local", "claude"),
-		"/opt/homebrew/bin/claude",
-		"/usr/local/bin/claude",
-	} {
-		if info, err := os.Stat(p); err == nil && !info.IsDir() {
-			return p
-		}
-	}
-	return ""
-}
-
-func shellJoin(args []string) string {
-	out := make([]string, len(args))
-	for i, a := range args {
-		if strings.ContainsAny(a, " \"'$`\\") {
-			out[i] = "'" + strings.ReplaceAll(a, "'", `'\''`) + "'"
-		} else {
-			out[i] = a
-		}
-	}
-	return strings.Join(out, " ")
+	return "+" + d
 }

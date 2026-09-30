@@ -1,0 +1,59 @@
+#!/bin/bash
+# A wacli stand-in for the panel preview. Reads go to the real wacli against
+# the seeded store; only what needs a phone is faked: pairing, sync, auth.
+REAL="${REAL_WACLI:-$(command -v wacli)}"
+STORE="$WACLI_STORE_DIR"
+args=("$@")
+strip=("${args[@]}")
+[ "${strip[0]}" = "--json" ] && strip=("${strip[@]:1}")
+[ "${strip[0]}" = "--read-only" ] && strip=("${strip[@]:1}")
+case "${strip[0]} ${strip[1]}" in
+"auth status")
+  if [ -f "$STORE/PAIRED" ]; then
+    echo '{"success":true,"data":{"authenticated":true,"linked_jid":"5511987654321:12@s.whatsapp.net","phone":"5511987654321"},"error":null}'
+  else
+    echo '{"success":true,"data":{"authenticated":false},"error":null}'
+  fi ;;
+"auth logout")
+  rm -f "$STORE/PAIRED"; echo '{"success":true,"data":{"logged_out":true},"error":null}' ;;
+"auth --events")
+  trap 'exit 130' INT TERM
+  echo '{"event":"auth_starting","ts":1}' >&2
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    echo "{\"event\":\"qr_code\",\"data\":{\"code\":\"2@preview-$i-$RANDOM,abc,def\"},\"ts\":1}" >&2
+    sleep "${PREVIEW_QR_SECONDS:-5}"
+    if [ -f "$STORE/SCAN" ]; then
+      rm -f "$STORE/SCAN"; touch "$STORE/PAIRED"
+      echo '{"event":"connected","ts":1}' >&2
+      echo '{"event":"history_sync","data":{"conversations":14},"ts":1}' >&2
+      for n in 120 480 910; do echo "{\"event\":\"progress\",\"data\":{\"messages_synced\":$n},\"ts\":1}" >&2; sleep 2; done
+      echo '{"event":"idle_exit","data":{"messages_synced":1284},"ts":1}' >&2
+      exit 0
+    fi
+  done
+  echo "QR code timed out" >&2; exit 1 ;;
+"sync --follow")
+  [ -f "$STORE/PAIRED" ] || { echo "not authenticated" >&2; exit 1; }
+  exec python3 -c '
+import socket, os, sys, signal
+p = sys.argv[1]
+def stop(*_):
+    try: os.unlink(p)
+    except OSError: pass
+    sys.exit(0)
+signal.signal(signal.SIGINT, stop); signal.signal(signal.SIGTERM, stop)
+try: os.unlink(p)
+except OSError: pass
+s = socket.socket(socket.AF_UNIX); s.bind(p); s.listen(8)
+sys.stderr.write("{\"event\":\"connected\",\"ts\":1}\n"); sys.stderr.flush()
+while True:
+    c, _ = s.accept(); c.close()
+' "$STORE/.send.sock" ;;
+"history backfill")
+  sleep 3; echo '{"success":true,"data":{"messages_added":37},"error":null}' ;;
+"doctor "*|"doctor")
+  out="$("$REAL" "${args[@]}")"
+  if [ -f "$STORE/PAIRED" ]; then echo "${out/\"authenticated\":false/\"authenticated\":true}"; else echo "$out"; fi ;;
+*)
+  exec "$REAL" "${args[@]}" ;;
+esac
