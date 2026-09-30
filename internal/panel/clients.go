@@ -18,15 +18,41 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
 )
 
-// ServerName is how this MCP appears in the clients. It differs from the
-// hosted v1's "whatsapp" so both can be installed side by side.
-const ServerName = "whatsapp-local"
+// ServerName is how this MCP appears in the clients.
+const ServerName = "whatsapp"
+
+// legacyNames are names earlier versions registered under, removed when the
+// server is configured again so a client does not list it twice.
+var legacyNames = []string{"whatsapp-local"}
 
 // clientInfo is what the panel knows about one client's configuration.
 type clientInfo struct {
 	Found      bool   `json:"found"`
 	Configured bool   `json:"configured"`
 	Detail     string `json:"detail,omitempty"`
+	// Other is where an existing server of the same name points, when it is
+	// not this one: typically the hosted v1. Replacing it needs a yes.
+	Other string `json:"other,omitempty"`
+}
+
+// errConflict is a server of the same name that is not this one.
+type errConflict struct{ client, other string }
+
+func (e errConflict) Error() string {
+	return fmt.Sprintf("o %s já tem um servidor chamado %q, que aponta para %s", e.client, ServerName, e.other)
+}
+
+// parseMCPGet reads the address out of `claude mcp get`.
+func parseMCPGet(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		for _, prefix := range []string{"URL:", "Command:"} {
+			if v, ok := strings.CutPrefix(line, prefix); ok {
+				return strings.TrimSpace(v)
+			}
+		}
+	}
+	return ""
 }
 
 // setup is everything the "connect a tool" instructions show, filled in.
@@ -116,7 +142,13 @@ func (p *Panel) codeInfo(ctx context.Context, fresh bool) clientInfo {
 		ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		defer cancel()
 		out, err := exec.CommandContext(ctx, bin, "mcp", "get", ServerName).CombinedOutput()
-		info.Configured = err == nil && strings.Contains(string(out), p.MCPURL)
+		if err == nil {
+			if where := parseMCPGet(string(out)); where == p.MCPURL {
+				info.Configured = true
+			} else {
+				info.Other = where
+			}
+		}
 	} else {
 		info.Detail = "o comando claude não foi encontrado neste computador"
 	}
@@ -141,7 +173,11 @@ func (p *Panel) desktopInfo() clientInfo {
 		info.Found = true
 		if servers, ok := cfg["mcpServers"].(map[string]any); ok {
 			if entry, ok := servers[ServerName].(map[string]any); ok {
-				info.Configured = entry["command"] == p.Binary
+				if entry["command"] == p.Binary {
+					info.Configured = true
+				} else {
+					info.Other = describeEntry(entry)
+				}
 			}
 		}
 	}
@@ -186,15 +222,35 @@ func (p *Panel) connections(ctx context.Context, s setup) []Connection {
 	return out
 }
 
-func (p *Panel) addClaudeCode(ctx context.Context) error {
+// describeEntry says where a Desktop server entry points.
+func describeEntry(entry map[string]any) string {
+	if url, ok := entry["url"].(string); ok {
+		return url
+	}
+	parts := []string{fmt.Sprint(entry["command"])}
+	if args, ok := entry["args"].([]any); ok {
+		for _, a := range args {
+			parts = append(parts, fmt.Sprint(a))
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+// addClaudeCode registers the server with Claude Code. A server of the same
+// name pointing elsewhere is replaced only when replace is true.
+func (p *Panel) addClaudeCode(ctx context.Context, replace bool) error {
 	bin := findClaude()
 	if bin == "" {
 		return userError{"o comando claude não foi encontrado; instale o Claude Code ou rode o comando mostrado"}
 	}
+	if info := p.codeInfo(ctx, true); info.Other != "" && !replace {
+		return errConflict{"Claude Code", info.Other}
+	}
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	// Replace rather than fail on an older entry with another URL.
-	_ = exec.CommandContext(ctx, bin, "mcp", "remove", "--scope", "user", ServerName).Run()
+	for _, name := range append([]string{ServerName}, legacyNames...) {
+		_ = exec.CommandContext(ctx, bin, "mcp", "remove", "--scope", "user", name).Run()
+	}
 	out, err := exec.CommandContext(ctx, bin, p.codeArgs()...).CombinedOutput()
 	p.codeInfo(ctx, true)
 	if err != nil {
@@ -210,7 +266,9 @@ func (p *Panel) removeClaudeCode(ctx context.Context) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	_ = exec.CommandContext(ctx, bin, "mcp", "remove", "--scope", "user", ServerName).Run()
+	for _, name := range append([]string{ServerName}, legacyNames...) {
+		_ = exec.CommandContext(ctx, bin, "mcp", "remove", "--scope", "user", name).Run()
+	}
 	p.codeInfo(ctx, true)
 	return nil
 }
@@ -250,15 +308,34 @@ func editDesktop(f func(servers map[string]any)) error {
 	return os.Rename(tmp, path)
 }
 
-func (p *Panel) addClaudeDesktop() error {
-	return editDesktop(func(servers map[string]any) { servers[ServerName] = p.desktopEntry() })
+// addClaudeDesktop writes the server into the Desktop configuration, keeping
+// a copy of the file first. A server of the same name pointing elsewhere is
+// replaced only when replace is true.
+func (p *Panel) addClaudeDesktop(replace bool) error {
+	if info := p.desktopInfo(); info.Other != "" && !replace {
+		return errConflict{"Claude Desktop", info.Other}
+	}
+	return editDesktop(func(servers map[string]any) {
+		for _, name := range legacyNames {
+			delete(servers, name)
+		}
+		servers[ServerName] = p.desktopEntry()
+	})
 }
 
 func (p *Panel) removeClaudeDesktop() error {
+	if p.desktopInfo().Other != "" {
+		return nil // the "whatsapp" there is not this one: leave it alone
+	}
 	if _, err := os.Stat(desktopConfigPath()); err != nil {
 		return nil
 	}
-	return editDesktop(func(servers map[string]any) { delete(servers, ServerName) })
+	return editDesktop(func(servers map[string]any) {
+		delete(servers, ServerName)
+		for _, name := range legacyNames {
+			delete(servers, name)
+		}
+	})
 }
 
 func desktopConfigPath() string {

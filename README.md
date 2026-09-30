@@ -130,13 +130,14 @@ o daemon. Logs: `~/Library/Logs/whatsapp-mcp-v2.log` (macOS) ou
 
 ## Conectar os clientes
 
-O painel faz isso com um clique. Os dois clientes aparecem como
-`whatsapp-local`, então convivem com o `whatsapp` do v1 hospedado.
+O painel faz isso com um clique. O servidor aparece nos clientes como
+`whatsapp`. Se já houver um `whatsapp` apontando para outro lugar (por exemplo,
+o v1 hospedado), o painel pergunta antes de substituir.
 
 **Claude Code** (HTTP direto):
 
 ```sh
-claude mcp add --scope user --transport http whatsapp-local http://127.0.0.1:47821/mcp
+claude mcp add --scope user --transport http whatsapp http://127.0.0.1:47821/mcp
 ```
 
 **Claude Desktop (Chat e Cowork)** em
@@ -145,7 +146,7 @@ claude mcp add --scope user --transport http whatsapp-local http://127.0.0.1:478
 ```json
 {
   "mcpServers": {
-    "whatsapp-local": {
+    "whatsapp": {
       "command": "/caminho/absoluto/para/whatsapp-mcp-v2",
       "args": ["bridge"]
     }

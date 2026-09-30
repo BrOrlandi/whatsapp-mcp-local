@@ -82,7 +82,19 @@
       var text = button.textContent;
       button.disabled = true;
       button.textContent = "Configurando…";
-      api("/api/clients/" + client, {}).then(function () {
+      var add = function (replace) {
+        return api("/api/clients/" + client, { replace: replace }).then(function (result) {
+          if (result.conflict === undefined) return result;
+          // Another server already answers to this name, most likely the
+          // hosted v1. It is the person's to replace, not the page's.
+          var yes = window.confirm("O " + result.client + " já tem um servidor chamado \"whatsapp\", que aponta para:\n\n" +
+            result.conflict + "\n\nSubstituir por este WhatsApp local?" +
+            (client === "claude-desktop" ? " Uma cópia da configuração atual fica guardada." : " A configuração antiga é removida do Claude Code."));
+          if (!yes) throw new Error("Nada foi alterado: o servidor que já estava configurado continua lá.");
+          return add(true);
+        });
+      };
+      add(false).then(function () {
         button.textContent = "Configurado ✓";
         if (note) {
           note.hidden = false;

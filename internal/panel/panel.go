@@ -658,14 +658,23 @@ func (p *Panel) apiCancelPair(r *http.Request) (any, error) {
 }
 
 func (p *Panel) apiAddClient(r *http.Request) (any, error) {
+	var body struct {
+		Replace bool `json:"replace"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
 	var err error
 	switch r.PathValue("client") {
 	case "claude-code":
-		err = p.addClaudeCode(r.Context())
+		err = p.addClaudeCode(r.Context(), body.Replace)
 	case "claude-desktop":
-		err = p.addClaudeDesktop()
+		err = p.addClaudeDesktop(body.Replace)
 	default:
 		return nil, userError{"cliente desconhecido"}
+	}
+	var conflict errConflict
+	if errors.As(err, &conflict) {
+		// Not a failure: a question for the person, which the page asks.
+		return map[string]any{"ok": false, "conflict": conflict.other, "client": conflict.client}, nil
 	}
 	if err != nil {
 		return nil, err

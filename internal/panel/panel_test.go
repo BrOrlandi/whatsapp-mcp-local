@@ -52,3 +52,13 @@ func TestTemplatesParse(t *testing.T) {
 	}()
 	parseTemplates()
 }
+
+func TestParseMCPGet(t *testing.T) {
+	out := "whatsapp:\n  Scope: User config (available in all your projects)\n  Status: ✔ Connected\n  Type: http\n  URL: https://example.test/mcp\n  Headers:\n    Authorization: Bearer x\n"
+	if got := parseMCPGet(out); got != "https://example.test/mcp" {
+		t.Fatalf("parseMCPGet = %q", got)
+	}
+	if got := parseMCPGet("whatsapp:\n  Type: stdio\n  Command: /bin/x\n"); got != "/bin/x" {
+		t.Fatalf("parseMCPGet stdio = %q", got)
+	}
+}
