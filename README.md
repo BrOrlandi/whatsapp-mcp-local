@@ -45,35 +45,40 @@ Claude Desktop ─┐   │        │
 ## Instalação (macOS)
 
 ```sh
-# 1. wacli
 brew install openclaw/tap/wacli
-
-# 2. este daemon
 go install github.com/BrOrlandi/whatsapp-mcp-v2/cmd/whatsapp-mcp-v2@latest
-# ou: git clone … && go build -o ~/bin/whatsapp-mcp-v2 ./cmd/whatsapp-mcp-v2
-
-# 3. parear o WhatsApp (QR code no terminal; celular > Dispositivos conectados)
-wacli auth
-
-# 4. deixar o daemon rodando no login, reiniciando se cair
 whatsapp-mcp-v2 service install
-
-# 5. ver a configuração dos clientes
-whatsapp-mcp-v2 config
 ```
 
-Rode o `wacli auth` antes de instalar o serviço. Depois do pareamento, não rode
-`wacli sync` à mão: o daemon é quem roda o sync.
+O `service install` deixa o daemon rodando no login (e reiniciando se ele cair)
+e abre o **painel** no navegador, em `http://127.0.0.1:47821/`. Todo o resto é
+feito por lá:
+
+1. **Conectar WhatsApp**: mostra o QR code. No celular, vá em *Dispositivos
+   conectados > Conectar dispositivo*. Se preferir, dá para digitar um código
+   de 8 caracteres usando o número de telefone. Por trás, o painel roda o
+   `wacli auth` e acompanha a primeira sincronização do histórico.
+2. **Saúde**: diz se o WhatsApp está pareado, se o sync está conectado e se as
+   mensagens estão chegando.
+3. **Conectar ao Claude**: botões que adicionam o servidor ao Claude Code
+   (`claude mcp add`) e ao Claude Desktop, editando a configuração com um
+   backup ao lado.
+
+Para abrir o painel depois: `whatsapp-mcp-v2 open`. Não rode `wacli sync` à
+mão, porque quem roda o sync é o daemon.
 
 Logs no macOS: `~/Library/Logs/whatsapp-mcp-v2.log`. No Linux, `service
 install` cria uma unit `systemd --user`.
 
 ## Conectar os clientes
 
+O painel faz isso com um clique. Os dois clientes aparecem como
+`whatsapp-local`, então convivem com o `whatsapp` do v1 hospedado.
+
 **Claude Code** (HTTP direto):
 
 ```sh
-claude mcp add --scope user --transport http whatsapp http://127.0.0.1:47821/mcp
+claude mcp add --scope user --transport http whatsapp-local http://127.0.0.1:47821/mcp
 ```
 
 **Claude Desktop (Chat e Cowork)** em
@@ -82,7 +87,7 @@ claude mcp add --scope user --transport http whatsapp http://127.0.0.1:47821/mcp
 ```json
 {
   "mcpServers": {
-    "whatsapp": {
+    "whatsapp-local": {
       "command": "/caminho/absoluto/para/whatsapp-mcp-v2",
       "args": ["bridge"]
     }
@@ -92,7 +97,8 @@ claude mcp add --scope user --transport http whatsapp http://127.0.0.1:47821/mcp
 
 O `bridge` é um servidor stdio que só repassa cada mensagem para o daemon.
 Assim o Desktop continua usando a mesma sessão, sem abrir outra. O Cowork usa
-os servidores desse arquivo através do próprio Desktop.
+os servidores desse arquivo através do próprio Desktop. Depois de editar, feche
+e abra o Claude Desktop.
 
 **O que não funciona:** "Settings > Connectors > Add custom connector" no
 Desktop e no claude.ai, e o app do celular. Nesses casos quem conecta é a nuvem
@@ -103,8 +109,11 @@ preciso o gateway hospedado (v1) ou um túnel com autenticação.
 
 - Escuta só em `127.0.0.1`.
 - Recusa `Host` que não seja loopback (proteção contra DNS rebinding) e
-  qualquer `Origin` de fora (uma página aberta no navegador não consegue chamar
-  as tools).
+  qualquer `Origin` que não seja o próprio servidor. Nem outra aba aberta num
+  `localhost` de outra porta consegue chamar as tools.
+- A API do painel, que roda o `wacli auth` e edita configurações, só aceita
+  chamadas da própria página: exige `Sec-Fetch-Site: same-origin` e um header
+  próprio que força preflight de CORS.
 - `WHATSAPP_MCP_TOKEN` opcional: com ele definido, toda chamada precisa de
   `Authorization: Bearer <token>`. Isso fecha o endpoint também para outros
   programas locais. `whatsapp-mcp-v2 config` imprime a configuração com o
@@ -131,6 +140,11 @@ As mesmas do v1, com três diferenças que vêm do wacli:
 | `send_contact` não existe | o wacli não envia cartão de contato (vCard) |
 | `sync_history` não tem `before`; ganhou `rounds` | o wacli sempre ancora na mensagem mais antiga que tem de cada conversa. `rounds` pagina mais para trás na mesma chamada |
 | `download_media` devolve `path` | o arquivo já está no disco da sua máquina, e um cliente com acesso a arquivos lê direto dali |
+
+`health` dá um veredito (ok, warn ou fail) sobre o daemon, o pareamento, o
+sync e a chegada de mensagens. Cada checagem que não está ok diz o que fazer. O
+mesmo relatório responde em `GET /health`, com 503 quando algo falha, para
+monitoramento.
 
 `whatsapp_status` informa se o WhatsApp está pareado, o estado do sync, até
 onde o índice alcança e as **janelas desconhecidas**: períodos em que nenhuma

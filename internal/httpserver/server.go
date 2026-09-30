@@ -29,6 +29,8 @@ type Options struct {
 	Addr   string // host:port, loopback
 	Token  string // optional bearer token
 	Logger *slog.Logger
+	// Register adds further routes, such as the control panel.
+	Register func(*http.ServeMux)
 }
 
 func Handler(server *mcp.Server, opts Options) http.Handler {
@@ -66,6 +68,9 @@ func Handler(server *mcp.Server, opts Options) http.Handler {
 		_, _ = w.Write(response)
 	})
 	mux.Handle("/media/", server.Links())
+	if opts.Register != nil {
+		opts.Register(mux)
+	}
 	// /health is the same report as the health tool, for scripts and curl;
 	// it answers 503 when a check fails, so a monitor needs no JSON parsing.
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -98,9 +103,11 @@ func guard(next http.Handler, logger *slog.Logger) http.Handler {
 			http.Error(w, "this server answers only on localhost", http.StatusForbidden)
 			return
 		}
+		// Another localhost app open in the browser is still a foreign origin:
+		// the Origin must be this server itself.
 		if origin := r.Header.Get("Origin"); origin != "" {
 			u, err := url.Parse(origin)
-			if err != nil || !loopbackHost(u.Host) {
+			if err != nil || !loopbackHost(u.Host) || u.Host != r.Host {
 				logger.Warn("rejected cross-origin request", "origin", origin)
 				http.Error(w, "cross-origin requests are not accepted", http.StatusForbidden)
 				return

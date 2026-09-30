@@ -44,6 +44,9 @@ type Supervisor struct {
 	restarts  int
 	pausedFor string
 	events    []Event
+
+	pair   pairer
+	pairWG sync.WaitGroup
 }
 
 // Event is one lifecycle line sync printed, kept for the status report.
@@ -100,6 +103,11 @@ func (s *Supervisor) Status() Status {
 // restarts sync with backoff when it exits unexpectedly, and stays down while
 // an exclusive operation holds the store.
 func (s *Supervisor) Run(ctx context.Context) {
+	// A pairing runs wacli in its own process group, which a stop of the
+	// daemon does not reach: end it explicitly, and wait for it, so it never
+	// outlives the daemon holding the store lock.
+	defer s.pairWG.Wait()
+	defer s.CancelPairing()
 	backoff := 2 * time.Second
 	for ctx.Err() == nil {
 		s.mu.Lock()
@@ -171,7 +179,7 @@ func (s *Supervisor) paired(ctx context.Context) (bool, error) {
 	}
 	cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	if err := s.cli.Decode(cctx, &status, "auth", "status"); err != nil {
+	if err := s.cli.Decode(cctx, &status, "--read-only", "auth", "status"); err != nil {
 		return false, err
 	}
 	return status.Authenticated, nil
@@ -302,12 +310,26 @@ func signalGroup(p *os.Process, sig syscall.Signal) {
 	}
 }
 
+// startSync lets sync run again and waits until it has been launched (or the
+// loop has decided it cannot run). Exclusive calls it while still holding the
+// operations lock, so a send queued behind a pause cannot slip in, take the
+// store lock itself, and make the restarting sync fail on it.
 func (s *Supervisor) startSync() {
 	s.mu.Lock()
 	s.want = true
 	s.pausedFor = ""
 	s.mu.Unlock()
 	s.nudge()
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		s.mu.Lock()
+		launched := s.proc != nil || s.state != "paused"
+		s.mu.Unlock()
+		if launched {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 // Delegated runs an operation that wacli hands to the running sync process.
@@ -347,6 +369,12 @@ func (s *Supervisor) Exclusive(ctx context.Context, reason string, fn func(conte
 	s.stopSync(reason)
 	defer s.startSync()
 	err := fn(ctx)
+	if IsLockError(err) {
+		// The lock is an flock the kernel releases as sync exits; give a
+		// straggling exit a moment before concluding someone else holds it.
+		time.Sleep(time.Second)
+		err = fn(ctx)
+	}
 	if IsLockError(err) {
 		return errors.Join(err, errors.New("the store is locked by a wacli process this gateway does not own; stop any `wacli sync` you started by hand"))
 	}

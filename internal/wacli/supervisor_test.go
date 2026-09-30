@@ -17,28 +17,57 @@ import (
 const fakeWacli = `#!/bin/bash
 STORE="$WACLI_STORE_DIR"
 [ "$1" = "--json" ] && shift
+[ "$1" = "--read-only" ] && shift
+# Like wacli, the store lock is an flock, which the kernel releases however
+# the holder dies.
+locked() { python3 -c 'import fcntl,sys
+f=open(sys.argv[1],"a")
+try: fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+except OSError: sys.exit(0)
+sys.exit(1)' "$STORE/LOCK"; }
 case "$1 $2" in
 "auth status")
-  echo '{"success":true,"data":{"authenticated":true},"error":null}' ;;
+  if [ -f "$STORE/AUTHED" ]; then a=true; else a=false; fi
+  echo "{\"success\":true,\"data\":{\"authenticated\":$a,\"phone\":\"5511912345678\"},\"error\":null}" ;;
+"auth --events")
+  if locked; then echo "store is locked" >&2; exit 1; fi
+  echo '{"event":"auth_starting","ts":1}' >&2
+  echo '{"event":"qr_code","data":{"code":"2@first"},"ts":1}' >&2
+  sleep 0.3
+  echo '{"event":"qr_code","data":{"code":"2@second"},"ts":1}' >&2
+  sleep 0.3
+  touch "$STORE/AUTHED"
+  echo '{"event":"connected","ts":1}' >&2
+  echo '{"event":"history_sync","data":{"conversations":12},"ts":1}' >&2
+  echo '{"event":"progress","data":{"messages_synced":340},"ts":1}' >&2
+  sleep 0.3
+  echo '{"event":"idle_exit","data":{"messages_synced":512},"ts":1}' >&2 ;;
 "sync --follow")
-  mkdir "$STORE/LOCK" 2>/dev/null || { echo "store is locked" >&2; exit 1; }
   exec python3 -c '
-import socket, os, sys, signal
+import socket, os, sys, signal, fcntl
 p = sys.argv[1]
-s = socket.socket(socket.AF_UNIX); s.bind(p); s.listen(8)
 def stop(*_):
-    os.unlink(p); os.rmdir(os.path.join(os.path.dirname(p), "LOCK")); sys.exit(0)
+    try: os.unlink(p)
+    except OSError: pass
+    sys.exit(0)
 signal.signal(signal.SIGINT, stop); signal.signal(signal.SIGTERM, stop)
+lock = open(os.path.join(os.path.dirname(p), "LOCK"), "a")
+try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+except OSError:
+    sys.stderr.write("store is locked\n"); sys.exit(1)
+try: os.unlink(p)
+except OSError: pass
+s = socket.socket(socket.AF_UNIX); s.bind(p); s.listen(8)
 sys.stderr.write("{\"event\":\"connected\",\"ts\":1}\n"); sys.stderr.flush()
 while True:
     c, _ = s.accept(); c.close()
 ' "$STORE/.send.sock" ;;
 "chats archive")
-  if [ -d "$STORE/LOCK" ]; then echo '{"success":false,"data":null,"error":"store is locked by another process"}'; exit 1; fi
+  if locked; then echo '{"success":false,"data":null,"error":"store is locked by another process"}'; exit 1; fi
   echo "exclusive" >> "$STORE/calls.log"
   echo '{"success":true,"data":{"archived":true},"error":null}' ;;
 "send text")
-  if [ -d "$STORE/LOCK" ] && [ ! -S "$STORE/.send.sock" ]; then echo '{"success":false,"data":null,"error":"store is locked"}'; exit 1; fi
+  if locked && [ ! -S "$STORE/.send.sock" ]; then echo '{"success":false,"data":null,"error":"store is locked"}'; exit 1; fi
   echo "delegated" >> "$STORE/calls.log"
   echo '{"success":true,"data":{"sent":true,"id":"ABC"},"error":null}' ;;
 *)
@@ -73,6 +102,9 @@ func TestSupervisorPausesSyncForExclusiveOperations(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	if err := os.WriteFile(filepath.Join(store, "AUTHED"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	cli := &CLI{Bin: bin, StoreDir: store}
 	s := NewSupervisor(cli, nil)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -148,5 +180,76 @@ func TestSupervisorPausesSyncForExclusiveOperations(t *testing.T) {
 	waitState(t, s, "connected")
 	if st := s.Status(); st.Restarts != 0 {
 		t.Fatalf("pauses must not count as crashes, status %+v", st)
+	}
+}
+
+func fakeStore(t *testing.T) (string, *CLI) {
+	t.Helper()
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 is needed for the fake wacli")
+	}
+	store, err := os.MkdirTemp("/tmp", "wacli-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(store) })
+	bin := filepath.Join(store, "wacli")
+	if err := os.WriteFile(bin, []byte(fakeWacli), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return store, &CLI{Bin: bin, StoreDir: store}
+}
+
+func TestPairingFromQRToRunningSync(t *testing.T) {
+	_, cli := fakeStore(t)
+	s := NewSupervisor(cli, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	defer func() { cancel(); <-done }()
+
+	waitState(t, s, "not_paired")
+	if err := s.StartPairing(""); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.StartPairing(""); err != ErrPairingRunning {
+		t.Fatalf("a second pairing must be refused while one runs, got %v", err)
+	}
+
+	seen := map[string]bool{}
+	var qrs = map[string]bool{}
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		p := s.Pairing()
+		seen[p.State] = true
+		if p.QR != "" {
+			qrs[p.QR] = true
+		}
+		if p.State == "done" || p.State == "error" {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	p := s.Pairing()
+	if p.State != "done" {
+		t.Fatalf("pairing ended as %q (%s), states seen %v", p.State, p.Error, seen)
+	}
+	if !seen["qr"] || !seen["syncing"] {
+		t.Fatalf("expected to pass through qr and syncing, saw %v", seen)
+	}
+	if !qrs["2@first"] || !qrs["2@second"] {
+		t.Fatalf("the QR code must follow wacli as it rotates, saw %v", qrs)
+	}
+	if p.Synced != 512 || p.Conversations != 12 {
+		t.Fatalf("progress not tracked: %+v", p)
+	}
+	if p.QR != "" {
+		t.Fatal("a finished pairing must not keep the QR code")
+	}
+	// And sync takes over as soon as pairing ends.
+	waitState(t, s, "connected")
+	account, err := s.Account(ctx)
+	if err != nil || !account.Authenticated || account.Phone == "" {
+		t.Fatalf("account after pairing: %+v, %v", account, err)
 	}
 }

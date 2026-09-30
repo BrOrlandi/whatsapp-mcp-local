@@ -324,6 +324,7 @@ func describe(err error) error {
 type Activity struct {
 	NewestIncoming *time.Time `json:"newest_incoming,omitempty"`
 	NewestAny      *time.Time `json:"newest_any,omitempty"`
+	Oldest         *time.Time `json:"history_since,omitempty"`
 	LastHour       int64      `json:"messages_last_hour"`
 	LastDay        int64      `json:"messages_last_24h"`
 }
@@ -333,13 +334,14 @@ type Activity struct {
 // too, but a send can be recorded locally before WhatsApp delivers anything.
 func (x *Index) Activity(ctx context.Context, now time.Time) (Activity, error) {
 	var a Activity
-	var incoming, any sql.NullInt64
+	var incoming, any, oldest sql.NullInt64
 	err := x.db.QueryRowContext(ctx, `SELECT
 		(SELECT MAX(ts) FROM messages WHERE from_me = 0),
 		(SELECT MAX(ts) FROM messages),
+		(SELECT MIN(ts) FROM messages),
 		(SELECT COUNT(*) FROM messages WHERE ts >= ?),
 		(SELECT COUNT(*) FROM messages WHERE ts >= ?)`,
-		now.Add(-time.Hour).Unix(), now.Add(-24*time.Hour).Unix()).Scan(&incoming, &any, &a.LastHour, &a.LastDay)
+		now.Add(-time.Hour).Unix(), now.Add(-24*time.Hour).Unix()).Scan(&incoming, &any, &oldest, &a.LastHour, &a.LastDay)
 	if err != nil {
 		return a, describe(err)
 	}
@@ -350,6 +352,10 @@ func (x *Index) Activity(ctx context.Context, now time.Time) (Activity, error) {
 	if any.Valid {
 		t := time.Unix(any.Int64, 0).UTC()
 		a.NewestAny = &t
+	}
+	if oldest.Valid {
+		t := time.Unix(oldest.Int64, 0).UTC()
+		a.Oldest = &t
 	}
 	return a, nil
 }
