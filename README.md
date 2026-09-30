@@ -42,33 +42,91 @@ Claude Desktop ─┐   │        │
   (modo que o wacli documenta como seguro durante o sync). Nada escreve no
   `wacli.db`.
 
-## Instalação (macOS)
+## Instalação
 
-```sh
-brew install openclaw/tap/wacli
-go install github.com/BrOrlandi/whatsapp-mcp-v2/cmd/whatsapp-mcp-v2@latest
-whatsapp-mcp-v2 service install
+### 🤖 O jeito fácil: peça para o Claude
+
+Copie o prompt abaixo e cole no **Claude Code**, no **Cowork** ou em qualquer
+agente de IA que rode comandos no seu computador. Ele instala tudo e abre o
+painel no navegador. Você só escaneia o QR code.
+
+<details>
+<summary><strong>📋 Clique para abrir o prompt — copie tudo</strong></summary>
+
+```
+Quero instalar o WhatsApp MCP local neste computador, para que você (e o Claude
+Desktop) possam ler e enviar mensagens pelo meu WhatsApp.
+
+O projeto é este: https://github.com/BrOrlandi/whatsapp-mcp-v2
+Leia o README dele antes de começar e siga o que está lá, sem inventar passos.
+
+O QUE FAZER
+1. Rode o instalador e me diga, em uma frase, o que ele vai fazer antes de
+   rodar:
+     curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-v2/main/install.sh | bash
+   Se o repositório for privado e o curl falhar, clone com
+   `gh repo clone BrOrlandi/whatsapp-mcp-v2` e rode ./install.sh de dentro da
+   pasta. Ele instala o wacli e o whatsapp-mcp-v2 em ~/.local/bin, sem sudo,
+   deixa o serviço rodando no login e abre o painel no navegador.
+2. Quando o painel abrir (http://127.0.0.1:47821/), me diga para clicar em
+   "Conectar WhatsApp" e escanear o QR code pelo celular em
+   WhatsApp > Dispositivos conectados > Conectar dispositivo. Espere eu
+   confirmar que conectei.
+3. Confira se está tudo funcionando: `curl -s http://127.0.0.1:47821/health`.
+   O status deve ser "ok" ou "warn". Se vier "fail", leia o campo "fix" das
+   checagens e resolva comigo.
+4. No painel, em "Conectar ao Claude", me diga para clicar nos botões do Claude
+   Code e/ou do Claude Desktop. O Desktop precisa ser fechado e aberto de novo
+   depois.
+
+REGRAS
+- Explique em português simples e uma coisa de cada vez.
+- Nunca me peça para colar aqui o QR code, códigos de pareamento ou chaves.
+- Se algo der errado, mostre a mensagem de erro exata e o que fazer. Os logs
+  ficam em ~/Library/Logs/whatsapp-mcp-v2.log (macOS).
+- Se você não puder rodar comandos no meu computador (por exemplo, no chat do
+  claude.ai), me ensine a abrir o Terminal e a colar o comando do passo 1.
 ```
 
-O `service install` deixa o daemon rodando no login (e reiniciando se ele cair)
-e abre o **painel** no navegador, em `http://127.0.0.1:47821/`. Todo o resto é
-feito por lá:
+</details>
 
-1. **Conectar WhatsApp**: mostra o QR code. No celular, vá em *Dispositivos
-   conectados > Conectar dispositivo*. Se preferir, dá para digitar um código
-   de 8 caracteres usando o número de telefone. Por trás, o painel roda o
-   `wacli auth` e acompanha a primeira sincronização do histórico.
-2. **Saúde**: diz se o WhatsApp está pareado, se o sync está conectado e se as
-   mensagens estão chegando.
-3. **Conectar ao Claude**: botões que adicionam o servidor ao Claude Code
-   (`claude mcp add`) e ao Claude Desktop, editando a configuração com um
-   backup ao lado.
+### Ou rode você mesmo
 
-Para abrir o painel depois: `whatsapp-mcp-v2 open`. Não rode `wacli sync` à
-mão, porque quem roda o sync é o daemon.
+```sh
+curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-v2/main/install.sh | bash
+```
 
-Logs no macOS: `~/Library/Logs/whatsapp-mcp-v2.log`. No Linux, `service
-install` cria uma unit `systemd --user`.
+Enquanto o repositório for privado, rode a partir de um clone:
+
+```sh
+gh repo clone BrOrlandi/whatsapp-mcp-v2 && cd whatsapp-mcp-v2 && ./install.sh
+```
+
+O instalador:
+
+1. instala o **wacli** (pelo Homebrew, ou baixando o release oficial);
+2. instala o **whatsapp-mcp-v2** em `~/.local/bin`, baixando o release ou
+   compilando o código com Go quando não houver release;
+3. deixa o daemon rodando no login e reiniciando se cair (LaunchAgent no macOS,
+   `systemd --user` no Linux);
+4. abre o **painel** em `http://127.0.0.1:47821/`.
+
+Tudo o mais é feito no painel:
+
+- **Conectar WhatsApp** mostra o QR code. No celular, vá em *Dispositivos
+  conectados > Conectar dispositivo*. Se preferir, dá para digitar um código de
+  8 caracteres usando o número de telefone. Por trás, o painel roda o
+  `wacli auth` e acompanha a primeira sincronização do histórico.
+- **Saúde** diz se o WhatsApp está pareado, se o sync está conectado e se as
+  mensagens estão chegando.
+- **Conectar ao Claude** tem botões que adicionam o servidor ao Claude Code
+  (`claude mcp add`) e ao Claude Desktop, editando a configuração com um backup
+  ao lado.
+
+Rodar o instalador de novo atualiza tudo no lugar. Para abrir o painel depois:
+`whatsapp-mcp-v2 open`. Não rode `wacli sync` à mão, porque quem roda o sync é
+o daemon. Logs: `~/Library/Logs/whatsapp-mcp-v2.log` (macOS) ou
+`journalctl --user -u whatsapp-mcp-v2` (Linux).
 
 ## Conectar os clientes
 

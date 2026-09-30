@@ -1,0 +1,36 @@
+name: release
+
+# A tag v* publishes the binaries install.sh downloads, so installing does not
+# need Go.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go test ./...
+      - name: build
+        run: |
+          mkdir -p dist
+          for target in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64; do
+            os="${target%/*}"; arch="${target#*/}"
+            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath \
+              -ldflags "-s -w -X main.version=${GITHUB_REF_NAME}" \
+              -o whatsapp-mcp-v2 ./cmd/whatsapp-mcp-v2
+            tar -czf "dist/whatsapp-mcp-v2_${os}_${arch}.tar.gz" whatsapp-mcp-v2
+            rm whatsapp-mcp-v2
+          done
+          (cd dist && shasum -a 256 *.tar.gz > checksums.txt)
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
