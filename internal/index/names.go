@@ -187,6 +187,10 @@ func formatJID(jid string) string {
 		return "+" + user
 	case "g.us":
 		return "Grupo sem nome"
+	case "newsletter":
+		return "Canal do WhatsApp"
+	case "broadcast":
+		return "Lista de transmissão"
 	}
 	return user
 }
