@@ -11,6 +11,7 @@ package httpserver
 import (
 	"context"
 	"crypto/subtle"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net"
@@ -65,6 +66,23 @@ func Handler(server *mcp.Server, opts Options) http.Handler {
 		_, _ = w.Write(response)
 	})
 	mux.Handle("/media/", server.Links())
+	// /health is the same report as the health tool, for scripts and curl;
+	// it answers 503 when a check fails, so a monitor needs no JSON parsing.
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		if opts.Token != "" && !validToken(r, opts.Token) {
+			http.Error(w, "missing or wrong bearer token", http.StatusUnauthorized)
+			return
+		}
+		h := server.Health(r.Context(), 0)
+		w.Header().Set("Content-Type", "application/json")
+		if h.Status == "fail" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+		}
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(h)
+	})
+	// /healthz only says the process is up.
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = io.WriteString(w, "ok\n")

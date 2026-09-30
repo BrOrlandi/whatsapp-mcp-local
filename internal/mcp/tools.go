@@ -17,6 +17,13 @@ func limitSchema() map[string]any {
 func toolDefinitions() []any {
 	return []any{
 		map[string]any{
+			"name":        "health",
+			"description": "Check that everything works, with one verdict (ok, warn or fail) and the checks behind it: the daemon answers, WhatsApp is paired, sync is connected, messages are arriving (how long since the last message from someone else, and how many in the last hour and day), and whether the index has silent windows. Each check that is not ok says what to do. Use it when the user asks whether WhatsApp is working or connected, or before trusting an empty result; whatsapp_status has the full detail.",
+			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
+				"max_silence_hours": map[string]any{"type": "number", "minimum": 0.1, "description": "How long without an incoming message still counts as healthy. Defaults to 6; raise it for a quiet account."},
+			}},
+		},
+		map[string]any{
 			"name":        "whatsapp_status",
 			"description": "Report the WhatsApp session state, which account is paired, whether the sync process is running, how far back the local message index reaches, windows the index may be missing, and any problem that needs attention. Always answers.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{}},

@@ -58,6 +58,8 @@ type arguments struct {
 	Remove     bool     `json:"remove"`
 	Link       bool     `json:"link"`
 	Model      string   `json:"model"`
+
+	MaxSilenceHours float64 `json:"max_silence_hours"`
 }
 
 const (
@@ -74,6 +76,7 @@ func (s *Server) call(ctx context.Context, params callParams) map[string]any {
 		}
 	}
 	handlers := map[string]func(context.Context, arguments) map[string]any{
+		"health":                s.health,
 		"whatsapp_status":       s.status,
 		"list_chats":            s.listChats,
 		"get_chat_messages":     s.chatMessages,

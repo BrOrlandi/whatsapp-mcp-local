@@ -31,6 +31,8 @@ type Server struct {
 
 	historyMu sync.Mutex
 	history   *historyJob
+
+	started time.Time
 }
 
 type Config struct {
@@ -48,7 +50,7 @@ func New(c Config) *Server {
 		c.Logger = slog.Default()
 	}
 	return &Server{cli: c.CLI, supervisor: c.Supervisor, index: c.Index, state: c.State, logger: c.Logger,
-		baseURL: c.BaseURL, mediaDir: c.MediaDir, links: newMediaLinks()}
+		baseURL: c.BaseURL, mediaDir: c.MediaDir, links: newMediaLinks(), started: time.Now()}
 }
 
 // Links serves the temporary media links download_media hands out.

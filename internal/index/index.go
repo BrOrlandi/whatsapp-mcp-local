@@ -318,3 +318,38 @@ func describe(err error) error {
 	}
 	return err
 }
+
+// Activity is how alive the store looks: when a message last arrived from
+// someone else, and how many arrived recently.
+type Activity struct {
+	NewestIncoming *time.Time `json:"newest_incoming,omitempty"`
+	NewestAny      *time.Time `json:"newest_any,omitempty"`
+	LastHour       int64      `json:"messages_last_hour"`
+	LastDay        int64      `json:"messages_last_24h"`
+}
+
+// Activity measures recent traffic. Incoming messages are what prove the
+// device is receiving: the account's own sends reach the store through sync
+// too, but a send can be recorded locally before WhatsApp delivers anything.
+func (x *Index) Activity(ctx context.Context, now time.Time) (Activity, error) {
+	var a Activity
+	var incoming, any sql.NullInt64
+	err := x.db.QueryRowContext(ctx, `SELECT
+		(SELECT MAX(ts) FROM messages WHERE from_me = 0),
+		(SELECT MAX(ts) FROM messages),
+		(SELECT COUNT(*) FROM messages WHERE ts >= ?),
+		(SELECT COUNT(*) FROM messages WHERE ts >= ?)`,
+		now.Add(-time.Hour).Unix(), now.Add(-24*time.Hour).Unix()).Scan(&incoming, &any, &a.LastHour, &a.LastDay)
+	if err != nil {
+		return a, describe(err)
+	}
+	if incoming.Valid {
+		t := time.Unix(incoming.Int64, 0).UTC()
+		a.NewestIncoming = &t
+	}
+	if any.Valid {
+		t := time.Unix(any.Int64, 0).UTC()
+		a.NewestAny = &t
+	}
+	return a, nil
+}
