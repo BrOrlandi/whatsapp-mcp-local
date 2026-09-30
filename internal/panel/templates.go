@@ -387,7 +387,8 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <span class="overview__icon" aria-hidden="true">&#10003;</span>
 <div class="overview__body">
 <p class="overview__title">WhatsApp conectado{{with .Name}}: {{.}}{{end}}</p>
-<p class="overview__detail"><strong class="overview__phone">{{.Phone}}</strong>{{with .Pairing}}{{if eq .State "syncing"}}<span data-sync-note>O celular ainda está mandando o histórico (<span data-sync-count>{{count .Synced}}</span> mensagens até agora); pode seguir enquanto isso.</span>{{else}}Confira se é este o número que você queria conectar.{{end}}{{end}}</p>
+<p class="overview__detail"><strong class="overview__phone">{{.Phone}}</strong>Confira se é este o número que você queria conectar.</p>
+{{if .Arriving}}<p class="busy" data-sync-note style="margin-top:6px"><span class="spinner" aria-hidden="true"></span><span>O celular está mandando o seu histórico: <span data-sync-count>{{count .ArrivingCount}}</span> mensagens até agora. Pode seguir enquanto isso.</span></p>{{end}}
 </div></div>
 </section>
 {{if .LiveCount}}

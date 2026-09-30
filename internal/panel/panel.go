@@ -8,6 +8,7 @@
 package panel
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -139,9 +140,14 @@ func (p *Panel) page(f func(http.ResponseWriter, *http.Request) (string, any)) h
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'")
-		if err := p.pages.ExecuteTemplate(w, name, data); err != nil {
+		// Render first, so a template error is a clean 500 rather than half a
+		// page followed by an error.
+		var body bytes.Buffer
+		if err := p.pages.ExecuteTemplate(&body, name, data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		_, _ = w.Write(body.Bytes())
 	}
 }
 
@@ -214,7 +220,11 @@ type snapshot struct {
 	Gaps      []index.Gap
 	Pairing   wacli.Pairing
 	History   *mcp.HistoryJob
-	Endpoint  string
+	// Arriving says the phone is still sending the history it sends after
+	// pairing, with how many messages have come in so far.
+	Arriving      bool
+	ArrivingCount int64
+	Endpoint      string
 }
 
 type check struct {
@@ -239,6 +249,10 @@ func (p *Panel) snapshot(ctx context.Context) snapshot {
 		s.Phone = formatPhone(s.Account.Phone)
 	}
 	s.SyncTone, s.SyncLabel = syncLabel(s.Sync)
+	if s.Pairing.State == "syncing" || (!s.Sync.History.LastAt.IsZero() && time.Since(s.Sync.History.LastAt) < 90*time.Second) {
+		s.Arriving = true
+		s.ArrivingCount = s.Pairing.Synced + s.Sync.History.Messages
+	}
 	for _, c := range s.Health.Checks {
 		title, text := describeCheck(c, s)
 		s.Checks = append(s.Checks, check{Name: c.Name, Status: c.Status, Title: title, Text: text})
@@ -567,6 +581,7 @@ func (p *Panel) apiState(r *http.Request) (any, error) {
 	sync := s.Sync
 	sync.Recent = nil
 	return map[string]any{
+		"arriving": s.Arriving, "arriving_count": s.ArrivingCount,
 		"account": s.Account, "name": s.Name, "phone": s.Phone,
 		"sync": sync, "pairing": s.Pairing, "health": s.Health,
 		"history": s.History, "clients_live": live, "endpoint": p.MCPURL, "version": mcp.Version,

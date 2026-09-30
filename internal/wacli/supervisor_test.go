@@ -40,6 +40,12 @@ case "$1 $2" in
   echo '{"event":"connected","ts":1}' >&2
   echo '{"event":"history_sync","data":{"conversations":12},"ts":1}' >&2
   echo '{"event":"progress","data":{"messages_synced":340},"ts":1}' >&2
+  if [ -f "$STORE/HANG" ]; then
+    # A large account: the history keeps coming long after the link.
+    exec python3 -c 'import signal,sys,time
+signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
+while True: time.sleep(1)'
+  fi
   sleep 0.3
   echo '{"event":"idle_exit","data":{"messages_synced":512},"ts":1}' >&2 ;;
 "sync --follow")
@@ -292,4 +298,39 @@ func TestSwitchingPairingDoesNotReportTheCancelledOne(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("the new pairing never finished: %+v", s.Pairing())
+}
+
+// A large account keeps sending history long after the phone has linked. The
+// pairing must hand over to sync shortly after the link rather than hold the
+// store, and every send, until the history is all in.
+func TestPairingHandsOverToSyncAfterLinking(t *testing.T) {
+	store, cli := fakeStore(t)
+	if err := os.WriteFile(filepath.Join(store, "HANG"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	old := HandoverAfter
+	HandoverAfter = 300 * time.Millisecond
+	defer func() { HandoverAfter = old }()
+
+	s := NewSupervisor(cli, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	defer func() { cancel(); <-done }()
+
+	waitState(t, s, "not_paired")
+	if err := s.StartPairing(""); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for s.Pairing().State != "done" && time.Now().Before(deadline) {
+		if st := s.Pairing().State; st == "error" {
+			t.Fatalf("pairing failed: %s", s.Pairing().Error)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if st := s.Pairing().State; st != "done" {
+		t.Fatalf("auth was not handed over; pairing is %q", st)
+	}
+	waitState(t, s, "connected")
 }

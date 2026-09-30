@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -47,6 +48,16 @@ type Supervisor struct {
 
 	pair   pairer
 	pairWG sync.WaitGroup
+
+	history HistoryProgress
+}
+
+// HistoryProgress is the history the phone has been sending to the running
+// sync: after pairing, most of an account's past arrives this way.
+type HistoryProgress struct {
+	Messages      int64     `json:"messages_synced"`
+	Conversations int       `json:"conversations"`
+	LastAt        time.Time `json:"last_at,omitempty"`
 }
 
 // Event is one lifecycle line sync printed, kept for the status report.
@@ -58,13 +69,14 @@ type Event struct {
 
 // Status is what the supervisor knows about sync right now.
 type Status struct {
-	State     string    `json:"state"`
-	Since     time.Time `json:"since"`
-	LastError string    `json:"last_error,omitempty"`
-	Restarts  int       `json:"restarts"`
-	PausedFor string    `json:"paused_for,omitempty"`
-	Delegate  bool      `json:"delegate_socket_ready"`
-	Recent    []Event   `json:"recent_events,omitempty"`
+	State     string          `json:"state"`
+	Since     time.Time       `json:"since"`
+	LastError string          `json:"last_error,omitempty"`
+	Restarts  int             `json:"restarts"`
+	PausedFor string          `json:"paused_for,omitempty"`
+	Delegate  bool            `json:"delegate_socket_ready"`
+	History   HistoryProgress `json:"history"`
+	Recent    []Event         `json:"recent_events,omitempty"`
 }
 
 const maxEvents = 30
@@ -91,7 +103,7 @@ func (s *Supervisor) setState(state, lastError string) {
 // Status reports the supervisor's view of sync.
 func (s *Supervisor) Status() Status {
 	s.mu.Lock()
-	st := Status{State: s.state, Since: s.since, LastError: s.lastError, Restarts: s.restarts, PausedFor: s.pausedFor}
+	st := Status{State: s.state, Since: s.since, LastError: s.lastError, Restarts: s.restarts, PausedFor: s.pausedFor, History: s.history}
 	st.Recent = append([]Event(nil), s.events...)
 	running := s.proc != nil
 	s.mu.Unlock()
@@ -143,8 +155,14 @@ func (s *Supervisor) Run(ctx context.Context) {
 			continue
 		}
 		if err != nil {
-			s.setState("exited", err.Error())
-			s.logger.Warn("wacli sync exited", "error", err)
+			s.mu.Lock()
+			reason := s.lastError
+			s.mu.Unlock()
+			if reason == "" {
+				reason = err.Error()
+			}
+			s.setState("exited", reason)
+			s.logger.Warn("wacli sync exited", "error", err, "reason", reason)
 		} else {
 			s.setState("exited", "")
 		}
@@ -250,7 +268,31 @@ func (s *Supervisor) readEvents(r io.Reader) {
 		}
 		s.record(Event{At: time.Now(), Event: ev.Event, Data: ev.Data})
 		switch ev.Event {
+		case "history_sync":
+			if n, ok := ev.Data["conversations"].(float64); ok {
+				s.mu.Lock()
+				s.history.Conversations += int(n)
+				s.history.LastAt = time.Now()
+				s.mu.Unlock()
+			}
+		case "progress":
+			if n, ok := ev.Data["messages_synced"].(float64); ok {
+				s.mu.Lock()
+				s.history.Messages = int64(n)
+				s.history.LastAt = time.Now()
+				s.mu.Unlock()
+			}
+		case "error":
+			// wacli's own words say more than the exit status that follows.
+			if msg, ok := ev.Data["message"].(string); ok {
+				s.mu.Lock()
+				s.lastError = strings.SplitN(msg, "\n", 2)[0]
+				s.mu.Unlock()
+			}
 		case "connected":
+			s.mu.Lock()
+			s.lastError = ""
+			s.mu.Unlock()
 			s.setState("connected", "")
 		case "disconnected", "reconnecting":
 			s.setState("reconnecting", "")

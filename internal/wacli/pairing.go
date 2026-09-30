@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -41,6 +42,10 @@ type pairer struct {
 }
 
 var ErrPairingRunning = errors.New("a pairing is already in progress")
+
+// HandoverAfter is how long auth keeps running once the phone has linked,
+// before sync takes the rest of the history over.
+var HandoverAfter = 20 * time.Second
 
 // Pairing reports the current pairing, if any.
 func (s *Supervisor) Pairing() Pairing {
@@ -135,8 +140,33 @@ func (s *Supervisor) runAuth(ctx context.Context, gen int, phone string) error {
 	stop := context.AfterFunc(ctx, func() { signalGroup(cmd.Process, syscall.SIGINT) })
 	defer stop()
 
-	lastLine := s.readPairingEvents(gen, stderr)
+	// Once the phone has linked the device, the pairing's work is done. The
+	// history the phone goes on to send arrives just as well through sync,
+	// which WhatsApp delivers it to on reconnect, so auth hands over shortly
+	// after instead of holding the store, and every send, until the whole
+	// history is in: for a large account that is well over half an hour.
+	var connected atomic.Bool
+	var handover *time.Timer
+	onConnected := func() {
+		if !connected.Swap(true) {
+			handover = time.AfterFunc(HandoverAfter, func() { signalGroup(cmd.Process, syscall.SIGINT) })
+		}
+	}
+	lastLine := s.readPairingEvents(gen, stderr, onConnected)
 	err = cmd.Wait()
+	if handover != nil {
+		handover.Stop()
+	}
+	if connected.Load() {
+		cctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 20*time.Second)
+		defer cancel()
+		var status struct {
+			Authenticated bool `json:"authenticated"`
+		}
+		if s.cli.Decode(cctx, &status, "--read-only", "auth", "status") == nil && status.Authenticated {
+			return nil
+		}
+	}
 	if ctx.Err() != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return errors.New("pairing took longer than 30 minutes and was stopped")
@@ -164,7 +194,7 @@ func (s *Supervisor) runAuth(ctx context.Context, gen int, phone string) error {
 
 // readPairingEvents follows wacli auth's events and returns the last line it
 // could not parse, which is where wacli writes a fatal error.
-func (s *Supervisor) readPairingEvents(gen int, r io.Reader) string {
+func (s *Supervisor) readPairingEvents(gen int, r io.Reader, onConnected func()) string {
 	var last string
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
@@ -198,6 +228,7 @@ func (s *Supervisor) readPairingEvents(gen int, r io.Reader) string {
 				}
 			})
 		case "connected":
+			onConnected()
 			s.updatePairing(gen, func(p *Pairing) {
 				if p.State != "cancelled" {
 					p.State, p.QR, p.Code = "syncing", "", ""

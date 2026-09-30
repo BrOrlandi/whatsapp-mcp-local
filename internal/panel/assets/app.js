@@ -408,12 +408,12 @@
   if (syncing) {
     var syncWatch = window.setInterval(function () {
       api("/api/state").then(function (state) {
-        var p = state.pairing;
-        if (p.state === "syncing") {
-          syncing.querySelector("[data-sync-count]").textContent = (p.messages_synced || 0).toLocaleString("pt-BR");
+        if (state.arriving) {
+          syncing.querySelector("[data-sync-count]").textContent = (state.arriving_count || 0).toLocaleString("pt-BR");
         } else {
           window.clearInterval(syncWatch);
-          syncing.textContent = "Histórico recebido. Confira se é este o número que você queria conectar.";
+          syncing.textContent = "Histórico recebido.";
+          syncing.classList.remove("busy");
         }
       }).catch(function () {});
     }, 3000);
