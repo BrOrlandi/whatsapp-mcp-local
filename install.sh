@@ -119,9 +119,10 @@ cat <<EOF
 
   Pronto. O painel abriu no navegador: http://127.0.0.1:$PORT/
 
-  1. Clique em "Conectar WhatsApp" e escaneie o QR code pelo celular
+  1. Escaneie o QR code que aparece lá pelo celular
      (WhatsApp > Dispositivos conectados > Conectar dispositivo).
-  2. Em "Conectar ao Claude", clique para adicionar ao Claude Code e/ou ao Claude Desktop.
+  2. Confira se as suas conversas recentes batem com as do celular.
+  3. Conecte o Claude Desktop ou o Claude Code com um clique.
 
   Para abrir o painel de novo: whatsapp-mcp-v2 open
 
