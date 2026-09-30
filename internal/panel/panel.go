@@ -51,10 +51,10 @@ type Panel struct {
 }
 
 const (
-	setupSetting   = "setup_step" // "claude" once the chats were checked, "done" at the end
+	setupSetting   = "setup_step" // "done" once the first run is over
 	openAISetting  = "openai_api_key"
-	recentChats    = 10
-	recentIncoming = 10
+	recentChats      = 10
+	conversationSize = 10
 )
 
 func (p *Panel) Register(mux *http.ServeMux) {
@@ -350,24 +350,21 @@ type wizardStep struct {
 	State  string // done, now, todo
 }
 
-// setupStep is where the first run stands: 1 until WhatsApp is paired, 2 while
-// the person checks the sync against the phone, 3 while a client is connected,
-// 0 once it is over.
+// setupStep is where the first run stands: 1 until WhatsApp is paired, 2
+// while a client is connected, 0 once it is over. The history keeps arriving
+// in the background meanwhile; it does not need a step of its own.
 func (p *Panel) setupStep(ctx context.Context, s snapshot) int {
 	if !s.Account.Authenticated {
 		return 1
 	}
-	switch v, _ := p.State.Setting(ctx, setupSetting); v {
-	case "done":
+	if v, _ := p.State.Setting(ctx, setupSetting); v == "done" {
 		return 0
-	case "claude":
-		return 3
 	}
 	return 2
 }
 
 func steps(now int) []wizardStep {
-	labels := []string{"WhatsApp", "Conversas", "Claude"}
+	labels := []string{"WhatsApp", "Claude"}
 	out := make([]wizardStep, len(labels))
 	for i, l := range labels {
 		st := "todo"
@@ -413,10 +410,7 @@ func (p *Panel) instalacao(w http.ResponseWriter, r *http.Request) (string, any)
 }
 
 func (p *Panel) advance(r *http.Request) (string, error) {
-	switch r.FormValue("to") {
-	case "claude":
-		return "/instalacao", p.State.SetSetting(r.Context(), setupSetting, "claude")
-	case "done":
+	if r.FormValue("to") == "done" {
 		return "/", p.State.SetSetting(r.Context(), setupSetting, "done")
 	}
 	return "/instalacao", nil
@@ -584,22 +578,15 @@ func (p *Panel) apiChats(r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	inbox, err := p.Index.RecentIncoming(r.Context(), recentIncoming)
-	if err != nil {
-		return nil, err
-	}
 	if chats == nil {
 		chats = []index.ChatPreview{}
 	}
-	if inbox == nil {
-		inbox = []index.Bubble{}
-	}
-	return map[string]any{"chats": chats, "incoming": inbox, "history": p.Server.HistoryStatus()}, nil
+	return map[string]any{"chats": chats, "history": p.Server.HistoryStatus()}, nil
 }
 
 func (p *Panel) apiConversation(r *http.Request) (any, error) {
 	jid := r.PathValue("jid")
-	msgs, err := p.Index.Conversation(r.Context(), jid, 40)
+	msgs, err := p.Index.Conversation(r.Context(), jid, conversationSize)
 	if err != nil {
 		return nil, err
 	}

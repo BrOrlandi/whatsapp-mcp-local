@@ -253,3 +253,43 @@ func TestPairingFromQRToRunningSync(t *testing.T) {
 		t.Fatalf("account after pairing: %+v, %v", account, err)
 	}
 }
+
+// Switching from the QR code to a phone code cancels one pairing and starts
+// the next at once. The cancelled one must not report its cancellation as the
+// new pairing's error, which is what the panel used to show next to the code.
+func TestSwitchingPairingDoesNotReportTheCancelledOne(t *testing.T) {
+	_, cli := fakeStore(t)
+	s := NewSupervisor(cli, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() { s.Run(ctx); close(done) }()
+	defer func() { cancel(); <-done }()
+
+	waitState(t, s, "not_paired")
+	if err := s.StartPairing(""); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for s.Pairing().State != "qr" && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	s.CancelPairing()
+	if err := s.StartPairing("5511912345678"); err != nil {
+		t.Fatalf("a new pairing must start right after a cancel: %v", err)
+	}
+	deadline = time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		p := s.Pairing()
+		if p.State == "error" || p.State == "cancelled" {
+			t.Fatalf("the new pairing reported %q (%s)", p.State, p.Error)
+		}
+		if p.State == "done" {
+			if p.Phone != "5511912345678" {
+				t.Fatalf("the finished pairing is not the new one: %+v", p)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("the new pairing never finished: %+v", s.Pairing())
+}

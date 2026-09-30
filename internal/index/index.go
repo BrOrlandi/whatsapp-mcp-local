@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,7 +21,8 @@ import (
 )
 
 type Index struct {
-	db *sql.DB
+	db    *sql.DB
+	Names *Names
 }
 
 // Open opens wacli.db read-only. The file may not exist yet on a store that
@@ -32,7 +34,7 @@ func Open(path string) (*Index, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(4)
-	return &Index{db: db}, nil
+	return &Index{db: db, Names: openNames(db, filepath.Join(filepath.Dir(path), "session.db"))}, nil
 }
 
 func (x *Index) Close() error { return x.db.Close() }
@@ -364,7 +366,7 @@ func (x *Index) Activity(ctx context.Context, now time.Time) (Activity, error) {
 type ChatPreview struct {
 	JID         string    `json:"jid"`
 	Name        string    `json:"name"`
-	Kind        string    `json:"kind"`
+	Group       bool      `json:"group"`
 	Unread      int       `json:"unread"`
 	Pinned      bool      `json:"pinned,omitempty"`
 	At          time.Time `json:"at"`
@@ -380,28 +382,22 @@ type ChatPreview struct {
 // the kind of media it carries.
 const displayText = `COALESCE(NULLIF(m.media_caption,''), NULLIF(m.text,''), NULLIF(m.display_text,''), '')`
 
-// chatName resolves a conversation's name the way the WhatsApp app would:
-// the stored chat name, then the contact's, then the number.
-const chatName = `COALESCE(NULLIF(c.name,''), NULLIF(a.alias,''), NULLIF(ct.system_name,''), NULLIF(ct.full_name,''), NULLIF(ct.push_name,''), NULLIF(ct.business_name,''), '')`
+// visible keeps out what the phone's chat list does not show: reactions,
+// content-free system rows, status broadcasts and channels.
+const visible = `m.deleted_at IS NULL AND COALESCE(m.reaction_to_id,'') = '' AND (` + displayText + ` != '' OR COALESCE(m.media_type,'') != '')
+	AND m.chat_jid NOT LIKE '%@broadcast' AND m.chat_jid NOT LIKE '%@newsletter'`
 
 // RecentChats lists the conversations with the most recent real messages,
-// each with its last one. Reactions and content-free system rows are skipped,
-// so the preview matches what the phone's chat list shows.
+// each with its last one, named the way the phone would name them.
 func (x *Index) RecentChats(ctx context.Context, limit int) ([]ChatPreview, error) {
 	rows, err := x.db.QueryContext(ctx, `
-		WITH last AS (
-			SELECT m.chat_jid, MAX(m.ts) AS ts FROM messages m
-			WHERE m.deleted_at IS NULL AND COALESCE(m.reaction_to_id,'') = '' AND (`+displayText+` != '' OR COALESCE(m.media_type,'') != '')
-			  AND m.chat_jid NOT LIKE '%@broadcast' AND m.chat_jid NOT LIKE '%@newsletter'
-			GROUP BY m.chat_jid ORDER BY ts DESC LIMIT ?)
-		SELECT l.chat_jid, `+chatName+`, COALESCE(c.kind,''), COALESCE(c.unread_count,0), COALESCE(c.pinned,0), l.ts,
-			m.from_me, COALESCE(NULLIF(m.sender_name,''), ''), `+displayText+`, COALESCE(m.media_type,''),
+		WITH last AS (SELECT m.chat_jid, MAX(m.ts) AS ts FROM messages m WHERE `+visible+` GROUP BY m.chat_jid ORDER BY ts DESC LIMIT ?)
+		SELECT l.chat_jid, COALESCE(c.unread_count,0), COALESCE(c.pinned,0), l.ts,
+			m.from_me, COALESCE(m.sender_jid,''), COALESCE(m.sender_name,''), `+displayText+`, COALESCE(m.media_type,''),
 			(SELECT MIN(ts) FROM messages WHERE chat_jid = l.chat_jid), (SELECT COUNT(*) FROM messages WHERE chat_jid = l.chat_jid)
 		FROM last l
-		JOIN messages m ON m.rowid = (SELECT rowid FROM messages WHERE chat_jid = l.chat_jid AND ts = l.ts AND deleted_at IS NULL ORDER BY rowid DESC LIMIT 1)
+		JOIN messages m ON m.rowid = (SELECT rowid FROM messages m WHERE m.chat_jid = l.chat_jid AND m.ts = l.ts AND `+visible+` ORDER BY rowid DESC LIMIT 1)
 		LEFT JOIN chats c ON c.jid = l.chat_jid
-		LEFT JOIN contacts ct ON ct.jid = l.chat_jid
-		LEFT JOIN contact_aliases a ON a.jid = l.chat_jid
 		ORDER BY l.ts DESC`, limit)
 	if err != nil {
 		return nil, describe(err)
@@ -411,16 +407,34 @@ func (x *Index) RecentChats(ctx context.Context, limit int) ([]ChatPreview, erro
 	for rows.Next() {
 		var p ChatPreview
 		var ts, oldest int64
-		if err := rows.Scan(&p.JID, &p.Name, &p.Kind, &p.Unread, &p.Pinned, &ts, &p.LastFromMe, &p.LastSender, &p.LastText, &p.LastMedia, &oldest, &p.Messages); err != nil {
+		var senderJID, senderName string
+		if err := rows.Scan(&p.JID, &p.Unread, &p.Pinned, &ts, &p.LastFromMe, &senderJID, &senderName, &p.LastText, &p.LastMedia, &oldest, &p.Messages); err != nil {
 			return nil, err
 		}
 		p.At, p.OldestKnown = time.Unix(ts, 0).UTC(), time.Unix(oldest, 0).UTC()
-		if p.Name == "" {
-			p.Name = phoneOf(p.JID)
+		p.Group = strings.HasSuffix(p.JID, "@g.us")
+		p.Name = x.Names.Name(ctx, p.JID)
+		if p.Group && !p.LastFromMe {
+			p.LastSender = x.sender(ctx, senderJID, senderName)
 		}
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+// sender names whoever wrote a message: the address book first, then what
+// they called themselves.
+func (x *Index) sender(ctx context.Context, jid, stored string) string {
+	if name := x.Names.Known(ctx, jid); name != "" {
+		return name
+	}
+	if !isJIDLike(stored) {
+		return stored
+	}
+	if jid == "" {
+		return ""
+	}
+	return x.Names.Name(ctx, jid)
 }
 
 // Bubble is one message as the panel draws it.
@@ -436,67 +450,40 @@ type Bubble struct {
 	Group    bool      `json:"group,omitempty"`
 }
 
-func (x *Index) bubbles(ctx context.Context, where string, args ...any) ([]Bubble, error) {
-	rows, err := x.db.QueryContext(ctx, `SELECT m.msg_id, m.chat_jid, `+chatName+`, m.from_me,
-			COALESCE(NULLIF(m.sender_name,''), NULLIF(sa.alias,''), NULLIF(sc.system_name,''), NULLIF(sc.full_name,''), NULLIF(sc.push_name,''), ''),
-			m.ts, `+displayText+`, COALESCE(m.media_type,'')
-		FROM messages m
-		LEFT JOIN chats c ON c.jid = m.chat_jid
-		LEFT JOIN contacts ct ON ct.jid = m.chat_jid
-		LEFT JOIN contact_aliases a ON a.jid = m.chat_jid
-		LEFT JOIN contacts sc ON sc.jid = m.sender_jid
-		LEFT JOIN contact_aliases sa ON sa.jid = m.sender_jid
-		WHERE m.deleted_at IS NULL AND COALESCE(m.reaction_to_id,'') = '' AND (`+displayText+` != '' OR COALESCE(m.media_type,'') != '') AND `+where, args...)
+// Conversation is the latest messages of one chat, oldest first.
+func (x *Index) Conversation(ctx context.Context, jid string, limit int) ([]Bubble, error) {
+	rows, err := x.db.QueryContext(ctx, `SELECT m.msg_id, m.from_me, COALESCE(m.sender_jid,''), COALESCE(m.sender_name,''), m.ts, `+displayText+`, COALESCE(m.media_type,'')
+		FROM messages m WHERE m.chat_jid = ? AND `+visible+` ORDER BY m.ts DESC, m.rowid DESC LIMIT ?`, jid, limit)
 	if err != nil {
 		return nil, describe(err)
 	}
 	defer rows.Close()
+	group := strings.HasSuffix(jid, "@g.us")
+	chatName := x.Names.Name(ctx, jid)
 	var out []Bubble
 	for rows.Next() {
-		var b Bubble
+		b := Bubble{ChatJID: jid, ChatName: chatName, Group: group}
 		var ts int64
-		if err := rows.Scan(&b.ID, &b.ChatJID, &b.ChatName, &b.FromMe, &b.Sender, &ts, &b.Text, &b.Media); err != nil {
+		var senderJID, senderName string
+		if err := rows.Scan(&b.ID, &b.FromMe, &senderJID, &senderName, &ts, &b.Text, &b.Media); err != nil {
 			return nil, err
 		}
 		b.At = time.Unix(ts, 0).UTC()
-		b.Group = strings.HasSuffix(b.ChatJID, "@g.us")
-		if b.ChatName == "" {
-			b.ChatName = phoneOf(b.ChatJID)
+		if !b.FromMe {
+			b.Sender = x.sender(ctx, senderJID, senderName)
 		}
 		out = append(out, b)
+	}
+	for i, j := 0, len(out)-1; i < j; i, j = i+1, j-1 {
+		out[i], out[j] = out[j], out[i]
 	}
 	return out, rows.Err()
 }
 
-// RecentIncoming is the latest messages others sent, across every chat: what
-// the phone's notifications would have shown.
-func (x *Index) RecentIncoming(ctx context.Context, limit int) ([]Bubble, error) {
-	return x.bubbles(ctx, `m.from_me = 0 AND m.chat_jid NOT LIKE '%@broadcast' AND m.chat_jid NOT LIKE '%@newsletter' ORDER BY m.ts DESC LIMIT ?`, limit)
-}
-
-// Conversation is the latest messages of one chat, oldest first.
-func (x *Index) Conversation(ctx context.Context, jid string, limit int) ([]Bubble, error) {
-	b, err := x.bubbles(ctx, `m.chat_jid = ? ORDER BY m.ts DESC LIMIT ?`, jid, limit)
-	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
-		b[i], b[j] = b[j], b[i]
-	}
-	return b, err
-}
-
 // OwnName is the push name of the paired account, when WhatsApp has told it.
 func (x *Index) OwnName(ctx context.Context, jid string) string {
-	user := strings.SplitN(jid, "@", 2)[0]
-	user = strings.SplitN(user, ":", 2)[0]
-	var name string
-	_ = x.db.QueryRowContext(ctx, `SELECT COALESCE(NULLIF(full_name,''), NULLIF(push_name,''), '') FROM contacts WHERE jid = ?`,
-		user+"@s.whatsapp.net").Scan(&name)
-	return name
-}
-
-func phoneOf(jid string) string {
-	user := strings.SplitN(jid, "@", 2)[0]
-	if strings.HasSuffix(jid, "@s.whatsapp.net") {
-		return "+" + user
+	if name := x.Names.Self(ctx); name != "" {
+		return name
 	}
-	return user
+	return x.Names.Known(ctx, jid)
 }

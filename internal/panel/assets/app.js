@@ -153,17 +153,14 @@
           break;
         case "code":
           showOnly("code");
+          pairing.querySelector("[data-code-wait]").hidden = true;
+          pairing.querySelector("[data-code-ready]").hidden = false;
           pairing.querySelector("[data-code]").textContent = p.code || "";
           break;
         case "syncing":
           showOnly("sync");
-          if (p.messages_synced) {
-            pairing.querySelector("[data-sync-progress]").textContent =
-              p.messages_synced.toLocaleString("pt-BR") + " mensagens de " + p.conversations.toLocaleString("pt-BR") +
-              " conversas até agora. Mantenha o celular com internet.";
-          }
-          // The account is paired: the next step can show the chats while the
-          // history keeps arriving.
+          // Paired: the next step connects Claude while the history keeps
+          // arriving in the background.
           if (state.account && state.account.authenticated) window.location.reload();
           break;
         case "error":
@@ -179,7 +176,8 @@
           if (!usingPhone) start();
           break;
         default:
-          if (!usingPhone) showOnly("qr");
+          // Starting: keep showing whichever way the person chose.
+          showOnly(usingPhone ? "code" : "qr");
       }
     }
     function poll() {
@@ -195,6 +193,11 @@
       var phone = pairing.querySelector("[data-pair-phone-input]").value;
       usingPhone = true;
       event.target.disabled = true;
+      // The code takes a few seconds to come back from WhatsApp; say so
+      // instead of leaving the old QR code, or a transient state, on screen.
+      showOnly("code");
+      pairing.querySelector("[data-code-wait]").hidden = false;
+      pairing.querySelector("[data-code-ready]").hidden = true;
       api("/api/pair/cancel", {}).then(function () { return start(phone); }).then(function () { event.target.disabled = false; });
     });
     pairing.querySelector("[data-pair-back]").addEventListener("click", function () {
@@ -214,13 +217,22 @@
   }
 
   // ---- chat preview ----
+  // The ten latest chats, drawn like the phone's list, and the last messages of
+  // the one selected: enough to see at a glance that what arrives here is what
+  // the phone shows.
   var preview = document.querySelector("[data-chats]");
   if (preview) {
     var palette = ["#128c7e", "#34b7f1", "#e0654a", "#8e5bd8", "#d6a01b", "#2c9f6a", "#c2477f", "#4a6fd6"];
     var list = preview.querySelector("[data-chat-list]");
-    var inbox = preview.querySelector("[data-inbox]");
     var countPill = preview.querySelector("[data-chats-count]");
-    var threadChat = null;
+    var thread = preview.querySelector("[data-thread]");
+    var threadTitle = preview.querySelector("[data-thread-title]");
+    var threadMeta = preview.querySelector("[data-thread-meta]");
+    var threadAvatar = preview.querySelector("[data-thread-avatar]");
+    var historyNote = preview.querySelector("[data-history-note]");
+    var chats = [];
+    var selected = null;
+    var shown = "";
 
     function color(key) {
       var h = 0;
@@ -231,12 +243,14 @@
       var m = (name || "").match(/[\p{L}\p{N}]/u);
       return m ? m[0].toUpperCase() : "#";
     }
+    function paintAvatar(node, name, key) {
+      node.textContent = initial(name);
+      node.style.background = color(key);
+    }
     function when(iso) {
       var d = new Date(iso), now = new Date();
-      var sameDay = d.toDateString() === now.toDateString();
-      var yesterday = new Date(now.getTime() - 86400000).toDateString() === d.toDateString();
-      if (sameDay) return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      if (yesterday) return "Ontem";
+      if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      if (new Date(now.getTime() - 86400000).toDateString() === d.toDateString()) return "Ontem";
       if (now - d < 6 * 86400000) return d.toLocaleDateString("pt-BR", { weekday: "long" });
       return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
     }
@@ -246,40 +260,37 @@
       if (lbl && text && text.charAt(0) !== "[") return lbl + " · " + text;
       return lbl || text;
     }
-
-    function avatar(name, key) {
-      var a = el("span", "avatar", initial(name));
-      a.style.background = color(key);
-      return a;
+    function firstName(name) {
+      return /^\+/.test(name) ? name : name.split(" ")[0];
     }
 
-    function renderChats(chats) {
+    function renderChats() {
       list.textContent = "";
       countPill.textContent = chats.length ? chats.length + " conversas" : "nenhuma ainda";
       if (!chats.length) {
-        var empty = el("li");
-        empty.appendChild(el("div", "empty", "Nenhuma conversa guardada ainda. Assim que o celular mandar o histórico, elas aparecem aqui."));
-        list.appendChild(empty);
+        list.appendChild(el("li", "empty", "Nenhuma conversa guardada ainda. Assim que o celular mandar o histórico, elas aparecem aqui."));
         return;
       }
       chats.forEach(function (c) {
         var li = el("li");
-        var row = el("button", "chat");
+        var row = el("button", "chat" + (selected && selected.jid === c.jid ? " chat--on" : ""));
         row.type = "button";
-        row.appendChild(avatar(c.name, c.jid));
+        var av = el("span", "avatar");
+        paintAvatar(av, c.name, c.jid);
+        row.appendChild(av);
         var main = el("span", "chat__main");
         var top = el("span", "chat__top");
         top.appendChild(el("span", "chat__name", c.name));
         top.appendChild(el("span", "chat__time" + (c.unread ? " chat__time--unread" : ""), when(c.at)));
         var bottom = el("span", "chat__bottom");
-        var prefix = c.last_from_me ? "Você: " : (c.kind === "group" && c.last_sender ? c.last_sender.split(" ")[0] + ": " : "");
+        var prefix = c.last_from_me ? "Você: " : (c.group && c.last_sender ? firstName(c.last_sender) + ": " : "");
         bottom.appendChild(el("span", "chat__last", prefix + mediaText(c.last_media, c.last_text)));
         if (c.unread) bottom.appendChild(el("span", "chat__badge", String(c.unread)));
         else if (c.pinned) bottom.appendChild(el("span", "chat__pin", "📌"));
         main.appendChild(top);
         main.appendChild(bottom);
         row.appendChild(main);
-        row.addEventListener("click", function () { openThread(c); });
+        row.addEventListener("click", function () { select(c); });
         li.appendChild(row);
         list.appendChild(li);
       });
@@ -294,55 +305,40 @@
       return b;
     }
 
-    function renderInbox(items) {
-      inbox.textContent = "";
-      if (!items.length) {
-        inbox.appendChild(el("li", "empty", "Nenhuma mensagem recebida ainda."));
-        return;
+    function select(c) {
+      if (!selected || selected.jid !== c.jid) {
+        historyNote.hidden = true;
+        shown = "";
       }
-      items.forEach(function (m) {
-        var li = el("li");
-        var where = el("div", "inbox__where");
-        where.appendChild(el("span", "inbox__chat", m.group && m.sender ? m.sender + " · " + m.chat_name : m.chat_name));
-        // Today's time is already on the bubble; older ones need the day.
-        if (new Date(m.at).toDateString() !== new Date().toDateString()) where.appendChild(el("span", "", when(m.at)));
-        li.appendChild(where);
-        li.appendChild(bubble(m, false));
-        inbox.appendChild(li);
-      });
-    }
-
-    var thread = document.querySelector("[data-thread]");
-    var threadTitle = document.querySelector("[data-thread-title]");
-    var threadMeta = document.querySelector("[data-thread-meta]");
-    var historyNote = document.querySelector("[data-history-note]");
-
-    function openThread(c) {
-      threadChat = c;
+      selected = c;
+      renderChats();
       threadTitle.textContent = c.name;
-      thread.textContent = "";
-      thread.appendChild(el("div", "skeleton"));
-      threadMeta.textContent = "";
-      historyNote.hidden = true;
-      window.location.hash = "conversa";
+      paintAvatar(threadAvatar, c.name, c.jid);
       loadThread();
     }
     function loadThread() {
-      if (!threadChat) return;
-      api("/api/chats/" + encodeURIComponent(threadChat.jid)).then(function (data) {
-        thread.textContent = "";
-        var lastDay = "";
-        data.messages.forEach(function (m) {
-          var day = new Date(m.at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
-          if (day !== lastDay) { thread.appendChild(el("div", "thread__day", day)); lastDay = day; }
-          thread.appendChild(bubble(m, threadChat.kind === "group" || /@g\.us$/.test(threadChat.jid)));
-        });
-        thread.scrollTop = thread.scrollHeight;
-        threadMeta.textContent = data.oldest
-          ? "Este computador tem " + threadChat.messages.toLocaleString("pt-BR") + " mensagens desta conversa, desde " +
-            new Date(data.oldest).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) + "." +
-            (threadChat.messages > data.messages.length ? " Aqui aparecem as últimas " + data.messages.length + "." : "")
-          : "";
+      if (!selected) return;
+      var c = selected;
+      api("/api/chats/" + encodeURIComponent(c.jid)).then(function (data) {
+        if (selected !== c) return;
+        // Redraw only when something changed, so a refresh does not jump the
+        // scroll position under the reader.
+        var key = data.messages.map(function (m) { return m.id; }).join(",");
+        if (key !== shown) {
+          shown = key;
+          thread.textContent = "";
+          var lastDay = "";
+          data.messages.forEach(function (m) {
+            var day = new Date(m.at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+            if (day !== lastDay) { thread.appendChild(el("div", "thread__day", day)); lastDay = day; }
+            thread.appendChild(bubble(m, c.group));
+          });
+          if (!data.messages.length) thread.appendChild(el("div", "empty", "Nenhuma mensagem desta conversa ainda."));
+          thread.scrollTop = thread.scrollHeight;
+        }
+        threadMeta.textContent = c.messages.toLocaleString("pt-BR") + (c.messages === 1 ? " mensagem guardada" : " mensagens guardadas") +
+          (data.oldest ? ", desde " + new Date(data.oldest).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "") +
+          " · as últimas " + data.messages.length + " aqui";
       }).catch(function (error) { thread.textContent = error.message; });
     }
 
@@ -351,7 +347,7 @@
       api("/api/history", chat ? { chat_jid: chat } : {}).then(function (data) {
         note.hidden = false;
         note.textContent = data.started
-          ? "Pedido enviado ao celular. As mensagens mais antigas chegam em até um minuto; a lista se atualiza sozinha."
+          ? "Pedido enviado ao celular. As mensagens mais antigas chegam em até um minuto; a tela se atualiza sozinha."
           : "Já há um pedido de histórico em andamento. Assim que ele terminar, dá para pedir de novo.";
         watchHistory(button, note);
       }).catch(function (error) {
@@ -365,8 +361,6 @@
       var t = window.setInterval(function () {
         if (++tries > 90) { window.clearInterval(t); button.disabled = false; return; }
         api("/api/chats").then(function (data) {
-          renderChats(data.chats);
-          renderInbox(data.incoming);
           var job = data.history;
           if (job && job.finished_at) {
             window.clearInterval(t);
@@ -377,7 +371,7 @@
               : failed
                 ? "O celular não respondeu. Confira se ele está com internet e tente de novo."
                 : "O celular não tinha mensagens mais antigas para mandar.";
-            loadThread();
+            refresh();
           } else if (job) {
             note.textContent = "Buscando… " + job.chats_done + " de " + job.chats.length + " conversas, " + job.messages_added + " mensagens novas até agora.";
           }
@@ -385,15 +379,21 @@
       }, 3000);
     }
 
-    var oneChat = document.querySelector("[data-history-chat]");
-    if (oneChat) oneChat.addEventListener("click", function () { requestHistory(threadChat && threadChat.jid, oneChat, historyNote); });
+    var oneChat = preview.querySelector("[data-history-chat]");
+    oneChat.addEventListener("click", function () { if (selected) requestHistory(selected.jid, oneChat, historyNote); });
     var allChats = document.querySelector("[data-history-all]");
     if (allChats) allChats.addEventListener("click", function () { requestHistory("", allChats, document.querySelector("[data-history-all-note]")); });
 
     function refresh() {
       api("/api/chats").then(function (data) {
-        renderChats(data.chats);
-        renderInbox(data.incoming);
+        chats = data.chats;
+        if (selected) {
+          var still = chats.filter(function (c) { return c.jid === selected.jid; })[0];
+          selected = still || selected;
+        }
+        renderChats();
+        if (!selected && chats.length) select(chats[0]);
+        else loadThread();
       }).catch(function (error) {
         list.textContent = "";
         list.appendChild(el("li", "empty", error.message));
@@ -401,23 +401,21 @@
     }
     refresh();
     window.setInterval(refresh, 15000);
+  }
 
-    // The first history sync may still be arriving when this step opens.
-    var syncing = document.querySelector("[data-sync-note]");
-    if (syncing) {
-      var syncWatch = window.setInterval(function () {
-        api("/api/state").then(function (state) {
-          var p = state.pairing;
-          if (p.state === "syncing") {
-            syncing.querySelector("[data-sync-count]").textContent = (p.messages_synced || 0).toLocaleString("pt-BR");
-            refresh();
-          } else {
-            window.clearInterval(syncWatch);
-            syncing.hidden = true;
-            refresh();
-          }
-        }).catch(function () {});
-      }, 3000);
-    }
+  // The first history sync may still be arriving after pairing.
+  var syncing = document.querySelector("[data-sync-note]");
+  if (syncing) {
+    var syncWatch = window.setInterval(function () {
+      api("/api/state").then(function (state) {
+        var p = state.pairing;
+        if (p.state === "syncing") {
+          syncing.querySelector("[data-sync-count]").textContent = (p.messages_synced || 0).toLocaleString("pt-BR");
+        } else {
+          window.clearInterval(syncWatch);
+          syncing.textContent = "Histórico recebido. Confira se é este o número que você queria conectar.";
+        }
+      }).catch(function () {});
+    }, 3000);
   }
 })();

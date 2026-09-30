@@ -34,6 +34,10 @@ type pairer struct {
 	mu     sync.Mutex
 	state  Pairing
 	cancel func()
+	// gen numbers each pairing. Switching from QR to a phone code cancels one
+	// pairing and starts the next at once; the cancelled one keeps winding down
+	// for a moment, and must not write its ending over the new one's state.
+	gen int
 }
 
 var ErrPairingRunning = errors.New("a pairing is already in progress")
@@ -48,9 +52,14 @@ func (s *Supervisor) Pairing() Pairing {
 	return s.pair.state
 }
 
-func (s *Supervisor) updatePairing(f func(*Pairing)) {
+// updatePairing changes the state of pairing number gen, and does nothing
+// once a newer pairing has started.
+func (s *Supervisor) updatePairing(gen int, f func(*Pairing)) {
 	s.pair.mu.Lock()
 	defer s.pair.mu.Unlock()
+	if gen != s.pair.gen {
+		return
+	}
 	f(&s.pair.state)
 	s.pair.state.UpdatedAt = time.Now()
 }
@@ -67,6 +76,8 @@ func (s *Supervisor) StartPairing(phone string) error {
 		return ErrPairingRunning
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	s.pair.gen++
+	gen := s.pair.gen
 	s.pair.cancel = cancel
 	s.pair.state = Pairing{State: "starting", Phone: strings.TrimSpace(phone), StartedAt: time.Now(), UpdatedAt: time.Now()}
 	s.pair.mu.Unlock()
@@ -75,12 +86,12 @@ func (s *Supervisor) StartPairing(phone string) error {
 	go func() {
 		defer s.pairWG.Done()
 		defer cancel()
-		err := s.Exclusive(ctx, "pairing", func(ctx context.Context) error { return s.runAuth(ctx, phone) })
-		s.updatePairing(func(p *Pairing) {
+		err := s.Exclusive(ctx, "pairing", func(ctx context.Context) error { return s.runAuth(ctx, gen, phone) })
+		s.updatePairing(gen, func(p *Pairing) {
 			switch {
 			case p.State == "cancelled":
 			case err == nil:
-				p.State, p.QR, p.Code = "done", "", ""
+				p.State, p.QR, p.Code, p.Error = "done", "", "", ""
 			default:
 				p.State, p.QR, p.Code, p.Error = "error", "", "", err.Error()
 			}
@@ -104,7 +115,7 @@ func (s *Supervisor) CancelPairing() {
 	}
 }
 
-func (s *Supervisor) runAuth(ctx context.Context, phone string) error {
+func (s *Supervisor) runAuth(ctx context.Context, gen int, phone string) error {
 	args := []string{"auth", "--events", "--idle-exit", "45s"}
 	if phone = strings.TrimSpace(phone); phone != "" {
 		args = append(args, "--phone", phone)
@@ -124,7 +135,7 @@ func (s *Supervisor) runAuth(ctx context.Context, phone string) error {
 	stop := context.AfterFunc(ctx, func() { signalGroup(cmd.Process, syscall.SIGINT) })
 	defer stop()
 
-	lastLine := s.readPairingEvents(stderr)
+	lastLine := s.readPairingEvents(gen, stderr)
 	err = cmd.Wait()
 	if ctx.Err() != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -153,7 +164,7 @@ func (s *Supervisor) runAuth(ctx context.Context, phone string) error {
 
 // readPairingEvents follows wacli auth's events and returns the last line it
 // could not parse, which is where wacli writes a fatal error.
-func (s *Supervisor) readPairingEvents(r io.Reader) string {
+func (s *Supervisor) readPairingEvents(gen int, r io.Reader) string {
 	var last string
 	scanner := bufio.NewScanner(r)
 	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
@@ -173,7 +184,7 @@ func (s *Supervisor) readPairingEvents(r io.Reader) string {
 		switch ev.Event {
 		case "qr_code":
 			code, _ := ev.Data["code"].(string)
-			s.updatePairing(func(p *Pairing) {
+			s.updatePairing(gen, func(p *Pairing) {
 				if p.State != "cancelled" {
 					p.State, p.QR = "qr", code
 					p.QRVersion++
@@ -181,24 +192,24 @@ func (s *Supervisor) readPairingEvents(r io.Reader) string {
 			})
 		case "pair_code":
 			code, _ := ev.Data["code"].(string)
-			s.updatePairing(func(p *Pairing) {
+			s.updatePairing(gen, func(p *Pairing) {
 				if p.State != "cancelled" {
 					p.State, p.Code = "code", code
 				}
 			})
 		case "connected":
-			s.updatePairing(func(p *Pairing) {
+			s.updatePairing(gen, func(p *Pairing) {
 				if p.State != "cancelled" {
 					p.State, p.QR, p.Code = "syncing", "", ""
 				}
 			})
 		case "progress", "idle_exit":
 			if n, ok := ev.Data["messages_synced"].(float64); ok {
-				s.updatePairing(func(p *Pairing) { p.Synced = int64(n) })
+				s.updatePairing(gen, func(p *Pairing) { p.Synced = int64(n) })
 			}
 		case "history_sync":
 			if n, ok := ev.Data["conversations"].(float64); ok {
-				s.updatePairing(func(p *Pairing) { p.Conversations += int(n) })
+				s.updatePairing(gen, func(p *Pairing) { p.Conversations += int(n) })
 			}
 		case "error":
 			if msg, ok := ev.Data["message"].(string); ok {

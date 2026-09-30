@@ -389,7 +389,15 @@ const extraCSS = `
 .inbox .bubble{max-width:100%;align-self:stretch}
 .inbox__where{display:flex;justify-content:space-between;gap:10px;font-size:.78rem;color:var(--muted);margin-bottom:2px}
 .inbox__chat{font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.preview-grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px}
+.preview-grid{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:16px;align-items:start}
+.chat--on{background:var(--brand-soft)}
+.chat--on:hover{background:var(--brand-soft)}
+.pane{min-width:0}
+.pane__head{display:flex;align-items:center;gap:11px;margin:0 0 10px}
+.pane__who{min-width:0;display:flex;flex-direction:column}
+.pane__who strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pane__meta{font-size:.8rem;color:var(--muted)}
+.pane .thread{max-height:520px;min-height:260px}
 @media (max-width:760px){.preview-grid{grid-template-columns:1fr}}
 .dialog--wide{width:min(620px,100%)}
 .skeleton{height:62px;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--surface-soft),var(--surface-sunken),var(--surface-soft));background-size:200% 100%;animation:shimmer 1.4s linear infinite}

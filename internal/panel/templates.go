@@ -109,31 +109,21 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 {{end}}
 
 {{define "chatpreview"}}
-<div class="preview-grid" data-chats>
-<section class="card">
+<section class="card" data-chats>
 <div class="card__head"><h2>Conversas recentes</h2><span class="pill pill--off pill--plain" data-chats-count>…</span></div>
 <div class="card__body">
-<p class="muted">As 10 conversas mais recentes que este computador recebeu. Toque numa para ver as mensagens.</p>
+<p class="muted">As 10 conversas que chegaram por último. Escolha uma para ver as mensagens dela e compare com o seu celular.</p>
+<div class="preview-grid">
 <ul class="chats" data-chat-list><li><div class="skeleton"></div></li><li><div class="skeleton"></div></li><li><div class="skeleton"></div></li></ul>
-</div></section>
-<section class="card">
-<div class="card__head"><h2>Últimas mensagens recebidas</h2></div>
-<div class="card__body">
-<p class="muted">O que chegou por último, em qualquer conversa.</p>
-<ul class="inbox" data-inbox><li><div class="skeleton"></div></li><li><div class="skeleton"></div></li></ul>
-</div></section>
-</div>
-<p class="note" style="margin-top:-2px">Compare com o seu celular. Se alguma conversa ou mensagem recente estiver faltando, abra a conversa aqui e toque em <strong>Buscar mensagens mais antigas</strong>, ou use o botão de histórico abaixo.</p>
-
-<div class="overlay" id="conversa" role="dialog" aria-modal="true" aria-labelledby="conversa-titulo">
-<div class="dialog dialog--wide">
-<div class="dialog__head"><h2 id="conversa-titulo" data-thread-title>Conversa</h2><a class="dialog__close" href="#" aria-label="Fechar">&times;</a></div>
-<div class="dialog__body stack">
-<div class="thread" data-thread></div>
-<p class="muted" data-thread-meta></p>
-<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-history-chat>Buscar mensagens mais antigas desta conversa</button></div>
+<div class="pane">
+<div class="pane__head"><span class="avatar" data-thread-avatar></span><div class="pane__who"><strong data-thread-title>…</strong><span class="pane__meta" data-thread-meta></span></div></div>
+<div class="thread" data-thread><div class="skeleton"></div></div>
+<div class="actions" style="margin-top:12px"><button class="btn btn--ghost btn--small" type="button" data-history-chat>Buscar mensagens mais antigas desta conversa</button></div>
 <p class="busy" data-history-note role="status" hidden></p>
-</div></div></div>
+</div>
+</div>
+<p class="note" style="margin:16px 0 0">Se alguma conversa ou mensagem recente estiver faltando, peça o histórico ao celular: pela conversa, no botão acima, ou por todas as recentes, logo abaixo.</p>
+</div></section>
 {{end}}
 
 {{define "historycard"}}
@@ -338,11 +328,10 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 {{template "foot"}}{{end}}
 
 {{define "instalacao"}}{{template "head" .}}
-{{if eq .Step 1}}<header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
+<header class="masthead"><a class="brand" href="/instalacao">{{template "brandmark"}}</a>
 <div class="masthead__tools">{{template "themeswitch"}}</div></header>
-{{else}}{{template "nav" .}}{{end}}
-<div class="wizard-shell"{{if ge .Step 2}} style="max-width:{{if eq .Step 2}}880px{{else}}620px{{end}}"{{end}}>
-<ol class="wizard" aria-label="Etapas da instalação"{{if ge .Step 2}} style="max-width:520px;margin-left:auto;margin-right:auto"{{end}}>
+<div class="wizard-shell"{{if eq .Step 2}} style="max-width:620px"{{end}}>
+<ol class="wizard" aria-label="Etapas da instalação" style="max-width:520px;margin-left:auto;margin-right:auto">
 {{range .Steps}}<li class="wizard__step wizard__step--{{.State}}"{{if eq .State "now"}} aria-current="step"{{end}}>
 <span class="wizard__n" aria-hidden="true">{{if eq .State "done"}}✓{{else}}{{.Number}}{{end}}</span><span class="wizard__label">{{.Label}}</span></li>{{end}}
 </ol>
@@ -369,17 +358,20 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </div>
 </div>
 <div data-pair-code hidden>
+<p class="muted" data-code-wait><span class="progressline"><span class="spinner" aria-hidden="true"></span>Pedindo o código ao WhatsApp…</span></p>
+<div data-code-ready hidden>
 <ol class="guide">
 <li>No celular, abra o WhatsApp e vá em <strong>Dispositivos conectados</strong>.</li>
 <li>Toque em <strong>Conectar um dispositivo</strong> e depois em <strong>Conectar com número de telefone</strong>.</li>
 <li>Digite o código abaixo.</li>
 </ol>
 <p class="paircode" data-code></p>
+</div>
 <div class="actions" style="justify-content:center"><button class="linkbtn" type="button" data-pair-back>Voltar para o QR code</button></div>
 </div>
 <div data-pair-sync hidden>
-<p class="lead"><span class="progressline"><span class="spinner" aria-hidden="true"></span><strong>Conectado! Trazendo as suas conversas…</strong></span></p>
-<p class="muted" data-sync-progress>O celular está mandando o histórico recente. Mantenha ele com internet; em instantes você segue.</p>
+<p class="lead"><span class="progressline"><span class="spinner" aria-hidden="true"></span><strong>Conectado!</strong></span></p>
+<p class="muted">Só um instante…</p>
 </div>
 <div data-pair-error hidden>
 <p class="alert" role="alert" data-error-text></p>
@@ -390,19 +382,14 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 {{end}}
 
 {{if eq .Step 2}}
-<section class="card card--accent">
-<div class="card__head"><h2>WhatsApp conectado</h2><span class="pill pill--ok">Conectado</span></div>
-<div class="card__body">
-<div class="hello"><span class="avatar" style="background:#128c7e">{{initial .Name}}</span><div><p class="hello__name">{{with .Name}}Olá, {{.}}!{{else}}Tudo certo!{{end}}</p><p class="hello__phone">{{.Phone}}</p></div></div>
-<p class="muted" style="margin:0">Confira abaixo se as suas conversas mais recentes são as mesmas do celular. Se estiverem, siga para o próximo passo.</p>
-{{with .Pairing}}{{if eq .State "syncing"}}<p class="busy" role="status" data-sync-note><span class="spinner" aria-hidden="true"></span>O celular ainda está mandando o histórico (<span data-sync-count>{{count .Synced}}</span> mensagens até agora). A lista se atualiza sozinha.</p>{{end}}{{end}}
-</div></section>
-{{template "chatpreview" .}}
-<form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="claude">
-<div class="actions" style="justify-content:center;margin-top:18px"><button class="btn btn--big" type="submit">Está certo, conectar ao Claude →</button></div></form>
-{{end}}
-
-{{if eq .Step 3}}
+<section class="overview" style="grid-template-columns:1fr">
+<div class="overview__item overview__item--ok">
+<span class="overview__icon" aria-hidden="true">&#10003;</span>
+<div class="overview__body">
+<p class="overview__title">WhatsApp conectado{{with .Name}}: {{.}}{{end}}</p>
+<p class="overview__detail"><strong class="overview__phone">{{.Phone}}</strong>{{with .Pairing}}{{if eq .State "syncing"}}<span data-sync-note>O celular ainda está mandando o histórico (<span data-sync-count>{{count .Synced}}</span> mensagens até agora); pode seguir enquanto isso.</span>{{else}}Confira se é este o número que você queria conectar.{{end}}{{end}}</p>
+</div></div>
+</section>
 {{if .LiveCount}}
 <section class="card card--accent">
 <div class="card__head"><h2>Tudo pronto</h2><span class="pill pill--ok">{{plural .LiveCount "ferramenta conectada" "ferramentas conectadas"}}</span></div>

@@ -195,6 +195,23 @@ func convert(m wacliMessage) message {
 		Forwarded: m.IsForwarded, Edited: m.Edited, Revoked: m.Revoked, Starred: m.Starred, Snippet: m.Snippet}
 }
 
+// name fills in who wrote a message and where, from the address book, when
+// wacli stored an identifier or nothing.
+func (s *Server) name(ctx context.Context, m *message) {
+	if m.ChatName == "" || index.IsIdentifier(m.ChatName) {
+		m.ChatName = s.index.Names.Name(ctx, m.ChatJID)
+	}
+	if m.FromMe {
+		m.SenderName = ""
+		return
+	}
+	if known := s.index.Names.Known(ctx, m.SenderJID); known != "" {
+		m.SenderName = known
+	} else if m.SenderName == "" || index.IsIdentifier(m.SenderName) {
+		m.SenderName = s.index.Names.Name(ctx, m.SenderJID)
+	}
+}
+
 func (s *Server) attachTranscripts(ctx context.Context, msgs []message) {
 	for i := range msgs {
 		if msgs[i].MediaType != "audio" {
@@ -219,6 +236,12 @@ func (s *Server) listChats(ctx context.Context, a arguments) map[string]any {
 	}
 	if chats == nil {
 		chats = []map[string]any{}
+	}
+	for _, c := range chats {
+		jid, _ := c["jid"].(string)
+		if name, _ := c["name"].(string); jid != "" && (name == "" || index.IsIdentifier(name)) {
+			c["name"] = s.index.Names.Name(ctx, jid)
+		}
 	}
 	coverage, _ := s.index.Coverage(ctx)
 	return textResult(map[string]any{"chats": chats, "count": len(chats), "history_since": coverage.Oldest}, false)
@@ -256,10 +279,12 @@ func (s *Server) chatMessages(ctx context.Context, a arguments) map[string]any {
 	}
 	msgs := make([]message, 0, len(out.Messages))
 	for _, m := range out.Messages {
-		msgs = append(msgs, convert(m))
+		msg := convert(m)
+		s.name(ctx, &msg)
+		msgs = append(msgs, msg)
 	}
 	s.attachTranscripts(ctx, msgs)
-	result := map[string]any{"chat_jid": a.ChatJID, "messages": msgs, "count": len(msgs), "untrusted_content": UntrustedContent}
+	result := map[string]any{"chat_jid": a.ChatJID, "chat_name": s.index.Names.Name(ctx, a.ChatJID), "messages": msgs, "count": len(msgs), "untrusted_content": UntrustedContent}
 	if oldest, err := s.index.ChatOldest(ctx, a.ChatJID); err == nil {
 		result["history_since"] = oldest
 		if oldest != nil && since != "" {
@@ -335,7 +360,9 @@ func (s *Server) searchMessages(ctx context.Context, a arguments) map[string]any
 	msgs := make([]message, 0, len(out.Messages))
 	seen := map[string]bool{}
 	for _, m := range out.Messages {
-		msgs = append(msgs, convert(m))
+		msg := convert(m)
+		s.name(ctx, &msg)
+		msgs = append(msgs, msg)
 		seen[m.ChatJID+"/"+m.MsgID] = true
 	}
 	// What was said in a voice note is searchable once it is transcribed.
@@ -359,10 +386,9 @@ func (s *Server) searchMessages(ctx context.Context, a arguments) map[string]any
 }
 
 func (s *Server) listContacts(ctx context.Context, a arguments) map[string]any {
-	contacts, err := s.index.Contacts(ctx, a.Search, limit(a.Limit, 100))
-	if err != nil {
-		return toolError("%v", err)
-	}
+	// The phone's address book lives in the session; wacli's own contact rows
+	// are mostly nameless until it copies it over.
+	contacts := s.index.Names.Contacts(ctx, a.Search, limit(a.Limit, 100))
 	if contacts == nil {
 		contacts = []index.Contact{}
 	}
