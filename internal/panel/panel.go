@@ -51,8 +51,8 @@ type Panel struct {
 }
 
 const (
-	setupSetting   = "setup_step" // "done" once the first run is over
-	openAISetting  = "openai_api_key"
+	setupSetting     = "setup_step" // "done" once the first run is over
+	openAISetting    = "openai_api_key"
 	recentChats      = 10
 	conversationSize = 10
 )
