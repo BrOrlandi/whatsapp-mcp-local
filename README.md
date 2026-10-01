@@ -2,7 +2,7 @@
   <img src="docs/assets/logo.svg" alt="" width="80" height="80">
 </p>
 
-<h1 align="center">WhatsApp MCP</h1>
+<h1 align="center">WhatsApp MCP Local</h1>
 
 <p align="center">
   <strong>O seu WhatsApp no Claude, rodando no seu próprio computador.</strong><br>
@@ -16,6 +16,12 @@
 Peça ao Claude para resumir uma conversa, achar aquela mensagem de meses atrás,
 responder alguém, criar uma enquete ou transcrever um áudio, direto do seu
 WhatsApp.
+
+> **Esta é a v2, a versão local.** A [v1](https://github.com/BrOrlandi/whatsapp-mcp)
+> roda num servidor na nuvem (uma VPS com Docker, de US$ 7 a US$ 25 por mês) e
+> funciona 24 horas, inclusive no claude.ai e no celular. A v2 faz o mesmo no
+> seu computador: instala com um prompt, não tem infraestrutura para manter e
+> não custa nada. Em troca, só recebe mensagens com o computador ligado.
 
 ## Instalar
 
