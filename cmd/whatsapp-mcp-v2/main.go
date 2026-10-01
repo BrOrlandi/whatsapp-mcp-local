@@ -31,6 +31,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/bridge"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/httpserver"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/mcp"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/service"
@@ -138,6 +139,8 @@ func main() {
 		err = serviceCmd(cfg, os.Args[2:])
 	case "config":
 		printConfig(cfg)
+	case "transcription":
+		err = transcriptionCmd(cfg, os.Args[2:])
 	case "open":
 		err = openBrowser(cfg.baseURL() + "/")
 	case "version", "--version", "-v":
@@ -161,6 +164,7 @@ const usage = `whatsapp-mcp-v2 — WhatsApp for MCP clients, on localhost, over 
   service uninstall   remove that service
   service stop|start  stop the service (as if the computer were off) and start it again
   config              print the configuration for Claude Code and Claude Desktop
+  transcription install   set up free voice-note transcription on this Mac (whisper.cpp)
   open                open the control panel in the browser
   version             print the version
 
@@ -214,8 +218,10 @@ func serve(cfg config) error {
 		close(syncDone)
 	}()
 
+	asr := localasr.New(cfg.DataDir)
 	server := mcp.New(mcp.Config{CLI: cli, Supervisor: supervisor, Index: idx, State: st, Logger: logger,
-		BaseURL: cfg.baseURL(), MediaDir: filepath.Join(cfg.DataDir, "media")})
+		BaseURL: cfg.baseURL(), MediaDir: filepath.Join(cfg.DataDir, "media"), ASR: asr})
+	go server.RunAutoTranscription(ctx)
 	control := &panel.Panel{Server: server, Supervisor: supervisor, Index: idx, State: st, MCPURL: cfg.baseURL() + "/mcp", Token: cfg.Token,
 		Binary: executable(), Port: cfg.Port, DefaultPort: defaultPort}
 	handler := httpserver.Handler(server, httpserver.Options{Addr: cfg.addr(), Token: cfg.Token, Logger: logger, Register: control.Register})
@@ -345,4 +351,23 @@ func printConfig(cfg config) {
 	body, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{"whatsapp": server}}, "  ", "  ")
 	fmt.Println("Claude Desktop (Chat and Cowork) — ~/Library/Application Support/Claude/claude_desktop_config.json:")
 	fmt.Println("  " + string(body))
+}
+
+func transcriptionCmd(cfg config, args []string) error {
+	if len(args) == 0 || args[0] != "install" {
+		return errors.New("usage: whatsapp-mcp-v2 transcription install")
+	}
+	engine := localasr.New(cfg.DataDir)
+	if st := engine.Status(); !st.Supported {
+		return errors.New("local transcription needs a Mac with Apple Silicon; elsewhere, save an OpenAI key in the panel")
+	} else if st.Ready {
+		fmt.Println("local transcription is already installed")
+		return nil
+	}
+	fmt.Println("setting up local transcription (whisper.cpp, about 600 MB)…")
+	if err := engine.InstallNow(context.Background(), os.Stdout); err != nil {
+		return err
+	}
+	fmt.Println("local transcription is ready: voice notes are now transcribed on this computer")
+	return nil
 }

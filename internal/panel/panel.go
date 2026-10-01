@@ -27,6 +27,7 @@ import (
 
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/brand"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/mcp"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/transcribe"
@@ -70,6 +71,9 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /transcricao", p.page(p.transcricao))
 	mux.HandleFunc("POST /transcricao", p.form(p.saveKey))
 	mux.HandleFunc("POST /transcricao/remover", p.form(p.removeKey))
+	mux.HandleFunc("POST /transcricao/automatica", p.form(p.toggleAuto))
+	mux.HandleFunc("GET /api/asr", p.api(p.apiASR))
+	mux.HandleFunc("POST /api/asr/install", p.api(p.apiASRInstall))
 	mux.HandleFunc("GET /documentacao", p.page(p.documentacao))
 	mux.HandleFunc("GET /receitas", p.page(p.receitas))
 	mux.HandleFunc("POST /conexoes/remover", p.form(p.removeConnection))
@@ -488,10 +492,48 @@ func (p *Panel) transcricao(w http.ResponseWriter, r *http.Request) (string, any
 	if len(key) > 8 {
 		hint = key[:3] + "…" + key[len(key)-4:]
 	}
+	var local localasr.Status
+	if asr := p.Server.ASR(); asr != nil {
+		local = asr.Status()
+	}
+	auto, _ := p.State.Setting(r.Context(), "auto_transcribe")
+	total, corrected, _ := p.State.TranscriptCount(r.Context())
 	return "transcricao", struct {
 		layout
-		KeyHint string
-	}{p.layout(r, "Transcrição de áudios", "transcricao", s), hint}
+		KeyHint   string
+		Local     localasr.Status
+		AutoOn    bool
+		Auto      mcp.AutoStatus
+		Total     int
+		Corrected int
+	}{p.layout(r, "Transcrição de áudios", "transcricao", s), hint, local, auto != "off", p.Server.AutoTranscription(), total, corrected}
+}
+
+func (p *Panel) toggleAuto(r *http.Request) (string, error) {
+	v := "on"
+	if r.FormValue("on") != "1" {
+		v = "off"
+	}
+	return "/transcricao", p.State.SetSetting(r.Context(), "auto_transcribe", v)
+}
+
+func (p *Panel) apiASR(r *http.Request) (any, error) {
+	asr := p.Server.ASR()
+	if asr == nil {
+		return localasr.Status{}, nil
+	}
+	return map[string]any{"status": asr.Status(), "auto": p.Server.AutoTranscription()}, nil
+}
+
+func (p *Panel) apiASRInstall(r *http.Request) (any, error) {
+	asr := p.Server.ASR()
+	if asr == nil {
+		return nil, userError{"a transcrição local não está disponível"}
+	}
+	if err := asr.StartInstall(); err != nil && !errors.Is(err, localasr.ErrInstalling) {
+		return nil, err
+	}
+	return asr.Status(), nil
 }
 
 func (p *Panel) saveKey(r *http.Request) (string, error) {
@@ -605,11 +647,23 @@ func (p *Panel) apiConversation(r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	oldest, _ := p.Index.ChatOldest(r.Context(), jid)
-	if msgs == nil {
-		msgs = []index.Bubble{}
+	type bubble struct {
+		index.Bubble
+		Transcript string `json:"transcript,omitempty"`
+		Corrected  bool   `json:"transcript_corrected,omitempty"`
 	}
-	return map[string]any{"messages": msgs, "oldest": oldest}, nil
+	out := make([]bubble, len(msgs))
+	for i, m := range msgs {
+		out[i] = bubble{Bubble: m}
+		if m.Media == "audio" {
+			if t, err := p.State.Transcript(r.Context(), jid, m.ID); err == nil {
+				out[i].Transcript = t.Text
+				out[i].Corrected = t.Raw != "" && t.Raw != t.Text
+			}
+		}
+	}
+	oldest, _ := p.Index.ChatOldest(r.Context(), jid)
+	return map[string]any{"messages": out, "oldest": oldest}, nil
 }
 
 func (p *Panel) apiHistory(r *http.Request) (any, error) {

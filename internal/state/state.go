@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -21,9 +22,12 @@ type State struct {
 
 // Transcript is the text of one voice note, and where it came from.
 type Transcript struct {
-	ChatJID   string    `json:"chat_jid"`
-	MessageID string    `json:"message_id"`
-	Text      string    `json:"text"`
+	ChatJID   string `json:"chat_jid"`
+	MessageID string `json:"message_id"`
+	Text      string `json:"text"`
+	// Raw is what the speech engine heard, kept when Text was corrected from
+	// the conversation's context, so a correction can always be checked.
+	Raw       string    `json:"raw_text,omitempty"`
 	Language  string    `json:"language,omitempty"`
 	Model     string    `json:"model,omitempty"`
 	Source    string    `json:"source"`
@@ -72,8 +76,8 @@ var ErrNoTranscript = errors.New("no transcript kept for that message")
 func (s *State) Transcript(ctx context.Context, chatJID, messageID string) (Transcript, error) {
 	t := Transcript{ChatJID: chatJID, MessageID: messageID}
 	var created int64
-	err := s.db.QueryRowContext(ctx, `SELECT text, language, model, source, created_at FROM transcripts WHERE chat_jid = ? AND message_id = ?`,
-		chatJID, messageID).Scan(&t.Text, &t.Language, &t.Model, &t.Source, &created)
+	err := s.db.QueryRowContext(ctx, `SELECT text, raw_text, language, model, source, created_at FROM transcripts WHERE chat_jid = ? AND message_id = ?`,
+		chatJID, messageID).Scan(&t.Text, &t.Raw, &t.Language, &t.Model, &t.Source, &created)
 	if errors.Is(err, sql.ErrNoRows) {
 		return t, ErrNoTranscript
 	}
@@ -100,7 +104,7 @@ func (s *State) Transcripts(ctx context.Context, chatJID string, ids []string) (
 // SearchTranscripts finds transcripts containing text, so a search reaches
 // what was said in voice notes too.
 func (s *State) SearchTranscripts(ctx context.Context, text, chatJID string, limit int) ([]Transcript, error) {
-	query := `SELECT chat_jid, message_id, text, language, model, source, created_at FROM transcripts WHERE text LIKE ?`
+	query := `SELECT chat_jid, message_id, text, raw_text, language, model, source, created_at FROM transcripts WHERE text LIKE ?`
 	args := []any{"%" + text + "%"}
 	if chatJID != "" {
 		query += ` AND chat_jid = ?`
@@ -117,7 +121,7 @@ func (s *State) SearchTranscripts(ctx context.Context, text, chatJID string, lim
 	for rows.Next() {
 		var t Transcript
 		var created int64
-		if err := rows.Scan(&t.ChatJID, &t.MessageID, &t.Text, &t.Language, &t.Model, &t.Source, &created); err != nil {
+		if err := rows.Scan(&t.ChatJID, &t.MessageID, &t.Text, &t.Raw, &t.Language, &t.Model, &t.Source, &created); err != nil {
 			return nil, err
 		}
 		t.CreatedAt = time.Unix(created, 0).UTC()
@@ -130,11 +134,11 @@ func (s *State) SaveTranscript(ctx context.Context, t Transcript) error {
 	if t.CreatedAt.IsZero() {
 		t.CreatedAt = time.Now()
 	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO transcripts (chat_jid, message_id, text, language, model, source, created_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (chat_jid, message_id) DO UPDATE SET text = excluded.text, language = excluded.language,
+	_, err := s.db.ExecContext(ctx, `INSERT INTO transcripts (chat_jid, message_id, text, raw_text, language, model, source, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (chat_jid, message_id) DO UPDATE SET text = excluded.text, raw_text = excluded.raw_text, language = excluded.language,
 			model = excluded.model, source = excluded.source, created_at = excluded.created_at`,
-		t.ChatJID, t.MessageID, t.Text, t.Language, t.Model, t.Source, t.CreatedAt.Unix())
+		t.ChatJID, t.MessageID, t.Text, t.Raw, t.Language, t.Model, t.Source, t.CreatedAt.Unix())
 	return err
 }
 
@@ -168,7 +172,40 @@ type Client struct {
 func (s *State) migrateClients() error {
 	_, err := s.db.Exec(`CREATE TABLE IF NOT EXISTS clients (
 		name TEXT PRIMARY KEY, version TEXT NOT NULL DEFAULT '', first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL)`)
+	if err != nil {
+		return err
+	}
+	// raw_text arrived after the first release of the table.
+	var n int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('transcripts') WHERE name = 'raw_text'`).Scan(&n)
+	if n == 0 {
+		_, err = s.db.Exec(`ALTER TABLE transcripts ADD COLUMN raw_text TEXT NOT NULL DEFAULT ''`)
+	}
 	return err
+}
+
+// Transcribed reports which of the given (chat, message) pairs already have
+// a transcript, keyed "chat/id".
+func (s *State) Transcribed(ctx context.Context, keys []string) (map[string]bool, error) {
+	out := map[string]bool{}
+	for _, k := range keys {
+		chat, id, _ := strings.Cut(k, "/")
+		var one int
+		err := s.db.QueryRowContext(ctx, `SELECT 1 FROM transcripts WHERE chat_jid = ? AND message_id = ?`, chat, id).Scan(&one)
+		if err == nil {
+			out[k] = true
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return out, err
+		}
+	}
+	return out, nil
+}
+
+// TranscriptCount is how many voice notes have a transcript, and how many of
+// those were corrected from context.
+func (s *State) TranscriptCount(ctx context.Context) (total, corrected int, err error) {
+	err = s.db.QueryRowContext(ctx, `SELECT COUNT(*), COALESCE(SUM(raw_text != '' AND raw_text != text), 0) FROM transcripts`).Scan(&total, &corrected)
+	return
 }
 
 // SeeClient records that a client connected or made a call.

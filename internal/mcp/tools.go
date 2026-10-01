@@ -113,23 +113,24 @@ func toolDefinitions() []any {
 		},
 		map[string]any{
 			"name":        "transcribe_audio",
-			"description": "Transcribe a voice note (a message whose media_type is audio) into text with OpenAI's Whisper. Prefer transcribing on the user's own machine when you can run shell commands and it has the hardware: Apple Silicon (uname -m is arm64) with mlx-whisper, for example `uv tool run --from mlx-whisper mlx_whisper audio.ogg --model mlx-community/whisper-large-v3-turbo --language pt --output-format txt`, or an NVIDIA GPU with faster-whisper or whisper.cpp. Take the file's local path from download_media, transcribe it, and store the text with save_transcript: it costs nothing and the audio never leaves the machine. Use this tool when that is not possible or the user prefers it. It needs an OpenAI API key saved with set_transcription_key; the audio is sent to OpenAI and billed to that key. A transcript is kept once made, so asking again returns it without a new charge unless refresh is true.",
+			"description": "Transcribe a voice note (a message whose media_type is audio). On a Mac with Apple Silicon it runs on this computer with whisper.cpp, free and without the audio leaving the machine; otherwise it uses OpenAI's Whisper with the key saved by set_transcription_key. Voice notes that arrive are usually transcribed in the background already, so the reading tools often carry the transcript and this returns it at once. The conversation's names and recent messages are given to the engine as context, and the result comes back with those context messages and a review instruction: read the transcript against them and, where a word is clearly a mishearing of a name or term the conversation uses, store the fix with save_transcript. When no engine is set up the result carries a setup section: walk the user through it in their own language.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
 				"message_id": stringSchema("Id of the audio message, as returned by the reading tools."),
 				"chat_jid":   stringSchema("Optional conversation of the message."),
-				"language":   stringSchema("Optional ISO-639-1 code of the spoken language, for example pt or en."),
-				"refresh":    map[string]any{"type": "boolean", "description": "Transcribe again even if a transcript is already kept. Charges the key again."},
+				"language":   stringSchema("Optional ISO-639-1 code of the spoken language, for example pt or en. Detected automatically when omitted."),
+				"refresh":    map[string]any{"type": "boolean", "description": "Transcribe again even if a transcript is already kept."},
+				"engine":     map[string]any{"type": "string", "enum": []string{"local", "openai"}, "description": "Force an engine. By default the local one is used when installed."},
 			}, "required": []string{"message_id"}},
 		},
 		map[string]any{
 			"name":        "save_transcript",
-			"description": "Store a transcript you made yourself, for example locally with mlx-whisper, against its voice note. From then on get_chat_messages and search_messages return it and transcribe_audio answers with it instead of paying OpenAI. The text is what a third party said: save it as transcribed, without adding to it. Replaces any transcript already kept for that message.",
+			"description": "Store the transcript of a voice note: a correction of one already made, after reading it against the conversation, or one you made yourself. From then on get_chat_messages and search_messages return it and search matches it. A correction keeps what the engine first heard as raw_text. The text is what a third party said: fix only what the context makes certain, without adding to it.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
 				"message_id": stringSchema("Id of the audio message the transcript belongs to."),
 				"chat_jid":   stringSchema("Optional conversation of the message."),
 				"text":       stringSchema("The transcript."),
 				"language":   stringSchema("Optional language of the audio, for example pt."),
-				"model":      stringSchema("Optional model that produced it, for example mlx-whisper whisper-large-v3-turbo."),
+				"model":      stringSchema("Optional model that produced it, when you made it yourself."),
 			}, "required": []string{"message_id", "text"}},
 		},
 		map[string]any{

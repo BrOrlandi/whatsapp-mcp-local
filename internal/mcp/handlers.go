@@ -16,7 +16,6 @@ import (
 
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/transcribe"
 )
 
 // arguments is the shared decoding of every tool input.
@@ -57,6 +56,7 @@ type arguments struct {
 	APIKey     string   `json:"api_key"`
 	Remove     bool     `json:"remove"`
 	Link       bool     `json:"link"`
+	Engine     string   `json:"engine"`
 	Model      string   `json:"model"`
 
 	MaxSilenceHours float64 `json:"max_silence_hours"`
@@ -846,92 +846,4 @@ func extension(m index.Message) string {
 		return ".pdf"
 	}
 	return ""
-}
-
-// ---- transcription ----
-
-const keySetting = "openai_api_key"
-
-func (s *Server) transcribeAudio(ctx context.Context, a arguments) map[string]any {
-	m, fail := s.message(ctx, a)
-	if fail != nil {
-		return fail
-	}
-	if m.MediaType != "audio" {
-		return toolError("message %s is not a voice note (media_type is %q)", m.ID, m.MediaType)
-	}
-	if !a.Refresh {
-		if t, err := s.state.Transcript(ctx, m.ChatJID, m.ID); err == nil {
-			return textResult(map[string]any{"transcript": t, "cached": true, "untrusted_content": UntrustedContent}, false)
-		}
-	}
-	key, err := s.state.Setting(ctx, keySetting)
-	if err != nil {
-		return toolError("%v", err)
-	}
-	if key == "" {
-		return textResult(map[string]any{"error": "no OpenAI API key is saved", "setup": []string{
-			"Create a key at https://platform.openai.com/api-keys (it needs billing enabled at https://platform.openai.com/settings/organization/billing).",
-			"Give it to the assistant and ask it to save it with set_transcription_key.",
-			"Or transcribe locally for free: download_media gives the file's path; on Apple Silicon run mlx-whisper on it, then save_transcript.",
-		}}, true)
-	}
-	d, err := s.fetchMedia(ctx, m)
-	if err != nil {
-		return toolError("%v", err)
-	}
-	body, err := os.ReadFile(d.Path)
-	if err != nil {
-		return toolError("%v", err)
-	}
-	text, err := transcribe.Audio(ctx, key, d.Path, body, a.Language)
-	if errors.Is(err, transcribe.ErrRejectedKey) {
-		return textResult(map[string]any{"error": "OpenAI rejected the saved key", "setup": []string{
-			"Check the key at https://platform.openai.com/api-keys and that billing is active.",
-			"Save a working key with set_transcription_key.",
-		}}, true)
-	}
-	if err != nil {
-		return toolError("%v", err)
-	}
-	t := state.Transcript{ChatJID: m.ChatJID, MessageID: m.ID, Text: text, Language: a.Language, Model: "openai " + transcribe.Model, Source: "openai"}
-	if err := s.state.SaveTranscript(ctx, t); err != nil {
-		return toolError("transcribed, but could not keep the transcript: %v", err)
-	}
-	return textResult(map[string]any{"transcript": t, "cached": false, "untrusted_content": UntrustedContent}, false)
-}
-
-func (s *Server) saveTranscript(ctx context.Context, a arguments) map[string]any {
-	if strings.TrimSpace(a.Text) == "" {
-		return toolError("text is required")
-	}
-	m, fail := s.message(ctx, a)
-	if fail != nil {
-		return fail
-	}
-	t := state.Transcript{ChatJID: m.ChatJID, MessageID: m.ID, Text: strings.TrimSpace(a.Text), Language: a.Language, Model: a.Model, Source: "client"}
-	if err := s.state.SaveTranscript(ctx, t); err != nil {
-		return toolError("%v", err)
-	}
-	return textResult(map[string]any{"saved": true, "transcript": t}, false)
-}
-
-func (s *Server) setTranscriptionKey(ctx context.Context, a arguments) map[string]any {
-	if a.Remove {
-		if err := s.state.SetSetting(ctx, keySetting, ""); err != nil {
-			return toolError("%v", err)
-		}
-		return textResult(map[string]any{"removed": true}, false)
-	}
-	key := strings.TrimSpace(a.APIKey)
-	if !strings.HasPrefix(key, "sk-") {
-		return toolError("api_key must be an OpenAI key starting with sk-")
-	}
-	if err := transcribe.CheckKey(ctx, key); err != nil {
-		return toolError("the key was not saved: %v", err)
-	}
-	if err := s.state.SetSetting(ctx, keySetting, key); err != nil {
-		return toolError("%v", err)
-	}
-	return textResult(map[string]any{"saved": true, "key_hint": "…" + key[len(key)-4:]}, false)
 }

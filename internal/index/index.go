@@ -487,3 +487,134 @@ func (x *Index) OwnName(ctx context.Context, jid string) string {
 	}
 	return x.Names.Known(ctx, jid)
 }
+
+// ContextLine is one text message near a voice note, said by whom.
+type ContextLine struct {
+	At     time.Time `json:"at"`
+	Sender string    `json:"sender"`
+	Text   string    `json:"text"`
+}
+
+// AudioContext is the conversation around a voice note: its name, who spoke
+// in it, and the text messages just before and just after. It is what lets a
+// transcript be checked against what the chat was talking about.
+type AudioContext struct {
+	ChatName string        `json:"chat_name"`
+	Speaker  string        `json:"speaker,omitempty"`
+	People   []string      `json:"people,omitempty"`
+	Before   []ContextLine `json:"before,omitempty"`
+	After    []ContextLine `json:"after,omitempty"`
+}
+
+func (x *Index) AudioContext(ctx context.Context, chatJID, msgID string, before, after int) (AudioContext, error) {
+	out := AudioContext{ChatName: x.Names.Name(ctx, chatJID)}
+	var ts int64
+	var fromMe bool
+	var senderJID, senderName string
+	err := x.db.QueryRowContext(ctx, `SELECT ts, from_me, COALESCE(sender_jid,''), COALESCE(sender_name,'') FROM messages WHERE chat_jid = ? AND msg_id = ?`,
+		chatJID, msgID).Scan(&ts, &fromMe, &senderJID, &senderName)
+	if err != nil {
+		return out, describe(err)
+	}
+	if !fromMe {
+		out.Speaker = x.sender(ctx, senderJID, senderName)
+	}
+	read := func(query string, args ...any) ([]ContextLine, error) {
+		rows, err := x.db.QueryContext(ctx, `SELECT m.ts, m.from_me, COALESCE(m.sender_jid,''), COALESCE(m.sender_name,''), `+displayText+`
+			FROM messages m WHERE m.chat_jid = ? AND `+visible+` AND COALESCE(m.media_type,'') = '' AND `+query, args...)
+		if err != nil {
+			return nil, describe(err)
+		}
+		defer rows.Close()
+		var lines []ContextLine
+		for rows.Next() {
+			var l ContextLine
+			var t int64
+			var me bool
+			var sj, sn string
+			if err := rows.Scan(&t, &me, &sj, &sn, &l.Text); err != nil {
+				return nil, err
+			}
+			l.At = time.Unix(t, 0).UTC()
+			if me {
+				l.Sender = "Eu"
+			} else {
+				l.Sender = x.sender(ctx, sj, sn)
+			}
+			lines = append(lines, l)
+		}
+		return lines, rows.Err()
+	}
+	if out.Before, err = read(`m.ts <= ? AND m.msg_id != ? ORDER BY m.ts DESC LIMIT ?`, chatJID, ts, msgID, before); err != nil {
+		return out, err
+	}
+	for i, j := 0, len(out.Before)-1; i < j; i, j = i+1, j-1 {
+		out.Before[i], out.Before[j] = out.Before[j], out.Before[i]
+	}
+	if out.After, err = read(`m.ts > ? ORDER BY m.ts ASC LIMIT ?`, chatJID, ts, after); err != nil {
+		return out, err
+	}
+	seen := map[string]bool{}
+	for _, l := range append(append([]ContextLine{}, out.Before...), out.After...) {
+		if l.Sender != "Eu" && !seen[l.Sender] {
+			seen[l.Sender] = true
+			out.People = append(out.People, l.Sender)
+		}
+	}
+	return out, nil
+}
+
+// Prompt is the context as Whisper's initial prompt: the names first, since
+// they are what speech recognition gets wrong most, then the latest lines,
+// kept within the few hundred characters Whisper reads.
+func (c AudioContext) Prompt() string {
+	var b strings.Builder
+	names := append([]string{c.ChatName}, c.People...)
+	if c.Speaker != "" {
+		names = append(names, c.Speaker)
+	}
+	b.WriteString(strings.Join(names, ", "))
+	b.WriteString(". ")
+	var tail []string
+	size := 0
+	for i := len(c.Before) - 1; i >= 0 && size < 600; i-- {
+		t := strings.Join(strings.Fields(c.Before[i].Text), " ")
+		tail = append([]string{t}, tail...)
+		size += len(t)
+	}
+	b.WriteString(strings.Join(tail, " "))
+	p := b.String()
+	if len(p) > 800 {
+		p = p[len(p)-800:]
+	}
+	return p
+}
+
+// AudioMessage is a voice note waiting to be transcribed.
+type AudioMessage struct {
+	ChatJID string
+	ID      string
+	At      time.Time
+}
+
+// RecentAudio lists the voice notes since a moment, newest first.
+func (x *Index) RecentAudio(ctx context.Context, since time.Time, limit int) ([]AudioMessage, error) {
+	rows, err := x.db.QueryContext(ctx, `SELECT chat_jid, msg_id, ts FROM messages
+		WHERE media_type = 'audio' AND deleted_at IS NULL AND ts >= ? AND COALESCE(direct_path,'') != ''
+		ORDER BY ts DESC LIMIT ?`, since.Unix(), limit)
+	if err != nil {
+		return nil, describe(err)
+	}
+	defer rows.Close()
+	var out []AudioMessage
+	for rows.Next() {
+		var a AudioMessage
+		var ts int64
+		if err := rows.Scan(&a.ChatJID, &a.ID, &ts); err != nil {
+			return nil, err
+		}
+		a.At = time.Unix(ts, 0).UTC()
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}

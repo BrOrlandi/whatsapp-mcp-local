@@ -418,14 +418,38 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 
 {{define "transcricao"}}{{template "head" .}}{{template "nav" .}}
 <h1>Transcrição de áudios</h1>
-<p class="lead">Com uma chave da OpenAI, a sua ferramenta de IA transcreve os áudios que você recebe no WhatsApp usando o Whisper.</p>
+<p class="lead">A sua ferramenta de IA lê os áudios que você recebe no WhatsApp como texto.</p>
 {{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
 
-{{if not .KeyHint}}
-<section class="card card--accent">
-<div class="card__head"><h2>Como ativar</h2><span class="pill pill--off">Não configurada</span></div>
+{{if .Local.Supported}}
+<section class="card card--accent" data-asr>
+<div class="card__head"><h2>Transcrição neste computador</h2>{{if .Local.Ready}}<span class="pill pill--ok">Ativa</span>{{else}}<span class="pill pill--off">Não instalada</span>{{end}}</div>
 <div class="card__body stack">
-<p class="muted">Leva uns cinco minutos. A chave é da sua conta na OpenAI: os áudios são cobrados nela, e só nela. Se o seu computador for um Mac com Apple Silicon, a sua ferramenta de IA também consegue transcrever de graça, no próprio computador, sem chave nenhuma — é só pedir.</p>
+{{if .Local.Ready}}
+<p class="muted">Os áudios são transcritos aqui mesmo, com o Whisper (large-v3-turbo) rodando na GPU do seu Mac: grátis, e o áudio não sai do computador. O nome da conversa, as pessoas e as últimas mensagens entram como contexto, para nomes e termos saírem escritos como na conversa. Depois, a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho.</p>
+<dl class="facts">
+<div class="fact"><dt>Áudios transcritos</dt><dd>{{.Total}}</dd></div>
+<div class="fact"><dt>Corrigidos pelo contexto</dt><dd>{{.Corrected}}</dd></div>
+<div class="fact"><dt>Na fila agora</dt><dd>{{.Auto.Pending}}</dd></div>
+</dl>
+<form method="post" action="/transcricao/automatica">
+{{if .AutoOn}}<input type="hidden" name="on" value="0"><p class="muted" style="margin:0 0 8px">Áudios dos últimos 7 dias e os que chegarem são transcritos sozinhos, em segundo plano.</p><div class="actions"><button class="btn btn--ghost btn--small" type="submit">Desligar a transcrição automática</button></div>
+{{else}}<input type="hidden" name="on" value="1"><p class="muted" style="margin:0 0 8px">A transcrição automática está desligada: os áudios só são transcritos quando a sua ferramenta de IA pede.</p><div class="actions"><button class="btn btn--small" type="submit">Ligar a transcrição automática</button></div>{{end}}
+</form>
+{{else}}
+<p class="muted">Transcreva os áudios aqui mesmo, de graça e sem o áudio sair do computador, com o mesmo tipo de modelo do Handy: o Whisper (large-v3-turbo) rodando na GPU do seu Mac. A instalação baixa cerca de 600 MB, uma vez só.</p>
+<div class="actions"><button class="btn" type="button" data-asr-install>Instalar a transcrição local</button></div>
+<p class="busy" data-asr-progress role="status"{{if ne .Local.Install.State "running"}} hidden{{end}}><span class="spinner" aria-hidden="true"></span><span data-asr-step>{{.Local.Install.Step}}</span></p>
+{{if eq .Local.Install.State "error"}}<p class="alert" role="alert">{{.Local.Install.Error}}</p>{{end}}
+{{end}}
+</div></section>
+{{end}}
+
+{{if not .KeyHint}}
+<section class="card{{if not .Local.Supported}} card--accent{{end}}">
+<div class="card__head"><h2>{{if .Local.Supported}}Alternativa: OpenAI{{else}}Como ativar{{end}}</h2><span class="pill pill--off">Não configurada</span></div>
+<div class="card__body stack">
+<p class="muted">{{if .Local.Supported}}Só se você preferir a transcrição da OpenAI à local. {{end}}Leva uns cinco minutos. A chave é da sua conta na OpenAI: os áudios são cobrados nela, e só nela.</p>
 <ol class="guide">
 <li><strong>Crie uma conta na plataforma da OpenAI.</strong> É a plataforma de desenvolvedores, separada do ChatGPT: uma assinatura do ChatGPT Plus não inclui créditos para a API.
 <div class="actions" style="margin-top:8px"><a class="btn btn--ghost btn--small" href="https://platform.openai.com/signup" rel="noopener noreferrer" target="_blank">Criar conta na OpenAI ↗</a></div></li>
@@ -466,10 +490,10 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <section class="card">
 <div class="card__head"><h2>Como usar</h2></div>
 <div class="card__body">
-<p class="muted">Peça à sua ferramenta de IA algo como a mensagem abaixo. Ela encontra os áudios com as ferramentas de leitura e usa <code>transcribe_audio</code> em cada um.</p>
+<p class="muted">Peça à sua ferramenta de IA algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve com <code>transcribe_audio</code>, confere contra a conversa e guarda a versão corrigida.</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">Exemplo</span></div>
 <pre class="plain" data-copy><code>Transcreva os áudios que recebi hoje no WhatsApp.</code></pre></div>
-<p class="muted">O áudio é enviado para a OpenAI e cobrado na conta desta chave (<a href="https://openai.com/api/pricing/" rel="noopener noreferrer" target="_blank">US$ 0,006 por minuto</a>). Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado, sem nova cobrança. A chave também pode ser salva pela própria ferramenta de IA com <code>set_transcription_key</code>, mas por aqui ela não passa pela conversa.</p>
+<p class="muted">Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado. Com a transcrição local nada é cobrado; com a da OpenAI, o áudio é enviado para ela e cobrado na conta da chave (<a href="https://openai.com/api/pricing/" rel="noopener noreferrer" target="_blank">US$ 0,006 por minuto</a>).</p>
 </div></section>
 {{template "foot"}}{{end}}
 

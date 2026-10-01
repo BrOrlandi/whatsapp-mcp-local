@@ -313,6 +313,11 @@
       if (showWho && !m.from_me && m.sender) b.appendChild(el("span", "bubble__who", m.sender));
       if (m.media) b.appendChild(el("div", "bubble__media", mediaLabels[m.media] || "Mídia"));
       if (m.text && m.text.charAt(0) !== "[") b.appendChild(el("div", "bubble__text", m.text));
+      if (m.transcript) {
+        var tr = el("div", "bubble__transcript", m.transcript);
+        if (m.transcript_corrected) tr.title = "Corrigida pelo contexto da conversa";
+        b.appendChild(tr);
+      }
       b.appendChild(el("span", "bubble__time", new Date(m.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })));
       return b;
     }
@@ -430,4 +435,32 @@
       }).catch(function () {});
     }, 3000);
   }
+})();
+
+// Local transcription install, with its progress.
+(function () {
+  var button = document.querySelector("[data-asr-install]");
+  if (!button) return;
+  var progress = document.querySelector("[data-asr-progress]");
+  var step = document.querySelector("[data-asr-step]");
+  function poll() {
+    fetch("/api/asr", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
+      var i = d.status && d.status.install || {};
+      if (d.status && d.status.ready) { window.location.reload(); return; }
+      if (i.state === "error") { window.location.reload(); return; }
+      if (i.state === "running") {
+        progress.hidden = false;
+        step.textContent = (i.step || "Preparando") + (i.total ? " · " + Math.floor(100 * i.downloaded / i.total) + "%" : "");
+      }
+      window.setTimeout(poll, 1500);
+    }).catch(function () { window.setTimeout(poll, 3000); });
+  }
+  button.addEventListener("click", function () {
+    button.disabled = true;
+    progress.hidden = false;
+    step.textContent = "Preparando…";
+    fetch("/api/asr/install", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: "{}" })
+      .then(function () { poll(); });
+  });
+  if (!progress.hidden) poll();
 })();

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/wacli"
 )
@@ -32,6 +33,9 @@ type Server struct {
 
 	historyMu sync.Mutex
 	history   *HistoryJob
+
+	asr  *localasr.Engine
+	auto autoState
 
 	started time.Time
 
@@ -112,6 +116,7 @@ type Config struct {
 	Logger     *slog.Logger
 	BaseURL    string
 	MediaDir   string
+	ASR        *localasr.Engine
 }
 
 func New(c Config) *Server {
@@ -119,9 +124,12 @@ func New(c Config) *Server {
 		c.Logger = slog.Default()
 	}
 	return &Server{cli: c.CLI, supervisor: c.Supervisor, index: c.Index, state: c.State, logger: c.Logger,
-		baseURL: c.BaseURL, mediaDir: c.MediaDir, links: newMediaLinks(), started: time.Now(),
+		baseURL: c.BaseURL, mediaDir: c.MediaDir, links: newMediaLinks(), started: time.Now(), asr: c.ASR,
 		clients: map[string]string{}, touched: map[string]time.Time{}}
 }
+
+// ASR is the local transcription engine, when there is one.
+func (s *Server) ASR() *localasr.Engine { return s.asr }
 
 // Links serves the temporary media links download_media hands out.
 func (s *Server) Links() *mediaLinks { return s.links }

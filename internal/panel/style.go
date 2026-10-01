@@ -383,6 +383,7 @@ const extraCSS = `
 .bubble__who{display:block;font-size:.78rem;font-weight:700;color:var(--brand-strong)}
 .bubble__text{font-size:.92rem;line-height:1.45;white-space:pre-wrap}
 .bubble__media{font-size:.86rem;color:var(--muted);font-style:italic}
+.bubble__transcript{font-size:.9rem;line-height:1.45;white-space:pre-wrap;color:var(--text-soft);border-left:2px solid var(--border-strong);padding-left:8px;margin-top:3px}
 .bubble__time{display:block;text-align:right;font-size:.7rem;color:var(--muted);margin-top:1px;font-variant-numeric:tabular-nums}
 .thread__day{align-self:center;font-size:.72rem;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:999px;padding:2px 10px;margin:4px 0}
 .inbox{list-style:none;margin:0;padding:0;display:grid;gap:8px}

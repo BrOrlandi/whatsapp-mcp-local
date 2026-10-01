@@ -111,6 +111,14 @@ case ":$PATH:" in
   *) warn "$BIN_DIR is not on your PATH; add it to use whatsapp-mcp-v2 from a terminal" ;;
 esac
 
+# Voice notes are transcribed on the computer itself on Apple Silicon:
+# whisper.cpp and a ~600 MB model, set up once. Not fatal: the panel can set
+# it up later, and OpenAI remains an option.
+if [ "$OS" = darwin ] && [ "$ARCH" = arm64 ]; then
+  say "setting up local voice-note transcription (whisper.cpp, about 600 MB)"
+  "$BIN_DIR/whatsapp-mcp-v2" transcription install || warn "local transcription was not set up; the panel's Transcrição page can do it later"
+fi
+
 WACLI_BIN="$(command -v wacli || echo "$BIN_DIR/wacli")"
 say "starting the service"
 WACLI_BIN="$WACLI_BIN" WHATSAPP_MCP_PORT="$PORT" "$BIN_DIR/whatsapp-mcp-v2" service install
