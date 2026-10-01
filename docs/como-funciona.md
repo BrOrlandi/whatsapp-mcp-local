@@ -40,6 +40,30 @@ Para ir mais para trás, o painel e a tool `sync_history` pedem ao celular as
 mensagens anteriores à mais antiga que o computador já tem de cada conversa. O
 celular precisa estar com internet, e cada pedido recua mais um trecho.
 
+## Transcrição de áudios
+
+Em Macs com Apple Silicon, as notas de voz são transcritas no próprio
+computador com o [whisper.cpp](https://github.com/ggml-org/whisper.cpp) e o
+modelo `large-v3-turbo` (cerca de 600 MB), rodando na GPU, como no
+[Handy](https://github.com/cjpais/Handy). O instalador prepara tudo; a página
+Transcrição do painel também instala com um clique.
+
+A conversa ajuda em duas etapas:
+
+1. **Na transcrição.** O Whisper recebe como contexto o nome da conversa, as
+   pessoas e as últimas mensagens de texto, e escreve nomes e termos como a
+   conversa os escreve. É por isso que o motor é o Whisper e não o Parakeet,
+   que não aceita contexto.
+2. **Na revisão.** A tool `transcribe_audio` devolve a transcrição com as
+   mensagens ao redor e pede ao Claude que corrija o que o contexto mostra que
+   foi mal ouvido. A correção é guardada com `save_transcript`, e o texto
+   original fica guardado ao lado.
+
+Os áudios dos últimos 7 dias e os que chegarem são transcritos em segundo
+plano, então as tools de leitura e o painel já trazem o texto. Fora do Mac, ou
+por escolha, a transcrição pode ser feita pela OpenAI com uma chave salva no
+painel.
+
 ## Segurança
 
 - O daemon escuta só em `127.0.0.1`.

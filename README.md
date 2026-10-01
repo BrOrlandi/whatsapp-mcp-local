@@ -61,6 +61,9 @@ funcionando.
 
 ## Bom saber
 
+- **Áudios viram texto no próprio Mac.** Em Macs com Apple Silicon, as notas de
+  voz são transcritas no computador, de graça e sem o áudio sair dele, usando a
+  conversa como contexto para acertar nomes e termos.
 - **O computador precisa estar ligado** para receber mensagens. Se ele ficar
   desligado por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele
   volta.
