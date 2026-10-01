@@ -12,7 +12,7 @@ INSERT INTO contacts (jid, phone, push_name, full_name, updated_at) VALUES
  ('5511912340008@s.whatsapp.net','5511912340008','Pedro','Pedro Henrique',strftime('%s','now'));
 INSERT INTO chats (jid, kind, name, last_message_ts, pinned, unread_count) VALUES
  ('5511912340001@s.whatsapp.net','dm','Mãe',strftime('%s','now')-240,1,2),
- ('120363000000000001@g.us','group','Família Orlandi',strftime('%s','now')-900,0,14),
+ ('120363000000000001@g.us','group','Família',strftime('%s','now')-900,0,14),
  ('5511912340002@s.whatsapp.net','dm','Lucas Almeida',strftime('%s','now')-2400,0,0),
  ('120363000000000002@g.us','group','Time de Produto',strftime('%s','now')-5400,0,3),
  ('5511912340003@s.whatsapp.net','dm','Ana Beatriz',strftime('%s','now')-9000,0,1),
@@ -23,7 +23,7 @@ INSERT INTO chats (jid, kind, name, last_message_ts, pinned, unread_count) VALUE
  ('5511912340008@s.whatsapp.net','dm','Pedro Henrique',strftime('%s','now')-680000,0,0),
  ('5511912340004@s.whatsapp.net','dm','Rafael Costa',strftime('%s','now')-700000,0,0);
 INSERT INTO groups (jid, name, owner_jid, created_ts, updated_at) VALUES
- ('120363000000000001@g.us','Família Orlandi','5511912340001@s.whatsapp.net',strftime('%s','now')-99999999,strftime('%s','now')),
+ ('120363000000000001@g.us','Família','5511912340001@s.whatsapp.net',strftime('%s','now')-99999999,strftime('%s','now')),
  ('120363000000000002@g.us','Time de Produto','5511987654321@s.whatsapp.net',strftime('%s','now')-9999999,strftime('%s','now')),
  ('120363000000000003@g.us','Churrasco sexta 🍖','5511912340004@s.whatsapp.net',strftime('%s','now')-999999,strftime('%s','now'));
 -- helper: (chat, id, sender, secs ago, from_me, text, media)
@@ -33,9 +33,9 @@ INSERT INTO messages (chat_jid, chat_name, msg_id, sender_jid, sender_name, ts, 
  ('5511912340001@s.whatsapp.net','Mãe','M3','5511987654321@s.whatsapp.net','Fulano',strftime('%s','now')-2000,1,'Almoço sim 😊','Almoço sim 😊',NULL),
  ('5511912340001@s.whatsapp.net','Mãe','M4','5511912340001@s.whatsapp.net','Mãe',strftime('%s','now')-300,0,'[Audio]','[Audio]','audio'),
  ('5511912340001@s.whatsapp.net','Mãe','M5','5511912340001@s.whatsapp.net','Mãe',strftime('%s','now')-240,0,'Traz a sobremesa então!','Traz a sobremesa então!',NULL),
- ('120363000000000001@g.us','Família Orlandi','F1','5511912340003@s.whatsapp.net','Ana',strftime('%s','now')-3600,0,'Alguém vai no aniversário da vó?','Alguém vai no aniversário da vó?',NULL),
- ('120363000000000001@g.us','Família Orlandi','F2','5511912340002@s.whatsapp.net','Lucas',strftime('%s','now')-2500,0,'Eu vou! Levo o bolo','Eu vou! Levo o bolo',NULL),
- ('120363000000000001@g.us','Família Orlandi','F3','5511912340001@s.whatsapp.net','Mãe',strftime('%s','now')-900,0,'Foto do bolo do ano passado kkk','Foto do bolo do ano passado kkk','image'),
+ ('120363000000000001@g.us','Família','F1','5511912340003@s.whatsapp.net','Ana',strftime('%s','now')-3600,0,'Alguém vai no aniversário da vó?','Alguém vai no aniversário da vó?',NULL),
+ ('120363000000000001@g.us','Família','F2','5511912340002@s.whatsapp.net','Lucas',strftime('%s','now')-2500,0,'Eu vou! Levo o bolo','Eu vou! Levo o bolo',NULL),
+ ('120363000000000001@g.us','Família','F3','5511912340001@s.whatsapp.net','Mãe',strftime('%s','now')-900,0,'Foto do bolo do ano passado kkk','Foto do bolo do ano passado kkk','image'),
  ('5511912340002@s.whatsapp.net','Lucas Almeida','L1','5511987654321@s.whatsapp.net','Fulano',strftime('%s','now')-5000,1,'Bom dia! Confirma nossa call das 14h?','Bom dia! Confirma nossa call das 14h?',NULL),
  ('5511912340002@s.whatsapp.net','Lucas Almeida','L2','5511912340002@s.whatsapp.net','Lucas',strftime('%s','now')-2400,0,'Confirmado! Te mando o link','Confirmado! Te mando o link',NULL),
  ('120363000000000002@g.us','Time de Produto','P1','5511912340007@s.whatsapp.net','Carla',strftime('%s','now')-7200,0,'Subi a versão nova no staging','Subi a versão nova no staging',NULL),
