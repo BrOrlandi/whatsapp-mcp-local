@@ -42,28 +42,15 @@ celular precisa estar com internet, e cada pedido recua mais um trecho.
 
 ## Transcrição de áudios
 
-Em Macs com Apple Silicon, as notas de voz são transcritas no próprio
-computador com o [whisper.cpp](https://github.com/ggml-org/whisper.cpp) e o
-modelo `large-v3-turbo` (cerca de 600 MB), rodando na GPU, como no
-[Handy](https://github.com/cjpais/Handy). O instalador prepara tudo; a página
-Transcrição do painel também instala com um clique.
+Em Macs com Apple Silicon, os áudios são transcritos no próprio computador com
+o whisper.cpp e o modelo large-v3-turbo, usando a conversa como contexto, e só
+quando você pede. O caminho completo, do pedido à revisão pelo Claude, está em
+[transcricao.md](transcricao.md).
 
-A conversa ajuda em duas etapas:
+## Dependências
 
-1. **Na transcrição.** O Whisper recebe como contexto o nome da conversa, as
-   pessoas e as últimas mensagens de texto, e escreve nomes e termos como a
-   conversa os escreve. É por isso que o motor é o Whisper e não o Parakeet,
-   que não aceita contexto.
-2. **Na revisão.** A tool `transcribe_audio` devolve a transcrição com as
-   mensagens ao redor e pede ao Claude que corrija o que o contexto mostra que
-   foi mal ouvido. A correção é guardada com `save_transcript`, e o texto
-   original fica guardado ao lado.
-
-Nada é transcrito sem pedido: um áudio só passa pelo Whisper quando você pede
-à sua ferramenta de IA para lê-lo. Depois disso a transcrição fica guardada, e
-as tools de leitura e o painel a mostram junto do áudio. Fora do Mac, ou por
-escolha, a transcrição pode ser feita pela OpenAI com uma chave salva no
-painel.
+O que é crítico, o que é opcional, as versões em uso e onde ficam os dados estão
+em [dependencias.md](dependencias.md).
 
 ## Segurança
 

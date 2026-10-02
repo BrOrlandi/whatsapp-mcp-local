@@ -176,7 +176,7 @@ func (e *Engine) installAll(ctx context.Context) error {
 	}
 	var pkgs []string
 	if s.Whisper == "" {
-		pkgs = append(pkgs, "whisper-cpp")
+		pkgs = append(pkgs, "whisper.cpp")
 	}
 	if s.FFmpeg == "" {
 		pkgs = append(pkgs, "ffmpeg")

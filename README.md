@@ -74,6 +74,8 @@ funcionando.
   cliente não oficial, e a conta pode ser desconectada ou restringida.
 
 [Como funciona](docs/como-funciona.md) ·
+[Transcrição](docs/transcricao.md) ·
+[Dependências](docs/dependencias.md) ·
 [Desenvolvimento](docs/desenvolvimento.md) ·
 [Apoie o projeto](https://donate.stripe.com/8x200jdhA6c1d375jF9Ve06)
 
