@@ -221,7 +221,6 @@ func serve(cfg config) error {
 	asr := localasr.New(cfg.DataDir)
 	server := mcp.New(mcp.Config{CLI: cli, Supervisor: supervisor, Index: idx, State: st, Logger: logger,
 		BaseURL: cfg.baseURL(), MediaDir: filepath.Join(cfg.DataDir, "media"), ASR: asr})
-	go server.RunAutoTranscription(ctx)
 	control := &panel.Panel{Server: server, Supervisor: supervisor, Index: idx, State: st, MCPURL: cfg.baseURL() + "/mcp", Token: cfg.Token,
 		Binary: executable(), Port: cfg.Port, DefaultPort: defaultPort}
 	handler := httpserver.Handler(server, httpserver.Options{Addr: cfg.addr(), Token: cfg.Token, Logger: logger, Register: control.Register})

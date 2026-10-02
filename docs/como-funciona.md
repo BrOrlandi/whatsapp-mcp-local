@@ -59,9 +59,10 @@ A conversa ajuda em duas etapas:
    foi mal ouvido. A correção é guardada com `save_transcript`, e o texto
    original fica guardado ao lado.
 
-Os áudios dos últimos 7 dias e os que chegarem são transcritos em segundo
-plano, então as tools de leitura e o painel já trazem o texto. Fora do Mac, ou
-por escolha, a transcrição pode ser feita pela OpenAI com uma chave salva no
+Nada é transcrito sem pedido: um áudio só passa pelo Whisper quando você pede
+à sua ferramenta de IA para lê-lo. Depois disso a transcrição fica guardada, e
+as tools de leitura e o painel a mostram junto do áudio. Fora do Mac, ou por
+escolha, a transcrição pode ser feita pela OpenAI com uma chave salva no
 painel.
 
 ## Segurança

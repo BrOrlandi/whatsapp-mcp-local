@@ -71,7 +71,6 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /transcricao", p.page(p.transcricao))
 	mux.HandleFunc("POST /transcricao", p.form(p.saveKey))
 	mux.HandleFunc("POST /transcricao/remover", p.form(p.removeKey))
-	mux.HandleFunc("POST /transcricao/automatica", p.form(p.toggleAuto))
 	mux.HandleFunc("GET /api/asr", p.api(p.apiASR))
 	mux.HandleFunc("POST /api/asr/install", p.api(p.apiASRInstall))
 	mux.HandleFunc("GET /documentacao", p.page(p.documentacao))
@@ -496,25 +495,14 @@ func (p *Panel) transcricao(w http.ResponseWriter, r *http.Request) (string, any
 	if asr := p.Server.ASR(); asr != nil {
 		local = asr.Status()
 	}
-	auto, _ := p.State.Setting(r.Context(), "auto_transcribe")
 	total, corrected, _ := p.State.TranscriptCount(r.Context())
 	return "transcricao", struct {
 		layout
 		KeyHint   string
 		Local     localasr.Status
-		AutoOn    bool
-		Auto      mcp.AutoStatus
 		Total     int
 		Corrected int
-	}{p.layout(r, "Transcrição de áudios", "transcricao", s), hint, local, auto != "off", p.Server.AutoTranscription(), total, corrected}
-}
-
-func (p *Panel) toggleAuto(r *http.Request) (string, error) {
-	v := "on"
-	if r.FormValue("on") != "1" {
-		v = "off"
-	}
-	return "/transcricao", p.State.SetSetting(r.Context(), "auto_transcribe", v)
+	}{p.layout(r, "Transcrição de áudios", "transcricao", s), hint, local, total, corrected}
 }
 
 func (p *Panel) apiASR(r *http.Request) (any, error) {
@@ -522,7 +510,7 @@ func (p *Panel) apiASR(r *http.Request) (any, error) {
 	if asr == nil {
 		return localasr.Status{}, nil
 	}
-	return map[string]any{"status": asr.Status(), "auto": p.Server.AutoTranscription()}, nil
+	return map[string]any{"status": asr.Status()}, nil
 }
 
 func (p *Panel) apiASRInstall(r *http.Request) (any, error) {

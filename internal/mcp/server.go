@@ -34,8 +34,7 @@ type Server struct {
 	historyMu sync.Mutex
 	history   *HistoryJob
 
-	asr  *localasr.Engine
-	auto autoState
+	asr *localasr.Engine
 
 	started time.Time
 

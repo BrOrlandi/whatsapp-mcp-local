@@ -47,7 +47,7 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	if job := s.historyStatus(); job != nil {
 		report["history_request"] = job
 	}
-	transcription := map[string]any{"openai_key": nil, "background": s.AutoTranscription()}
+	transcription := map[string]any{"openai_key": nil, "mode": "on request only: transcribe_audio"}
 	if key, _ := s.state.Setting(ctx, keySetting); key != "" {
 		transcription["openai_key"] = "…" + key[len(key)-4:]
 	}

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
@@ -15,10 +13,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/transcribe"
 )
 
-const (
-	keySetting  = "openai_api_key"
-	autoSetting = "auto_transcribe" // "off" disables it; anything else is on
-)
+const keySetting = "openai_api_key"
 
 // reviewGuidance asks the client to do what speech recognition cannot: read
 // the transcript against the conversation and fix what was misheard.
@@ -144,113 +139,4 @@ func (s *Server) setTranscriptionKey(ctx context.Context, a arguments) map[strin
 		return toolError("%v", err)
 	}
 	return textResult(map[string]any{"saved": true, "key_hint": "…" + key[len(key)-4:]}, false)
-}
-
-// AutoStatus is what the background transcription has been doing.
-type AutoStatus struct {
-	Enabled bool      `json:"enabled"`
-	Running bool      `json:"running"`
-	Done    int       `json:"done"`
-	Pending int       `json:"pending"`
-	Failed  int       `json:"failed"`
-	LastAt  time.Time `json:"last_at,omitempty"`
-	LastErr string    `json:"last_error,omitempty"`
-}
-
-type autoState struct {
-	mu     sync.Mutex
-	status AutoStatus
-	failed map[string]time.Time
-}
-
-func (s *Server) AutoTranscription() AutoStatus {
-	s.auto.mu.Lock()
-	defer s.auto.mu.Unlock()
-	return s.auto.status
-}
-
-// autoWindow is how far back the background transcription reaches: the voice
-// notes a person is likely to ask about, not the whole history.
-const autoWindow = 7 * 24 * time.Hour
-
-// RunAutoTranscription transcribes new voice notes in the background, newest
-// first, with the local engine only: it costs nothing and nothing leaves the
-// computer. A note that fails is retried after an hour, not in a loop.
-func (s *Server) RunAutoTranscription(ctx context.Context) {
-	s.auto.mu.Lock()
-	s.auto.failed = map[string]time.Time{}
-	s.auto.mu.Unlock()
-	t := time.NewTicker(30 * time.Second)
-	defer t.Stop()
-	for {
-		s.autoPass(ctx)
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-		}
-	}
-}
-
-func (s *Server) autoPass(ctx context.Context) {
-	setting, _ := s.state.Setting(ctx, autoSetting)
-	enabled := setting != "off" && s.asr != nil && s.asr.Status().Ready
-	s.auto.mu.Lock()
-	s.auto.status.Enabled = enabled
-	s.auto.mu.Unlock()
-	if !enabled {
-		return
-	}
-	notes, err := s.index.RecentAudio(ctx, time.Now().Add(-autoWindow), 200)
-	if err != nil {
-		return
-	}
-	keys := make([]string, len(notes))
-	for i, n := range notes {
-		keys[i] = n.ChatJID + "/" + n.ID
-	}
-	done, err := s.state.Transcribed(ctx, keys)
-	if err != nil {
-		return
-	}
-	var todo []index.AudioMessage
-	s.auto.mu.Lock()
-	for _, n := range notes {
-		k := n.ChatJID + "/" + n.ID
-		if done[k] || time.Since(s.auto.failed[k]) < time.Hour {
-			continue
-		}
-		todo = append(todo, n)
-	}
-	s.auto.status.Pending, s.auto.status.Running = len(todo), len(todo) > 0
-	s.auto.mu.Unlock()
-
-	for i, n := range todo {
-		if ctx.Err() != nil {
-			return
-		}
-		m, err := s.index.MessageByID(ctx, n.ID, n.ChatJID)
-		if err == nil {
-			cctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-			_, _, err = s.Transcribe(cctx, m, "", false)
-			cancel()
-		}
-		s.auto.mu.Lock()
-		s.auto.status.Pending = len(todo) - i - 1
-		s.auto.status.LastAt = time.Now()
-		if err != nil {
-			s.auto.failed[n.ChatJID+"/"+n.ID] = time.Now()
-			s.auto.status.Failed++
-			s.auto.status.LastErr = err.Error()
-		} else {
-			s.auto.status.Done++
-		}
-		s.auto.mu.Unlock()
-		if err != nil {
-			s.logger.Warn("background transcription failed", "chat", n.ChatJID, "id", n.ID, "error", err)
-		}
-	}
-	s.auto.mu.Lock()
-	s.auto.status.Running = false
-	s.auto.mu.Unlock()
 }

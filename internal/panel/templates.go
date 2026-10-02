@@ -426,16 +426,11 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <div class="card__head"><h2>Transcrição neste computador</h2>{{if .Local.Ready}}<span class="pill pill--ok">Ativa</span>{{else}}<span class="pill pill--off">Não instalada</span>{{end}}</div>
 <div class="card__body stack">
 {{if .Local.Ready}}
-<p class="muted">Os áudios são transcritos aqui mesmo, com o Whisper (large-v3-turbo) rodando na GPU do seu Mac: grátis, e o áudio não sai do computador. O nome da conversa, as pessoas e as últimas mensagens entram como contexto, para nomes e termos saírem escritos como na conversa. Depois, a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho.</p>
+<p class="muted">Quando você pede à sua ferramenta de IA para ler um áudio, ele é transcrito aqui mesmo, com o Whisper (large-v3-turbo) rodando na GPU do seu Mac: grátis, e o áudio não sai do computador. Nada é transcrito sem você pedir. O nome da conversa, as pessoas e as últimas mensagens entram como contexto, e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho.</p>
 <dl class="facts">
 <div class="fact"><dt>Áudios transcritos</dt><dd>{{.Total}}</dd></div>
 <div class="fact"><dt>Corrigidos pelo contexto</dt><dd>{{.Corrected}}</dd></div>
-<div class="fact"><dt>Na fila agora</dt><dd>{{.Auto.Pending}}</dd></div>
 </dl>
-<form method="post" action="/transcricao/automatica">
-{{if .AutoOn}}<input type="hidden" name="on" value="0"><p class="muted" style="margin:0 0 8px">Áudios dos últimos 7 dias e os que chegarem são transcritos sozinhos, em segundo plano.</p><div class="actions"><button class="btn btn--ghost btn--small" type="submit">Desligar a transcrição automática</button></div>
-{{else}}<input type="hidden" name="on" value="1"><p class="muted" style="margin:0 0 8px">A transcrição automática está desligada: os áudios só são transcritos quando a sua ferramenta de IA pede.</p><div class="actions"><button class="btn btn--small" type="submit">Ligar a transcrição automática</button></div>{{end}}
-</form>
 {{else}}
 <p class="muted">Transcreva os áudios aqui mesmo, de graça e sem o áudio sair do computador, com o mesmo tipo de modelo do Handy: o Whisper (large-v3-turbo) rodando na GPU do seu Mac. A instalação baixa cerca de 600 MB, uma vez só.</p>
 <div class="actions"><button class="btn" type="button" data-asr-install>Instalar a transcrição local</button></div>
