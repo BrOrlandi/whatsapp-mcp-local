@@ -22,8 +22,9 @@ terminal, sem navegador, sem serviço instalado por linha de comando.
 | Fica igual | Muda |
 |---|---|
 | O núcleo: supervisor do wacli, MCP, índice, nomes, transcrição sob pedido, painel | O painel abre numa janela do app, não no navegador |
-| O endereço do MCP (`http://127.0.0.1:47821/mcp`) e as tools | O app roda o daemon dentro do próprio processo, em vez de um serviço do sistema |
+| O MCP em `localhost` (porta 47821 por padrão) e as tools | O app roda o daemon dentro do próprio processo, em vez de um serviço do sistema |
 | O wacli como motor do WhatsApp | O wacli passa a vir dentro do app, sem Homebrew |
+| | A porta do MCP passa a ser configurável na interface |
 | O whisper.cpp + large-v3-turbo, só quando pedido | whisper.cpp e ffmpeg vêm prontos para cada sistema, baixados sob demanda |
 | A versão de linha de comando (`whatsapp-mcp-v2 serve`), para servidores e Linux sem tela | Ganha ícone na bandeja, instância única, "iniciar com o sistema", atualização automática |
 
@@ -96,7 +97,43 @@ restante do plano.
 - O wacli embutido é atualizado junto com o app, numa versão testada. Nunca
   separadamente.
 
-### 1.5 Desinstalar
+### 1.5 Porta do MCP
+
+O MCP sobe em `localhost`, na porta **47821** por padrão. A página
+Configurações deixa trocar:
+
+```
+Porta do MCP
+[ 47821 ]  [Salvar]
+Endereço: http://127.0.0.1:47821/mcp   [Copiar]
+```
+
+- **Quando trocar:** se outro programa já usa a porta, ou se a pessoa quiser
+  uma porta específica.
+- **Validação:** só números de 1024 a 65535. Antes de salvar, o app tenta abrir
+  a porta. Se outro programa estiver nela, mostra "A porta 3000 já está em uso
+  por outro programa" e não salva.
+- **O que acontece ao salvar:** o app troca só o servidor do MCP para a porta
+  nova, sem reiniciar o WhatsApp nem o sync. Uma conversa já aberta no Claude
+  perde a conexão e reconecta no próximo uso.
+- **Os clientes conectados são atualizados junto:**
+  - **Claude Desktop (e Cowork):** nada a fazer. O bridge lê a porta da
+    configuração do app a cada vez que inicia, então basta reabrir o Claude
+    Desktop.
+  - **Claude Code:** o endereço tem a porta dentro. O app oferece "Atualizar o
+    Claude Code agora", que refaz o `claude mcp add` com o endereço novo.
+  - **Outras ferramentas:** o app mostra o endereço novo e avisa que elas
+    precisam ser configuradas de novo, com o prompt pronto da aba "Outra
+    ferramenta".
+- **Porta ocupada ao abrir o app:** se, ao ligar, a porta configurada estiver
+  em uso por outro programa (não por outra cópia do app), a janela abre com o
+  aviso e sugere uma porta livre, já testada, com um botão "Usar a porta 47822".
+  O WhatsApp continua conectado enquanto isso; só o MCP fica fora até resolver.
+- **Linha de comando:** a variável `WHATSAPP_MCP_PORT` continua funcionando e,
+  quando definida, vale mais que a configuração da interface (a página mostra
+  "definida por variável de ambiente" e bloqueia o campo).
+
+### 1.6 Desinstalar
 
 - macOS: arrastar para o Lixo. Windows: "Adicionar ou remover programas".
   Linux: o gerenciador de pacotes, ou apagar o AppImage.
@@ -156,7 +193,7 @@ WhatsApp MCP (processo do app)
 | Executável | Subsistema | Para quê |
 |---|---|---|
 | `WhatsApp MCP` (o app) | janela | o que a pessoa abre |
-| `whatsapp-mcp-bridge` | console | o processo stdio que o Claude Desktop inicia; só repassa para `127.0.0.1:47821` |
+| `whatsapp-mcp-bridge` | console | o processo stdio que o Claude Desktop inicia; lê a porta em `config.json` e repassa para `127.0.0.1:<porta>` |
 | `whatsapp-mcp` (opcional, mesmo código de hoje) | console | linha de comando e servidores sem tela |
 
 O bridge é separado porque, no Windows, um executável de janela
@@ -212,7 +249,7 @@ abrir app
  ├─ já existe uma instância? → foca a janela dela e sai   (instância única)
  ├─ migra dados da instalação antiga, se houver           (seção 8)
  ├─ daemon.Start()
- │    ├─ porta 47821 ocupada por outro? → mostra erro claro na janela
+ │    ├─ porta configurada ocupada por outro programa? → avisa e sugere uma livre (1.5)
  │    └─ supervisor sobe o wacli (ou espera o pareamento)
  ├─ cria bandeja
  └─ cria a janela (a menos que --hidden)
@@ -349,12 +386,27 @@ a recuperação de órfãos continua lá.
 - As variáveis de ambiente atuais continuam valendo, para quem roda a linha de
   comando.
 
+- **`config.json`** em `<dados>/config.json`, para o que precisa ser lido
+  antes de qualquer outra coisa e também pelo bridge:
+
+  ```json
+  { "port": 47821, "close_to_tray": true, "autostart": true }
+  ```
+
+  Lido na abertura do app e pelo `whatsapp-mcp-bridge` a cada início. Escrito
+  de forma atômica (arquivo temporário e `rename`). O que é estado do daemon
+  (transcrições, clientes, etapa do setup) continua no `state.db`.
+
 ### 6.3 `internal/daemon`
 
 - Extrair do `main.go` a montagem: índice, estado, supervisor, motor de
   transcrição, servidor MCP, painel e HTTP.
 - `Start` retorna erros que a janela consegue mostrar (porta em uso, wacli
   ausente ou corrompido, pasta sem permissão).
+- `SetPort(port)`: abre o listener novo antes de fechar o antigo, para nunca
+  ficar sem nenhum; se o novo falhar, mantém o antigo e devolve o erro. Atualiza
+  o endereço que o painel mostra e o que os botões de cliente gravam. Não mexe
+  no supervisor nem no sync.
 - Expor um canal de eventos de estado (conectado, reconectando, desconectado
   pelo WhatsApp, histórico chegando) para a bandeja e as notificações, em vez
   de a bandeja ficar consultando.
@@ -363,8 +415,8 @@ a recuperação de órfãos continua lá.
 
 - Aceitar a origem `wails://wails` (e o equivalente de cada sistema), além de
   `http://127.0.0.1:47821`, na verificação de mesma origem das ações.
-- Página nova **Configurações**: iniciar com o sistema, fechar = esconder ou
-  sair, pasta de dados (abrir no Finder/Explorer), versão e atualizações, apagar
+- Página nova **Configurações**: porta do MCP (1.5), iniciar com o sistema,
+  fechar = esconder ou sair, pasta de dados (abrir no Finder/Explorer), versão e atualizações, apagar
   dados.
 - O botão "Adicionar ao Claude Desktop" passa a gravar o caminho do
   `whatsapp-mcp-bridge` do app, com o arquivo de configuração certo de cada
@@ -475,6 +527,9 @@ brigariam pelo dispositivo.
   temporária), encerramento de processos (Job Object no Windows).
 - `internal/daemon`: sobe, responde `/health`, para sem deixar processos.
 - O painel com origem `wails://`.
+- Troca de porta: o listener novo sobe antes de o antigo fechar; porta ocupada
+  é recusada sem derrubar a atual; o bridge passa a usar a porta nova no
+  próximo início; a variável de ambiente vence a configuração.
 
 ### 9.2 Ponta a ponta (manual, antes de cada release)
 
@@ -482,6 +537,8 @@ brigariam pelo dispositivo.
 |---|---|---|---|
 | Instalação limpa, QR code, Claude conectado | ☐ | ☐ | ☐ |
 | Código pelo número de telefone | ☐ | ☐ | ☐ |
+| Trocar a porta: Claude Desktop e Claude Code voltam a funcionar | ☐ | ☐ | ☐ |
+| Porta ocupada ao abrir: aviso e sugestão de porta livre | ☐ | ☐ | ☐ |
 | Fechar a janela: MCP segue respondendo | ☐ | ☐ | ☐ |
 | Sair: nenhum wacli fica rodando | ☐ | ☐ | ☐ |
 | Matar o app à força: na volta, assume o sync | ☐ | ☐ | ☐ |
@@ -523,7 +580,7 @@ seção 2.3 separados. A linha de comando continua funcionando igual.
 
 ### Fase 2 · App no macOS (4–5 dias)
 
-Janela, bandeja, primeira abertura no QR code, Configurações, autostart com
+Janela, bandeja, primeira abertura no QR code, Configurações (com a porta), autostart com
 SMAppService, wacli embutido, migração da instalação atual.
 
 **Aceite:** a sua instalação migra sem novo QR code; os cenários da 9.2 no
@@ -577,6 +634,8 @@ atualiza para a N+1 sozinho nos três sistemas.
 | Antivírus no Windows estranhar o app que baixa e roda binários | bloqueio da transcrição | assinar todos os binários; baixar só do nosso release; verificar sha256 |
 | Transcrição lenta em CPU | experiência ruim no Windows e Linux sem GPU | aviso claro; modelo `small` como opção; CUDA quando houver NVIDIA |
 | Duas cópias rodando (app e serviço antigo) | brigam pela sessão do WhatsApp | migração remove o LaunchAgent; o app detecta a porta e o lock ocupados e explica |
+| Outro programa na porta 47821 | o MCP não sobe | aviso na abertura com uma porta livre sugerida; porta configurável (1.5) |
+| Porta trocada e cliente com o endereço antigo | a IA "perde" o WhatsApp | o bridge lê a porta sozinho; o Claude Code é atualizado com um clique; as outras ferramentas recebem o prompt pronto |
 | GNOME sem bandeja | o app "some" ao fechar a janela | detectar a falta de bandeja e só minimizar |
 
 ---
