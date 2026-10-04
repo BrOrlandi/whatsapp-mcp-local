@@ -1,6 +1,6 @@
 # Plano: WhatsApp MCP como app desktop
 
-> Status: proposta, para revisão. Nada deste plano está implementado.
+> Status: proposta revisada (decisões da seção 12 registradas). Nada deste plano está implementado.
 
 ## 0. Resumo
 
@@ -77,7 +77,7 @@ restante do plano.
 - **Fechar a janela não encerra o app.** O MCP continua funcionando pela
   bandeja. Na primeira vez em que a janela for fechada, uma notificação avisa:
   "O WhatsApp MCP continua rodando na bandeja. Para encerrar, use Sair."
-  (Decisão em aberto, seção 12: a alternativa é fechar = sair.)
+  (Decidido: fechar esconde, não encerra.)
 - **Sair** encerra o daemon com cuidado (para o sync, libera o lock) e o MCP
   para de responder. Os clientes recebem a mensagem "o WhatsApp MCP não está
   aberto".
@@ -346,8 +346,17 @@ no Windows (o Wails expõe ambos) e `SIGTERM` no Linux.
 - **Onde ficam:** `<dados>/bin/` com um `manifest.json` (versão, sha256). O
   `sidecar` verifica o sha256 antes de executar.
 - **Em CPU** (Windows e Linux sem GPU), o turbo leva mais ou menos o tempo do
-  próprio áudio. A página Transcrição avisa e oferece o modelo `small` (~470
-  MB) como opção mais rápida. Decisão em aberto, seção 12.
+  próprio áudio. Na primeira versão do app, a página Transcrição só avisa
+  disso; o modelo continua sendo o turbo.
+- **Sem transcrição pela OpenAI na primeira versão do app.** A opção de usar
+  uma chave da OpenAI (Whisper por API), útil justamente em computadores sem
+  GPU, fica para uma versão futura. Até lá, quem não puder ou não quiser usar
+  o motor local tem o caminho de sempre: a ferramenta de IA baixa o áudio com
+  `download_media` (o arquivo já fica no disco, com o caminho na resposta) e o
+  transcreve como preferir. Na prática, a página Transcrição do app mostra só o
+  motor local, e a tool `set_transcription_key` e o uso da chave pela
+  `transcribe_audio` saem da primeira versão do app, voltando junto com a
+  opção.
 - **O que não muda:** a transcrição só roda quando pedida pela tool
   `transcribe_audio`, e o contexto da conversa continua no `--prompt`.
 
@@ -632,7 +641,7 @@ atualiza para a N+1 sozinho nos três sistemas.
 | Custo e burocracia de assinatura | sem assinatura, avisos assustadores no macOS e no Windows | decidir cedo (seção 12); dá para publicar um beta sem assinatura, com instruções de "abrir mesmo assim" |
 | WhatsApp mudar o protocolo | a conexão para em todos os sistemas | o app avisa na bandeja; release rápido com o wacli atualizado; o updater entrega em horas |
 | Antivírus no Windows estranhar o app que baixa e roda binários | bloqueio da transcrição | assinar todos os binários; baixar só do nosso release; verificar sha256 |
-| Transcrição lenta em CPU | experiência ruim no Windows e Linux sem GPU | aviso claro; modelo `small` como opção; CUDA quando houver NVIDIA |
+| Transcrição lenta em CPU | experiência ruim no Windows e Linux sem GPU | aviso claro; CUDA quando houver NVIDIA; a IA pode baixar o áudio e transcrever de outra forma; chave da OpenAI numa versão futura |
 | Duas cópias rodando (app e serviço antigo) | brigam pela sessão do WhatsApp | migração remove o LaunchAgent; o app detecta a porta e o lock ocupados e explica |
 | Outro programa na porta 47821 | o MCP não sobe | aviso na abertura com uma porta livre sugerida; porta configurável (1.5) |
 | Porta trocada e cliente com o endereço antigo | a IA "perde" o WhatsApp | o bridge lê a porta sozinho; o Claude Code é atualizado com um clique; as outras ferramentas recebem o prompt pronto |
@@ -640,20 +649,60 @@ atualiza para a N+1 sozinho nos três sistemas.
 
 ---
 
-## 12. Decisões em aberto
+## 12. Decisões
 
-1. **Fechar a janela:** esconde na bandeja (proposta) ou encerra o app?
-2. **Assinatura de código:** pagar Apple (US$ 99/ano) e Azure Trusted Signing
-   (~US$ 10/mês) desde a primeira versão pública, ou começar com um beta sem
-   assinatura?
-3. **Nome do app:** "WhatsApp MCP"? Usar "WhatsApp" no nome de um app pode
-   esbarrar nas regras de marca da Meta. Alternativas como "Zap MCP" ou
-   "Conversas MCP" evitam o problema.
-4. **Transcrição em CPU:** manter o turbo como único modelo, com aviso, ou
-   oferecer o `small` automaticamente quando não houver GPU?
-5. **Linha de comando:** manter o `whatsapp-mcp` (serve, service install) como
-   produto suportado para servidores, ou só como ferramenta de desenvolvimento?
-6. **Repositório:** o app nasce neste repositório (proposta) ou num novo?
+### Tomadas
+
+1. **Fechar a janela esconde o app na bandeja; não encerra.** Encerrar é só
+   pelo "Sair" (bandeja, menu ou Cmd+Q). Exceção: no GNOME sem bandeja, a
+   janela minimiza em vez de esconder (seção 4.3).
+2. **Distribuição só pelo GitHub Releases.** Nada de Mac App Store nem
+   Microsoft Store. A pessoa baixa o `.dmg`, o `.exe` ou o `.AppImage`/`.deb`
+   da página de releases, e a atualização automática busca de lá.
+3. **O nome é "WhatsApp MCP".** O risco de marca da Meta é conhecido e aceito.
+4. **Transcrição na primeira versão do app: só o motor local.** Em computador
+   sem GPU, o turbo roda com um aviso de que é mais lento. A chave da OpenAI
+   para usar o Whisper por API fica para uma versão futura. Enquanto isso, a
+   ferramenta de IA pode baixar o áudio pelo `download_media` e transcrever do
+   jeito que achar melhor (seção 5.2).
+5. **O app nasce neste repositório** (`BrOrlandi/whatsapp-mcp-v2`).
+
+### Em aberto
+
+1. **Assinatura de código.** Distribuir só pelo GitHub não dispensa a
+   assinatura: ela é o que o sistema confere ao abrir um app baixado da
+   internet, venha de onde vier.
+   - **Sem assinatura:** no macOS, o app abre com o aviso de que "está
+     danificado e não pode ser aberto" (contornável com um comando no Terminal
+     ou em Ajustes › Privacidade, mas assusta); no Windows, o SmartScreen mostra
+     "O Windows protegeu o computador", com "Executar assim mesmo" escondido em
+     "Mais informações". No Linux não muda nada.
+   - **Com assinatura:** abre direto. Custa US$ 99/ano (Apple Developer
+     Program, que também cobre a notarização) e cerca de US$ 10/mês no Windows
+     (Azure Trusted Signing).
+   - **Caminho sugerido:** um beta sem assinatura para você e pessoas
+     próximas, com as instruções de "abrir mesmo assim" no README; assinatura
+     antes de divulgar para o público.
+2. **A linha de comando continua existindo como produto?** Ver a explicação
+   abaixo.
+
+#### Sobre a linha de comando
+
+Hoje, a v2 é **só** linha de comando: o `install.sh` instala o executável
+`whatsapp-mcp-v2`, que roda como serviço do sistema (`service install`) e não
+tem janela. O app desktop substitui isso para quem usa um computador com tela.
+
+A pergunta é o que fazer com esse modo sem janela depois que o app existir:
+
+| Opção | O que significa | Para quem serve |
+|---|---|---|
+| **A. Manter como produto** | Continua publicado junto com o app (um arquivo a mais no release), com o `install.sh` e o prompt de instalação no README, documentado e testado a cada versão | Servidores Linux sem tela, um Mac mini ligado 24 h, quem prefere terminal ou quer automatizar a instalação com um agente de IA |
+| **B. Só ferramenta de desenvolvimento** | O código continua no repositório (o app e os testes dependem dele), mas não é publicado nem documentado para o público; o README passa a falar só do app | Só quem desenvolve o projeto |
+
+O custo de manter a opção A é pequeno, porque o app e a linha de comando usam o
+mesmo núcleo (`internal/daemon`): é mais um arquivo no release e mais uma
+coluna na lista de testes. O benefício é não perder quem roda em servidor.
+**Sugestão: opção A.**
 
 ## 13. Fora do escopo
 
