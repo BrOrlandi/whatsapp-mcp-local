@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
 // fakeWacli is testdata/fakewacli, built once for the system the tests run

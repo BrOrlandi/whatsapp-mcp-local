@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/mcp"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
 )
 
 const maxBody = 1 << 20
@@ -57,7 +57,7 @@ func Routes(server *mcp.Server, opts Options) *http.ServeMux {
 			return
 		}
 		if opts.Token != "" && !validToken(r, opts.Token) {
-			w.Header().Set("WWW-Authenticate", `Bearer realm="whatsapp-mcp-v2"`)
+			w.Header().Set("WWW-Authenticate", `Bearer realm="whatsapp-mcp-local"`)
 			http.Error(w, "missing or wrong bearer token", http.StatusUnauthorized)
 			return
 		}

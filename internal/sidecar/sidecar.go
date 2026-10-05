@@ -29,7 +29,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
 // Package is one system's archive.

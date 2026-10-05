@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/wacli"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
 
 // Check is one verdict of the health report.

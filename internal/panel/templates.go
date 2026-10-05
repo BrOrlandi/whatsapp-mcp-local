@@ -11,8 +11,6 @@ const pageSource = `
 {{define "foot"}}
 <footer class="colophon">
 <p class="colophon__line">
-<a class="colophon__link" href="{{authorURL}}" rel="noopener noreferrer" target="_blank">{{author}}</a>
-<span class="colophon__sep">&middot;</span>
 <a class="colophon__link" href="{{repositoryURL}}" rel="noopener noreferrer" target="_blank">{{template "githubmark"}}<span>C&oacute;digo-fonte</span></a>
 <span class="colophon__sep">&middot;</span>
 <span class="colophon__version" title="Vers&atilde;o em execu&ccedil;&atilde;o">v{{version}}</span>

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/sidecar"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/sidecar"
 )
 
 // TestInstallAndTranscribe installs transcription from a set of archives

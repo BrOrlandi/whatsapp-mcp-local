@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/wacli"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
 
 // Version is set by the build.
@@ -188,7 +188,7 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 		return encode(req.ID, map[string]any{
 			"protocolVersion": version,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
-			"serverInfo":      map[string]any{"name": "whatsapp-mcp-v2", "version": Version},
+			"serverInfo":      map[string]any{"name": "whatsapp-mcp-local", "version": Version},
 			"instructions":    instructions,
 		}, nil)
 	case "ping":

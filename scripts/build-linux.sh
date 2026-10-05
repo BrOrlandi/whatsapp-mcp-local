@@ -50,7 +50,7 @@ Installed-Size: ${size}
 Depends: libgtk-3-0, libwebkit2gtk-4.1-0
 Section: net
 Priority: optional
-Homepage: https://github.com/BrOrlandi/whatsapp-mcp-v2
+Homepage: https://github.com/BrOrlandi/whatsapp-mcp-local
 Description: WhatsApp for AI tools, on this computer
  WhatsApp MCP connects your WhatsApp to Claude and other AI tools through
  the Model Context Protocol. Everything runs on this computer.

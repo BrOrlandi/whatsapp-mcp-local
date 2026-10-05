@@ -3,7 +3,7 @@
 # the browser. For a computer with a screen, the desktop app is simpler: see
 # the README. This is for servers, computers that stay on, and AI agents.
 #
-#   curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-v2/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-local/main/install.sh | bash
 #
 # or, from a clone of the repository: ./install.sh
 #
@@ -13,7 +13,7 @@
 # needs sudo, and running it again updates both in place.
 set -euo pipefail
 
-REPO="BrOrlandi/whatsapp-mcp-v2"
+REPO="BrOrlandi/whatsapp-mcp-local"
 BIN_DIR="${WHATSAPP_MCP_BIN_DIR:-$HOME/.local/bin}"
 PORT="${WHATSAPP_MCP_PORT:-47821}"
 

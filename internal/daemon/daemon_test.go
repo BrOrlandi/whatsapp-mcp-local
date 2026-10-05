@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/panel"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
 var fakeWacli string

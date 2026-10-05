@@ -20,13 +20,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/httpserver"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/mcp"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/panel"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/wacli"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
 
 type Config struct {

@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 )
 
 // arguments is the shared decoding of every tool input.

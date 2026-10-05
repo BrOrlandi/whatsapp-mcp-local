@@ -30,7 +30,7 @@ func Install(spec Spec) (string, error) {
 	case "linux":
 		return installSystemd(spec)
 	}
-	return "", fmt.Errorf("installing a service is supported on macOS and Linux; on %s run `whatsapp-mcp-v2 serve` yourself", runtime.GOOS)
+	return "", fmt.Errorf("installing a service is supported on macOS and Linux; on %s run `whatsapp-mcp serve` yourself", runtime.GOOS)
 }
 
 func Uninstall() error {
@@ -179,7 +179,7 @@ func Start() error {
 	switch runtime.GOOS {
 	case "darwin":
 		if _, err := os.Stat(launchdPath()); err != nil {
-			return fmt.Errorf("the service is not installed; run whatsapp-mcp-v2 service install")
+			return fmt.Errorf("the service is not installed; run whatsapp-mcp service install")
 		}
 		out, err := exec.Command("launchctl", "bootstrap", "gui/"+strconv.Itoa(os.Getuid()), launchdPath()).CombinedOutput()
 		if err != nil && !strings.Contains(string(out), "already") {

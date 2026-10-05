@@ -11,10 +11,10 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/appconfig"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/daemon"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/panel"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/appconfig"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/daemon"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
 // The app is the panel's Host: what the Configurações page changes.

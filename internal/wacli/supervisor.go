@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
 // Supervisor owns the single `wacli sync --follow` process for a store.

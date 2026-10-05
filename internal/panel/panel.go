@@ -27,12 +27,12 @@ import (
 
 	qrcode "github.com/skip2/go-qrcode"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/brand"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/mcp"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/wacli"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/brand"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
 
 //go:embed assets
@@ -310,13 +310,13 @@ type snapshot struct {
 	// SyncBusy is a state that passes on its own (loading, reconnecting, a
 	// pause of seconds): the page shows a spinner and refreshes itself.
 	SyncBusy bool
-	Health    mcp.Health
-	Checks    []check
-	Activity  index.Activity
-	Coverage  index.Coverage
-	Gaps      []index.Gap
-	Pairing   wacli.Pairing
-	History   *mcp.HistoryJob
+	Health   mcp.Health
+	Checks   []check
+	Activity index.Activity
+	Coverage index.Coverage
+	Gaps     []index.Gap
+	Pairing  wacli.Pairing
+	History  *mcp.HistoryJob
 	// Arriving says the phone is still sending the history it sends after
 	// pairing, with how many messages have come in so far.
 	Arriving      bool
@@ -833,8 +833,6 @@ func funcs() template.FuncMap {
 	return template.FuncMap{
 		"css":           func() template.CSS { return template.CSS(stylesheet) },
 		"logo":          brand.LogoSVG,
-		"author":        func() string { return brand.Author },
-		"authorURL":     func() string { return brand.AuthorURL },
 		"repositoryURL": func() string { return brand.RepositoryURL },
 		"supportURL":    func() string { return brand.SupportURL },
 		"version":       func() string { return strings.TrimPrefix(mcp.Version, "v") },

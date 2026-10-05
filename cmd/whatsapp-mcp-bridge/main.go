@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/bridge"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/bridge"
 )
 
 var version = "dev"

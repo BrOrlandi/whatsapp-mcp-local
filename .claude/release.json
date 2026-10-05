@@ -5,7 +5,7 @@
   "apps": [
     {
       "id": "whatsapp-mcp",
-      "label": "WhatsApp MCP (app desktop e linha de comando)",
+      "label": "WhatsApp MCP Local (app desktop e linha de comando)",
       "kind": "desktop",
       "version": {
         "anchor": "tag",

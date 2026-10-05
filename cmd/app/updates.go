@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/brand"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/panel"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/updater"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/brand"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/updater"
 )
 
 // updates looks for a new version once a day, tells the person, and installs

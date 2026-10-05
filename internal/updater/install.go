@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
 // installDMG copies the app out of the new .dmg next to the running one,

@@ -459,7 +459,7 @@ a recuperação de órfãos continua lá.
 
 ### 6.8 `internal/updater`
 
-- Consulta `api.github.com/repos/BrOrlandi/whatsapp-mcp-v2/releases/latest`
+- Consulta `api.github.com/repos/BrOrlandi/whatsapp-mcp-local/releases/latest`
   uma vez por dia.
 - Baixa o pacote do sistema, confere sha256 e assinatura, e então:
   - macOS: troca o `.app` e reabre;
@@ -681,7 +681,7 @@ atualiza para a N+1 sozinho nos três sistemas.
    para usar o Whisper por API fica para uma versão futura. Enquanto isso, a
    ferramenta de IA pode baixar o áudio pelo `download_media` e transcrever do
    jeito que achar melhor (seção 5.2).
-5. **O app nasce neste repositório** (`BrOrlandi/whatsapp-mcp-v2`).
+5. **O app nasce neste repositório** (`BrOrlandi/whatsapp-mcp-local`).
 6. **A linha de comando continua como produto (opção A, abaixo).** O
    `whatsapp-mcp` sem janela segue publicado em cada release, ao lado do app,
    com o `install.sh` e o prompt de instalação no README, e entra na matriz de

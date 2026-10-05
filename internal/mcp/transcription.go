@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 )
 
 // reviewGuidance asks the client to do what speech recognition cannot: read

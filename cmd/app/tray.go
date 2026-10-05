@@ -12,8 +12,8 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/daemon"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/daemon"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
 //go:embed icons/app.png

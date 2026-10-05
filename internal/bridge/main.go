@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/appconfig"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/appconfig"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
 // Main is the app's bridge: what Claude Desktop starts, forwarding to the app

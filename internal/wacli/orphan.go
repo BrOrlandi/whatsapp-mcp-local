@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
 // A crash of the daemon (kill -9, a panic, an out-of-memory kill) does not

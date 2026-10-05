@@ -60,5 +60,5 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
-[0.1.1]: https://github.com/BrOrlandi/whatsapp-mcp-v2/releases/tag/v0.1.1
-[0.1.0]: https://github.com/BrOrlandi/whatsapp-mcp-v2/releases/tag/v0.1.0
+[0.1.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v0.1.1
+[0.1.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v0.1.0

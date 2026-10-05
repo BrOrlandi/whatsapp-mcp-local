@@ -1,4 +1,4 @@
-module github.com/BrOrlandi/whatsapp-mcp-v2
+module github.com/BrOrlandi/whatsapp-mcp-local
 
 go 1.26.5
 

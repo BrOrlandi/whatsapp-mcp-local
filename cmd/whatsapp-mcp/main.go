@@ -27,13 +27,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/appconfig"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/bridge"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/daemon"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/panel"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/service"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/appconfig"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/bridge"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/daemon"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/service"
 )
 
 var version = "dev"

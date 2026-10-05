@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 )
 
 // ServerName is how this MCP appears in the clients.

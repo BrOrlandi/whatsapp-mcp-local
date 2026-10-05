@@ -33,7 +33,6 @@ func AppleTouchIcon() []byte { return appleTouchIcon }
 const (
 	Name          = "WhatsApp MCP"
 	Author        = "Bruno Orlandi"
-	AuthorURL     = "https://github.com/BrOrlandi"
-	RepositoryURL = "https://github.com/BrOrlandi/whatsapp-mcp-v2"
+	RepositoryURL = "https://github.com/BrOrlandi/whatsapp-mcp-local"
 	SupportURL    = "https://donate.stripe.com/8x200jdhA6c1d375jF9Ve06"
 )
