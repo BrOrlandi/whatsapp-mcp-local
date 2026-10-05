@@ -45,9 +45,13 @@ type App struct {
 	cfg        appconfig.Config
 	portLocked bool
 
-	wails    *application.App
-	winMu    sync.Mutex
-	window   *application.WebviewWindow
+	wails  *application.App
+	winMu  sync.Mutex
+	window *application.WebviewWindow
+	// showMu keeps the window's coming and going in order; dockedAt is when
+	// the app last came into the Dock.
+	showMu   sync.Mutex
+	dockedAt time.Time
 	tray     *tray
 	notifier *notifications.NotificationService
 	handler  swapHandler
@@ -141,8 +145,9 @@ func (a *App) run() error {
 		Linux:   application.LinuxOptions{DisableQuitOnLastWindowClosed: true, ProgramName: "whatsapp-mcp"},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID:               instanceID(),
-			OnSecondInstanceLaunch: func(application.SecondInstanceData) { a.showWindow("") },
+			OnSecondInstanceLaunch: func(application.SecondInstanceData) { go a.showWindow("") },
 		},
+		ShouldQuit: a.shouldQuit,
 		OnShutdown: a.shutdown,
 	})
 
@@ -154,22 +159,19 @@ func (a *App) run() error {
 	a.wails.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(*application.ApplicationEvent) { a.showWindow("") })
 	if runtime.GOOS == "darwin" {
 		// macOS says whether it opened the app at login only once the app has
-		// started, so the window is made then; a window made earlier and
-		// shown later could stay hidden.
+		// started, so the window is made then, if at all.
 		a.wails.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
-			hidden := a.hidden || launchedAtLogin()
-			if hidden {
+			a.waitOutOfDock()
+			if a.hidden || launchedAtLogin() {
 				a.logger.Info("opened at login: staying in the tray")
+				return
 			}
-			a.createWindow(hidden)
-			if !hidden {
-				a.showWindow("")
-			}
+			a.showWindow("")
 		})
 	} else {
 		// Elsewhere --hidden says so from the start, and GTK wants its windows
 		// made before the application runs.
-		a.createWindow(a.hidden)
+		a.createWindow(a.hidden, "/")
 	}
 	go a.firstRun()
 	go a.updates.loop()
@@ -273,27 +275,64 @@ func (a *App) autostartRegistered() bool {
 	return err == nil && on
 }
 
-func (a *App) onClose(e *application.WindowEvent) {
-	if a.quitting.Load() {
+func (a *App) onClose(w *application.WebviewWindow, e *application.WindowEvent) {
+	// Quitting, or the window hideWindow let go: it closes.
+	if a.quitting.Load() || a.win() != w {
 		return
 	}
 	e.Cancel()
+	go a.closeWindow()
+}
+
+// closeWindow is what closing the window does, and on macOS ⌘Q too: the app
+// stays in the tray, working, unless the person turned that off.
+func (a *App) closeWindow() {
 	switch {
 	case !a.canHide:
-		a.win().Minimise()
+		if w := a.win(); w != nil {
+			w.Minimise()
+		}
 	case a.config().CloseToTray:
 		a.hideWindow()
 		if !a.config().HasSeen("close") {
 			_ = a.updateConfig(func(c *appconfig.Config) { c.Seen = append(c.Seen, "close") })
 			a.notify("close", "O WhatsApp MCP continua rodando",
-				fmt.Sprintf("Ele fica na %s, e as ferramentas de IA continuam usando o WhatsApp. Para encerrar, use Sair.", trayPlace()))
+				fmt.Sprintf("Ele fica na %s, e as ferramentas de IA continuam usando o WhatsApp. Para desligar de vez, use Encerrar no ícone dele.", trayPlace()))
 		}
 	default:
-		go a.quit()
+		a.quit()
 	}
 }
 
-func (a *App) createWindow(hidden bool) {
+// shouldQuit answers a request to quit the app. Encerrar quits, and so do
+// logging out, shutting down and a signal; Encerrar in the macOS Dock closes
+// the window, as ⌘Q does, since the app keeps working without one.
+func (a *App) shouldQuit() bool {
+	if a.quitting.Load() || !quitAskedByApp() {
+		return true
+	}
+	go a.closeWindow()
+	return false
+}
+
+// quitWarning is what quitting costs, said before the person confirms.
+const quitWarning = "O MCP é desligado: as ferramentas de IA perdem o acesso ao WhatsApp, e este computador para de receber mensagens enquanto o app estiver fechado."
+
+// confirmQuit asks before quitting, from the tray and the app menu.
+func (a *App) confirmQuit() {
+	application.InvokeSync(activate)
+	d := a.wails.Dialog.Question().SetTitle("Encerrar o " + platform.AppName + "?").SetMessage(quitWarning)
+	// Windows only has its own Sim and Não, which Wails names in English.
+	no, yes := "Cancelar", "Encerrar"
+	if runtime.GOOS == "windows" {
+		no, yes = "No", "Yes"
+	}
+	d.AddButton(no).SetAsCancel()
+	d.SetDefaultButton(d.AddButton(yes).OnClick(func() { go a.quit() }))
+	d.Show()
+}
+
+func (a *App) createWindow(hidden bool, url string) *application.WebviewWindow {
 	w := a.wails.Window.NewWithOptions(application.WebviewWindowOptions{
 		Name:             "main",
 		Title:            platform.AppName,
@@ -301,14 +340,15 @@ func (a *App) createWindow(hidden bool) {
 		Height:           760,
 		MinWidth:         720,
 		MinHeight:        560,
-		URL:              "/",
+		URL:              url,
 		Hidden:           hidden,
 		BackgroundColour: application.NewRGB(246, 248, 247),
 	})
-	w.RegisterHook(events.Common.WindowClosing, a.onClose)
+	w.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) { a.onClose(w, e) })
 	a.winMu.Lock()
 	a.window = w
 	a.winMu.Unlock()
+	return w
 }
 
 func (a *App) win() *application.WebviewWindow {
@@ -317,14 +357,41 @@ func (a *App) win() *application.WebviewWindow {
 	return a.window
 }
 
-// showWindow brings the window up, at path when one is given.
+// dockDelay is how long the app gives macOS to finish bringing it into the
+// Dock before it makes the window.
+const dockDelay = 200 * time.Millisecond
+
+// showWindow brings the window up, at path when one is given. It can wait,
+// so it must not run on the main thread.
 func (a *App) showWindow(path string) {
+	a.showMu.Lock()
+	defer a.showMu.Unlock()
 	w := a.win()
 	if w == nil {
-		return
+		if runtime.GOOS != "darwin" {
+			return
+		}
+		// macOS treats a window made while the app is out of the Dock as a
+		// menu bar app's for as long as it lives, and shows it over other
+		// apps in full screen. So the window is made fresh each time, once
+		// the app is in the Dock, and goes when it closes.
+		var docked bool
+		application.InvokeSync(func() {
+			docked = inDock()
+			showInDock(true)
+		})
+		if !docked {
+			a.dockedAt = time.Now()
+			time.Sleep(dockDelay)
+		}
+		if path == "" {
+			path = "/"
+		}
+		w, path = a.createWindow(false, path), ""
 	}
 	application.InvokeSync(func() {
 		showInDock(true)
+		activate()
 		if path != "" {
 			w.SetURL(path)
 		}
@@ -334,15 +401,44 @@ func (a *App) showWindow(path string) {
 	})
 }
 
+// hideWindow leaves the app in the tray alone. It can wait, so it must not
+// run on the main thread.
 func (a *App) hideWindow() {
+	a.showMu.Lock()
+	defer a.showMu.Unlock()
 	w := a.win()
 	if w == nil {
 		return
 	}
-	application.InvokeSync(func() {
-		w.Hide()
-		showInDock(false)
-	})
+	if runtime.GOOS != "darwin" {
+		application.InvokeSync(func() { w.Hide() })
+		return
+	}
+	a.winMu.Lock()
+	a.window = nil
+	a.winMu.Unlock()
+	application.InvokeSync(func() { w.Hide() })
+	w.Close()
+	// Leaving the Dock right after coming in can leave a second icon there,
+	// so a window closed at once waits out a second.
+	if wait := time.Until(a.dockedAt.Add(time.Second)); wait > 0 {
+		time.Sleep(wait)
+	}
+	application.InvokeSync(func() { showInDock(false) })
+}
+
+// waitOutOfDock waits for Wails to take the app out of the Dock as it
+// starts, which it does from another goroutine: a window brought in before
+// that would be left without the Dock.
+func (a *App) waitOutOfDock() {
+	for deadline := time.Now().Add(2 * time.Second); time.Now().Before(deadline); time.Sleep(10 * time.Millisecond) {
+		var out bool
+		application.InvokeSync(func() { out = menuBarOnly() })
+		if out {
+			return
+		}
+	}
+	a.logger.Warn("the app did not leave the Dock as it started")
 }
 
 func (a *App) quit() {
@@ -350,7 +446,7 @@ func (a *App) quit() {
 	a.wails.Quit()
 }
 
-// shutdown stops the gateway with care, whatever ends the app: Sair, Cmd+Q,
+// shutdown stops the gateway with care, whatever ends the app: Encerrar,
 // logging out, shutting the computer down.
 func (a *App) shutdown() {
 	a.quitting.Store(true)

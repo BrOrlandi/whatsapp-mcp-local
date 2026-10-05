@@ -75,12 +75,15 @@ restante do plano.
   - Abrir o WhatsApp MCP
   - Estado: "Conectado · 58 mensagens na última hora"
   - ☑ Iniciar com o sistema
-  - Sair do WhatsApp MCP
+  - Encerrar o WhatsApp MCP… (pede confirmação)
 - **Fechar a janela não encerra o app.** O MCP continua funcionando pela
   bandeja. Na primeira vez em que a janela for fechada, uma notificação avisa:
-  "O WhatsApp MCP continua rodando na bandeja. Para encerrar, use Sair."
-  (Decidido: fechar esconde, não encerra.)
-- **Sair** encerra o daemon com cuidado (para o sync, libera o lock) e o MCP
+  "O WhatsApp MCP continua rodando na bandeja. Para desligar de vez, use
+  Encerrar no ícone dele." (Decidido: fechar esconde, não encerra. No macOS,
+  Cmd+Q e "Encerrar" no Dock também só fecham a janela.)
+- **Encerrar**, na bandeja, no menu do app e em Configurações, pede
+  confirmação ("o MCP é desligado e o computador para de receber mensagens
+  enquanto o app estiver fechado") e encerra o daemon com cuidado (para o sync, libera o lock) e o MCP
   para de responder. Os clientes recebem a mensagem "o WhatsApp MCP não está
   aberto".
 - **Notificações do sistema** só para o que exige ação: WhatsApp desconectado
@@ -257,8 +260,8 @@ abrir app
  └─ cria a janela (a menos que --hidden)
         └─ abre em /instalacao se não pareado, senão em /
 
-fechar janela → esconde (app segue na bandeja)
-sair (bandeja / Cmd+Q / desligar o sistema)
+fechar janela / Cmd+Q / Encerrar no Dock → esconde (app segue na bandeja)
+encerrar (bandeja / menu / Configurações, com confirmação) ou desligar o sistema
  └─ daemon.Stop(): cancela pareamento, para o sync com elegância (até 20 s), fecha bancos
 ```
 
@@ -455,7 +458,11 @@ a recuperação de órfãos continua lá.
 - Wails v3: janela principal (1000×760, mínimo 720×560), bandeja com ícones
   claro e escuro, instância única, `--hidden`, eventos de desligamento.
 - Ícone da bandeja reflete o `health`: verde, amarelo, vermelho.
-- Menu do macOS: Sobre, Configurações (Cmd+,), Sair (Cmd+Q).
+- Menu do macOS: Sobre, Configurações (Cmd+,), Fechar a janela (Cmd+Q),
+  Encerrar o WhatsApp MCP….
+- No macOS a janela é criada ao abrir e destruída ao fechar: uma janela criada
+  com o app fora do Dock fica, para o macOS, uma janela de app da barra de
+  menus, que aparece por cima de apps em tela cheia.
 
 ### 6.8 `internal/updater`
 
@@ -663,8 +670,10 @@ atualiza para a N+1 sozinho nos três sistemas.
 
 ### Tomadas
 
-1. **Fechar a janela esconde o app na bandeja; não encerra.** Encerrar é só
-   pelo "Sair" (bandeja, menu ou Cmd+Q). Exceção: no GNOME sem bandeja, a
+1. **Fechar a janela esconde o app na bandeja; não encerra.** No macOS, Cmd+Q
+   e "Encerrar" no Dock também só fecham a janela. Encerrar é só pelo
+   "Encerrar o WhatsApp MCP…" (bandeja, menu do app ou Configurações), sempre
+   com confirmação. Exceção: no GNOME sem bandeja, a
    janela minimiza em vez de esconder (seção 4.3).
 2. **Distribuição só pelo GitHub Releases, com um arquivo por sistema.** Nada
    de Mac App Store nem Microsoft Store. Na página de releases:

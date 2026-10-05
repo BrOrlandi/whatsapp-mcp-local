@@ -94,6 +94,15 @@ func (a *App) CheckUpdate() { a.updates.check() }
 
 func (a *App) InstallUpdate() error { return a.updates.install() }
 
+// Quit closes the app for good, once the person confirmed it on the page.
+func (a *App) Quit() {
+	go func() {
+		// Let the page answer before the window goes.
+		time.Sleep(300 * time.Millisecond)
+		a.quit()
+	}()
+}
+
 // EraseEverything unlinks this computer from WhatsApp, stops the gateway,
 // deletes the data folder and the login item, and quits.
 func (a *App) EraseEverything() error {
@@ -135,13 +144,16 @@ func (a *App) setMenu() {
 	app := menu.AddSubmenu(platform.AppName)
 	app.AddRole(application.About)
 	app.AddSeparator()
-	app.Add("Configurações…").SetAccelerator("CmdOrCtrl+,").OnClick(func(*application.Context) { a.showWindow("/configuracoes") })
+	app.Add("Configurações…").SetAccelerator("CmdOrCtrl+,").OnClick(func(*application.Context) { go a.showWindow("/configuracoes") })
 	app.AddSeparator()
 	app.AddRole(application.Hide)
 	app.AddRole(application.HideOthers)
 	app.AddRole(application.UnHide)
 	app.AddSeparator()
-	app.Add("Sair do " + platform.AppName).SetAccelerator("CmdOrCtrl+q").OnClick(func(*application.Context) { a.quit() })
+	// ⌘Q closes the window, as the app keeps working in the menu bar;
+	// quitting it is a choice made on purpose, and confirmed.
+	app.Add("Fechar a janela").SetAccelerator("CmdOrCtrl+q").OnClick(func(*application.Context) { go a.closeWindow() })
+	app.Add("Encerrar o " + platform.AppName + "…").OnClick(func(*application.Context) { a.confirmQuit() })
 	menu.AddRole(application.EditMenu)
 	menu.AddRole(application.WindowMenu)
 	a.wails.Menu.SetApplicationMenu(menu)

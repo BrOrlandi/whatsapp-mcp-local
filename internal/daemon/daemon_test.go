@@ -255,6 +255,7 @@ func (fakeHost) Update() panel.UpdateState {
 }
 func (fakeHost) CheckUpdate()           {}
 func (fakeHost) InstallUpdate() error   { return nil }
+func (fakeHost) Quit()                  {}
 func (fakeHost) EraseEverything() error { return nil }
 
 // Every page renders inside the app, where the window loads them in memory.

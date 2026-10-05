@@ -536,10 +536,21 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <div class="card__head"><h2>Ao ligar e ao fechar</h2></div>
 <div class="card__body stack">
 <label class="check"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span><strong>Abrir o WhatsApp MCP quando o computador ligar</strong><span class="check__hint">Ele abre só na {{tray}}, sem janela, e as ferramentas de IA já encontram o WhatsApp.</span></span></label>
-{{if .Settings.CanHide}}<label class="check"><input type="checkbox" data-setting="close_to_tray"{{if .Settings.CloseToTray}} checked{{end}}><span><strong>Fechar a janela mantém o app na {{tray}}</strong><span class="check__hint">Desmarcado, fechar a janela encerra o WhatsApp MCP, e as ferramentas de IA perdem o acesso até ele ser aberto de novo.</span></span></label>
+{{if .Settings.CanHide}}<label class="check"><input type="checkbox" data-setting="close_to_tray"{{if .Settings.CloseToTray}} checked{{end}}><span><strong>Fechar a janela mantém o app na {{tray}}</strong><span class="check__hint">{{if mac}}Vale também para o ⌘Q. {{end}}Desmarcado, fechar a janela encerra o WhatsApp MCP, e as ferramentas de IA perdem o acesso até ele ser aberto de novo.</span></span></label>
 {{else}}<p class="muted">Este sistema não mostra ícones na bandeja (no GNOME, isso pede a extensão AppIndicator). Por isso, fechar a janela só a minimiza.</p>{{end}}
 <p class="busy" data-setting-note role="status" hidden></p>
+<div class="actions"><a class="btn btn--danger btn--small" href="#encerrar-app">Encerrar o WhatsApp MCP</a></div>
+<p class="muted">Desliga o app de vez, até você abrir de novo.</p>
 </div></section>
+
+<div class="overlay" id="encerrar-app" role="dialog" aria-modal="true" aria-labelledby="encerrar-app-titulo">
+<div class="dialog">
+<div class="dialog__head"><h2 id="encerrar-app-titulo">Encerrar o WhatsApp MCP?</h2><a class="dialog__close" href="#" aria-label="Fechar">&times;</a></div>
+<div class="dialog__body">
+<p>O MCP é desligado: as ferramentas de IA perdem o acesso ao WhatsApp, e este computador para de receber mensagens enquanto o app estiver fechado.</p>
+<p class="muted">Para voltar, abra o WhatsApp MCP de novo.</p>
+<form method="post" action="/configuracoes/encerrar" data-busy="Encerrando…"><div class="actions actions--end"><a class="btn btn--quiet" href="#">Cancelar</a><button class="btn btn--danger" type="submit">Encerrar</button></div></form>
+</div></div></div>
 
 <section class="card" id="atualizacoes" data-update>
 <div class="card__head"><h2>Versão e atualizações</h2></div>
@@ -570,6 +581,13 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </form>
 </div></div></div>
 {{template "foot" .}}{{end}}
+
+{{define "encerrado"}}{{template "head" .}}
+<div class="wizard-shell" style="max-width:520px">
+<section class="card">
+<div class="card__head"><h2>Encerrando</h2></div>
+<div class="card__body"><p class="muted">O WhatsApp MCP está fechando. Para voltar a usar, abra o app de novo.</p></div>
+</section></div></div></body></html>{{end}}
 
 {{define "apagado"}}{{template "head" .}}
 <div class="wizard-shell" style="max-width:520px">

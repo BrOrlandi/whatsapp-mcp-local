@@ -22,6 +22,8 @@ type Host interface {
 	Update() UpdateState
 	CheckUpdate()
 	InstallUpdate() error
+	// Quit closes the app for good, as the page asks once the person confirmed.
+	Quit()
 	// EraseEverything unlinks WhatsApp, deletes the data folder and quits.
 	EraseEverything() error
 }
@@ -55,6 +57,7 @@ type UpdateState struct {
 func (p *Panel) registerApp(mux *http.ServeMux) {
 	mux.HandleFunc("GET /configuracoes", p.page(p.configuracoes))
 	mux.HandleFunc("POST /configuracoes/porta", p.form(p.savePort))
+	mux.HandleFunc("POST /configuracoes/encerrar", p.quit)
 	mux.HandleFunc("POST /configuracoes/apagar", p.erase)
 	mux.HandleFunc("POST /api/configuracoes", p.api(p.apiSettings))
 	mux.HandleFunc("POST /api/abrir", p.api(p.apiOpen))
@@ -143,6 +146,16 @@ func (p *Panel) apiOpen(r *http.Request) (any, error) {
 		return nil, userError{"endereço inválido"}
 	}
 	return map[string]bool{"ok": true}, p.Host.OpenURL(u.String())
+}
+
+func (p *Panel) quit(w http.ResponseWriter, r *http.Request) {
+	if !sameOrigin(r) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	p.Host.Quit()
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_ = p.pages.ExecuteTemplate(w, "encerrado", layout{Title: "Encerrando", App: true})
 }
 
 func (p *Panel) erase(w http.ResponseWriter, r *http.Request) {

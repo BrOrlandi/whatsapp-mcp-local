@@ -838,6 +838,7 @@ func funcs() template.FuncMap {
 		"version":       func() string { return strings.TrimPrefix(mcp.Version, "v") },
 		"serverName":    func() string { return ServerName },
 		"tray":          trayName,
+		"mac":           func() bool { return runtime.GOOS == "darwin" },
 		"accel": func(a string) string {
 			switch a {
 			case "metal":

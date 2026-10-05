@@ -56,9 +56,9 @@ func newTray(a *App) *tray {
 		}
 	}
 	t.menu = a.wails.NewMenu()
-	t.menu.Add("Abrir o " + platform.AppName).OnClick(func(*application.Context) { a.showWindow("") })
+	t.menu.Add("Abrir o " + platform.AppName).OnClick(func(*application.Context) { go a.showWindow("") })
 	t.status = t.menu.Add("Carregando…").SetEnabled(false)
-	t.update = t.menu.Add("").SetHidden(true).OnClick(func(*application.Context) { a.showWindow("/configuracoes#atualizacoes") })
+	t.update = t.menu.Add("").SetHidden(true).OnClick(func(*application.Context) { go a.showWindow("/configuracoes#atualizacoes") })
 	t.menu.AddSeparator()
 	t.autostart = t.menu.AddCheckbox("Iniciar com o sistema", a.Settings().Autostart).OnClick(func(ctx *application.Context) {
 		on := ctx.ClickedMenuItem().Checked()
@@ -68,7 +68,7 @@ func newTray(a *App) *tray {
 		}
 	})
 	t.menu.AddSeparator()
-	t.menu.Add("Sair do " + platform.AppName).OnClick(func(*application.Context) { a.quit() })
+	t.menu.Add("Encerrar o " + platform.AppName + "…").OnClick(func(*application.Context) { a.confirmQuit() })
 
 	t.icon = a.wails.SystemTray.New()
 	t.setIcon("warn")
@@ -77,7 +77,7 @@ func newTray(a *App) *tray {
 	if runtime.GOOS != "darwin" {
 		// Windows and Linux open the window on a click and keep the menu for
 		// the right button; the macOS menu bar opens the menu either way.
-		t.icon.OnClick(func() { a.showWindow("") })
+		t.icon.OnClick(func() { go a.showWindow("") })
 		t.icon.OnRightClick(func() { t.icon.OpenMenu() })
 	}
 	return t
