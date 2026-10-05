@@ -2,7 +2,7 @@
   <img src="docs/assets/logo.svg" alt="" width="80" height="80">
 </p>
 
-<h1 align="center">WhatsApp MCP</h1>
+<h1 align="center">WhatsApp MCP Local</h1>
 
 <p align="center">
   <strong>O seu WhatsApp no Claude, rodando no seu próprio computador.</strong><br>
@@ -17,15 +17,16 @@ Peça ao Claude para resumir uma conversa, achar aquela mensagem de meses atrás
 responder alguém, criar uma enquete ou transcrever um áudio, direto do seu
 WhatsApp.
 
-> **Esta é a v2, a versão local.** A [v1](https://github.com/BrOrlandi/whatsapp-mcp)
-> roda num servidor na nuvem (uma VPS com Docker, de US$ 7 a US$ 25 por mês) e
-> funciona 24 horas, inclusive no claude.ai e no celular. A v2 faz o mesmo no
-> seu computador: é um app, não tem infraestrutura para manter e não custa
-> nada. Em troca, só recebe mensagens com o computador ligado.
+Site e downloads: **[whatsapp-mcp.brorlandi.xyz](https://whatsapp-mcp.brorlandi.xyz)**
+
+> **Esta é a versão Local**, um app que roda no seu computador, sem servidor e
+> sem mensalidade. Existe também a versão
+> [WhatsApp MCP Servidor](https://github.com/BrOrlandi/whatsapp-mcp), em outro
+> repositório.
 
 ## Baixar
 
-Na [página da versão mais recente](https://github.com/BrOrlandi/whatsapp-mcp-v2/releases/latest),
+Na [página da versão mais recente](https://github.com/BrOrlandi/whatsapp-mcp-local/releases/latest),
 baixe o arquivo do seu sistema:
 
 | Sistema | Arquivo | O que fazer |
@@ -75,16 +76,16 @@ Copie o texto abaixo e cole no **Claude Code**, no **Cowork** ou em qualquer
 agente que rode comandos no seu computador:
 
 ```
-Instale o WhatsApp MCP (versão de linha de comando) neste computador seguindo https://github.com/BrOrlandi/whatsapp-mcp-v2.
-Rode: curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-v2/main/install.sh | bash
-Se o download falhar (repositório privado), use: gh repo clone BrOrlandi/whatsapp-mcp-v2 && cd whatsapp-mcp-v2 && ./install.sh
+Instale o WhatsApp MCP Local (versão de linha de comando) neste computador seguindo https://github.com/BrOrlandi/whatsapp-mcp-local.
+Rode: curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-local/main/install.sh | bash
+Se o download falhar (repositório privado), use: gh repo clone BrOrlandi/whatsapp-mcp-local && cd whatsapp-mcp-local && ./install.sh
 Quando o painel abrir no navegador, me diga para escanear o QR code com o celular e depois conectar o Claude pelo próprio painel.
 ```
 
 Ou rode direto:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-v2/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-local/main/install.sh | bash
 ```
 
 Funciona no macOS e no Linux, sem `sudo`. Ele instala o `whatsapp-mcp` como
@@ -103,7 +104,8 @@ serviço do sistema e abre o mesmo painel no navegador, em
   volta.
 - **Funciona com o Claude Desktop e o Claude Code** neste computador, e com
   outras ferramentas que aceitem MCP. O claude.ai no navegador e o app do
-  celular não alcançam um servidor local.
+  celular não alcançam o seu computador; para usar o WhatsApp neles, existe a
+  [versão Servidor](https://github.com/BrOrlandi/whatsapp-mcp).
 - **Use por sua conta e risco.** O WhatsApp não tem API oficial para contas
   pessoais. Este projeto usa o [wacli](https://github.com/openclaw/wacli), um
   cliente não oficial, e a conta pode ser desconectada ou restringida.
