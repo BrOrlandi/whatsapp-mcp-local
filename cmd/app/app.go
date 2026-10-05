@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -43,6 +45,7 @@ type App struct {
 	portLocked bool
 
 	wails    *application.App
+	winMu    sync.Mutex
 	window   *application.WebviewWindow
 	tray     *tray
 	notifier *notifications.NotificationService
@@ -136,37 +139,29 @@ func (a *App) run() error {
 		Windows: application.WindowsOptions{DisableQuitOnLastWindowClosed: true},
 		Linux:   application.LinuxOptions{DisableQuitOnLastWindowClosed: true, ProgramName: "whatsapp-mcp"},
 		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID:               bundleID,
+			UniqueID:               instanceID(),
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) { a.showWindow("") },
 		},
 		OnShutdown: a.shutdown,
 	})
 
 	a.prepare()
-	a.window = a.wails.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:      "main",
-		Title:     platform.AppName,
-		Width:     1000,
-		Height:    760,
-		MinWidth:  720,
-		MinHeight: 560,
-		URL:       "/",
-		// On macOS the window waits until the app knows whether the system
-		// opened it at login; elsewhere --hidden says so.
-		Hidden:           true,
-		BackgroundColour: application.NewRGB(246, 248, 247),
-	})
-	a.window.RegisterHook(events.Common.WindowClosing, a.onClose)
 	a.setMenu()
 	a.tray = newTray(a)
 
 	a.wails.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(*application.ApplicationEvent) { a.showWindow("") })
+	// The window is made once the app has started: only then does macOS say
+	// whether it opened the app at login (elsewhere --hidden says so), and a
+	// window made earlier can miss being shown.
 	a.wails.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
-		if a.hidden || launchedAtLogin() {
+		hidden := a.hidden || launchedAtLogin()
+		if hidden {
 			a.logger.Info("opened at login: staying in the tray")
-			return
 		}
-		a.showWindow("")
+		a.createWindow(hidden)
+		if !hidden {
+			a.showWindow("")
+		}
 	})
 	go a.firstRun()
 	go a.updates.loop()
@@ -189,6 +184,17 @@ func (a *App) prepare() {
 		}
 	}
 	a.startDaemon()
+}
+
+// instanceID is one per data folder: an app pointed at another folder with
+// WHATSAPP_MCP_DATA, for development or a demo, runs beside the real one.
+func instanceID() string {
+	dir := os.Getenv("WHATSAPP_MCP_DATA")
+	if dir == "" {
+		return bundleID
+	}
+	sum := sha256.Sum256([]byte(dir))
+	return bundleID + "." + hex.EncodeToString(sum[:4])
 }
 
 func paired(storeDir string) bool {
@@ -323,7 +329,7 @@ func (a *App) onClose(e *application.WindowEvent) {
 	e.Cancel()
 	switch {
 	case !a.canHide:
-		a.window.Minimise()
+		a.win().Minimise()
 	case a.config().CloseToTray:
 		a.hideWindow()
 		if !a.config().HasSeen("close") {
@@ -336,25 +342,54 @@ func (a *App) onClose(e *application.WindowEvent) {
 	}
 }
 
+func (a *App) createWindow(hidden bool) {
+	w := a.wails.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:             "main",
+		Title:            platform.AppName,
+		Width:            1000,
+		Height:           760,
+		MinWidth:         720,
+		MinHeight:        560,
+		URL:              "/",
+		Hidden:           hidden,
+		BackgroundColour: application.NewRGB(246, 248, 247),
+	})
+	w.RegisterHook(events.Common.WindowClosing, a.onClose)
+	a.winMu.Lock()
+	a.window = w
+	a.winMu.Unlock()
+}
+
+func (a *App) win() *application.WebviewWindow {
+	a.winMu.Lock()
+	defer a.winMu.Unlock()
+	return a.window
+}
+
 // showWindow brings the window up, at path when one is given.
 func (a *App) showWindow(path string) {
-	if a.window == nil {
+	w := a.win()
+	if w == nil {
 		return
 	}
 	application.InvokeSync(func() {
 		showInDock(true)
 		if path != "" {
-			a.window.SetURL(path)
+			w.SetURL(path)
 		}
-		a.window.Show()
-		a.window.UnMinimise()
-		a.window.Focus()
+		w.Show()
+		w.UnMinimise()
+		w.Focus()
 	})
 }
 
 func (a *App) hideWindow() {
+	w := a.win()
+	if w == nil {
+		return
+	}
 	application.InvokeSync(func() {
-		a.window.Hide()
+		w.Hide()
 		showInDock(false)
 	})
 }
