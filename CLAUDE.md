@@ -9,9 +9,12 @@ Nothing keeps the old "v2" name: the command line's folder is `~/.whatsapp-mcp`,
 ## Site
 
 `site/` is the static landing page at https://whatsapp-mcp.brorlandi.xyz (Vercel project
-`whatsapp-mcp-site`, deployed with `vercel deploy --prod` from `site/`). It covers both
-versions: the downloads point at this repository's latest release by the fixed asset names,
-and `/servidor` is a separate page for the server project, whose links all point at `BrOrlandi/whatsapp-mcp`.
+`whatsapp-mcp-site`, Root Directory `site`). A push to `main` that changes `site/` publishes it;
+pushes that don't are skipped by the Ignored Build Step (`git diff --quiet HEAD^ HEAD -- .`).
+Other branches get preview deployments. A manual deploy runs from the repository root
+(`vercel deploy --prod`), not from `site/`. It covers both versions: the downloads point at
+this repository's latest release by the fixed asset names, and `/servidor` is a separate page
+for the server project, whose links all point at `BrOrlandi/whatsapp-mcp`.
 
 ## Release & Changelog
 
