@@ -21,7 +21,7 @@ var (
 	kernel32                     = windows.NewLazySystemDLL("kernel32.dll")
 	procAttachConsole            = kernel32.NewProc("AttachConsole")
 	procFreeConsole              = kernel32.NewProc("FreeConsole")
-	procGetConsoleWindow         = kernel32.NewProc("GetConsoleWindow")
+	procGetConsoleProcessList    = kernel32.NewProc("GetConsoleProcessList")
 	procGenerateConsoleCtrlEvent = kernel32.NewProc("GenerateConsoleCtrlEvent")
 	procSetConsoleCtrlHandler    = kernel32.NewProc("SetConsoleCtrlHandler")
 
@@ -103,6 +103,10 @@ func Interrupt(pid int) error {
 		return ctrlBreak(pid)
 	}
 	if r, _, err := procAttachConsole.Call(uintptr(pid)); r == 0 {
+		if errors.Is(err, windows.ERROR_ACCESS_DENIED) {
+			// Attached to a console after all: the child shares it.
+			return ctrlBreak(pid)
+		}
 		return err
 	}
 	defer procFreeConsole.Call()
@@ -112,8 +116,12 @@ func Interrupt(pid int) error {
 	return ctrlBreak(pid)
 }
 
+// hasConsole reports whether this process is attached to a console, with or
+// without a window: a console with no window (a service, CI) is still one,
+// and its children share it.
 func hasConsole() bool {
-	r, _, _ := procGetConsoleWindow.Call()
+	var list [1]uint32
+	r, _, _ := procGetConsoleProcessList.Call(uintptr(unsafe.Pointer(&list[0])), 1)
 	return r != 0
 }
 

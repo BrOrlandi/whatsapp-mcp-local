@@ -141,7 +141,20 @@ func (s *Supervisor) runAuth(ctx context.Context, gen int, phone string) error {
 	if err := platform.Started(cmd); err != nil {
 		s.logger.Warn("wacli auth is not tied to this process", "error", err)
 	}
-	interrupt := func() { _ = platform.Interrupt(cmd.Process.Pid) }
+	// An interrupt that is ignored for 20 seconds becomes a kill, so a stuck
+	// auth can never hold the store, or the daemon's shutdown, forever.
+	exited := make(chan struct{})
+	defer close(exited)
+	interrupt := func() {
+		_ = platform.Interrupt(cmd.Process.Pid)
+		go func() {
+			select {
+			case <-exited:
+			case <-time.After(20 * time.Second):
+				_ = platform.Kill(cmd.Process.Pid)
+			}
+		}()
+	}
 	stop := context.AfterFunc(ctx, interrupt)
 	defer stop()
 
