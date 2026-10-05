@@ -31,7 +31,7 @@ const pageSource = `
 <option value="dark" title="Tema escuro">☾</option>
 </select></span>{{end}}
 
-{{define "brandmark"}}<span class="brand__mark">{{logo}}</span><span class="brand__name">WhatsApp MCP<span class="brand__tagline">Painel de controle · neste computador</span></span>{{end}}
+{{define "brandmark"}}<span class="brand__mark">{{logo}}</span><span class="brand__name">WhatsApp MCP</span>{{end}}
 
 {{define "nav"}}
 <header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
@@ -283,8 +283,8 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 {{template "foot"}}{{end}}
 
 {{define "estado"}}{{template "head" .}}{{template "nav" .}}
-<h1>Estado do serviço</h1>
-<p class="lead">O mesmo retrato que a ferramenta <code>health</code> do MCP e o endereço <code>/health</code> reportam.</p>
+<h1>Estado</h1>
+<p class="lead">Se o seu WhatsApp está conectado e recebendo mensagens neste computador.</p>
 
 <section class="card">
 <div class="card__head"><h2>WhatsApp</h2><span class="pill pill--{{.SyncTone}}">{{.SyncLabel}}</span></div>
@@ -321,23 +321,6 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </div></section>
 {{end}}
 
-<section class="card">
-<div class="card__head"><h2>Sincronização</h2></div>
-<div class="card__body">
-<dl class="facts">
-<div class="fact"><dt>Estado</dt><dd>{{.SyncLabel}}<span class="fact__detail">desde {{moment .Sync.Since}}</span></dd></div>
-<div class="fact"><dt>Reinícios inesperados</dt><dd>{{.Sync.Restarts}}</dd></div>
-<div class="fact"><dt>Endereço do MCP</dt><dd class="mono" style="font-size:.85rem">{{.Endpoint}}</dd></div>
-</dl>
-{{with .Sync.LastError}}<p class="muted">Último erro: <code>{{.}}</code></p>{{end}}
-</div></section>
-
-<section class="card">
-<div class="card__head"><h2>Verificação externa</h2></div>
-<div class="card__body">
-<div class="actions"><a class="btn btn--ghost btn--small" href="{{baseOf .Endpoint}}/health" target="_blank" rel="noopener">/health</a><a class="btn btn--ghost btn--small" href="{{baseOf .Endpoint}}/healthz" target="_blank" rel="noopener">/healthz</a></div>
-<p class="muted">O <code>/health</code> responde 503 quando alguma verificação falha, para quem quiser monitorar.</p>
-</div></section>
 {{template "foot"}}{{end}}
 
 {{define "instalacao"}}{{template "head" .}}
@@ -452,7 +435,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <p class="busy" data-asr-progress role="status"{{if ne .Local.Install.State "running"}} hidden{{end}}><span class="spinner" aria-hidden="true"></span><span data-asr-step>{{.Local.Install.Step}}</span></p>
 {{if eq .Local.Install.State "error"}}<p class="alert" role="alert">{{.Local.Install.Error}}</p>{{end}}
 {{else}}
-<p class="muted">A transcrição local ainda não está disponível para este sistema. Enquanto isso, a sua ferramenta de IA pode baixar o áudio com <code>download_media</code> e transcrevê-lo do jeito que preferir.</p>
+<p class="muted">A transcrição neste computador ainda não está disponível para este sistema. Enquanto isso, a sua ferramenta de IA pode baixar o áudio e transcrevê-lo do jeito que preferir.</p>
 {{end}}
 {{if and .Local.Supported (eq .Local.Accel "cpu")}}<p class="note">Este computador não tem uma placa de vídeo que o Whisper aproveite, então ele roda no processador: cada áudio leva mais ou menos o próprio tempo para ser transcrito. Funciona, só é mais lento.</p>{{end}}
 </div></section>
@@ -460,7 +443,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <section class="card">
 <div class="card__head"><h2>Como usar</h2></div>
 <div class="card__body">
-<p class="muted">Peça à sua ferramenta de IA algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve com <code>transcribe_audio</code>, confere contra a conversa e guarda a versão corrigida.</p>
+<p class="muted">Peça à sua ferramenta de IA algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve na hora, confere com a conversa e guarda a versão corrigida.</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">Exemplo</span></div>
 <pre class="plain" data-copy><code>Transcreva os áudios que recebi hoje no WhatsApp.</code></pre></div>
 <p class="muted">Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado.</p>

@@ -396,12 +396,12 @@ func describeCheck(c mcp.Check, s snapshot) (string, string) {
 	a := s.Activity
 	switch c.Name {
 	case "daemon":
-		return "Serviço", "Respondendo em " + s.Endpoint + "."
+		return "WhatsApp MCP", "Funcionando neste computador."
 	case "wacli":
 		if s.InApp {
-			return "wacli", "O wacli que vem com o app não respondeu. Reinstale o WhatsApp MCP."
+			return "Componente do WhatsApp", "A parte do app que conecta ao WhatsApp não respondeu. Reinstale o WhatsApp MCP."
 		}
-		return "wacli", "O wacli não respondeu. Instale com brew install openclaw/tap/wacli."
+		return "Componente do WhatsApp", "O wacli não respondeu. Instale com brew install openclaw/tap/wacli."
 	case "paired":
 		if c.Status == "ok" {
 			return "WhatsApp pareado", "Este computador é um dispositivo conectado da sua conta."
@@ -410,17 +410,17 @@ func describeCheck(c mcp.Check, s snapshot) (string, string) {
 	case "sync":
 		switch s.Sync.State {
 		case "connected":
-			return "Sincronização", "Conectado ao WhatsApp e recebendo em tempo real."
+			return "Conexão", "Conectado ao WhatsApp e recebendo em tempo real."
 		case "paused":
-			return "Sincronização", "Pausada por alguns segundos para " + pauseReason(s.Sync.PausedFor) + ". Volta sozinha."
+			return "Conexão", "Pausada por alguns segundos para " + pauseReason(s.Sync.PausedFor) + ". Volta sozinha."
 		case "starting":
-			return "Sincronização", "Iniciando."
+			return "Conexão", "Iniciando."
 		case "reconnecting":
-			return "Sincronização", "Reconectando ao WhatsApp. Confira a internet deste computador."
+			return "Conexão", "Reconectando ao WhatsApp. Confira a internet deste computador."
 		case "not_paired":
-			return "Sincronização", "Aguardando o WhatsApp ser conectado."
+			return "Conexão", "Aguardando o WhatsApp ser conectado."
 		case "logged_out":
-			return "Sincronização", "O WhatsApp desconectou este computador. Conecte de novo pelo QR code."
+			return "Conexão", "O WhatsApp desconectou este computador. Conecte de novo pelo QR code."
 		}
 		text := "Parada"
 		if s.Sync.LastError != "" {
@@ -429,7 +429,7 @@ func describeCheck(c mcp.Check, s snapshot) (string, string) {
 		if s.LogPath != "" {
 			text += ". Veja o log em " + s.LogPath
 		}
-		return "Sincronização", text + "."
+		return "Conexão", text + "."
 	case "receiving":
 		if a.NewestIncoming == nil {
 			return "Recebendo mensagens", "Nenhuma mensagem guardada ainda. A primeira sincronização pode estar em andamento."

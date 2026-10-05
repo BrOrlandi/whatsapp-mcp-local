@@ -63,7 +63,6 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .brand__mark{width:38px;height:38px;flex:none}
 .brand__mark svg{width:100%;height:100%;display:block}
 .brand__name{font-weight:700;font-size:1rem;color:var(--brand);letter-spacing:-.01em}
-.brand__tagline{display:block;font-weight:400;font-size:.78rem;color:var(--muted);letter-spacing:0}
 /* ---- tools (documentação) ---- */
 .tools{display:grid;gap:14px;margin-top:24px}
 .tool{border:1px solid var(--border);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);overflow:hidden}
