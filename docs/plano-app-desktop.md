@@ -656,9 +656,19 @@ atualiza para a N+1 sozinho nos três sistemas.
 1. **Fechar a janela esconde o app na bandeja; não encerra.** Encerrar é só
    pelo "Sair" (bandeja, menu ou Cmd+Q). Exceção: no GNOME sem bandeja, a
    janela minimiza em vez de esconder (seção 4.3).
-2. **Distribuição só pelo GitHub Releases.** Nada de Mac App Store nem
-   Microsoft Store. A pessoa baixa o `.dmg`, o `.exe` ou o `.AppImage`/`.deb`
-   da página de releases, e a atualização automática busca de lá.
+2. **Distribuição só pelo GitHub Releases, com um arquivo por sistema.** Nada
+   de Mac App Store nem Microsoft Store. Na página de releases:
+
+   | Sistema | Arquivo | O que a pessoa faz |
+   |---|---|---|
+   | macOS | `WhatsApp-MCP.dmg` | abre e arrasta o app para Aplicativos |
+   | Windows | `WhatsApp-MCP-Setup.exe` | roda o instalador, que põe o app numa pasta fixa e cria o atalho no Menu Iniciar |
+   | Linux | `WhatsApp-MCP.AppImage` e `.deb` | roda o AppImage, ou instala o `.deb` |
+
+   O `.exe` é um instalador, e não um executável portátil, porque o caminho do
+   app precisa ser estável: é ele que fica gravado na configuração do Claude
+   Desktop e no "iniciar com o sistema". A atualização automática busca a
+   versão nova na mesma página.
 3. **O nome é "WhatsApp MCP".** O risco de marca da Meta é conhecido e aceito.
 4. **Transcrição na primeira versão do app: só o motor local.** Em computador
    sem GPU, o turbo roda com um aviso de que é mais lento. A chave da OpenAI
@@ -680,9 +690,10 @@ atualiza para a N+1 sozinho nos três sistemas.
    - **Com assinatura:** abre direto. Custa US$ 99/ano (Apple Developer
      Program, que também cobre a notarização) e cerca de US$ 10/mês no Windows
      (Azure Trusted Signing).
-   - **Caminho sugerido:** um beta sem assinatura para você e pessoas
-     próximas, com as instruções de "abrir mesmo assim" no README; assinatura
-     antes de divulgar para o público.
+   - **A assinatura não muda o formato de download:** o `.dmg` e o `.exe` são
+     os mesmos, com ou sem ela. Dá para começar sem e assinar depois.
+   - **Caminho sugerido:** lançar sem assinatura, com os passos de "abrir mesmo
+     assim" de cada sistema no README; assinar quando o público crescer.
 2. **A linha de comando continua existindo como produto?** Ver a explicação
    abaixo.
 
