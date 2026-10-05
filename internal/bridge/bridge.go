@@ -17,10 +17,23 @@ import (
 	"time"
 )
 
-// Run copies newline-delimited JSON-RPC from in to the daemon at url, and the
+// Options says where the daemon is and what to tell the client when it is
+// not there.
+type Options struct {
+	// URL is the daemon's MCP address. It is asked again when the daemon does
+	// not answer, so a port changed in the app is picked up without
+	// restarting the client.
+	URL   func() string
+	Token string
+	// NotRunning is the error a client gets when nothing answers, written
+	// for the model to relay: how to start the daemon.
+	NotRunning string
+}
+
+// Run copies newline-delimited JSON-RPC from in to the daemon, and the
 // answers back to out. Requests run concurrently, so a long tool call does not
 // hold up a ping.
-func Run(ctx context.Context, url, token string, in io.Reader, out io.Writer) error {
+func Run(ctx context.Context, opts Options, in io.Reader, out io.Writer) error {
 	httpClient := &http.Client{Timeout: 15 * time.Minute}
 	var writeMu sync.Mutex
 	write := func(line []byte) {
@@ -49,7 +62,7 @@ func Run(ctx context.Context, url, token string, in io.Reader, out io.Writer) er
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if resp := forward(ctx, httpClient, url, token, hint, line); resp != nil {
+			if resp := forward(ctx, httpClient, opts, hint, line); resp != nil {
 				write(resp)
 			}
 		}()
@@ -73,7 +86,7 @@ func initializeClient(line []byte) string {
 	return msg.Params.ClientInfo.Name
 }
 
-func forward(ctx context.Context, client *http.Client, url, token, hint string, line []byte) []byte {
+func forward(ctx context.Context, client *http.Client, opts Options, hint string, line []byte) []byte {
 	var msg struct {
 		ID json.RawMessage `json:"id"`
 	}
@@ -87,19 +100,30 @@ func forward(ctx context.Context, client *http.Client, url, token, hint string, 
 		return body
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(line))
-	if err != nil {
-		return fail("%v", err)
+	post := func(url string) (*http.Response, error) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(line))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-MCP-Client", hint)
+		req.Header.Set("Accept", "application/json, text/event-stream")
+		if opts.Token != "" {
+			req.Header.Set("Authorization", "Bearer "+opts.Token)
+		}
+		return client.Do(req)
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-MCP-Client", hint)
-	req.Header.Set("Accept", "application/json, text/event-stream")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+	url := opts.URL()
+	resp, err := post(url)
+	if err != nil && ctx.Err() == nil {
+		// The port may have moved since the last request: look again.
+		if again := opts.URL(); again != url {
+			url = again
+			resp, err = post(url)
+		}
 	}
-	resp, err := client.Do(req)
 	if err != nil {
-		return fail("the whatsapp-mcp-v2 daemon is not answering at %s (%v); start it with `whatsapp-mcp-v2 service install` or `whatsapp-mcp-v2 serve`", url, err)
+		return fail("%s (nothing answers at %s: %v)", opts.NotRunning, url, err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)

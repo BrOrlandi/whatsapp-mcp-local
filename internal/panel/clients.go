@@ -100,7 +100,7 @@ func toolName(name string) string {
 }
 
 func (p *Panel) codeArgs() []string {
-	args := []string{"mcp", "add", "--scope", "user", "--transport", "http", ServerName, p.MCPURL}
+	args := []string{"mcp", "add", "--scope", "user", "--transport", "http", ServerName, p.endpoint()}
 	if p.Token != "" {
 		args = append(args, "--header", "Authorization: Bearer "+p.Token)
 	}
@@ -108,10 +108,13 @@ func (p *Panel) codeArgs() []string {
 }
 
 func (p *Panel) desktopEntry() map[string]any {
-	entry := map[string]any{"command": p.Binary, "args": []string{"bridge"}}
+	entry := map[string]any{"command": p.Desktop.Command}
+	if len(p.Desktop.Args) > 0 {
+		entry["args"] = p.Desktop.Args
+	}
 	env := map[string]string{}
-	if p.Port != p.DefaultPort {
-		env["WHATSAPP_MCP_PORT"] = fmt.Sprint(p.Port)
+	for k, v := range p.Desktop.Env {
+		env[k] = v
 	}
 	if p.Token != "" {
 		env["WHATSAPP_MCP_TOKEN"] = p.Token
@@ -143,7 +146,7 @@ func (p *Panel) codeInfo(ctx context.Context, fresh bool) clientInfo {
 		defer cancel()
 		out, err := exec.CommandContext(ctx, bin, "mcp", "get", ServerName).CombinedOutput()
 		if err == nil {
-			if where := parseMCPGet(string(out)); where == p.MCPURL {
+			if where := parseMCPGet(string(out)); where == p.endpoint() {
 				info.Configured = true
 			} else {
 				info.Other = where
@@ -161,7 +164,7 @@ func (p *Panel) desktopInfo() clientInfo {
 	cfg, err := readDesktopConfig()
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		_, dirErr := os.Stat(filepath.Dir(desktopConfigPath()))
+		_, dirErr := os.Stat(filepath.Dir(DesktopConfigPath()))
 		info.Found = dirErr == nil
 		if !info.Found {
 			info.Detail = "o Claude Desktop não parece estar instalado"
@@ -173,7 +176,7 @@ func (p *Panel) desktopInfo() clientInfo {
 		info.Found = true
 		if servers, ok := cfg["mcpServers"].(map[string]any); ok {
 			if entry, ok := servers[ServerName].(map[string]any); ok {
-				if entry["command"] == p.Binary {
+				if entry["command"] == p.Desktop.Command {
 					info.Configured = true
 				} else {
 					info.Other = describeEntry(entry)
@@ -187,11 +190,11 @@ func (p *Panel) desktopInfo() clientInfo {
 func (p *Panel) setup(ctx context.Context) setup {
 	snippet, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{ServerName: p.desktopEntry()}}, "", "  ")
 	return setup{
-		Endpoint:    p.MCPURL,
+		Endpoint:    p.endpoint(),
 		Command:     "claude " + shellJoin(p.codeArgs()),
 		JSON:        string(snippet),
-		DesktopPath: desktopConfigPath(),
-		AgentPrompt: agentPrompt(p.MCPURL, string(snippet)),
+		DesktopPath: DesktopConfigPath(),
+		AgentPrompt: agentPrompt(p.endpoint(), string(snippet)),
 		Desktop:     p.desktopInfo(),
 		Code:        p.codeInfo(ctx, false),
 	}
@@ -276,7 +279,7 @@ func (p *Panel) removeClaudeCode(ctx context.Context) error {
 // editDesktop rewrites the Desktop configuration through f, after keeping a
 // copy of the file as it was.
 func editDesktop(f func(servers map[string]any)) error {
-	path := desktopConfigPath()
+	path := DesktopConfigPath()
 	cfg, err := readDesktopConfig()
 	if errors.Is(err, os.ErrNotExist) {
 		cfg = map[string]any{}
@@ -327,7 +330,7 @@ func (p *Panel) removeClaudeDesktop() error {
 	if p.desktopInfo().Other != "" {
 		return nil // the "whatsapp" there is not this one: leave it alone
 	}
-	if _, err := os.Stat(desktopConfigPath()); err != nil {
+	if _, err := os.Stat(DesktopConfigPath()); err != nil {
 		return nil
 	}
 	return editDesktop(func(servers map[string]any) {
@@ -338,7 +341,8 @@ func (p *Panel) removeClaudeDesktop() error {
 	})
 }
 
-func desktopConfigPath() string {
+// DesktopConfigPath is where Claude Desktop keeps its configuration.
+func DesktopConfigPath() string {
 	home, _ := os.UserHomeDir()
 	switch runtime.GOOS {
 	case "darwin":
@@ -352,7 +356,7 @@ func desktopConfigPath() string {
 // readDesktopConfig keeps numbers as written, so rewriting the file changes
 // only the entry this panel adds.
 func readDesktopConfig() (map[string]any, error) {
-	raw, err := os.ReadFile(desktopConfigPath())
+	raw, err := os.ReadFile(DesktopConfigPath())
 	if err != nil {
 		return nil, err
 	}

@@ -2,86 +2,54 @@ package wacli
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 	"testing"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
 )
 
-// fakeWacli behaves like wacli where the supervisor depends on it: sync holds
-// a lock and opens the delegate socket, exclusive commands fail while the lock
-// is held, and delegated commands succeed while the socket is up.
-const fakeWacli = `#!/bin/bash
-STORE="$WACLI_STORE_DIR"
-[ "$1" = "--json" ] && shift
-[ "$1" = "--read-only" ] && shift
-# Like wacli, the store lock is an flock, which the kernel releases however
-# the holder dies.
-locked() { python3 -c 'import fcntl,sys
-f=open(sys.argv[1],"a")
-try: fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
-except OSError: sys.exit(0)
-sys.exit(1)' "$STORE/LOCK"; }
-case "$1 $2" in
-"auth status")
-  if [ -f "$STORE/AUTHED" ]; then a=true; else a=false; fi
-  echo "{\"success\":true,\"data\":{\"authenticated\":$a,\"phone\":\"5511912345678\"},\"error\":null}" ;;
-"auth --events")
-  if locked; then echo "store is locked" >&2; exit 1; fi
-  echo '{"event":"auth_starting","ts":1}' >&2
-  echo '{"event":"qr_code","data":{"code":"2@first"},"ts":1}' >&2
-  sleep 0.3
-  echo '{"event":"qr_code","data":{"code":"2@second"},"ts":1}' >&2
-  sleep 0.3
-  touch "$STORE/AUTHED"
-  echo '{"event":"connected","ts":1}' >&2
-  echo '{"event":"history_sync","data":{"conversations":12},"ts":1}' >&2
-  echo '{"event":"progress","data":{"messages_synced":340},"ts":1}' >&2
-  if [ -f "$STORE/HANG" ]; then
-    # A large account: the history keeps coming long after the link.
-    exec python3 -c 'import signal,sys,time
-signal.signal(signal.SIGINT, lambda *_: sys.exit(130))
-while True: time.sleep(1)'
-  fi
-  sleep 0.3
-  echo '{"event":"idle_exit","data":{"messages_synced":512},"ts":1}' >&2 ;;
-"sync --follow")
-  exec python3 -c '
-import socket, os, sys, signal, fcntl
-p = sys.argv[1]
-def stop(*_):
-    try: os.unlink(p)
-    except OSError: pass
-    sys.exit(0)
-signal.signal(signal.SIGINT, stop); signal.signal(signal.SIGTERM, stop)
-lock = open(os.path.join(os.path.dirname(p), "LOCK"), "a")
-try: fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-except OSError:
-    sys.stderr.write("store is locked\n"); sys.exit(1)
-lock.truncate(0); lock.write("pid=%d\n" % os.getpid()); lock.flush()
-try: os.unlink(p)
-except OSError: pass
-s = socket.socket(socket.AF_UNIX); s.bind(p); s.listen(8)
-sys.stderr.write("{\"event\":\"connected\",\"ts\":1}\n"); sys.stderr.flush()
-while True:
-    c, _ = s.accept(); c.close()
-' "$STORE/.send.sock" ;;
-"chats archive")
-  if locked; then echo '{"success":false,"data":null,"error":"store is locked by another process"}'; exit 1; fi
-  echo "exclusive" >> "$STORE/calls.log"
-  echo '{"success":true,"data":{"archived":true},"error":null}' ;;
-"send text")
-  if locked && [ ! -S "$STORE/.send.sock" ]; then echo '{"success":false,"data":null,"error":"store is locked"}'; exit 1; fi
-  echo "delegated" >> "$STORE/calls.log"
-  echo '{"success":true,"data":{"sent":true,"id":"ABC"},"error":null}' ;;
-*)
-  echo '{"success":false,"data":null,"error":"unknown"}'; exit 1 ;;
-esac
-`
+// fakeWacli is testdata/fakewacli, built once for the system the tests run
+// on: it behaves like wacli where the supervisor depends on it.
+var fakeWacli string
+
+func TestMain(m *testing.M) {
+	dir, err := os.MkdirTemp("", "fakewacli-")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	fakeWacli = filepath.Join(dir, platform.ExeName("wacli"))
+	if out, err := exec.Command("go", "build", "-o", fakeWacli, "./testdata/fakewacli").CombinedOutput(); err != nil {
+		fmt.Fprintf(os.Stderr, "building the fake wacli: %v\n%s", err, out)
+		os.Exit(1)
+	}
+	code := m.Run()
+	os.RemoveAll(dir)
+	os.Exit(code)
+}
+
+// shortTempDir is a store whose socket path fits the ~104 bytes Unix sockets
+// allow, which t.TempDir on macOS exceeds.
+func shortTempDir(t *testing.T) string {
+	t.Helper()
+	base := ""
+	if runtime.GOOS != "windows" {
+		base = "/tmp"
+	}
+	dir, err := os.MkdirTemp(base, "wacli-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(dir) })
+	return dir
+}
 
 func waitState(t *testing.T, s *Supervisor, want string) {
 	t.Helper()
@@ -96,24 +64,10 @@ func waitState(t *testing.T, s *Supervisor, want string) {
 }
 
 func TestSupervisorPausesSyncForExclusiveOperations(t *testing.T) {
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 is needed for the fake wacli")
-	}
-	// Unix socket paths are limited to ~104 bytes, too short for t.TempDir on macOS.
-	store, err := os.MkdirTemp("/tmp", "wacli-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(store)
-	bin := filepath.Join(store, "wacli")
-	if err := os.WriteFile(bin, []byte(fakeWacli), 0o755); err != nil {
-		t.Fatal(err)
-	}
-
+	store, cli := fakeStore(t)
 	if err := os.WriteFile(filepath.Join(store, "AUTHED"), nil, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cli := &CLI{Bin: bin, StoreDir: store}
 	s := NewSupervisor(cli, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -193,19 +147,8 @@ func TestSupervisorPausesSyncForExclusiveOperations(t *testing.T) {
 
 func fakeStore(t *testing.T) (string, *CLI) {
 	t.Helper()
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 is needed for the fake wacli")
-	}
-	store, err := os.MkdirTemp("/tmp", "wacli-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { os.RemoveAll(store) })
-	bin := filepath.Join(store, "wacli")
-	if err := os.WriteFile(bin, []byte(fakeWacli), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	return store, &CLI{Bin: bin, StoreDir: store}
+	store := shortTempDir(t)
+	return store, &CLI{Bin: fakeWacli, StoreDir: store}
 }
 
 func TestPairingFromQRToRunningSync(t *testing.T) {
@@ -347,7 +290,7 @@ func TestSupervisorReclaimsAnOrphanedSync(t *testing.T) {
 	// The previous daemon's sync, still running after its parent died.
 	orphan := exec.Command(cli.Bin, "sync", "--follow")
 	orphan.Env = append(os.Environ(), "WACLI_STORE_DIR="+store)
-	orphan.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	platform.Prepare(orphan)
 	if err := orphan.Start(); err != nil {
 		t.Fatal(err)
 	}

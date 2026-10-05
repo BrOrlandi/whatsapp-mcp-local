@@ -16,6 +16,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
 )
 
 // CLI runs wacli commands against one store.
@@ -45,6 +47,7 @@ func (c *CLI) Run(ctx context.Context, args ...string) (json.RawMessage, error) 
 	full := append([]string{"--json"}, args...)
 	cmd := exec.CommandContext(ctx, c.Bin, full...)
 	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1")
+	platform.Background(cmd)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

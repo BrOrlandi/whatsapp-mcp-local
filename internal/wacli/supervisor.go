@@ -14,8 +14,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
 )
 
 // Supervisor owns the single `wacli sync --follow` process for a store.
@@ -35,6 +36,7 @@ type Supervisor struct {
 	ops sync.RWMutex // delegated operations read-lock it, exclusive ones write-lock it
 
 	mu        sync.Mutex
+	changed   chan struct{}
 	want      bool
 	proc      *os.Process
 	exited    chan struct{}
@@ -85,18 +87,34 @@ func NewSupervisor(cli *CLI, logger *slog.Logger) *Supervisor {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Supervisor{cli: cli, logger: logger, want: true, wake: make(chan struct{}, 1), state: "starting", since: time.Now()}
+	return &Supervisor{cli: cli, logger: logger, want: true, wake: make(chan struct{}, 1), changed: make(chan struct{}, 1),
+		state: "starting", since: time.Now()}
+}
+
+// Changes signals, without blocking, every time sync's state changes, so a
+// tray icon can follow it without asking over and over.
+func (s *Supervisor) Changes() <-chan struct{} { return s.changed }
+
+func (s *Supervisor) signalChange() {
+	select {
+	case s.changed <- struct{}{}:
+	default:
+	}
 }
 
 func (s *Supervisor) setState(state, lastError string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.state != state {
+	changed := s.state != state
+	if changed {
 		s.state = state
 		s.since = time.Now()
 	}
 	if lastError != "" {
 		s.lastError = lastError
+	}
+	s.mu.Unlock()
+	if changed {
+		s.signalChange()
 	}
 }
 
@@ -214,7 +232,7 @@ func (s *Supervisor) runOnce(ctx context.Context) error {
 	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+s.cli.StoreDir, "NO_COLOR=1")
 	// Its own process group, so a stop reaches every process it started, and a
 	// bounded wait for its pipes, so a stray child cannot hang the supervisor.
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	platform.Prepare(cmd)
 	cmd.WaitDelay = 5 * time.Second
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
@@ -231,12 +249,25 @@ func (s *Supervisor) runOnce(ctx context.Context) error {
 		s.mu.Unlock()
 		return fmt.Errorf("could not start wacli sync: %w", err)
 	}
+	if err := platform.Started(cmd); err != nil {
+		s.logger.Warn("wacli sync is not tied to this process", "error", err)
+	}
 	exited := make(chan struct{})
 	s.proc, s.exited = cmd.Process, exited
 	s.state, s.since = "starting", time.Now()
 	s.mu.Unlock()
+	s.signalChange()
 
-	stop := context.AfterFunc(ctx, func() { signalGroup(cmd.Process, syscall.SIGINT) })
+	// A stop of the daemon interrupts sync, and gives it the same 20 seconds
+	// a pause does to close its store before it is killed.
+	stop := context.AfterFunc(ctx, func() {
+		_ = platform.Interrupt(cmd.Process.Pid)
+		select {
+		case <-exited:
+		case <-time.After(20 * time.Second):
+			_ = platform.Kill(cmd.Process.Pid)
+		}
+	})
 	defer stop()
 
 	s.readEvents(stderr)
@@ -338,21 +369,16 @@ func (s *Supervisor) stopSync(reason string) {
 	proc, exited := s.proc, s.exited
 	s.state, s.since = "paused", time.Now()
 	s.mu.Unlock()
+	s.signalChange()
 	if proc == nil {
 		return
 	}
-	signalGroup(proc, syscall.SIGINT)
+	_ = platform.Interrupt(proc.Pid)
 	select {
 	case <-exited:
 	case <-time.After(20 * time.Second):
-		signalGroup(proc, syscall.SIGKILL)
+		_ = platform.Kill(proc.Pid)
 		<-exited
-	}
-}
-
-func signalGroup(p *os.Process, sig syscall.Signal) {
-	if err := syscall.Kill(-p.Pid, sig); err != nil {
-		_ = p.Signal(sig)
 	}
 }
 

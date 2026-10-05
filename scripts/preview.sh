@@ -14,7 +14,7 @@ command -v wacli >/dev/null || { echo "the preview needs the real wacli for read
 WACLI_STORE_DIR="$DIR/store" wacli --json doctor >/dev/null
 sqlite3 "$DIR/store/wacli.db" < scripts/preview/seed.sql
 [ "${PREVIEW_PAIRED:-0}" = 1 ] && touch "$DIR/store/PAIRED"
-go build -o "$DIR/whatsapp-mcp-v2" ./cmd/whatsapp-mcp-v2
+go build -o "$DIR/whatsapp-mcp" ./cmd/whatsapp-mcp
 echo "preview in $DIR — touch $DIR/store/SCAN to pretend the QR code was scanned"
 HOME="$DIR/home" WACLI_BIN="$PWD/scripts/preview/fake-wacli" WACLI_STORE_DIR="$DIR/store" \
-  WHATSAPP_MCP_DATA="$DIR/data" WHATSAPP_MCP_PORT="${PREVIEW_PORT:-47890}" exec "$DIR/whatsapp-mcp-v2" serve
+  WHATSAPP_MCP_DATA="$DIR/data" WHATSAPP_MCP_PORT="${PREVIEW_PORT:-47890}" exec "$DIR/whatsapp-mcp" serve

@@ -78,7 +78,7 @@ func (s *Server) transcribeAudio(ctx context.Context, a arguments) map[string]an
 	switch {
 	case errors.Is(err, ErrNoEngine):
 		return textResult(map[string]any{"error": "no transcription engine is set up", "setup": []string{
-			"On a Mac with Apple Silicon, install free local transcription: open the panel at " + s.baseURL + "/transcricao and click the install button, or run `whatsapp-mcp-v2 transcription install`. Audio never leaves the computer.",
+			"On a Mac with Apple Silicon, install free local transcription: open the panel at " + s.base() + "/transcricao and click the install button, or run `whatsapp-mcp-v2 transcription install`. Audio never leaves the computer.",
 			"Elsewhere, save an OpenAI API key with set_transcription_key (billed by OpenAI per minute of audio).",
 		}}, true)
 	case errors.Is(err, transcribe.ErrRejectedKey):

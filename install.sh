@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Installs WhatsApp MCP v2 on this computer and opens its panel in the browser.
+# Installs WhatsApp MCP's command line on this computer and opens its panel in
+# the browser. For a computer with a screen, the desktop app is simpler: see
+# the README. This is for servers, computers that stay on, and AI agents.
 #
 #   curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-v2/main/install.sh | bash
 #
 # or, from a clone of the repository: ./install.sh
 #
-# It installs wacli (the WhatsApp client) and whatsapp-mcp-v2 into
+# It installs wacli (the WhatsApp client) and whatsapp-mcp into
 # ~/.local/bin, registers the daemon as a login service, and opens
 # http://127.0.0.1:47821/, where WhatsApp is connected by QR code. It never
 # needs sudo, and running it again updates both in place.
@@ -55,7 +57,7 @@ install_wacli() {
   install -m 0755 "$(find "$TMP" -type f -name wacli | head -1)" "$BIN_DIR/wacli"
 }
 
-# ---- whatsapp-mcp-v2 ---------------------------------------------------------
+# ---- whatsapp-mcp ------------------------------------------------------------
 ensure_go() {
   command -v go >/dev/null 2>&1 && return
   if command -v brew >/dev/null 2>&1; then
@@ -63,16 +65,16 @@ ensure_go() {
     brew install go
     return
   fi
-  die "Go is needed to build whatsapp-mcp-v2 from source: install it from https://go.dev/dl/ and run this again"
+  die "Go is needed to build whatsapp-mcp from source: install it from https://go.dev/dl/ and run this again"
 }
 
 build_from() {
   local src="$1"
   ensure_go
-  say "building whatsapp-mcp-v2 from source"
+  say "building whatsapp-mcp from source"
   local version
   version="$(git -C "$src" describe --tags --always --dirty 2>/dev/null || echo dev)"
-  (cd "$src" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$version" -o "$TMP/whatsapp-mcp-v2" ./cmd/whatsapp-mcp-v2)
+  (cd "$src" && CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X main.version=$version" -o "$TMP/whatsapp-mcp" ./cmd/whatsapp-mcp)
 }
 
 install_mcp() {
@@ -82,7 +84,7 @@ install_mcp() {
   fi
   if [ -n "$here" ] && [ -f "$here/go.mod" ] && grep -q "module github.com/$REPO" "$here/go.mod"; then
     build_from "$here"
-  elif curl -fsSL -o "$TMP/mcp.tgz" "https://github.com/$REPO/releases/latest/download/whatsapp-mcp-v2_${OS}_${ARCH}.tar.gz" 2>/dev/null; then
+  elif curl -fsSL -o "$TMP/mcp.tgz" "https://github.com/$REPO/releases/latest/download/whatsapp-mcp_${OS}_${ARCH}.tar.gz" 2>/dev/null; then
     say "downloading the latest release"
     tar -xzf "$TMP/mcp.tgz" -C "$TMP"
   else
@@ -94,13 +96,16 @@ install_mcp() {
     fi
     build_from "$TMP/src"
   fi
-  install -m 0755 "$TMP/whatsapp-mcp-v2" "$BIN_DIR/whatsapp-mcp-v2"
+  install -m 0755 "$TMP/whatsapp-mcp" "$BIN_DIR/whatsapp-mcp"
+  # The program used to be called whatsapp-mcp-v2, and Claude Desktop
+  # configurations written then still start it by that name.
+  ln -sf whatsapp-mcp "$BIN_DIR/whatsapp-mcp-v2"
   if [ "$OS" = darwin ]; then
     # A binary built or downloaded here is not notarised; clear the
     # quarantine flag so launchd can start it.
-    xattr -d com.apple.quarantine "$BIN_DIR/whatsapp-mcp-v2" 2>/dev/null || true
+    xattr -d com.apple.quarantine "$BIN_DIR/whatsapp-mcp" 2>/dev/null || true
   fi
-  say "installed $BIN_DIR/whatsapp-mcp-v2 ($("$BIN_DIR/whatsapp-mcp-v2" version))"
+  say "installed $BIN_DIR/whatsapp-mcp ($("$BIN_DIR/whatsapp-mcp" version))"
 }
 
 install_wacli
@@ -108,7 +113,7 @@ install_mcp
 
 case ":$PATH:" in
   *":$BIN_DIR:"*) ;;
-  *) warn "$BIN_DIR is not on your PATH; add it to use whatsapp-mcp-v2 from a terminal" ;;
+  *) warn "$BIN_DIR is not on your PATH; add it to use whatsapp-mcp from a terminal" ;;
 esac
 
 # Voice notes are transcribed on the computer itself on Apple Silicon:
@@ -116,12 +121,12 @@ esac
 # it up later, and OpenAI remains an option.
 if [ "$OS" = darwin ] && [ "$ARCH" = arm64 ]; then
   say "setting up local voice-note transcription (whisper.cpp, about 600 MB)"
-  "$BIN_DIR/whatsapp-mcp-v2" transcription install || warn "local transcription was not set up; the panel's Transcrição page can do it later"
+  "$BIN_DIR/whatsapp-mcp" transcription install || warn "local transcription was not set up; the panel's Transcrição page can do it later"
 fi
 
 WACLI_BIN="$(command -v wacli || echo "$BIN_DIR/wacli")"
 say "starting the service"
-WACLI_BIN="$WACLI_BIN" WHATSAPP_MCP_PORT="$PORT" "$BIN_DIR/whatsapp-mcp-v2" service install
+WACLI_BIN="$WACLI_BIN" WHATSAPP_MCP_PORT="$PORT" "$BIN_DIR/whatsapp-mcp" service install
 
 cat <<EOF
 
@@ -132,6 +137,6 @@ cat <<EOF
   2. Confira se as suas conversas recentes batem com as do celular.
   3. Conecte o Claude Desktop ou o Claude Code com um clique.
 
-  Para abrir o painel de novo: whatsapp-mcp-v2 open
+  Para abrir o painel de novo: whatsapp-mcp open
 
 EOF

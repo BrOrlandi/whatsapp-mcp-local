@@ -26,7 +26,9 @@ type Server struct {
 	index      *index.Index
 	state      *state.State
 	logger     *slog.Logger
-	// BaseURL is where this gateway listens, for the media links it hands out.
+	// baseURL is where this gateway listens, for the media links it hands
+	// out. It changes when the port does.
+	baseMu   sync.RWMutex
 	baseURL  string
 	mediaDir string
 	links    *mediaLinks
@@ -125,6 +127,20 @@ func New(c Config) *Server {
 	return &Server{cli: c.CLI, supervisor: c.Supervisor, index: c.Index, state: c.State, logger: c.Logger,
 		baseURL: c.BaseURL, mediaDir: c.MediaDir, links: newMediaLinks(), started: time.Now(), asr: c.ASR,
 		clients: map[string]string{}, touched: map[string]time.Time{}}
+}
+
+// SetBaseURL changes the address the server gives out for itself, after its
+// port has changed.
+func (s *Server) SetBaseURL(u string) {
+	s.baseMu.Lock()
+	s.baseURL = u
+	s.baseMu.Unlock()
+}
+
+func (s *Server) base() string {
+	s.baseMu.RLock()
+	defer s.baseMu.RUnlock()
+	return s.baseURL
 }
 
 // ASR is the local transcription engine, when there is one.

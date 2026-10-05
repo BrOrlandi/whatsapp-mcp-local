@@ -1,6 +1,7 @@
 package panel
 
 import (
+	"net/http"
 	"net/http/httptest"
 	"testing"
 )
@@ -28,6 +29,22 @@ func TestSameOrigin(t *testing.T) {
 		if got := sameOrigin(r); got != c.want {
 			t.Errorf("%s: sameOrigin = %v, want %v", c.name, got, c.want)
 		}
+	}
+}
+
+// The app's window reaches the panel in memory: its webview sends neither
+// Sec-Fetch-Site nor, on a fetch, Origin, and nothing else can take that path.
+func TestInternalRequestsAreTheAppsOwn(t *testing.T) {
+	var got bool
+	h := Internal(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { got = sameOrigin(r) }))
+	r := httptest.NewRequest("POST", "wails://localhost/api/pair", nil)
+	r.Header.Set("Referer", "wails://localhost/")
+	h.ServeHTTP(httptest.NewRecorder(), r)
+	if !got {
+		t.Fatal("a request from the app's own window must be accepted")
+	}
+	if sameOrigin(r) {
+		t.Fatal("the same request over the network, unmarked, must be refused")
 	}
 }
 

@@ -778,7 +778,7 @@ func (s *Server) downloadMedia(ctx context.Context, a arguments) map[string]any 
 		"media_type": m.MediaType, "mime_type": m.MimeType, "filename": m.Filename}
 	if a.Link {
 		token := s.links.add(d.Path, m.MimeType, 10*time.Minute)
-		url := s.baseURL + "/media/" + token
+		url := s.base() + "/media/" + token
 		result["url"] = url
 		result["expires_in_seconds"] = 600
 		result["curl"] = fmt.Sprintf("curl -sSf -o %q %q", filepath.Base(d.Path), url)

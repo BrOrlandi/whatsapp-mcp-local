@@ -12,8 +12,9 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
 )
 
 // Pairing is the state of linking this machine to a WhatsApp account, shown
@@ -127,7 +128,7 @@ func (s *Supervisor) runAuth(ctx context.Context, gen int, phone string) error {
 	}
 	cmd := exec.Command(s.cli.Bin, args...)
 	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+s.cli.StoreDir, "NO_COLOR=1")
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	platform.Prepare(cmd)
 	cmd.WaitDelay = 5 * time.Second
 	cmd.Stdout = io.Discard
 	stderr, err := cmd.StderrPipe()
@@ -137,7 +138,11 @@ func (s *Supervisor) runAuth(ctx context.Context, gen int, phone string) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("could not start wacli auth: %w", err)
 	}
-	stop := context.AfterFunc(ctx, func() { signalGroup(cmd.Process, syscall.SIGINT) })
+	if err := platform.Started(cmd); err != nil {
+		s.logger.Warn("wacli auth is not tied to this process", "error", err)
+	}
+	interrupt := func() { _ = platform.Interrupt(cmd.Process.Pid) }
+	stop := context.AfterFunc(ctx, interrupt)
 	defer stop()
 
 	// Once the phone has linked the device, the pairing's work is done. The
@@ -149,7 +154,7 @@ func (s *Supervisor) runAuth(ctx context.Context, gen int, phone string) error {
 	var handover *time.Timer
 	onConnected := func() {
 		if !connected.Swap(true) {
-			handover = time.AfterFunc(HandoverAfter, func() { signalGroup(cmd.Process, syscall.SIGINT) })
+			handover = time.AfterFunc(HandoverAfter, interrupt)
 		}
 	}
 	lastLine := s.readPairingEvents(gen, stderr, onConnected)

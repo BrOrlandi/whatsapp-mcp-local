@@ -33,11 +33,20 @@ type Options struct {
 	Register func(*http.ServeMux)
 }
 
+// Handler is every route behind the loopback guard: what the HTTP listener
+// serves.
 func Handler(server *mcp.Server, opts Options) http.Handler {
 	logger := opts.Logger
 	if logger == nil {
 		logger = slog.Default()
 	}
+	return Guard(Routes(server, opts), logger)
+}
+
+// Routes is every route without the guard: the MCP endpoint, its media links,
+// health, and whatever Register adds. The app serves them to its own window in
+// memory, where there is no network for a foreign page to come from.
+func Routes(server *mcp.Server, opts Options) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -98,11 +107,11 @@ func Handler(server *mcp.Server, opts Options) http.Handler {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = io.WriteString(w, "ok\n")
 	})
-	return guard(mux, logger)
+	return mux
 }
 
-// guard rejects any request that did not come from a local program.
-func guard(next http.Handler, logger *slog.Logger) http.Handler {
+// Guard rejects any request that did not come from a local program.
+func Guard(next http.Handler, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !loopbackHost(r.Host) {
 			logger.Warn("rejected request with foreign Host", "host", r.Host)
@@ -141,21 +150,15 @@ func validToken(r *http.Request, token string) bool {
 	return ok && subtle.ConstantTimeCompare([]byte(strings.TrimSpace(got)), []byte(token)) == 1
 }
 
-// Serve listens on the loopback address until ctx ends.
-func Serve(ctx context.Context, handler http.Handler, addr string) error {
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		return err
-	}
-	srv := &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
-	go func() {
-		<-ctx.Done()
-		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		_ = srv.Shutdown(shutdown)
-	}()
-	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
-		return err
-	}
-	return nil
+// NewServer is the HTTP server for a listener. Tool calls that pause sync can
+// take minutes, so only reading the request head is bounded.
+func NewServer(handler http.Handler) *http.Server {
+	return &http.Server{Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+}
+
+// Shutdown stops a server, giving requests in flight a few seconds.
+func Shutdown(srv *http.Server) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = srv.Shutdown(ctx)
 }

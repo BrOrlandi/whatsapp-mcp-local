@@ -38,18 +38,60 @@ import (
 var assets embed.FS
 
 type Panel struct {
-	Server      *mcp.Server
-	Supervisor  *wacli.Supervisor
-	Index       *index.Index
-	State       *state.State
-	MCPURL      string
-	Token       string
-	Binary      string // absolute path of this program, for the Desktop bridge
-	Port        int
-	DefaultPort int
+	Server     *mcp.Server
+	Supervisor *wacli.Supervisor
+	Index      *index.Index
+	State      *state.State
+	Token      string
+	// Endpoint is the MCP's address now: it changes when the port does.
+	Endpoint func() string
+	// Desktop is what Claude Desktop runs to reach the MCP: the command
+	// line's bridge subcommand, or the app's bridge program.
+	Desktop DesktopCommand
+	// LogPath is where the daemon writes its log, shown when sync stops.
+	LogPath string
+	// MCPProblem says why the MCP is not answering, or nil when it is.
+	MCPProblem func() *PortProblem
 
 	pages *template.Template
 	code  codeCache
+}
+
+// PortProblem is the MCP's port taken by another program: WhatsApp keeps
+// running, and the MCP waits for a free port.
+type PortProblem struct {
+	Port int `json:"port"`
+	// OtherGateway is set when what holds the port is another WhatsApp MCP,
+	// such as the command-line service.
+	OtherGateway bool `json:"other_gateway"`
+	// Suggest is a free port, already tried, or 0 when none was found.
+	Suggest int `json:"suggest,omitempty"`
+}
+
+// DesktopCommand is the stdio server entry written into Claude Desktop.
+type DesktopCommand struct {
+	Command string
+	Args    []string
+	Env     map[string]string
+}
+
+func (p *Panel) endpoint() string { return p.Endpoint() }
+
+type internalKey struct{}
+
+// Internal marks every request as coming from the app's own window, which
+// reaches the panel in memory rather than over the network: no other page
+// can send a request down that path, and the window's webview sends neither
+// Sec-Fetch-Site nor, on a fetch, Origin.
+func Internal(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), internalKey{}, true)))
+	})
+}
+
+func isInternal(r *http.Request) bool {
+	v, _ := r.Context().Value(internalKey{}).(bool)
+	return v
 }
 
 const (
@@ -112,6 +154,9 @@ func parseTemplates() *template.Template {
 // fails one of the two. A POST carrying neither is not from a browser page of
 // ours, so it is refused too.
 func sameOrigin(r *http.Request) bool {
+	if isInternal(r) {
+		return true
+	}
 	site := r.Header.Get("Sec-Fetch-Site")
 	origin := r.Header.Get("Origin")
 	if site != "" && site != "same-origin" && !(site == "none" && r.Method == http.MethodGet) {
@@ -228,6 +273,7 @@ type snapshot struct {
 	Arriving      bool
 	ArrivingCount int64
 	Endpoint      string
+	LogPath       string
 }
 
 type check struct {
@@ -240,7 +286,7 @@ type check struct {
 func (p *Panel) snapshot(ctx context.Context) snapshot {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	s := snapshot{Endpoint: p.MCPURL, Pairing: p.Supervisor.Pairing(), History: p.Server.HistoryStatus()}
+	s := snapshot{Endpoint: p.endpoint(), LogPath: p.LogPath, Pairing: p.Supervisor.Pairing(), History: p.Server.HistoryStatus()}
 	s.Account, _ = p.Supervisor.Account(ctx)
 	s.Sync = p.Supervisor.Status()
 	s.Health = p.Server.Health(ctx, 0)
@@ -321,7 +367,10 @@ func describeCheck(c mcp.Check, s snapshot) (string, string) {
 		if s.Sync.LastError != "" {
 			text += ": " + s.Sync.LastError
 		}
-		return "Sincronização", text + ". Veja o log em ~/Library/Logs/whatsapp-mcp-v2.log."
+		if s.LogPath != "" {
+			text += ". Veja o log em " + s.LogPath
+		}
+		return "Sincronização", text + "."
 	case "receiving":
 		if a.NewestIncoming == nil {
 			return "Recebendo mensagens", "Nenhuma mensagem guardada ainda. A primeira sincronização pode estar em andamento."
@@ -614,7 +663,7 @@ func (p *Panel) apiState(r *http.Request) (any, error) {
 		"arriving": s.Arriving, "arriving_count": s.ArrivingCount,
 		"account": s.Account, "name": s.Name, "phone": s.Phone,
 		"sync": sync, "pairing": s.Pairing, "health": s.Health,
-		"history": s.History, "clients_live": live, "endpoint": p.MCPURL, "version": mcp.Version,
+		"history": s.History, "clients_live": live, "endpoint": p.endpoint(), "version": mcp.Version,
 	}, nil
 }
 
