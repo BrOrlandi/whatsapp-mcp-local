@@ -37,6 +37,9 @@ const (
 	// Manual is a version that has to be installed by hand: a .deb.
 	Manual = "manual"
 	Failed = "error"
+	// Unsupported is a build that cannot update itself: a development
+	// version, or an install the updater does not know how to replace.
+	Unsupported = "unsupported"
 )
 
 // State is where an update stands.
@@ -203,6 +206,7 @@ func (u *Updater) client() *http.Client {
 // exists; a repository without releases, or out of reach, is up to date.
 func (u *Updater) Check(ctx context.Context) (bool, error) {
 	if !u.Enabled() {
+		u.set(func(s *State) { s.Phase, s.CheckedAt = Unsupported, time.Now() })
 		return false, nil
 	}
 	u.mu.Lock()

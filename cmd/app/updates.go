@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -25,7 +26,10 @@ type updates struct {
 
 func newUpdates(a *App) *updates {
 	return &updates{app: a, u: &updater.Updater{
-		Repo:    strings.TrimPrefix(brand.RepositoryURL, "https://github.com/"),
+		Repo: strings.TrimPrefix(brand.RepositoryURL, "https://github.com/"),
+		// WHATSAPP_MCP_UPDATES_API points the checks at a stand-in for
+		// GitHub's API, to try an update before publishing it.
+		API:     os.Getenv("WHATSAPP_MCP_UPDATES_API"),
 		Version: strings.TrimPrefix(version, "v"),
 		Logger:  a.logger,
 		Dir:     filepath.Join(a.dataDir, "updates"),
@@ -38,16 +42,14 @@ func (u *updates) state() panel.UpdateState {
 	return panel.UpdateState{State: s.Phase, Current: version, Latest: s.Latest, Page: s.Page, Progress: s.Progress, Error: s.Error, CheckedAt: s.CheckedAt}
 }
 
-// check looks now, in the background.
+// check looks now and returns with the answer, so the page can say whether
+// there is a new version.
 func (u *updates) check() {
-	go func() {
-		found, _ := u.u.Check(context.Background())
-		if found {
-			u.announce()
-		}
-	}()
-	// Let the page see "checking" rather than the state before.
-	time.Sleep(150 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	if found, _ := u.u.Check(ctx); found {
+		u.announce()
+	}
 }
 
 // install downloads, checks and installs the new version in the background,
@@ -73,7 +75,7 @@ func (u *updates) install() error {
 	return nil
 }
 
-// loop checks a minute after start and then once a day.
+// loop checks a minute after start and then twice a day.
 func (u *updates) loop() {
 	if !u.u.Enabled() {
 		return
@@ -83,7 +85,7 @@ func (u *updates) loop() {
 		if found, _ := u.u.Check(context.Background()); found {
 			u.announce()
 		}
-		time.Sleep(24 * time.Hour)
+		time.Sleep(12 * time.Hour)
 	}
 }
 

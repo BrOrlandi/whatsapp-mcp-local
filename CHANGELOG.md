@@ -4,6 +4,31 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [0.1.1] - 2026-10-05
+
+### Adicionado
+
+- **Aviso de versão nova em qualquer tela.** Quando sai uma versão, um aviso no
+  canto inferior esquerdo oferece atualizar com um clique. O MCP fica fora do ar
+  só pelos segundos em que o app reinicia.
+- **Procurar atualização responde na hora:** o botão mostra que está
+  procurando e diz se há uma versão nova ou se você já tem a mais recente.
+
+### Mudou
+
+- O app procura versões novas duas vezes por dia, em vez de uma.
+- Enquanto o WhatsApp conecta, o app mostra "Carregando" e se atualiza sozinho
+  até ficar conectado.
+- O botão de conectar e a contagem de ferramentas falam em MCP, e a página
+  Estado ficou sem termos técnicos.
+
+### Corrigido
+
+- No Windows, fechar o app nem sempre encerrava a conexão com o WhatsApp
+  quando ele rodava sem janela de console.
+
+Inclui o wacli 0.20.0.
+
 ## [0.1.0] - 2026-10-05
 
 A primeira versão do WhatsApp MCP como app.
@@ -35,4 +60,5 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[0.1.1]: https://github.com/BrOrlandi/whatsapp-mcp-v2/releases/tag/v0.1.1
 [0.1.0]: https://github.com/BrOrlandi/whatsapp-mcp-v2/releases/tag/v0.1.0

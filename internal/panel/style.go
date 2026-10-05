@@ -431,4 +431,10 @@ input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:v
 .tip:hover .tip__body,.tip:focus-visible .tip__body{visibility:visible;opacity:1}
 .pill--busy::before{display:none}
 .pill .spinner{width:11px;height:11px}
+.update-banner{position:fixed;left:16px;bottom:16px;z-index:40;width:min(340px,calc(100vw - 32px));padding:14px 16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border-strong);box-shadow:var(--shadow-lift)}
+.update-banner[hidden]{display:none}
+.update-banner__title{margin:0 24px 4px 0;font-weight:700}
+.update-banner__text{margin:0 0 12px;color:var(--text-soft);font-size:.88rem;line-height:1.5}
+.update-banner__close{position:absolute;top:8px;right:10px;background:none;border:0;font-size:1.2rem;line-height:1;color:var(--muted);cursor:pointer;padding:4px}
+.btn .spinner{width:13px;height:13px}
 `

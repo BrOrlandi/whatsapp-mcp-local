@@ -20,7 +20,16 @@ const pageSource = `
 <a class="colophon__support" href="{{.}}" rel="noopener noreferrer" target="_blank">Apoie o projeto</a>{{end}}
 </p>
 </footer>
+{{if .App}}{{template "updatebanner" .}}{{end}}
 <script src="/assets/app.js" defer></script></div></body></html>{{end}}
+
+{{/* A new version, on every page of the app, in the bottom left corner. */}}
+{{define "updatebanner"}}<aside class="update-banner" data-update-banner aria-live="polite"{{if not (eq .Update.State "available" "downloading" "ready" "manual")}} hidden{{end}}>
+<button class="update-banner__close" type="button" aria-label="Agora não" data-update-banner-close>&times;</button>
+<p class="update-banner__title">Nova versão disponível</p>
+<p class="update-banner__text" data-update-banner-text>O WhatsApp MCP {{.Update.Latest}} está pronto para instalar. O MCP fica fora do ar por alguns segundos enquanto o app reinicia.</p>
+<div class="actions"><button class="btn btn--small" type="button" data-update-banner-install>Atualizar agora</button><a class="btn btn--ghost btn--small" data-update-banner-page href="{{.Update.Page}}" target="_blank" rel="noopener" hidden>Baixar a versão nova</a></div>
+</aside>{{end}}
 
 {{define "githubmark"}}<svg class="colophon__icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>{{end}}
 
@@ -46,7 +55,6 @@ const pageSource = `
 {{if .App}}<a href="/configuracoes"{{if eq .Active "configuracoes"}} aria-current="page"{{end}}>Configurações</a>{{end}}
 </nav>
 {{template "portbanner" .}}
-{{if and .App (ne .Active "configuracoes") (eq .Update.State "available" "ready" "manual")}}<p class="note">A versão {{.Update.Latest}} do WhatsApp MCP está disponível. <a href="/configuracoes#atualizacoes">Atualizar</a></p>{{end}}
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
 {{end}}
 
@@ -247,7 +255,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </form>
 </div></div></div>
 {{end}}
-{{template "foot"}}{{end}}
+{{template "foot" .}}{{end}}
 
 {{define "whatsapp"}}{{template "head" .}}{{template "nav" .}}
 <h1>WhatsApp</h1>
@@ -284,7 +292,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <p class="muted">As mensagens já guardadas continuam neste computador.</p>
 <form method="post" action="/whatsapp/sair" data-busy="Desconectando…"><div class="actions actions--end"><a class="btn btn--quiet" href="#">Cancelar</a><button class="btn btn--danger" type="submit">Desconectar</button></div></form>
 </div></div></div>
-{{template "foot"}}{{end}}
+{{template "foot" .}}{{end}}
 
 {{define "estado"}}{{template "head" .}}{{template "nav" .}}
 <h1>Estado</h1>
@@ -325,7 +333,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </div></section>
 {{end}}
 
-{{template "foot"}}{{end}}
+{{template "foot" .}}{{end}}
 
 {{define "instalacao"}}{{template "head" .}}
 <header class="masthead"><a class="brand" href="/instalacao">{{template "brandmark"}}</a>
@@ -417,7 +425,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 {{template "autostartcheck" .}}
 {{end}}
 </div>
-{{template "foot"}}{{end}}
+{{template "foot" .}}{{end}}
 
 {{define "transcricao"}}{{template "head" .}}{{template "nav" .}}
 <h1>Transcrição de áudios</h1>
@@ -452,7 +460,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <pre class="plain" data-copy><code>Transcreva os áudios que recebi hoje no WhatsApp.</code></pre></div>
 <p class="muted">Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado.</p>
 </div></section>
-{{template "foot"}}{{end}}
+{{template "foot" .}}{{end}}
 
 {{define "documentacao"}}{{template "head" .}}{{template "nav" .}}
 <h1>O que o MCP sabe fazer</h1>
@@ -468,7 +476,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </article>
 {{end}}
 </div>
-{{template "foot"}}{{end}}
+{{template "foot" .}}{{end}}
 
 {{define "receitas"}}{{template "head" .}}{{template "nav" .}}
 <h1>Receitas</h1>
@@ -492,7 +500,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </article>
 {{end}}
 </div>
-{{template "foot"}}{{end}}
+{{template "foot" .}}{{end}}
 
 {{define "configuracoes"}}{{template "head" .}}{{template "nav" .}}
 <h1>Configurações</h1>
@@ -539,7 +547,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <div class="card__head"><h2>Versão e atualizações</h2></div>
 <div class="card__body stack">
 <dl class="facts"><div class="fact"><dt>Versão instalada</dt><dd>{{.Settings.Version}}</dd></div><div class="fact"><dt>Mais recente</dt><dd data-update-latest>{{with .Update.Latest}}{{.}}{{else}}—{{end}}</dd></div></dl>
-<p class="muted" data-update-text>O app procura uma versão nova uma vez por dia.</p>
+<p class="muted" data-update-text>O app procura uma versão nova duas vezes por dia.</p>
 <div class="actions"><button class="btn btn--ghost btn--small" type="button" data-update-check>Procurar atualização</button><button class="btn btn--small" type="button" data-update-install hidden>Instalar e reiniciar</button><a class="btn btn--ghost btn--small" data-update-page href="#" target="_blank" rel="noopener" hidden>Baixar a versão nova</a></div>
 </div></section>
 
@@ -563,7 +571,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <div class="actions actions--end" style="margin-top:14px"><a class="btn btn--quiet" href="#">Cancelar</a><button class="btn btn--danger" type="submit">Apagar tudo</button></div>
 </form>
 </div></div></div>
-{{template "foot"}}{{end}}
+{{template "foot" .}}{{end}}
 
 {{define "apagado"}}{{template "head" .}}
 <div class="wizard-shell" style="max-width:520px">

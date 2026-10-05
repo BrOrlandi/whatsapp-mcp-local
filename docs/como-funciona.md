@@ -55,7 +55,7 @@ janela e sem a bandeja, como serviço do sistema.
 - **Linux sem bandeja.** O GNOME puro não mostra ícones de bandeja sem a
   extensão AppIndicator. Sem ela, fechar a janela só a minimiza, para o app
   nunca ficar rodando sem um jeito de voltar a ele.
-- **Atualizações.** Uma vez por dia o app consulta a versão mais recente no
+- **Atualizações.** Duas vezes por dia o app consulta a versão mais recente no
   GitHub. Ao instalar, ele baixa o arquivo do sistema, confere o sha256 contra o
   `checksums.txt` da versão (e, no macOS, que a assinatura é do mesmo
   desenvolvedor), troca o app e reinicia nele. O `.deb` é atualizado pelo

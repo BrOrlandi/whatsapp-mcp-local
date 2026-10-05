@@ -57,7 +57,7 @@ Depois é só abrir o app:
   usando o WhatsApp. Para encerrar, use **Sair** no menu do ícone.
 - **Abre sozinho quando o computador liga**, só na barra de menus, sem janela.
   Dá para desligar isso no menu do ícone ou em Configurações.
-- **Atualiza sozinho.** Uma vez por dia o app procura uma versão nova; quando
+- **Atualiza sozinho.** Duas vezes por dia o app procura uma versão nova; quando
   há, ele avisa, e um clique baixa, confere e reinicia na versão nova.
 - **O endereço do MCP é `http://127.0.0.1:47821/mcp`**, que só responde a
   programas deste computador. Se outro programa já usar essa porta, o app avisa
