@@ -1,6 +1,6 @@
 # Plano: WhatsApp MCP como app desktop
 
-> Status: proposta revisada (decisões da seção 12 registradas). Nada deste plano está implementado.
+> Status: proposta revisada, com todas as decisões da seção 12 tomadas. Nada deste plano está implementado.
 
 ## 0. Resumo
 
@@ -292,7 +292,7 @@ no Windows (o Wails expõe ambos) e `SIGTERM` no Linux.
 | Binários embutidos | `WhatsApp MCP.exe`, `whatsapp-mcp-bridge.exe`, `bin\wacli.exe` |
 | Dados | `%LOCALAPPDATA%\WhatsApp MCP\` |
 | Iniciar com o sistema | valor em `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` com `"...\WhatsApp MCP.exe" --hidden` |
-| Assinatura | Certificado de assinatura de código. Opções: Azure Trusted Signing (~US$ 10/mês, reputação boa no SmartScreen) ou certificado OV/EV. Sem assinatura, o SmartScreen mostra "O Windows protegeu o computador" |
+| Assinatura | Começa sem assinatura (decisão 7, seção 12): o SmartScreen mostra "O Windows protegeu o computador", e o README ensina o "Executar assim mesmo". Depois, SignPath Foundation (grátis, se o projeto se qualificar) ou um certificado OV de autoridade certificadora |
 | WebView2 | presente no Windows 11 e no 10 atualizado; o instalador inclui o bootstrapper |
 | Transcrição | whisper.cpp publica `whisper-bin-x64.zip` (CPU) e `whisper-cublas-12.x-bin-x64.zip` (NVIDIA). Padrão: CPU; CUDA se detectar placa NVIDIA. ffmpeg mínimo do nosso CI |
 | Bridge no Claude Desktop | `%APPDATA%\Claude\claude_desktop_config.json`, `"command": "C:\\Users\\…\\WhatsApp MCP\\whatsapp-mcp-bridge.exe"` |
@@ -491,8 +491,8 @@ criado por tag `v*`, com `checksums.txt`.
 
 | Segredo | Para quê | Custo |
 |---|---|---|
-| Certificado Developer ID + senha do app para notarização | macOS | Apple Developer Program, US$ 99/ano |
-| Azure Trusted Signing (ou certificado OV/EV) | Windows | ~US$ 10/mês (ou US$ 200–400/ano) |
+| Certificado **Developer ID Application** (exportado como `.p12`) + chave da API do App Store Connect para a notarização | macOS | já coberto pela conta Apple Developer do Bruno |
+| Nenhum na primeira versão; depois, token do SignPath ou certificado OV | Windows | grátis (SignPath) ou ~US$ 100–300/ano (OV) |
 | Chave GPG | assinatura dos pacotes Linux | grátis |
 
 ### 7.3 Versões
@@ -641,7 +641,8 @@ atualiza para a N+1 sozinho nos três sistemas.
 |---|---|---|
 | Wails v3 ainda em beta | um bug de janela ou bandeja sem correção rápida | prova na Fase 0; Wails v2 + biblioteca de bandeja como plano B; fixar a versão do Wails |
 | wacli no Windows menos testado pelo projeto deles | sync instável ou encerramento ruim no Windows | Fase 0 dedicada; reportar e contribuir com correções no wacli; Job Object garante ao menos que nada fique órfão |
-| Custo e burocracia de assinatura | sem assinatura, avisos assustadores no macOS e no Windows | decidir cedo (seção 12); dá para publicar um beta sem assinatura, com instruções de "abrir mesmo assim" |
+| Windows sem assinatura | o SmartScreen assusta quem baixa | instruções com imagens no README; SignPath Foundation ou certificado OV depois (decisão 8) |
+| Notarização da Apple recusar o app | o `.dmg` passa a abrir com aviso | assinar todos os binários embutidos com *hardened runtime*; testar a notarização já na Fase 2, não só na Fase 6 |
 | WhatsApp mudar o protocolo | a conexão para em todos os sistemas | o app avisa na bandeja; release rápido com o wacli atualizado; o updater entrega em horas |
 | Antivírus no Windows estranhar o app que baixa e roda binários | bloqueio da transcrição | assinar todos os binários; baixar só do nosso release; verificar sha256 |
 | Transcrição lenta em CPU | experiência ruim no Windows e Linux sem GPU | aviso claro; CUDA quando houver NVIDIA; a IA pode baixar o áudio e transcrever de outra forma; chave da OpenAI numa versão futura |
@@ -685,23 +686,43 @@ atualiza para a N+1 sozinho nos três sistemas.
    testes. Ele é o caminho para servidores sem tela, máquinas ligadas 24 horas
    e instalação por agente de IA.
 
-### Em aberto
+### Assinatura (decidida)
 
-1. **Assinatura de código.** Distribuir só pelo GitHub não dispensa a
-   assinatura: ela é o que o sistema confere ao abrir um app baixado da
-   internet, venha de onde vier.
-   - **Sem assinatura:** no macOS, o app abre com o aviso de que "está
-     danificado e não pode ser aberto" (contornável com um comando no Terminal
-     ou em Ajustes › Privacidade, mas assusta); no Windows, o SmartScreen mostra
-     "O Windows protegeu o computador", com "Executar assim mesmo" escondido em
-     "Mais informações". No Linux não muda nada.
-   - **Com assinatura:** abre direto. Custa US$ 99/ano (Apple Developer
-     Program, que também cobre a notarização) e cerca de US$ 10/mês no Windows
-     (Azure Trusted Signing).
-   - **A assinatura não muda o formato de download:** o `.dmg` e o `.exe` são
-     os mesmos, com ou sem ela. Dá para começar sem e assinar depois.
-   - **Caminho sugerido:** lançar sem assinatura, com os passos de "abrir mesmo
-     assim" de cada sistema no README; assinar quando o público crescer.
+As duas últimas decisões, sobre assinatura:
+
+7. **Assinatura no macOS: com a conta Apple Developer que o Bruno já tem.** A
+   conta serve para distribuir fora da App Store: o certificado **Developer ID
+   Application** existe exatamente para apps baixados de sites e do GitHub, e a
+   **notarização** (a Apple examina o app e o "carimba") é feita pela mesma
+   conta. Com os dois, o `.dmg` abre sem nenhum aviso. Passos:
+   - criar o certificado Developer ID Application em developer.apple.com
+     (só o "Account Holder" da conta pode criar, se a conta for de empresa);
+   - criar uma chave da API do App Store Connect para o `notarytool` rodar no CI;
+   - assinar **todos** os binários dentro do `.app` (o app, o bridge, o wacli e,
+     depois de baixados, o whisper-cli e o ffmpeg) com *hardened runtime*;
+     notarizar o `.dmg` e "grampear" o carimbo nele (`stapler`), para abrir
+     mesmo sem internet.
+   - Nada disso coloca o app na App Store nem passa pela revisão dela.
+
+8. **Assinatura no Windows: a primeira versão sai sem assinatura.** Não existe
+   assinatura gratuita *e* imediata que evite o SmartScreen:
+
+   | Opção | Custo | Situação |
+   |---|---|---|
+   | Certificado autoassinado | grátis | **não serve**: o Windows não confia nele, e o aviso continua (ou piora) |
+   | Azure Trusted Signing | ~US$ 10/mês | **indisponível no Brasil**: pessoa física só nos EUA e no Canadá; empresa, numa lista de países sem o Brasil |
+   | [SignPath Foundation](https://signpath.org) | grátis | para projetos de código aberto: exige repositório **público**, licença aprovada pela OSI (MIT serve), build no CI público e aprovação manual de cada assinatura. **Pontos de atenção:** hoje o repositório é privado, e o programa restringe binários de terceiros dentro do pacote (o wacli vai junto). Precisa de consulta a eles |
+   | Certificado OV de uma autoridade (Certum, Sectigo…) | ~US$ 100–300/ano | funciona no Brasil; desde 2023 a chave fica num token físico ou na nuvem da autoridade, o que exige integrar com o CI |
+
+   Mesmo assinado, um app novo ainda pode receber o aviso do SmartScreen nas
+   primeiras semanas: a Microsoft dá "reputação" aos poucos, conforme as
+   pessoas baixam sem problemas. Desde 2024, nem certificado EV pula essa etapa.
+
+   **Plano:** lançar o `.exe` sem assinatura, com o passo a passo do
+   "Mais informações › Executar assim mesmo" no README (duas imagens). Quando o
+   repositório ficar público, pedir o SignPath Foundation, consultando antes
+   sobre o wacli embutido; se não der, comprar um OV.
+
 #### Sobre a linha de comando (decidido: opção A)
 
 Hoje, a v2 é **só** linha de comando: o `install.sh` instala o executável
