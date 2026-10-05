@@ -1,0 +1,40 @@
+name: ci
+
+# The tests on the three systems the app runs on, for every push and pull
+# request. Windows is where the process handling (job objects, CTRL_BREAK)
+# can only be checked.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Linux libraries for the app
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+      - name: vet
+        shell: bash
+        run: go vet -tags gtk3 ./...
+      - name: test
+        shell: bash
+        run: go test -count=1 ./...
+      - name: build every program
+        shell: bash
+        run: |
+          go build -tags gtk3 -o /dev/null ./cmd/app
+          CGO_ENABLED=0 go build -o /dev/null ./cmd/whatsapp-mcp
+          CGO_ENABLED=0 go build -o /dev/null ./cmd/whatsapp-mcp-bridge

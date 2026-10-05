@@ -180,3 +180,12 @@ func processEntry(pid int) (ppid int, exe string, ok bool) {
 
 // Self is this process's pid.
 func Self() int { return os.Getpid() }
+
+// Detach starts a command without a console of its own and outside the
+// app's job (Started is never called for it), so it outlives the app.
+func Detach(cmd *exec.Cmd) {
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.CreationFlags |= windows.DETACHED_PROCESS | windows.CREATE_NEW_PROCESS_GROUP
+}

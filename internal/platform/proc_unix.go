@@ -87,3 +87,12 @@ func psInfo(pid int) (ppid int, command string) {
 
 // Self is this process's pid.
 func Self() int { return os.Getpid() }
+
+// Detach starts a command in a session of its own, so it outlives this
+// process and is not stopped with its group.
+func Detach(cmd *exec.Cmd) {
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.Setsid = true
+}

@@ -36,6 +36,7 @@ type tray struct {
 	icon      *application.SystemTray
 	menu      *application.Menu
 	status    *application.MenuItem
+	update    *application.MenuItem
 	autostart *application.MenuItem
 
 	mu    sync.Mutex
@@ -51,6 +52,7 @@ func newTray(a *App) *tray {
 	t.menu = a.wails.NewMenu()
 	t.menu.Add("Abrir o " + platform.AppName).OnClick(func(*application.Context) { a.showWindow("") })
 	t.status = t.menu.Add("Iniciando…").SetEnabled(false)
+	t.update = t.menu.Add("").SetHidden(true).OnClick(func(*application.Context) { a.showWindow("/configuracoes#atualizacoes") })
 	t.menu.AddSeparator()
 	t.autostart = t.menu.AddCheckbox("Iniciar com o sistema", a.Settings().Autostart).OnClick(func(ctx *application.Context) {
 		on := ctx.ClickedMenuItem().Checked()
@@ -90,6 +92,15 @@ func (t *tray) render(st daemon.Status) {
 	}
 	t.icon.SetTooltip(platform.AppName + ": " + label)
 	t.status.SetLabel(label)
+	t.menu.Update()
+}
+
+// offerUpdate adds "install version X" to the menu.
+func (t *tray) offerUpdate(version string) {
+	if t == nil {
+		return
+	}
+	t.update.SetLabel("Instalar a versão " + version + "…").SetHidden(false)
 	t.menu.Update()
 }
 
