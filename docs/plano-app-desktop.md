@@ -481,6 +481,7 @@ própria máquina do CI:
 | windows | `windows-latest` | `WhatsApp-MCP-Setup.exe` assinado |
 | linux-amd64 | `ubuntu-22.04` | `.AppImage`, `.deb` |
 | linux-arm64 | `ubuntu-22.04-arm` | `.AppImage`, `.deb` |
+| cli | os três | `whatsapp-mcp_<sistema>_<arquitetura>.tar.gz` (ou `.zip` no Windows), a linha de comando sem janela, que o `install.sh` baixa |
 | sidecars | os três | whisper-cli (macOS), ffmpeg mínimo (os três), sha256 |
 
 Todos os jobs rodam `go test ./...` antes de empacotar. O release no GitHub é
@@ -557,6 +558,7 @@ brigariam pelo dispositivo.
 | Atualização automática de uma versão para a seguinte | ☐ | ☐ | ☐ |
 | Migração da instalação v2 atual (só macOS) | ☐ | — | — |
 | Gatekeeper / SmartScreen sem avisos | ☐ | ☐ | — |
+| Linha de comando: `install.sh` num servidor sem tela, QR code pelo painel no navegador | ☐ | — | ☐ |
 
 ---
 
@@ -625,8 +627,9 @@ atualiza para a N+1 sozinho nos três sistemas.
 
 ### Fase 7 · Documentação e beta (2–3 dias)
 
-- README: em vez do prompt + `curl`, "Baixe o app para o seu sistema", com os
-  três botões e o prompt como alternativa para quem quer a linha de comando.
+- README: "Baixe o app para o seu sistema" primeiro, com os três arquivos; logo
+  depois, "Prefere o terminal ou um servidor?", com o prompt e o `install.sh`
+  da linha de comando.
 - Capturas novas, `docs/` atualizados (dependências, caminhos por sistema).
 - Beta com algumas pessoas em cada sistema antes do anúncio.
 
@@ -676,6 +679,11 @@ atualiza para a N+1 sozinho nos três sistemas.
    ferramenta de IA pode baixar o áudio pelo `download_media` e transcrever do
    jeito que achar melhor (seção 5.2).
 5. **O app nasce neste repositório** (`BrOrlandi/whatsapp-mcp-v2`).
+6. **A linha de comando continua como produto (opção A, abaixo).** O
+   `whatsapp-mcp` sem janela segue publicado em cada release, ao lado do app,
+   com o `install.sh` e o prompt de instalação no README, e entra na matriz de
+   testes. Ele é o caminho para servidores sem tela, máquinas ligadas 24 horas
+   e instalação por agente de IA.
 
 ### Em aberto
 
@@ -694,10 +702,7 @@ atualiza para a N+1 sozinho nos três sistemas.
      os mesmos, com ou sem ela. Dá para começar sem e assinar depois.
    - **Caminho sugerido:** lançar sem assinatura, com os passos de "abrir mesmo
      assim" de cada sistema no README; assinar quando o público crescer.
-2. **A linha de comando continua existindo como produto?** Ver a explicação
-   abaixo.
-
-#### Sobre a linha de comando
+#### Sobre a linha de comando (decidido: opção A)
 
 Hoje, a v2 é **só** linha de comando: o `install.sh` instala o executável
 `whatsapp-mcp-v2`, que roda como serviço do sistema (`service install`) e não
@@ -713,7 +718,7 @@ A pergunta é o que fazer com esse modo sem janela depois que o app existir:
 O custo de manter a opção A é pequeno, porque o app e a linha de comando usam o
 mesmo núcleo (`internal/daemon`): é mais um arquivo no release e mais uma
 coluna na lista de testes. O benefício é não perder quem roda em servidor.
-**Sugestão: opção A.**
+**Decidido: opção A.**
 
 ## 13. Fora do escopo
 
