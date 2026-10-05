@@ -57,7 +57,7 @@ func newTray(a *App) *tray {
 	}
 	t.menu = a.wails.NewMenu()
 	t.menu.Add("Abrir o " + platform.AppName).OnClick(func(*application.Context) { a.showWindow("") })
-	t.status = t.menu.Add("Iniciando…").SetEnabled(false)
+	t.status = t.menu.Add("Carregando…").SetEnabled(false)
 	t.update = t.menu.Add("").SetHidden(true).OnClick(func(*application.Context) { a.showWindow("/configuracoes#atualizacoes") })
 	t.menu.AddSeparator()
 	t.autostart = t.menu.AddCheckbox("Iniciar com o sistema", a.Settings().Autostart).OnClick(func(ctx *application.Context) {

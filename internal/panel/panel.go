@@ -307,6 +307,9 @@ type snapshot struct {
 	Sync      wacli.Status
 	SyncTone  string
 	SyncLabel string
+	// SyncBusy is a state that passes on its own (loading, reconnecting, a
+	// pause of seconds): the page shows a spinner and refreshes itself.
+	SyncBusy bool
 	Health    mcp.Health
 	Checks    []check
 	Activity  index.Activity
@@ -345,6 +348,10 @@ func (p *Panel) snapshot(ctx context.Context) snapshot {
 		s.Phone = formatPhone(s.Account.Phone)
 	}
 	s.SyncTone, s.SyncLabel = syncLabel(s.Sync)
+	switch s.Sync.State {
+	case "starting", "paused", "reconnecting":
+		s.SyncBusy = true
+	}
 	if s.Pairing.State == "syncing" || (!s.Sync.History.LastAt.IsZero() && time.Since(s.Sync.History.LastAt) < 90*time.Second) {
 		s.Arriving = true
 		s.ArrivingCount = s.Pairing.Synced + s.Sync.History.Messages
@@ -379,7 +386,7 @@ func syncLabel(s wacli.Status) (tone, label string) {
 		}
 		return "warn", "Pausado por instantes"
 	case "starting":
-		return "warn", "Iniciando"
+		return "warn", "Carregando"
 	case "reconnecting":
 		return "warn", "Reconectando"
 	case "not_paired":
@@ -414,7 +421,7 @@ func describeCheck(c mcp.Check, s snapshot) (string, string) {
 		case "paused":
 			return "Conexão", "Pausada por alguns segundos para " + pauseReason(s.Sync.PausedFor) + ". Volta sozinha."
 		case "starting":
-			return "Conexão", "Iniciando."
+			return "Conexão", "Carregando."
 		case "reconnecting":
 			return "Conexão", "Reconectando ao WhatsApp. Confira a internet deste computador."
 		case "not_paired":

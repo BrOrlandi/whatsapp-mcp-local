@@ -57,6 +57,10 @@ way out is one click away. */}}
 {{if .Suggest}}<form method="post" action="/configuracoes/porta" class="actions" style="margin-top:10px"><input type="hidden" name="port" value="{{.Suggest}}"><button class="btn btn--small" type="submit">Usar a porta {{.Suggest}}</button><a class="btn btn--quiet btn--small" href="/configuracoes#porta">Escolher outra</a></form>{{end}}
 </div>{{end}}{{end}}
 
+{{/* The connection's state; one that passes on its own spins, and the page
+refreshes when it has passed. */}}
+{{define "syncpill"}}<span class="pill pill--{{.SyncTone}}{{if .SyncBusy}} pill--busy{{end}}"{{if .SyncBusy}} data-sync-wait="{{.Sync.State}}"{{end}}>{{if .SyncBusy}}<span class="spinner" aria-hidden="true"></span>{{end}}{{.SyncLabel}}</span>{{end}}
+
 {{define "autostartcheck"}}{{if .App}}<div class="wizard__escape"><label class="check check--inline"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span>Abrir o WhatsApp MCP quando o computador ligar</span></label></div>
 <p class="busy" data-setting-note role="status" hidden></p>{{end}}{{end}}
 
@@ -116,7 +120,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 {{define "overlays"}}
 <div class="overlay" id="nova-conexao" role="dialog" aria-modal="true" aria-labelledby="nova-conexao-titulo">
 <div class="dialog dialog--wide">
-<div class="dialog__head"><h2 id="nova-conexao-titulo">Conectar uma ferramenta de IA</h2><a class="dialog__close" href="#" aria-label="Fechar">&times;</a></div>
+<div class="dialog__head"><h2 id="nova-conexao-titulo">Conectar ferramenta de IA ao MCP</h2><a class="dialog__close" href="#" aria-label="Fechar">&times;</a></div>
 <div class="dialog__body">{{template "clientTabs" .Setup}}</div>
 </div></div>
 {{end}}
@@ -152,11 +156,11 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 
 {{define "conectar"}}{{template "head" .}}{{template "nav" .}}
 <h1>Seu WhatsApp nas suas ferramentas de IA</h1>
-<p class="lead">Aqui você vê se está tudo funcionando e liga o seu WhatsApp a um assistente de inteligência artificial — o Claude, o Cursor, o que você usar.</p>
+<p class="lead">Aqui você vê se está tudo funcionando e liga o seu WhatsApp a uma ferramenta de inteligência artificial que aceite MCP, como o Claude, o Codex ou a que você usar.</p>
 
 <section class="overview" data-wait-client="{{if .LiveCount}}false{{else}}true{{end}}">
-<div class="overview__item overview__item--{{if eq .SyncTone "ok"}}ok{{else}}wait{{end}}">
-<span class="overview__icon" aria-hidden="true">{{if eq .SyncTone "ok"}}&#10003;{{else}}!{{end}}</span>
+<div class="overview__item overview__item--{{if eq .SyncTone "ok"}}ok{{else}}wait{{end}}"{{if .SyncBusy}} data-sync-wait="{{.Sync.State}}"{{end}}>
+<span class="overview__icon" aria-hidden="true">{{if .SyncBusy}}<span class="spinner"></span>{{else if eq .SyncTone "ok"}}&#10003;{{else}}!{{end}}</span>
 <div class="overview__body">
 <p class="overview__title">{{if eq .SyncTone "ok"}}WhatsApp conectado{{else}}{{.SyncLabel}}{{end}}</p>
 <p class="overview__detail">{{if .Phone}}<strong class="overview__phone">{{.Phone}}</strong>{{end}}{{.Name}}</p>
@@ -166,7 +170,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <div class="overview__item overview__item--ok">
 <span class="overview__icon" aria-hidden="true">&#10003;</span>
 <div class="overview__body">
-<p class="overview__title">{{plural .LiveCount "ferramenta de IA conectada" "ferramentas de IA conectadas"}}</p>
+<p class="overview__title">{{plural .LiveCount "ferramenta de IA conectada ao MCP" "ferramentas de IA conectadas ao MCP"}}</p>
 <p class="overview__detail">Já pode pedir coisas do seu WhatsApp para a sua IA. Última vez em uso: {{relativeSince .LastUse}}.</p>
 </div></div>
 {{else if .Connections}}
@@ -186,7 +190,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 {{end}}
 </section>
 
-<div class="hero"><a class="btn btn--big" href="#nova-conexao">Conectar uma ferramenta de IA</a></div>
+<div class="hero"><a class="btn btn--big" href="#nova-conexao">Conectar ferramenta de IA ao MCP</a></div>
 
 <section class="card">
 <div class="card__head"><h2>Suas conexões</h2>{{if .Connections}}<a class="btn btn--ghost btn--small" href="#nova-conexao">Nova conexão</a>{{end}}</div>
@@ -251,7 +255,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 {{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
 
 <section class="card">
-<div class="card__head"><h2>Conta</h2><span class="pill pill--{{.SyncTone}}">{{.SyncLabel}}</span></div>
+<div class="card__head"><h2>Conta</h2>{{template "syncpill" .}}</div>
 <div class="card__body stack">
 <div class="hello"><span class="avatar" style="background:#128c7e">{{initial .Name}}</span><div><p class="hello__name">{{with .Name}}{{.}}{{else}}Sua conta{{end}}</p><p class="hello__phone">{{.Phone}}</p></div></div>
 <dl class="facts">
@@ -287,7 +291,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <p class="lead">Se o seu WhatsApp está conectado e recebendo mensagens neste computador.</p>
 
 <section class="card">
-<div class="card__head"><h2>WhatsApp</h2><span class="pill pill--{{.SyncTone}}">{{.SyncLabel}}</span></div>
+<div class="card__head"><h2>WhatsApp</h2>{{template "syncpill" .}}</div>
 <div class="card__body stack">
 {{if eq .Health.Status "ok"}}<p class="alert alert--ok">Nenhum problema detectado. As mensagens estão sendo recebidas e guardadas.</p>
 {{else}}<ul class="problems">{{range .Checks}}{{if ne .Status "ok"}}<li{{if eq .Status "warn"}} class="problems__warn"{{end}}><strong>{{.Title}}:</strong> {{.Text}}</li>{{end}}{{end}}</ul>{{end}}
@@ -468,7 +472,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 
 {{define "receitas"}}{{template "head" .}}{{template "nav" .}}
 <h1>Receitas</h1>
-<p class="lead">Nenhuma destas precisa de código novo. O gateway só responde pelo WhatsApp quando perguntado — esperar a hora, vigiar um termo, montar o relatório, tudo isso é trabalho do assistente, escrito como instrução. Cada receita é um prompt para colar.</p>
+<p class="lead">Nenhuma destas precisa de código novo. O WhatsApp MCP só responde pelo WhatsApp quando perguntado: esperar a hora, vigiar um termo e montar o relatório são trabalho da sua ferramenta de IA, escrito como instrução. Cada receita é um texto para colar.</p>
 <div class="recipes">
 {{range .Recipes}}
 <article class="recipe">

@@ -38,7 +38,7 @@ func (d *Daemon) status(ctx context.Context) Status {
 			st.Title = "Conectando o WhatsApp"
 		}
 	case "starting":
-		st.Tone, st.Title = "warn", "Iniciando"
+		st.Tone, st.Title = "warn", "Carregando"
 	case "reconnecting":
 		st.Tone, st.Title = "warn", "Reconectando"
 	case "not_paired":

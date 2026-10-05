@@ -420,6 +420,23 @@
     window.setInterval(refresh, 15000);
   }
 
+  // While WhatsApp is loading or reconnecting, ask again every two seconds
+  // and refresh the page as soon as the state has moved on, connected or not.
+  var syncWait = document.querySelector("[data-sync-wait]");
+  if (syncWait) {
+    var waitingFor = syncWait.getAttribute("data-sync-wait");
+    var syncPolls = 0;
+    var syncTimer = window.setInterval(function () {
+      if (++syncPolls > 300) { window.clearInterval(syncTimer); return; }
+      api("/api/state").then(function (state) {
+        if (state.sync && state.sync.state !== waitingFor) {
+          window.clearInterval(syncTimer);
+          window.location.reload();
+        }
+      }).catch(function () {});
+    }, 2000);
+  }
+
   // The first history sync may still be arriving after pairing.
   var syncing = document.querySelector("[data-sync-note]");
   if (syncing) {
