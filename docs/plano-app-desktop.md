@@ -474,6 +474,10 @@ a recuperação de órfãos continua lá.
 
 ### 7.1 CI (GitHub Actions)
 
+> **Decidido depois (seção 14):** o CI só roda os testes. As versões são
+> compiladas, assinadas e publicadas à mão no Mac do Bruno, com
+> `scripts/release.sh`, e o instalador do Windows não é assinado.
+
 O Wails usa cgo e o webview de cada sistema, então cada sistema compila na
 própria máquina do CI:
 
@@ -785,6 +789,14 @@ coluna na lista de testes. O benefício é não perder quem roda em servidor.
 - **Sem migração no app (seção 8):** ela foi feita uma vez, no Mac do Bruno,
   único usuário antes da primeira versão pública, e depois retirada do código:
   não há instalações anteriores a migrar.
+- **Publicação sempre local (seção 7):** o Bruno compila, assina, notariza e
+  publica cada versão no próprio Mac, com `scripts/release.sh` (o Windows e o
+  Linux em Docker) e o `gh`. O GitHub Actions só roda os testes; não há
+  segredos de assinatura no CI. Os pacotes da transcrição também são
+  compilados localmente, com `scripts/sidecars/`.
+- **Windows sem assinatura, de vez (decisão 8):** o instalador não será
+  assinado, nem pelo SignPath nem por certificado pago. O README, o site e as
+  notas de cada versão ensinam o "Mais informações › Executar assim mesmo".
 
 ### Verificado
 
@@ -803,11 +815,22 @@ coluna na lista de testes. O benefício é não perder quem roda em servidor.
 
 ### Pendências
 
-- **Windows numa máquina de verdade** (o CI roda os testes no
-  `windows-latest`, mas a interface, o `CTRL_BREAK` no wacli real, o socket de
-  envio e o bridge com o Claude Desktop ainda não foram vistos rodando).
-- **Segredos do CI** da seção 7.2, para o `release.yml` assinar e notarizar
-  sozinho. Até lá, as versões são compiladas, assinadas e notarizadas
-  localmente com os mesmos scripts.
+- **Testar a 1.0.0 no Windows e no Linux, em máquinas de verdade.** O
+  Windows só passou nos testes do CI (`windows-latest`); o Linux rodou numa
+  tela virtual, sem bandeja de verdade. Em cada sistema, a partir do arquivo
+  publicado:
+  - instalar (no Windows, passar pelo aviso do SmartScreen; no Linux, o
+    AppImage e o `.deb`) e abrir;
+  - a janela e o ícone na bandeja (no GNOME, com a extensão AppIndicator),
+    com o estado certo;
+  - conectar o WhatsApp pelo QR code;
+  - conectar o Claude Desktop (o bridge) e uma ferramenta pela URL, e ler e
+    enviar uma mensagem por elas;
+  - ligar a transcrição: baixar os programas e o modelo, e transcrever um
+    áudio (no Windows com placa NVIDIA, a versão CUDA);
+  - trocar a porta, "Iniciar com o sistema" e reiniciar o computador;
+  - fechar a janela (o app continua na bandeja) e sair pela bandeja, sem
+    deixar o wacli rodando;
+  - atualizar a partir de uma versão anterior, quando sair a próxima.
 - **Beta** com algumas pessoas em cada sistema antes do anúncio.
 

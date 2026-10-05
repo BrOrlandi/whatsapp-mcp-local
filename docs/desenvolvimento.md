@@ -108,20 +108,54 @@ Com `WAMCP_E2E_PACKAGES=published`, ele baixa os pacotes fixados em
 
 ## Publicar
 
-- **Uma versão do app:** uma tag `v*` roda `.github/workflows/release.yml`, que
-  compila e assina o `.dmg`, o instalador do Windows, o AppImage e o `.deb`
-  (amd64 e arm64) e a linha de comando, e publica tudo com `checksums.txt`. Os
-  segredos que ele usa: `MACOS_CERT_P12`, `MACOS_CERT_PASSWORD`,
-  `MACOS_SIGN_IDENTITY`, `NOTARY_KEY_P8`, `NOTARY_KEY_ID`, `NOTARY_ISSUER` e,
-  opcionalmente, `GPG_PRIVATE_KEY` e `GPG_PASSPHRASE` para assinar o
-  `checksums.txt`.
-- **Os programas da transcrição:** `.github/workflows/sidecars.yml`, rodado à
-  mão com uma tag `sidecars-N`, compila o whisper-cli e o ffmpeg de cada
-  sistema, publica um release só com eles e abre um pull request fixando-os em
-  `internal/sidecar/manifest.json`. Os mesmos scripts de `scripts/sidecars/`
-  rodam localmente (o `sidecars-1` foi feito assim); o release não é marcado
-  como o mais recente, para o atualizador do app não o confundir com uma
-  versão.
+Toda versão é compilada e publicada à mão, neste Mac: o GitHub Actions só roda
+os testes. O instalador do Windows não é assinado.
+
+- **Uma versão do app:** com o `CHANGELOG.md` escrito e a tag `vX.Y.Z` criada
+  (anotada), `scripts/release.sh X.Y.Z` compila a tag num clone à parte e deixa
+  em `dist/vX.Y.Z/` o `.dmg` assinado e notarizado, o instalador do Windows, o
+  AppImage e o `.deb` (amd64 e arm64, em Docker), a linha de comando de cada
+  sistema e o `checksums.txt`. Ele precisa de `SIGN_IDENTITY`
+  (`Developer ID Application: …`), `NOTARY_KEY` (o `.p8` da chave da API do
+  App Store Connect), `NOTARY_KEY_ID` e `NOTARY_ISSUER`. Depois:
+
+  ```sh
+  git push origin main vX.Y.Z
+  gh release create vX.Y.Z --verify-tag --latest --title "WhatsApp MCP Local X.Y.Z" \
+    --notes-file <a entrada do CHANGELOG mais os avisos de instalação> -- dist/vX.Y.Z/*
+  ```
+
+  e abrir https://whatsapp-mcp.brorlandi.xyz/download para ver a versão nova
+  em todos os sistemas.
+- **Os programas da transcrição** mudam pouco, e saem num release `sidecars-N`
+  à parte, que não é marcado como o mais recente (o atualizador do app não o
+  confunde com uma versão). Cada sistema compila com `scripts/sidecars/`
+  (`build-whisper.sh` e `build-ffmpeg.sh`; no Mac, precisa do `cmake`):
+
+  ```sh
+  # macOS: whisper universal com Metal, ffmpeg de cada arquitetura unido com lipo
+  scripts/sidecars/build-whisper.sh out/mac
+  ARCH=arm64 scripts/sidecars/build-ffmpeg.sh out/ff-arm64
+  ARCH=x86_64 scripts/sidecars/build-ffmpeg.sh out/ff-x86_64
+  lipo -create -output out/mac/ffmpeg out/ff-arm64/ffmpeg out/ff-x86_64/ffmpeg
+  SIGN_IDENTITY="Developer ID Application: …" scripts/sidecars/package.sh darwin universal out/mac pkg
+
+  # Linux, uma vez por arquitetura (--platform linux/arm64 e linux/amd64)
+  docker run --rm --platform linux/$ARCH -v "$PWD:/src" -w /src wamcp-linux-build:$ARCH bash -c \
+    'scripts/sidecars/build-whisper.sh out/linux-$ARCH && scripts/sidecars/build-ffmpeg.sh out/linux-$ARCH && scripts/sidecars/package.sh linux $ARCH out/linux-$ARCH pkg'
+
+  # Windows: ffmpeg cruzado com mingw; o whisper vem do release oficial
+  docker run --rm -v "$PWD:/src" -w /src wamcp-linux-build:arm64 bash -c \
+    'apt-get update -qq && apt-get install -y -qq mingw-w64 && scripts/sidecars/build-ffmpeg.sh out/win x86_64-w64-mingw32- &&
+     scripts/sidecars/package.sh windows amd64 out/win pkg && scripts/sidecars/package.sh windows amd64 out/win pkg cuda'
+
+  scripts/sidecars/manifest.py sidecars-N pkg   # fixa os pacotes em internal/sidecar/manifest.json
+  gh release create sidecars-N --latest=false --title "Transcrição (sidecars-N)" --notes "…" pkg/*
+  ```
+
+  Antes de publicar, `WAMCP_E2E_PACKAGES=pkg` testa a instalação e a
+  transcrição a partir deles; depois, `WAMCP_E2E_PACKAGES=published`, a partir
+  do release.
 - **O wacli:** a versão e os sha256 ficam em `build/wacli.env`. Trocar a versão
   é trocar esse arquivo, rodar os testes e publicar uma versão nova do app.
 - **Os ícones** saem de `build/icons/*.svg` com `scripts/icons.sh`.

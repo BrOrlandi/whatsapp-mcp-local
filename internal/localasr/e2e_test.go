@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -33,8 +34,11 @@ func TestInstallAndTranscribe(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// The manifest scripts/sidecars/manifest.py wrote points at the
+		// release; here the archives come from the folder.
+		local := regexp.MustCompile(`https://github\.com/[^"]+/releases/download/[^/"]+`).ReplaceAllString(string(raw), srv.URL)
 		manifest := filepath.Join(t.TempDir(), "manifest.json")
-		if err := os.WriteFile(manifest, []byte(strings.ReplaceAll(string(raw), "BASE", srv.URL)), 0o644); err != nil {
+		if err := os.WriteFile(manifest, []byte(local), 0o644); err != nil {
 			t.Fatal(err)
 		}
 		t.Setenv("WHATSAPP_MCP_SIDECARS", manifest)

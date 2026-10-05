@@ -15,8 +15,8 @@ and `/servidor` is a separate page for the server project, whose links all point
 
 ## Release & Changelog
 
-Structured convention: `.claude/release.json` (read by the `release` skill). Process and
-signing secrets: `docs/desenvolvimento.md#publicar`.
+Structured convention: `.claude/release.json` (read by the `release` skill). Process:
+`docs/desenvolvimento.md#publicar`.
 
 - **One release unit**: the desktop app and the command line ship together. The version is the
   git tag (`vX.Y.Z`, annotated); builds stamp it with `-X main.version` (`VERSION=X.Y.Z` in the
@@ -24,10 +24,14 @@ signing secrets: `docs/desenvolvimento.md#publicar`.
 - **Changelog**: `CHANGELOG.md`, Keep a Changelog, pt-BR, written for users. Each entry names the
   wacli version inside the app (`build/wacli.env`). The GitHub release body is that entry plus
   the first-run caveats (Windows SmartScreen, `chmod +x` for the AppImage).
-- **Publish**: a tag `v*` runs `.github/workflows/release.yml`, which builds every system and
-  publishes the release with `checksums.txt`. A release already published by hand (built locally
-  with the same scripts) is left alone. Asset names are fixed (`WhatsApp-MCP.dmg`,
-  `WhatsApp-MCP-Setup.exe`, `WhatsApp-MCP-<arch>.AppImage`): the app's updater looks them up.
+- **Publish**: always by hand, on Bruno's Mac; CI only runs the tests, and there is no release
+  workflow to bring back. `scripts/release.sh X.Y.Z` builds the tag into `dist/vX.Y.Z/` (the
+  signed and notarised `.dmg`, the Windows installer and the Linux AppImage and `.deb` in Docker,
+  the command line, `checksums.txt`); then push `main` and the tag, and `gh release create
+  --latest` with those files. The Windows installer is not signed, by decision. Asset names are
+  fixed (`WhatsApp-MCP.dmg`, `WhatsApp-MCP-Setup.exe`, `WhatsApp-MCP-<arch>.AppImage`): the app's
+  updater looks them up. The transcription programs ship in separate `sidecars-N` releases,
+  never marked latest, pinned in `internal/sidecar/manifest.json`.
 - **Landing page downloads**: every release must reach the download page
   (https://whatsapp-mcp.brorlandi.xyz/download), which is where the README's download button
   goes, never to a GitHub release. Its buttons point at `releases/latest/download/<fixed name>`,

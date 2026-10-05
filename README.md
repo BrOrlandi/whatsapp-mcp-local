@@ -42,7 +42,7 @@ para o seu sistema. Depois é só abrir o app:
   <img src="docs/assets/app-instalacao.png" alt="A primeira tela do app, com o QR code" width="600">
 </p>
 
-> **No Windows**, o instalador ainda não é assinado. O Windows mostra "O
+> **No Windows**, o instalador não é assinado. O Windows mostra "O
 > Windows protegeu o computador": clique em **Mais informações** e depois em
 > **Executar assim mesmo**.
 

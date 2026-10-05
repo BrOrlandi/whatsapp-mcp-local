@@ -17,10 +17,7 @@
         { "path": "CHANGELOG.md", "format": "keep-a-changelog", "audience": "public", "language": "pt-BR", "detail": "full" }
       ],
       "build": [
-        { "cmd": "VERSION=X.Y.Z SIGN_IDENTITY=… NOTARY_KEY=… NOTARY_KEY_ID=… NOTARY_ISSUER=… scripts/build-macos.sh", "artifact": "build/bin/WhatsApp-MCP.dmg" },
-        { "cmd": "VERSION=X.Y.Z scripts/build-windows.sh", "artifact": "build/bin/WhatsApp-MCP-Setup.exe" },
-        { "cmd": "VERSION=X.Y.Z scripts/build-linux.sh (in build/linux/Dockerfile, once per architecture)", "artifact": "build/bin/WhatsApp-MCP-<x86_64|aarch64>.AppImage, build/bin/whatsapp-mcp_X.Y.Z_<amd64|arm64>.deb" },
-        { "cmd": "the cli job of .github/workflows/release.yml", "artifact": "whatsapp-mcp_<os>_<arch>.tar.gz, whatsapp-mcp_windows_amd64.zip" }
+        { "cmd": "SIGN_IDENTITY=… NOTARY_KEY=… NOTARY_KEY_ID=… NOTARY_ISSUER=… scripts/release.sh X.Y.Z (after tagging vX.Y.Z; always local, never CI)", "artifact": "dist/vX.Y.Z/*" }
       ],
       "publish": [
         { "channel": "git-tag" },

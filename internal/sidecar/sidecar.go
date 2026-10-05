@@ -1,7 +1,7 @@
 // Package sidecar fetches and checks the programs transcription runs, which
 // the app does not ship but downloads the first time transcription is turned
 // on: whisper-cli and a minimal ffmpeg, built for each system by this
-// project's CI and published as one archive per system.
+// project (scripts/sidecars) and published as one archive per system.
 //
 // Every archive is pinned by its sha256 in manifest.json, which a release
 // carries; after unpacking, each program's own sha256 is recorded and checked
