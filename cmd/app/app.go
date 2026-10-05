@@ -152,19 +152,25 @@ func (a *App) run() error {
 	a.prepare()
 
 	a.wails.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(*application.ApplicationEvent) { a.showWindow("") })
-	// The window is made once the app has started: only then does macOS say
-	// whether it opened the app at login (elsewhere --hidden says so), and a
-	// window made earlier can miss being shown.
-	a.wails.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
-		hidden := a.hidden || launchedAtLogin()
-		if hidden {
-			a.logger.Info("opened at login: staying in the tray")
-		}
-		a.createWindow(hidden)
-		if !hidden {
-			a.showWindow("")
-		}
-	})
+	if runtime.GOOS == "darwin" {
+		// macOS says whether it opened the app at login only once the app has
+		// started, so the window is made then; a window made earlier and
+		// shown later could stay hidden.
+		a.wails.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+			hidden := a.hidden || launchedAtLogin()
+			if hidden {
+				a.logger.Info("opened at login: staying in the tray")
+			}
+			a.createWindow(hidden)
+			if !hidden {
+				a.showWindow("")
+			}
+		})
+	} else {
+		// Elsewhere --hidden says so from the start, and GTK wants its windows
+		// made before the application runs.
+		a.createWindow(a.hidden)
+	}
 	go a.firstRun()
 	go a.updates.loop()
 	return a.wails.Run()
