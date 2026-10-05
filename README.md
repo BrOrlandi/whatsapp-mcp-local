@@ -26,17 +26,12 @@ Site e downloads: **[whatsapp-mcp.brorlandi.xyz](https://whatsapp-mcp.brorlandi.
 
 ## Baixar
 
-Na [página da versão mais recente](https://github.com/BrOrlandi/whatsapp-mcp-local/releases/latest),
-baixe o arquivo do seu sistema:
+<p align="center">
+  <a href="https://whatsapp-mcp.brorlandi.xyz/download"><img src="docs/assets/baixar.svg" alt="Baixar o WhatsApp MCP para macOS, Windows e Linux" width="340" height="68"></a>
+</p>
 
-| Sistema | Arquivo | O que fazer |
-|---|---|---|
-| macOS 11 ou mais novo | `WhatsApp-MCP.dmg` | abra e arraste o WhatsApp MCP para Aplicativos |
-| Windows 10 e 11 | `WhatsApp-MCP-Setup.exe` | rode o instalador; não pede senha de administrador |
-| Linux | `WhatsApp-MCP-x86_64.AppImage` (ou `aarch64`) | torne executável (`chmod +x`) e abra |
-| Ubuntu e Debian | `whatsapp-mcp_<versão>_amd64.deb` (ou `arm64`) | instale com `sudo apt install ./whatsapp-mcp_*.deb` |
-
-Depois é só abrir o app:
+A página de download sempre traz a versão mais recente, com o arquivo certo
+para o seu sistema. Depois é só abrir o app:
 
 1. **Leia o QR code** com o celular (*WhatsApp › Dispositivos conectados ›
    Conectar um dispositivo*), ou peça um código para digitar no celular.

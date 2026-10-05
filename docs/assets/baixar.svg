@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="68" viewBox="0 0 340 68" role="img" aria-label="Baixar o WhatsApp MCP para macOS, Windows e Linux">
+  <rect width="340" height="68" rx="14" fill="#0b6b5d"/>
+  <circle cx="40" cy="34" r="18" fill="#2fc9a0"/>
+  <path d="M40 24v15M33.5 32.5l6.5 6.5 6.5-6.5M31 44h18" fill="none" stroke="#04211b" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" fill="#ffffff">
+    <text x="72" y="31" font-size="19" font-weight="700">Baixar o WhatsApp MCP</text>
+    <text x="72" y="50" font-size="13" fill="#dcefe9">Para macOS, Windows e Linux</text>
+  </g>
+</svg>
