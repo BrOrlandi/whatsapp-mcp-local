@@ -10,14 +10,14 @@ func TestLoadDefaultsWhenMissing(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Port != DefaultPort || !c.CloseToTray || !c.Autostart || c.Legacy != "" {
+	if c.Port != DefaultPort || !c.CloseToTray || !c.Autostart {
 		t.Fatalf("a missing config.json must give the defaults, got %+v", c)
 	}
 }
 
 func TestSaveAndLoad(t *testing.T) {
 	dir := t.TempDir()
-	want := Config{Port: 47900, CloseToTray: false, Autostart: true, Legacy: "migrated", Seen: []string{"close"}}
+	want := Config{Port: 47900, CloseToTray: false, Autostart: true, Seen: []string{"close"}}
 	if err := Save(dir, want); err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestSaveAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Port != 47900 || got.CloseToTray || !got.Autostart || got.Legacy != "migrated" || !got.HasSeen("close") || got.HasSeen("other") {
+	if got.Port != 47900 || got.CloseToTray || !got.Autostart || !got.HasSeen("close") || got.HasSeen("other") {
 		t.Fatalf("round trip lost something: %+v", got)
 	}
 	entries, _ := os.ReadDir(dir)

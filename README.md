@@ -50,10 +50,6 @@ Depois é só abrir o app:
 > Windows protegeu o computador": clique em **Mais informações** e depois em
 > **Executar assim mesmo**.
 
-Já usava a versão de linha de comando? Na primeira vez que abre, o app
-encontra essa instalação e oferece trazer a mesma conexão, sem ler o QR code de
-novo.
-
 ## No dia a dia
 
 - **O app fica na barra de menus** (no Windows, na área de notificação; no

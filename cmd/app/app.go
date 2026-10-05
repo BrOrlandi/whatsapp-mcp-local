@@ -21,7 +21,6 @@ import (
 
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/appconfig"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/daemon"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/legacy"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/mcp"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
@@ -53,9 +52,6 @@ type App struct {
 	notifier *notifications.NotificationService
 	handler  swapHandler
 	updates  *updates
-
-	legacyMu   sync.Mutex
-	legacyDone bool
 
 	dmu    sync.Mutex
 	daemon *daemon.Daemon
@@ -174,21 +170,8 @@ func (a *App) run() error {
 	return a.wails.Run()
 }
 
-// prepare decides what the window shows first: an earlier installation to
-// move, or the panel.
+// prepare starts the gateway the window shows.
 func (a *App) prepare() {
-	if a.config().Legacy == "" && !paired(a.storeDir) && os.Getenv("WACLI_STORE_DIR") == "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
-		offer := legacy.Find(ctx, a.wacliBin)
-		cancel()
-		if offer != nil {
-			a.logger.Info("found an earlier installation", "store", offer.StoreDir, "service", offer.Service)
-			a.handler.set(panel.MigrationHandler(panel.MigrationOffer{
-				Name: offer.Name, Phone: offer.Phone, StoreDir: offer.StoreDir, DataDir: offer.DataDir, Service: offer.Service != "",
-			}, func(keep bool) error { return a.decideLegacy(offer, keep) }))
-			return
-		}
-	}
 	a.startDaemon()
 }
 
@@ -201,57 +184,6 @@ func instanceID() string {
 	}
 	sum := sha256.Sum256([]byte(dir))
 	return bundleID + "." + hex.EncodeToString(sum[:4])
-}
-
-func paired(storeDir string) bool {
-	_, err := os.Stat(filepath.Join(storeDir, "session.db"))
-	return err == nil
-}
-
-// decideLegacy moves the earlier installation in, or leaves it be, and then
-// starts the gateway. It runs once: a second answer, from a double click or
-// the other button, waits for the first and changes nothing.
-func (a *App) decideLegacy(offer *legacy.Install, keep bool) error {
-	a.legacyMu.Lock()
-	defer a.legacyMu.Unlock()
-	if a.legacyDone {
-		return nil
-	}
-	if keep {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
-		err := legacy.Move(ctx, offer, a.storeDir, a.dataDir)
-		cancel()
-		if err != nil && !errors.Is(err, legacy.ErrDataNotMoved) {
-			a.logger.Error("moving the earlier installation failed", "error", err)
-			return err
-		}
-		if err != nil {
-			a.logger.Warn("the earlier installation moved, with problems", "error", err)
-		}
-	}
-	a.legacyDone = true
-	if err := a.updateConfig(func(c *appconfig.Config) {
-		c.Legacy = "declined"
-		if keep {
-			// The port the earlier installation served on, so Claude Code's
-			// address keeps working.
-			c.Legacy = "migrated"
-			if offer.Port > 0 && !a.portLocked {
-				c.Port = offer.Port
-			}
-		}
-	}); err != nil {
-		a.logger.Warn("config.json could not be saved", "error", err)
-	}
-	a.startDaemon()
-	if keep {
-		if d := a.current(); d != nil {
-			if err := d.Panel().AdoptDesktop(); err != nil {
-				a.logger.Warn("Claude Desktop could not be pointed at the app", "error", err)
-			}
-		}
-	}
-	return nil
 }
 
 func (a *App) startDaemon() {
@@ -455,8 +387,8 @@ func trayPlace() string {
 	return "bandeja do sistema"
 }
 
-// swapHandler is what the window loads: the migration page first, when
-// there is one, then the panel.
+// swapHandler is what the window loads: the panel once the gateway is up,
+// or a page saying why it could not start.
 type swapHandler struct {
 	h atomic.Value
 }

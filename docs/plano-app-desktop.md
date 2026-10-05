@@ -781,14 +781,16 @@ coluna na lista de testes. O benefício é não perder quem roda em servidor.
 - **Ícone da barra de menus:** monocromático no macOS (o sistema pinta), com o
   estado na forma: ícone cheio, com um ponto, ou apagado com o ponto. Colorido
   no Windows e no Linux.
-- **A linha de comando** passou a se chamar `whatsapp-mcp`; o `install.sh` deixa
-  um link `whatsapp-mcp-v2` para as configurações antigas.
+- **A linha de comando** passou a se chamar `whatsapp-mcp`.
+- **Sem migração no app (seção 8):** ela foi feita uma vez, no Mac do Bruno,
+  único usuário antes da primeira versão pública, e depois retirada do código:
+  não há instalações anteriores a migrar.
 
 ### Verificado
 
 - macOS: instalação do zero, QR code, conexão do Claude pelo bridge, troca de
   porta (inclusive porta ocupada ao abrir), fechar e sair pela bandeja, e a
-  migração da instalação real, sem novo QR code.
+  migração da instalação real, sem novo QR code (antes de o fluxo ser retirado).
 - Linux: o `.deb` no Ubuntu 24.04 e o AppImage num Debian 12 sem WebKit, numa
   tela virtual; transcrição de ponta a ponta no Linux arm64.
 - Windows: compila, e o instalador é gerado; o ffmpeg mínimo roda sob Wine.

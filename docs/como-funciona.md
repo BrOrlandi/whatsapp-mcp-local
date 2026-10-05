@@ -60,11 +60,6 @@ janela e sem a bandeja, como serviço do sistema.
   `checksums.txt` da versão (e, no macOS, que a assinatura é do mesmo
   desenvolvedor), troca o app e reinicia nele. O `.deb` é atualizado pelo
   pacote: o app só avisa e aponta a página da versão.
-- **Instalação anterior.** Na primeira abertura, se houver uma instalação feita
-  pela linha de comando com o WhatsApp conectado, o app oferece trazê-la: para o
-  serviço antigo, move `~/.wacli` e os dados para a pasta do app e aponta o
-  Claude Desktop para o bridge novo. Move, não copia: duas cópias da mesma
-  sessão brigariam pelo dispositivo.
 
 ## Pareamento e histórico
 

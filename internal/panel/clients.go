@@ -374,15 +374,6 @@ func (p *Panel) addClaudeDesktop(replace bool) error {
 	})
 }
 
-// AdoptDesktop points a Claude Desktop entry left by an earlier installation
-// of this gateway at this one, and leaves anything else alone.
-func (p *Panel) AdoptDesktop() error {
-	if !p.desktopInfo().Stale {
-		return nil
-	}
-	return p.addClaudeDesktop(false)
-}
-
 func (p *Panel) removeClaudeDesktop() error {
 	if p.desktopInfo().Other != "" {
 		return nil // the "whatsapp" there is not this one: leave it alone

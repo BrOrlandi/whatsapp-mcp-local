@@ -97,9 +97,6 @@ install_mcp() {
     build_from "$TMP/src"
   fi
   install -m 0755 "$TMP/whatsapp-mcp" "$BIN_DIR/whatsapp-mcp"
-  # The program used to be called whatsapp-mcp-v2, and Claude Desktop
-  # configurations written then still start it by that name.
-  ln -sf whatsapp-mcp "$BIN_DIR/whatsapp-mcp-v2"
   if [ "$OS" = darwin ]; then
     # A binary built or downloaded here is not notarised; clear the
     # quarantine flag so launchd can start it.

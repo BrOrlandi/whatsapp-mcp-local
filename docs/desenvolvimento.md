@@ -18,7 +18,6 @@ go build -o bin/whatsapp-mcp-bridge ./cmd/whatsapp-mcp-bridge
 | `cmd/whatsapp-mcp-bridge` | o stdio que o Claude Desktop inicia, dentro do app |
 | `internal/daemon` | o núcleo que o app e a linha de comando rodam: supervisor, índice, MCP, painel, HTTP |
 | `internal/platform` | o que muda por sistema: pastas, processos (grupos e sinais; Job Object e `CTRL_BREAK` no Windows) |
-| `internal/legacy` | encontrar e trazer uma instalação da linha de comando para o app |
 | `internal/sidecar` | baixar e conferir os programas da transcrição |
 | `internal/updater` | as atualizações do app |
 
@@ -92,7 +91,6 @@ Eles cobrem, entre outros:
   sem derrubar a atual, e a variável de ambiente vence o `config.json`;
 - o bridge segue o app para a porta nova;
 - todas as páginas do painel renderizam dentro do app;
-- a migração move o store e os dados, e recusa sobrescrever uma sessão;
 - o atualizador recusa um arquivo que não confere com o `checksums.txt` e, no
   macOS, um `.app` com a assinatura quebrada.
 

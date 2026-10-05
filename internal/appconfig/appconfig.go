@@ -24,9 +24,6 @@ type Config struct {
 	CloseToTray bool `json:"close_to_tray"`
 	// Autostart opens the app, in the tray only, when the user logs in.
 	Autostart bool `json:"autostart"`
-	// Legacy records what was decided about an earlier installation found on
-	// this computer: "migrated" or "declined". Empty means not asked yet.
-	Legacy string `json:"legacy,omitempty"`
 	// Seen records one-time notices already shown, such as "close" for the
 	// one explaining that closing the window keeps the app in the tray.
 	Seen []string `json:"seen,omitempty"`
