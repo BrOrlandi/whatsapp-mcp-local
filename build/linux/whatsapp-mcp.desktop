@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=WhatsApp MCP
+GenericName=WhatsApp para ferramentas de IA
+Comment=Seu WhatsApp nas suas ferramentas de IA, neste computador
+Exec=whatsapp-mcp-app
+Icon=whatsapp-mcp
+Terminal=false
+Categories=Network;Utility;
+StartupWMClass=whatsapp-mcp

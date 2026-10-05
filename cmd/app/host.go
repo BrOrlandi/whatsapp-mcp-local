@@ -5,6 +5,7 @@ import (
 	"errors"
 	"html"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -33,9 +34,14 @@ func (a *App) Settings() panel.HostSettings {
 // SetAutostart registers the app to open at login, in the tray, or stops it.
 func (a *App) SetAutostart(on bool) error {
 	var err error
-	if on {
+	switch appImage := os.Getenv("APPIMAGE"); {
+	case appImage != "":
+		// An AppImage runs from a temporary mount: login must start the
+		// AppImage file itself.
+		err = xdgAutostart(on, appImage)
+	case on:
 		err = a.wails.Autostart.EnableWithOptions(application.AutostartOptions{Identifier: bundleID, Arguments: []string{"--hidden"}})
-	} else {
+	default:
 		err = a.wails.Autostart.Disable()
 	}
 	if err != nil {
@@ -99,7 +105,7 @@ func (a *App) EraseEverything() error {
 			a.logger.Warn("WhatsApp logout failed; erasing anyway", "error", err)
 		}
 	}
-	_ = a.wails.Autostart.Disable()
+	_ = a.SetAutostart(false)
 	go func() {
 		// Let the page say it is done before the window goes.
 		time.Sleep(1500 * time.Millisecond)
@@ -112,9 +118,13 @@ func (a *App) EraseEverything() error {
 	return nil
 }
 
-// setMenu is the application menu. macOS shows it at the top of the screen;
-// elsewhere the window has none.
+// setMenu is the application menu, at the top of the screen on macOS.
+// Windows and Linux would draw it inside the window, where the panel's own
+// navigation already is.
 func (a *App) setMenu() {
+	if runtime.GOOS != "darwin" {
+		return
+	}
 	menu := a.wails.NewMenu()
 	app := menu.AddSubmenu(platform.AppName)
 	app.AddRole(application.About)

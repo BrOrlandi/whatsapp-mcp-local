@@ -237,7 +237,9 @@ func (a *App) decideLegacy(offer *legacy.Install, keep bool) error {
 
 func (a *App) startDaemon() {
 	desktop := panel.DesktopCommand{Command: a.bridge}
-	if desktop.Command == "" {
+	if appImage := os.Getenv("APPIMAGE"); appImage != "" {
+		desktop = panel.DesktopCommand{Command: appImage, Args: []string{"bridge"}}
+	} else if desktop.Command == "" {
 		// A development build: the bridge is built beside the app.
 		desktop.Command = filepath.Join(filepath.Dir(platform.Executable()), platform.ExeName("whatsapp-mcp-bridge"))
 	}

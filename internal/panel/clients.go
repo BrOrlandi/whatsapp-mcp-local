@@ -61,7 +61,8 @@ func isOurBridge(entry map[string]any) bool {
 		return true
 	}
 	args, _ := entry["args"].([]any)
-	return (base == "whatsapp-mcp" || base == "whatsapp-mcp-v2") && len(args) == 1 && args[0] == "bridge"
+	// The command line's subcommand, or an AppImage started as the bridge.
+	return strings.Contains(base, "whatsapp-mcp") && len(args) == 1 && args[0] == "bridge"
 }
 
 // errConflict is a server of the same name that is not this one.

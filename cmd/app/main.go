@@ -7,11 +7,19 @@ import (
 	"fmt"
 	"os"
 	"slices"
+
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/bridge"
 )
 
 var version = "dev"
 
 func main() {
+	// Inside an AppImage the bridge has no fixed path of its own, so Claude
+	// Desktop starts the AppImage itself with this argument. Linux gives a
+	// windowed program its stdio as any other.
+	if len(os.Args) > 1 && os.Args[1] == "bridge" {
+		os.Exit(bridge.Main())
+	}
 	a, err := newApp(slices.Contains(os.Args[1:], "--hidden"))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "WhatsApp MCP:", err)
