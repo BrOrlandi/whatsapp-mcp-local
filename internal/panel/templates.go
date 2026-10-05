@@ -534,7 +534,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">Endereço</span></div><pre data-copy><code>{{.Setup.Endpoint}}</code></pre></div>
 {{if .Settings.PortLocked}}<p class="note">A porta está definida pela variável de ambiente <code>WHATSAPP_MCP_PORT</code> e não pode ser trocada aqui.</p>
 {{else}}<form method="post" action="/configuracoes/porta" data-busy="Trocando…">
-<label class="field" for="port"><span class="field__label">Porta</span><span class="field__hint">Um número de 1024 a 65535. O WhatsApp continua conectado, mas as ferramentas de IA perdem a conexão com o MCP: o Claude Desktop encontra a porta nova sozinho, e o Claude Code e as outras ferramentas precisam do endereço novo. Depois de salvar, o app mostra como atualizar cada uma.</span></label>
+<label class="field" for="port"><span class="field__label">Porta</span><span class="field__hint">Um número de 1024 a 65535. Trocar a porta desconecta as ferramentas de IA do MCP. <span class="tip" tabindex="0" aria-describedby="tip-porta"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-porta">O WhatsApp continua conectado. As ferramentas de IA ligadas por MCP, como Claude, Codex e outras, perdem a conexão e precisam do endereço novo. Depois de salvar, o app mostra como atualizar cada uma.</span></span></span></label>
 <div class="actions"><input id="port" class="input--short" type="number" name="port" min="1024" max="65535" value="{{.Port}}" required><button class="btn" type="submit">Salvar</button></div>
 </form>{{end}}
 </div></section>

@@ -426,4 +426,8 @@ const extraCSS = `
 .check--inline input{margin:0}
 input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:var(--surface-soft);border:1px solid var(--border-strong);border-radius:var(--radius-sm)}
 .input--short{width:9em}
+.tip{position:relative;display:inline-grid;place-items:center;width:17px;height:17px;margin-left:2px;border-radius:50%;border:1px solid var(--border-strong);color:var(--text-soft);font-size:.72rem;font-weight:700;line-height:1;cursor:help;vertical-align:text-bottom}
+.tip:hover,.tip:focus-visible{color:var(--brand-strong);border-color:var(--brand-strong);outline:none}
+.tip__body{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;padding:9px 11px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border-strong);box-shadow:var(--shadow-lift);color:var(--text);font-size:.84rem;font-weight:400;line-height:1.5;text-align:left;visibility:hidden;opacity:0;transition:opacity .12s;z-index:20;pointer-events:none}
+.tip:hover .tip__body,.tip:focus-visible .tip__body{visibility:visible;opacity:1}
 `
