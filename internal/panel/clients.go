@@ -404,7 +404,16 @@ func DesktopConfigPath() string {
 	case "darwin":
 		return filepath.Join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json")
 	case "windows":
-		return filepath.Join(os.Getenv("APPDATA"), "Claude", "claude_desktop_config.json")
+		classic := filepath.Join(os.Getenv("APPDATA"), "Claude")
+		if _, err := os.Stat(classic); err == nil {
+			return filepath.Join(classic, "claude_desktop_config.json")
+		}
+		// Installed from the Microsoft Store, Claude Desktop reads a
+		// virtualised copy of %APPDATA% inside its package folder.
+		if store, _ := filepath.Glob(filepath.Join(os.Getenv("LOCALAPPDATA"), "Packages", "Claude_*", "LocalCache", "Roaming", "Claude")); len(store) > 0 {
+			return filepath.Join(store[0], "claude_desktop_config.json")
+		}
+		return filepath.Join(classic, "claude_desktop_config.json")
 	}
 	return filepath.Join(home, ".config", "Claude", "claude_desktop_config.json")
 }
