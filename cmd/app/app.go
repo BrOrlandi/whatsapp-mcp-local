@@ -33,7 +33,9 @@ const bundleID = "com.brorlandi.whatsapp-mcp"
 
 type App struct {
 	logger   *slog.Logger
+	logFile  *os.File
 	logPath  string
+	logDir   string
 	dataDir  string
 	storeDir string
 	wacliBin string
@@ -51,6 +53,9 @@ type App struct {
 	notifier *notifications.NotificationService
 	handler  swapHandler
 	updates  *updates
+
+	legacyMu   sync.Mutex
+	legacyDone bool
 
 	dmu    sync.Mutex
 	daemon *daemon.Daemon
@@ -70,12 +75,12 @@ func newApp(hidden bool) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	logger, logPath, err := openLog(logDir)
+	logger, logFile, err := openLog(logDir)
 	if err != nil {
 		return nil, err
 	}
 	mcp.Version = version
-	a := &App{logger: logger, logPath: logPath, dataDir: dataDir, hidden: hidden}
+	a := &App{logger: logger, logFile: logFile, logPath: logFile.Name(), logDir: logDir, dataDir: dataDir, hidden: hidden}
 	a.storeDir = os.Getenv("WACLI_STORE_DIR")
 	if a.storeDir == "" {
 		a.storeDir = filepath.Join(dataDir, "wacli")
@@ -145,9 +150,10 @@ func (a *App) run() error {
 		OnShutdown: a.shutdown,
 	})
 
-	a.prepare()
+	// The tray first: the gateway, started next, reports to it at once.
 	a.setMenu()
 	a.tray = newTray(a)
+	a.prepare()
 
 	a.wails.Event.OnApplicationEvent(events.Mac.ApplicationShouldHandleReopen, func(*application.ApplicationEvent) { a.showWindow("") })
 	// The window is made once the app has started: only then does macOS say
@@ -203,13 +209,19 @@ func paired(storeDir string) bool {
 }
 
 // decideLegacy moves the earlier installation in, or leaves it be, and then
-// starts the gateway.
+// starts the gateway. It runs once: a second answer, from a double click or
+// the other button, waits for the first and changes nothing.
 func (a *App) decideLegacy(offer *legacy.Install, keep bool) error {
+	a.legacyMu.Lock()
+	defer a.legacyMu.Unlock()
+	if a.legacyDone {
+		return nil
+	}
 	if keep {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		err := legacy.Move(ctx, offer, a.storeDir, a.dataDir)
 		cancel()
-		if err != nil && !paired(a.storeDir) {
+		if err != nil && !errors.Is(err, legacy.ErrDataNotMoved) {
 			a.logger.Error("moving the earlier installation failed", "error", err)
 			return err
 		}
@@ -217,6 +229,7 @@ func (a *App) decideLegacy(offer *legacy.Install, keep bool) error {
 			a.logger.Warn("the earlier installation moved, with problems", "error", err)
 		}
 	}
+	a.legacyDone = true
 	if err := a.updateConfig(func(c *appconfig.Config) {
 		c.Legacy = "declined"
 		if keep {

@@ -13,6 +13,7 @@ security set-keychain-settings -lut 21600 "$keychain"
 security unlock-keychain -p "$password" "$keychain"
 security import "$RUNNER_TEMP/cert.p12" -P "$MACOS_CERT_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
 security set-key-partition-list -S apple-tool:,apple: -k "$password" "$keychain" >/dev/null
+# shellcheck disable=SC2046 # one argument per keychain already in the list
 security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
 rm -f "$RUNNER_TEMP/cert.p12"
 security find-identity -v -p codesigning "$keychain"

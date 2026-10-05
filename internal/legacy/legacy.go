@@ -226,10 +226,15 @@ func plistValue(dec *xml.Decoder, start xml.StartElement) any {
 	}
 }
 
+// ErrDataNotMoved means the store moved, so WhatsApp now runs in the app, but
+// some of the gateway's own data (transcripts, model, media) stayed behind.
+var ErrDataNotMoved = errors.New("the WhatsApp session moved, but not all of the other data did")
+
 // Move stops the old login service, waits for its wacli to let go of the
 // store, and moves the store and the gateway's data into the app's data
 // folder. When the store cannot be moved, the service is started again and
-// nothing is lost.
+// nothing is lost. An error wrapping ErrDataNotMoved means the store did
+// move; any other error means it did not.
 func Move(ctx context.Context, in *Install, storeDir, dataDir string) error {
 	if err := stopService(in); err != nil {
 		return fmt.Errorf("não foi possível parar o serviço antigo: %w", err)
@@ -278,7 +283,10 @@ func Move(ctx context.Context, in *Install, storeDir, dataDir string) error {
 			_ = exec.Command("systemctl", "--user", "daemon-reload").Run()
 		}
 	}
-	return errors.Join(errs...)
+	if len(errs) > 0 {
+		return errors.Join(append([]error{ErrDataNotMoved}, errs...)...)
+	}
+	return nil
 }
 
 func stopService(in *Install) error {
@@ -366,8 +374,11 @@ func removeIfEmpty(path string) error {
 	return os.Remove(path)
 }
 
-// move renames, and copies then deletes when the two places are on different
-// disks.
+// move renames, and copies when the two places are on different disks. After
+// a copy, the original is first renamed aside, which is atomic on its own
+// disk, so the old service can never find it again even if deleting it then
+// fails; when it cannot even be renamed, the copy is undone and the move
+// fails, leaving exactly one copy of the session.
 func move(src, dst string) error {
 	if err := os.Rename(src, dst); err == nil {
 		return nil
@@ -376,7 +387,13 @@ func move(src, dst string) error {
 		os.RemoveAll(dst)
 		return err
 	}
-	return os.RemoveAll(src)
+	aside := src + ".moved-to-app-" + time.Now().Format("20060102-150405")
+	if err := os.Rename(src, aside); err != nil {
+		os.RemoveAll(dst)
+		return fmt.Errorf("copied, but the original could not be set aside: %w", err)
+	}
+	_ = os.RemoveAll(aside) // best effort: under its new name nothing uses it
+	return nil
 }
 
 func copyTree(src, dst string) error {

@@ -90,8 +90,16 @@ Section "Install"
   ${EndIf}
 
   SetOutPath "$INSTDIR"
+  ; Claude Desktop keeps the bridge running for its whole session, and a
+  ; running program cannot be overwritten, but it can be renamed: the new one
+  ; takes its place, and the old file goes once nothing runs it.
+  Delete "$INSTDIR\whatsapp-mcp-bridge.exe.old"
+  ${If} ${FileExists} "$INSTDIR\whatsapp-mcp-bridge.exe"
+    Rename "$INSTDIR\whatsapp-mcp-bridge.exe" "$INSTDIR\whatsapp-mcp-bridge.exe.old"
+  ${EndIf}
   File "${SRC}\${EXE}"
   File "${SRC}\whatsapp-mcp-bridge.exe"
+  Delete /REBOOTOK "$INSTDIR\whatsapp-mcp-bridge.exe.old"
   File "${SRC}\THIRD-PARTY-NOTICES.txt"
   SetOutPath "$INSTDIR\bin"
   File "${SRC}\bin\wacli.exe"
@@ -126,12 +134,13 @@ Section "Uninstall"
   nsExec::Exec 'taskkill /F /IM "${EXE}"'
   Sleep 800
   Delete "$INSTDIR\${EXE}"
-  Delete "$INSTDIR\whatsapp-mcp-bridge.exe"
+  Delete /REBOOTOK "$INSTDIR\whatsapp-mcp-bridge.exe"
+  Delete /REBOOTOK "$INSTDIR\whatsapp-mcp-bridge.exe.old"
   Delete "$INSTDIR\THIRD-PARTY-NOTICES.txt"
   Delete "$INSTDIR\bin\wacli.exe"
   RMDir "$INSTDIR\bin"
   Delete "$INSTDIR\uninstall.exe"
-  RMDir "$INSTDIR"
+  RMDir /REBOOTOK "$INSTDIR"
   Delete "$SMPROGRAMS\${PRODUCT}.lnk"
   DeleteRegValue HKCU "${RUN_KEY}" "com.brorlandi.whatsapp-mcp"
   RMDir /r "$APPDATA\${EXE}"

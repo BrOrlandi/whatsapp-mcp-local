@@ -19,6 +19,7 @@ trap 'rm -rf "$WORK"' EXIT
 curl -fsSL "https://ffmpeg.org/releases/ffmpeg-${VERSION}.tar.xz" | tar -xJ -C "$WORK"
 cd "$WORK/ffmpeg-${VERSION}"
 
+# shellcheck disable=SC2054 # the commas are ffmpeg's own list separators
 flags=(
   --disable-everything --disable-autodetect --disable-doc --disable-debug
   --disable-network --disable-ffplay --disable-ffprobe --enable-small

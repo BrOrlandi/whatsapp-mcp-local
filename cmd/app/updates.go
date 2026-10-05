@@ -50,23 +50,26 @@ func (u *updates) check() {
 	time.Sleep(150 * time.Millisecond)
 }
 
-// install downloads, checks and installs the new version, then quits so the
-// new one can start.
+// install downloads, checks and installs the new version in the background,
+// then quits so the new one can start. The page follows the progress.
 func (u *updates) install() error {
+	if st := u.u.State(); st.Phase == updater.Downloading || st.Phase == updater.Ready {
+		return updater.ErrBusy
+	}
+	started := make(chan struct{})
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
-		if _, err := u.u.Download(ctx); err != nil {
-			return
-		}
-		if err := u.u.Install(ctx); err != nil {
+		close(started)
+		if err := u.u.Apply(ctx); err != nil {
 			return
 		}
 		u.app.logger.Info("restarting into the new version", "version", u.u.State().Latest)
 		time.Sleep(time.Second)
 		u.app.quit()
 	}()
-	time.Sleep(150 * time.Millisecond)
+	<-started
+	time.Sleep(100 * time.Millisecond)
 	return nil
 }
 

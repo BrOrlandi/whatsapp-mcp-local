@@ -77,12 +77,44 @@ type Updater struct {
 	// worked out from the running program.
 	Target Target
 
-	mu      sync.Mutex
-	state   State
-	latest  *release
-	file    asset
-	staged  string
-	running bool
+	mu       sync.Mutex
+	state    State
+	latest   *release
+	file     asset
+	staged   string
+	running  bool
+	applying bool
+}
+
+// ErrBusy means an update is already being downloaded or installed.
+var ErrBusy = errors.New("a atualização já está em andamento")
+
+// Apply downloads, checks and installs the new version, once at a time: a
+// second call while one runs returns ErrBusy at once. The phase becomes
+// downloading before Apply returns its first byte, so a page polling the
+// state sees the work start.
+func (u *Updater) Apply(ctx context.Context) error {
+	u.mu.Lock()
+	if u.applying {
+		u.mu.Unlock()
+		return ErrBusy
+	}
+	if u.latest == nil {
+		u.mu.Unlock()
+		return errors.New("nenhuma versão nova para instalar")
+	}
+	u.applying = true
+	u.state.Phase, u.state.Progress, u.state.Error = Downloading, 0, ""
+	u.mu.Unlock()
+	defer func() {
+		u.mu.Lock()
+		u.applying = false
+		u.mu.Unlock()
+	}()
+	if _, err := u.Download(ctx); err != nil {
+		return err
+	}
+	return u.Install(ctx)
 }
 
 // Target is the installed app this updater replaces.

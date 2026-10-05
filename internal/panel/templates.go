@@ -591,7 +591,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <p class="muted">Assim não é preciso ler o QR code de novo: as mensagens, as transcrições e o modelo passam para o app{{if .Offer.Service}}, e o serviço antigo é desligado{{end}}.</p>
 <form method="post" action="/migracao" data-busy="Trazendo a conexão…"><input type="hidden" name="escolha" value="manter">
 <div class="actions"><button class="btn btn--block" type="submit">Usar a mesma conexão</button></div></form>
-<form method="post" action="/migracao"><input type="hidden" name="escolha" value="zero">
+<form method="post" action="/migracao" data-busy="Começando…"><input type="hidden" name="escolha" value="zero">
 <div class="wizard__escape"><button class="btn btn--quiet" type="submit">Começar do zero</button></div></form>
 <p class="muted" style="text-align:center">Começando do zero, nada da instalação anterior é apagado{{if .Offer.Service}} nem desligado{{end}}.</p>
 </div></section>

@@ -61,7 +61,12 @@ func (p *Panel) registerApp(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/abrir-pasta", p.api(func(*http.Request) (any, error) { return map[string]bool{"ok": true}, p.Host.OpenDataFolder() }))
 	mux.HandleFunc("GET /api/atualizacao", p.api(func(*http.Request) (any, error) { return p.Host.Update(), nil }))
 	mux.HandleFunc("POST /api/atualizacao/verificar", p.api(func(*http.Request) (any, error) { p.Host.CheckUpdate(); return p.Host.Update(), nil }))
-	mux.HandleFunc("POST /api/atualizacao/instalar", p.api(func(*http.Request) (any, error) { return p.Host.Update(), p.Host.InstallUpdate() }))
+	mux.HandleFunc("POST /api/atualizacao/instalar", p.api(func(*http.Request) (any, error) {
+		if err := p.Host.InstallUpdate(); err != nil {
+			return nil, err
+		}
+		return p.Host.Update(), nil
+	}))
 }
 
 func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, any) {

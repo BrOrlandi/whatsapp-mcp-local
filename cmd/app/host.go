@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"html"
 	"os"
 	"runtime"
@@ -110,8 +111,13 @@ func (a *App) EraseEverything() error {
 		// Let the page say it is done before the window goes.
 		time.Sleep(1500 * time.Millisecond)
 		a.shutdown()
-		if err := os.RemoveAll(a.dataDir); err != nil {
-			a.logger.Error("the data folder could not be deleted", "error", err)
+		// The log goes too, closed first: Windows cannot delete an open file,
+		// and there the log lives inside the data folder.
+		a.logFile.Close()
+		for _, dir := range []string{a.dataDir, a.logDir} {
+			if err := os.RemoveAll(dir); err != nil {
+				fmt.Fprintln(os.Stderr, "WhatsApp MCP: could not delete", dir+":", err)
+			}
 		}
 		a.quit()
 	}()
