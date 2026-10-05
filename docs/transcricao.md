@@ -16,7 +16,7 @@ Claude ──transcribe_audio(message_id)──► daemon
   1. acha a mensagem          wacli.db (somente leitura): é um áudio?
   2. já transcrito?           state.db: se sim, devolve na hora
   3. junta o contexto         nome da conversa, quem fala, 12 mensagens antes e 4 depois
-  4. baixa o áudio            wacli --read-only media download → ~/.whatsapp-mcp-v2/media
+  4. baixa o áudio            wacli --read-only media download → <pasta de dados>/media
   5. converte                 ffmpeg: Ogg Opus → WAV 16 kHz mono
   6. transcreve               whisper-cli + large-v3-turbo, com o contexto em --prompt
   7. guarda                   state.db: texto, motor, idioma, data
@@ -55,7 +55,7 @@ Claude revisar.
 O áudio é baixado com `wacli --read-only media download`. O modo somente
 leitura não pega o lock do WhatsApp, então roda com o sync ligado. O arquivo é
 baixado criptografado do servidor de mídia do WhatsApp, decifrado com a chave
-que veio na mensagem e guardado em `~/.whatsapp-mcp-v2/media/<conversa>/`. Um
+que veio na mensagem e guardado em `media/<conversa>/`, na pasta de dados. Um
 áudio baixado uma vez não é baixado de novo.
 
 O servidor de mídia do WhatsApp apaga arquivos antigos. Um áudio de meses atrás
@@ -67,12 +67,19 @@ pode não estar mais lá: nesse caso o erro explica isso, e
 | Etapa | Programa | O que faz |
 |---|---|---|
 | conversão | `ffmpeg` | transforma o Ogg Opus do WhatsApp em WAV 16 kHz mono, o formato que o whisper.cpp lê |
-| transcrição | `whisper-cli` (whisper.cpp) | roda o modelo na GPU do Mac (Metal), com `-l auto` (ou o idioma pedido), `--prompt` com o contexto e metade dos núcleos do processador |
-| modelo | `ggml-large-v3-turbo-q5_0.bin` | Whisper large-v3-turbo quantizado, 574 MB, em `~/.whatsapp-mcp-v2/models/` |
+| transcrição | `whisper-cli` (whisper.cpp) | roda o modelo com `-l auto` (ou o idioma pedido) e `--prompt` com o contexto: na GPU do Mac (Metal), numa placa NVIDIA (CUDA, no Windows) ou no processador, com todos os núcleos menos um |
+| modelo | `ggml-large-v3-turbo-q5_0.bin` | Whisper large-v3-turbo quantizado, 574 MB, em `models/` na pasta de dados |
 
 Um áudio de cada vez: a GPU é compartilhada, então um segundo pedido espera o
-primeiro terminar. Num M3 Pro, um áudio de 6 segundos leva cerca de 2 segundos,
-e um de 3 minutos, uns 15. O primeiro uso depois de ligar o computador leva
+primeiro terminar.
+
+| Onde roda | Um áudio de 10 segundos |
+|---|---|
+| Mac com Apple Silicon (M3 Pro, Metal) | cerca de 2 segundos |
+| Só processador (Linux arm64, 12 núcleos) | cerca de 13 segundos |
+
+No processador, um áudio leva mais ou menos o próprio tempo, e a página
+Transcrição avisa disso. O primeiro uso depois de ligar o computador leva
 alguns segundos a mais para carregar o modelo.
 
 **Por que Whisper e não Parakeet V3.** O Handy oferece os dois. O Parakeet é
@@ -84,13 +91,13 @@ trocando só o arquivo, mas o app hoje usa apenas o turbo.
 
 ### 7. O que fica guardado
 
-Em `~/.whatsapp-mcp-v2/state.db`, tabela `transcripts`, uma linha por áudio:
+No `state.db` da pasta de dados, tabela `transcripts`, uma linha por áudio:
 
 | Campo | Conteúdo |
 |---|---|
 | `text` | a transcrição atual (corrigida, se houve correção) |
 | `raw_text` | o que o motor ouviu, preservado quando há correção |
-| `source` | `local`, `openai`, `corrected` (revisada) ou `client` (feita pela própria ferramenta de IA) |
+| `source` | `local`, `corrected` (revisada) ou `client` (feita pela própria ferramenta de IA); transcrições antigas podem ter `openai` |
 | `model` | o motor que gerou |
 | `language`, `created_at` | idioma pedido e data |
 
@@ -112,22 +119,33 @@ ferramenta de IA que pediu a transcrição, que já está no meio da conversa.
 
 ## Instalação do motor
 
-Em Macs com Apple Silicon, o `install.sh` roda
-`whatsapp-mcp-v2 transcription install`, que:
+Nada da transcrição vem no instalador do app. Quando você clica em **Instalar a
+transcrição local** (ou roda `whatsapp-mcp transcription install`):
 
-1. instala `whisper.cpp` e `ffmpeg` pelo Homebrew, se faltarem;
-2. baixa o modelo do Hugging Face
-   (`huggingface.co/ggerganov/whisper.cpp`), confere o tamanho e só então o
-   coloca no lugar.
+1. o app baixa o pacote do seu sistema, publicado neste repositório pelo
+   workflow `sidecars`: o `whisper-cli` e um `ffmpeg` mínimo, que só sabe
+   converter os formatos de áudio do WhatsApp em WAV (cerca de 2 MB, em vez dos
+   ~80 MB de um ffmpeg completo);
+2. confere o sha256 do pacote contra o fixado em `internal/sidecar/manifest.json`,
+   desempacota em `bin/` na pasta de dados e guarda o sha256 de cada programa,
+   conferido de novo antes de cada uso; no macOS, confere também a assinatura;
+3. baixa o modelo do Hugging Face (`huggingface.co/ggerganov/whisper.cpp`) e
+   confere o sha256 dele antes de colocá-lo no lugar.
 
-A página **Transcrição** do painel faz o mesmo com um botão e mostra o
-progresso. O motor está pronto quando os três existem: `whisper-cli`, `ffmpeg`
-e o modelo.
+| Sistema | whisper-cli | Aceleração |
+|---|---|---|
+| macOS (universal) | compilado pelo projeto | Metal, na GPU |
+| Windows | o build oficial do whisper.cpp | CPU; CUDA quando há placa NVIDIA |
+| Linux (amd64 e arm64) | compilado pelo projeto, estático | CPU |
+
+Se o `whisper-cli` e o `ffmpeg` já estiverem instalados no computador (pelo
+Homebrew, por exemplo), o app usa esses e só baixa o modelo. O motor está
+pronto quando os três existem.
 
 ## Sem o motor local
 
-Fora de um Mac com Apple Silicon, ou com `engine: "openai"`, a transcrição usa
-a API da OpenAI (`whisper-1`) com a chave salva na página Transcrição ou pela
-tool `set_transcription_key`. O áudio é enviado para a OpenAI e cobrado na conta
-da chave (US$ 0,006 por minuto). Sem motor local e sem chave, a tool devolve o
-passo a passo para configurar um dos dois.
+A primeira versão do app transcreve só no computador. Sem o motor instalado, a
+tool `transcribe_audio` devolve o passo a passo para instalar, e a ferramenta de
+IA pode baixar o áudio com `download_media` (o arquivo fica no disco, com o
+caminho na resposta) e transcrever do jeito que preferir. A opção de usar uma
+chave da OpenAI, útil em computadores sem GPU, volta numa versão futura.

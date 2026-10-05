@@ -2,15 +2,15 @@
   <img src="docs/assets/logo.svg" alt="" width="80" height="80">
 </p>
 
-<h1 align="center">WhatsApp MCP Local</h1>
+<h1 align="center">WhatsApp MCP</h1>
 
 <p align="center">
   <strong>O seu WhatsApp no Claude, rodando no seu próprio computador.</strong><br>
-  Sem servidor, sem mensalidade: as mensagens ficam na sua máquina.
+  Um app para macOS, Windows e Linux. Sem servidor, sem mensalidade: as mensagens ficam na sua máquina.
 </p>
 
 <p align="center">
-  <img src="docs/assets/panel-setup.png" alt="O painel depois de conectar o WhatsApp e o Claude" width="720">
+  <img src="docs/assets/app-conectar.png" alt="O app com o WhatsApp e o Claude Desktop conectados" width="720">
 </p>
 
 Peça ao Claude para resumir uma conversa, achar aquela mensagem de meses atrás,
@@ -20,55 +20,94 @@ WhatsApp.
 > **Esta é a v2, a versão local.** A [v1](https://github.com/BrOrlandi/whatsapp-mcp)
 > roda num servidor na nuvem (uma VPS com Docker, de US$ 7 a US$ 25 por mês) e
 > funciona 24 horas, inclusive no claude.ai e no celular. A v2 faz o mesmo no
-> seu computador: instala com um prompt, não tem infraestrutura para manter e
-> não custa nada. Em troca, só recebe mensagens com o computador ligado.
+> seu computador: é um app, não tem infraestrutura para manter e não custa
+> nada. Em troca, só recebe mensagens com o computador ligado.
 
-## Instalar
+## Baixar
 
+Na [página da versão mais recente](https://github.com/BrOrlandi/whatsapp-mcp-v2/releases/latest),
+baixe o arquivo do seu sistema:
+
+| Sistema | Arquivo | O que fazer |
+|---|---|---|
+| macOS 11 ou mais novo | `WhatsApp-MCP.dmg` | abra e arraste o WhatsApp MCP para Aplicativos |
+| Windows 10 e 11 | `WhatsApp-MCP-Setup.exe` | rode o instalador; não pede senha de administrador |
+| Linux | `WhatsApp-MCP-x86_64.AppImage` (ou `aarch64`) | torne executável (`chmod +x`) e abra |
+| Ubuntu e Debian | `whatsapp-mcp_<versão>_amd64.deb` (ou `arm64`) | instale com `sudo apt install ./whatsapp-mcp_*.deb` |
+
+Depois é só abrir o app:
+
+1. **Leia o QR code** com o celular (*WhatsApp › Dispositivos conectados ›
+   Conectar um dispositivo*), ou peça um código para digitar no celular.
+2. **Conecte o Claude** com um clique: Claude Desktop (chat e Cowork) ou Claude
+   Code. Para outras ferramentas, o app dá um texto pronto para colar nelas.
+
+<p align="center">
+  <img src="docs/assets/app-instalacao.png" alt="A primeira tela do app, com o QR code" width="600">
+</p>
+
+> **No Windows**, o instalador ainda não é assinado. O Windows mostra "O
+> Windows protegeu o computador": clique em **Mais informações** e depois em
+> **Executar assim mesmo**.
+
+Já usava a versão de linha de comando? Na primeira vez que abre, o app
+encontra essa instalação e oferece trazer a mesma conexão, sem ler o QR code de
+novo.
+
+## No dia a dia
+
+- **O app fica na barra de menus** (no Windows, na área de notificação; no
+  Linux, na bandeja). Fechar a janela não encerra o app: o Claude continua
+  usando o WhatsApp. Para encerrar, use **Sair** no menu do ícone.
+- **Abre sozinho quando o computador liga**, só na barra de menus, sem janela.
+  Dá para desligar isso no menu do ícone ou em Configurações.
+- **Atualiza sozinho.** Uma vez por dia o app procura uma versão nova; quando
+  há, ele avisa, e um clique baixa, confere e reinicia na versão nova.
+- **O endereço do MCP é `http://127.0.0.1:47821/mcp`**, que só responde a
+  programas deste computador. Se outro programa já usar essa porta, o app avisa
+  e troca por uma livre com um clique, em Configurações.
+
+<p align="center">
+  <img src="docs/assets/app-whatsapp.png" alt="As conversas recentes no app, para comparar com o celular" width="720">
+</p>
+
+## Prefere o terminal ou um servidor?
+
+Para um servidor sem tela, um computador que fica ligado o tempo todo ou para
+instalar com um agente de IA, existe a versão de linha de comando, sem janela.
 Copie o texto abaixo e cole no **Claude Code**, no **Cowork** ou em qualquer
-agente de IA que rode comandos no seu computador:
+agente que rode comandos no seu computador:
 
 ```
-Instale o WhatsApp MCP neste computador seguindo https://github.com/BrOrlandi/whatsapp-mcp-v2.
+Instale o WhatsApp MCP (versão de linha de comando) neste computador seguindo https://github.com/BrOrlandi/whatsapp-mcp-v2.
 Rode: curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-v2/main/install.sh | bash
 Se o download falhar (repositório privado), use: gh repo clone BrOrlandi/whatsapp-mcp-v2 && cd whatsapp-mcp-v2 && ./install.sh
 Quando o painel abrir no navegador, me diga para escanear o QR code com o celular e depois conectar o Claude pelo próprio painel.
 ```
 
-O instalador prepara tudo e abre o painel no navegador. Lá você:
-
-1. **escaneia o QR code** com o celular (*WhatsApp › Dispositivos conectados › Conectar dispositivo*);
-2. **conecta o Claude** com um clique: Claude Desktop (chat e Cowork) ou Claude Code.
-
-Prefere o terminal? O mesmo comando funciona direto:
+Ou rode direto:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-v2/main/install.sh | bash
 ```
 
-Funciona no macOS e no Linux. Não precisa de `sudo`.
-
-## O painel
-
-Depois da instalação, o painel fica em **http://127.0.0.1:47821** (ou
-`whatsapp-mcp-v2 open`). Nele você confere as conversas que chegaram,
-compara com o celular, pede histórico mais antigo e vê se está tudo
-funcionando.
-
-<p align="center">
-  <img src="docs/assets/panel-whatsapp.png" alt="As conversas recentes, lado a lado com as mensagens da conversa escolhida" width="720">
-</p>
+Funciona no macOS e no Linux, sem `sudo`. Ele instala o `whatsapp-mcp` como
+serviço do sistema e abre o mesmo painel no navegador, em
+**http://127.0.0.1:47821** (de novo: `whatsapp-mcp open`).
 
 ## Bom saber
 
-- **Áudios viram texto no próprio Mac, quando você pede.** Em Macs com Apple
-  Silicon, as notas de voz são transcritas no computador, de graça e sem o áudio
-  sair dele, usando a conversa como contexto para acertar nomes e termos.
+- **Áudios viram texto no próprio computador, quando você pede.** Ative em
+  *Transcrição*: o app baixa o Whisper (cerca de 600 MB, uma vez) e transcreve
+  sem o áudio sair da máquina, usando a conversa como contexto para acertar
+  nomes e termos. Com a GPU do Mac ou uma placa NVIDIA leva segundos; só com o
+  processador, mais ou menos a duração do áudio.
 - **O computador precisa estar ligado** para receber mensagens. Se ele ficar
   desligado por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele
   volta.
-- **Funciona com o Claude Desktop e o Claude Code** neste computador. O
-  claude.ai no navegador e o app do celular não alcançam um servidor local.
+- **Funciona com o Claude Desktop e o Claude Code** neste computador, e com
+  outras ferramentas que aceitem MCP. O claude.ai no navegador e o app do
+  celular não alcançam um servidor local.
 - **Use por sua conta e risco.** O WhatsApp não tem API oficial para contas
   pessoais. Este projeto usa o [wacli](https://github.com/openclaw/wacli), um
   cliente não oficial, e a conta pode ser desconectada ou restringida.

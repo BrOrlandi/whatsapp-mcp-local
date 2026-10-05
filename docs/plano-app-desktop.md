@@ -1,6 +1,8 @@
 # Plano: WhatsApp MCP como app desktop
 
-> Status: proposta revisada, com todas as decisões da seção 12 tomadas. Nada deste plano está implementado.
+> Status: implementado em outubro de 2026, das fases 0 a 7, com os ajustes
+> registrados em [fase0-provas.md](fase0-provas.md) e na seção 14. O que ainda
+> depende de uma máquina Windows, de credenciais ou de publicar está na seção 14.
 
 ## 0. Resumo
 
@@ -750,3 +752,59 @@ coluna na lista de testes. O benefício é não perder quem roda em servidor.
   para a IA, não um cliente de WhatsApp).
 - Lojas de aplicativos (Mac App Store, Microsoft Store): o sandbox delas
   conflita com rodar o wacli e abrir uma porta local.
+
+## 14. Execução
+
+### Ajustes em relação ao plano
+
+- **Autostart:** o Wails v3 já traz (SMAppService, LaunchAgent, `HKCU\…\Run`,
+  XDG), então não há `internal/platform/autostart_*`. No macOS o item de início
+  não passa argumentos; o app descobre que foi aberto no login pelo evento de
+  abertura do sistema. No AppImage, o app escreve a entrada XDG apontando para o
+  próprio arquivo `.AppImage`.
+- **Atualizador próprio** (`internal/updater`): o do Wails troca só o
+  executável, o que não serve para o Windows (app, bridge e wacli juntos) nem
+  para o AppImage.
+- **Painel na janela:** o webview não manda `Sec-Fetch-Site` nem `Origin` num
+  `fetch`, e não segue redirecionamentos do handler em memória. As requisições
+  da janela são marcadas como internas, e os redirecionamentos viram uma página
+  que navega sozinha.
+- **Linux:** GTK 3 com WebKitGTK 4.1 (o padrão do Wails é GTK 4, que o Ubuntu
+  22.04 não tem). O AppImage traz o WebKitGTK e seus processos auxiliares, com o
+  caminho deles reescrito dentro da biblioteca. Dentro de um AppImage, o Claude
+  Desktop inicia o próprio AppImage com `bridge`.
+- **whisper-cli no Linux:** compilado pelo projeto, estático e sem OpenMP; o
+  oficial depende de `libgomp1`. Em CPU ele fica uns 20% mais lento que o
+  oficial com OpenMP, em troca de rodar em qualquer máquina, inclusive Raspberry
+  Pi 4.
+- **ffmpeg mínimo:** além de Ogg/Opus, lê AAC, MP3 e Vorbis; 1,7 a 2,5 MB.
+- **Ícone da barra de menus:** monocromático no macOS (o sistema pinta), com o
+  estado na forma: ícone cheio, com um ponto, ou apagado com o ponto. Colorido
+  no Windows e no Linux.
+- **A linha de comando** passou a se chamar `whatsapp-mcp`; o `install.sh` deixa
+  um link `whatsapp-mcp-v2` para as configurações antigas.
+
+### Verificado
+
+- macOS: instalação do zero, QR code, conexão do Claude pelo bridge, troca de
+  porta (inclusive porta ocupada ao abrir), fechar e sair pela bandeja, e a
+  migração da instalação real, sem novo QR code.
+- Linux: o `.deb` no Ubuntu 24.04 e o AppImage num Debian 12 sem WebKit, numa
+  tela virtual; transcrição de ponta a ponta no Linux arm64.
+- Windows: compila, e o instalador é gerado; o ffmpeg mínimo roda sob Wine.
+
+### Pendências
+
+- **Windows numa máquina de verdade** (o CI roda os testes no
+  `windows-latest`, mas a interface, o `CTRL_BREAK` no wacli real, o socket de
+  envio e o bridge com o Claude Desktop ainda não foram vistos rodando).
+- **Notarização:** o build local sai assinado com o Developer ID; notarizar
+  precisa do Issuer ID da chave da API do App Store Connect, e os segredos do CI
+  da seção 7.2.
+- **Primeiro `sidecars-1`:** rodar o workflow para publicar os pacotes da
+  transcrição e fixá-los em `internal/sidecar/manifest.json`. Até lá, o app usa
+  um whisper-cli e um ffmpeg já instalados (como os do Homebrew).
+- **Repositório público:** com o repositório privado, os downloads das versões e
+  dos pacotes não funcionam para quem não tem acesso.
+- **Beta** com algumas pessoas em cada sistema antes do anúncio.
+
