@@ -792,21 +792,22 @@ coluna na lista de testes. O benefício é não perder quem roda em servidor.
   porta (inclusive porta ocupada ao abrir), fechar e sair pela bandeja, e a
   migração da instalação real, sem novo QR code (antes de o fluxo ser retirado).
 - Linux: o `.deb` no Ubuntu 24.04 e o AppImage num Debian 12 sem WebKit, numa
-  tela virtual; transcrição de ponta a ponta no Linux arm64.
+  tela virtual.
 - Windows: compila, e o instalador é gerado; o ffmpeg mínimo roda sob Wine.
+- Transcrição de ponta a ponta (instalar os pacotes, conferir e transcrever um
+  áudio) no macOS, a partir do release `sidecars-1` publicado, e no Linux
+  x86_64 e arm64, a partir dos mesmos pacotes antes de publicados.
+- Atualização automática: notarização aceita, e a 0.1.0 se atualizou para a
+  0.1.1 (baixar, conferir, trocar e reabrir) em 6 s, com uma API do GitHub
+  simulada.
 
 ### Pendências
 
 - **Windows numa máquina de verdade** (o CI roda os testes no
   `windows-latest`, mas a interface, o `CTRL_BREAK` no wacli real, o socket de
   envio e o bridge com o Claude Desktop ainda não foram vistos rodando).
-- **Notarização:** o build local sai assinado com o Developer ID; notarizar
-  precisa do Issuer ID da chave da API do App Store Connect, e os segredos do CI
-  da seção 7.2.
-- **Primeiro `sidecars-1`:** rodar o workflow para publicar os pacotes da
-  transcrição e fixá-los em `internal/sidecar/manifest.json`. Até lá, o app usa
-  um whisper-cli e um ffmpeg já instalados (como os do Homebrew).
-- **Repositório público:** com o repositório privado, os downloads das versões e
-  dos pacotes não funcionam para quem não tem acesso.
+- **Segredos do CI** da seção 7.2, para o `release.yml` assinar e notarizar
+  sozinho. Até lá, as versões são compiladas, assinadas e notarizadas
+  localmente com os mesmos scripts.
 - **Beta** com algumas pessoas em cada sistema antes do anúncio.
 

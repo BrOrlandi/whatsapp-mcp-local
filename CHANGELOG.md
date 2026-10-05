@@ -4,6 +4,28 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.0.0] - 2026-10-05
+
+A primeira versão pública do WhatsApp MCP Local.
+
+### Adicionado
+
+- **Transcrição de áudio sem instalar nada à parte.** Ao ligar a transcrição,
+  o app baixa os programas certos para o seu sistema (macOS, Windows ou Linux)
+  e confere cada um antes de usar. No Mac ela usa o Metal; no Windows com placa
+  NVIDIA, a versão para CUDA.
+
+### Mudou
+
+- O projeto agora se chama **WhatsApp MCP Local** e mora em
+  [BrOrlandi/whatsapp-mcp-local](https://github.com/BrOrlandi/whatsapp-mcp-local).
+  Quem tem a 0.1.x recebe esta versão pela atualização automática.
+- Linha de comando: os dados ficam em `~/.whatsapp-mcp` e o serviço se chama
+  `whatsapp-mcp`. Quem usava o serviço da 0.1.x precisa removê-lo com a versão
+  antiga e instalar de novo.
+
+Inclui o wacli 0.20.0.
+
 ## [0.1.1] - 2026-10-05
 
 ### Adicionado
@@ -60,5 +82,6 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.0.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.0.0
 [0.1.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v0.1.1
 [0.1.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v0.1.0
