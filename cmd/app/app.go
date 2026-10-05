@@ -293,15 +293,27 @@ func (a *App) followStatus(ctx context.Context, d *daemon.Daemon) {
 }
 
 // firstRun turns "open at login" on, as the first window offers it checked;
-// the checkbox there and in the tray turns it off.
+// the checkbox there and in the tray turns it off. On later runs it makes
+// sure the registration still stands: a new version, signed anew or moved,
+// can lose it.
 func (a *App) firstRun() {
-	if a.config().HasSeen("first-run") {
-		return
+	first := !a.config().HasSeen("first-run")
+	if first || (a.config().Autostart && !a.autostartRegistered()) {
+		if err := a.SetAutostart(a.config().Autostart); err != nil {
+			a.logger.Warn("could not register the app to open at login", "error", err)
+		}
 	}
-	if err := a.SetAutostart(a.config().Autostart); err != nil {
-		a.logger.Warn("could not register the app to open at login", "error", err)
+	if first {
+		_ = a.updateConfig(func(c *appconfig.Config) { c.Seen = append(c.Seen, "first-run") })
 	}
-	_ = a.updateConfig(func(c *appconfig.Config) { c.Seen = append(c.Seen, "first-run") })
+}
+
+func (a *App) autostartRegistered() bool {
+	if os.Getenv("APPIMAGE") != "" {
+		return false // rewriting the entry is cheap and keeps its path current
+	}
+	on, err := a.wails.Autostart.IsEnabled()
+	return err == nil && on
 }
 
 func (a *App) onClose(e *application.WindowEvent) {

@@ -47,7 +47,13 @@ type tray struct {
 func newTray(a *App) *tray {
 	t := &tray{app: a, icons: map[string][]byte{}}
 	for tone, c := range toneColours {
-		t.icons[tone] = tint(trayGlyph, c)
+		if runtime.GOOS == "darwin" {
+			// The menu bar draws its icons in one colour, white or black to
+			// match it: the state shows in the shape instead.
+			t.icons[tone] = templateIcon(trayGlyph, tone)
+		} else {
+			t.icons[tone] = tint(trayGlyph, c)
+		}
 	}
 	t.menu = a.wails.NewMenu()
 	t.menu.Add("Abrir o " + platform.AppName).OnClick(func(*application.Context) { a.showWindow("") })
@@ -65,7 +71,7 @@ func newTray(a *App) *tray {
 	t.menu.Add("Sair do " + platform.AppName).OnClick(func(*application.Context) { a.quit() })
 
 	t.icon = a.wails.SystemTray.New()
-	t.icon.SetIcon(t.icons["warn"])
+	t.setIcon("warn")
 	t.icon.SetTooltip(platform.AppName)
 	t.icon.SetMenu(t.menu)
 	if runtime.GOOS != "darwin" {
@@ -87,12 +93,24 @@ func (t *tray) render(st daemon.Status) {
 	changed := st.Tone != t.tone
 	t.tone = st.Tone
 	t.mu.Unlock()
-	if icon, ok := t.icons[st.Tone]; ok && changed {
-		t.icon.SetIcon(icon)
+	if changed {
+		t.setIcon(st.Tone)
 	}
 	t.icon.SetTooltip(platform.AppName + ": " + label)
 	t.status.SetLabel(label)
 	t.menu.Update()
+}
+
+func (t *tray) setIcon(tone string) {
+	icon, ok := t.icons[tone]
+	if !ok {
+		return
+	}
+	if runtime.GOOS == "darwin" {
+		t.icon.SetTemplateIcon(icon)
+		return
+	}
+	t.icon.SetIcon(icon)
 }
 
 // offerUpdate adds "install version X" to the menu.
@@ -111,6 +129,46 @@ func (t *tray) setAutostart(on bool) {
 	}
 	t.autostart.SetChecked(on)
 	t.menu.Update()
+}
+
+// templateIcon is the glyph for the macOS menu bar, which colours it:
+// whole when connected, with a dot when something is in progress, and faded
+// with the dot when WhatsApp is disconnected or sync has stopped.
+func templateIcon(glyph []byte, tone string) []byte {
+	src, err := png.Decode(bytes.NewReader(glyph))
+	if err != nil {
+		return glyph
+	}
+	b := src.Bounds()
+	out := image.NewNRGBA(b)
+	fade := 1.0
+	if tone == "fail" {
+		fade = 0.45
+	}
+	w := float64(b.Dx())
+	cx, cy := w*0.82, w*0.82
+	dot, gap := w*0.15, w*0.24
+	for y := b.Min.Y; y < b.Max.Y; y++ {
+		for x := b.Min.X; x < b.Max.X; x++ {
+			_, _, _, a := src.At(x, y).RGBA()
+			alpha := float64(a>>8) * fade
+			if tone != "ok" {
+				dx, dy := float64(x)+0.5-cx, float64(y)+0.5-cy
+				switch d := dx*dx + dy*dy; {
+				case d <= dot*dot:
+					alpha = 255 // the dot, always solid
+				case d <= gap*gap:
+					alpha = 0 // a clear ring around it
+				}
+			}
+			out.SetNRGBA(x, y, color.NRGBA{0, 0, 0, uint8(alpha)})
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, out); err != nil {
+		return glyph
+	}
+	return buf.Bytes()
 }
 
 // tint paints the glyph's shape in one colour.
