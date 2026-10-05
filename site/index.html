@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WhatsApp MCP: o seu WhatsApp no Claude</title>
+  <meta name="description" content="Um app gratuito para macOS, Windows e Linux que conecta o seu WhatsApp ao Claude. Resuma grupos, ache mensagens, responda e transcreva áudios, com as mensagens no seu computador.">
+  <link rel="canonical" href="https://whatsapp-mcp.brorlandi.xyz/">
+  <meta name="theme-color" content="#073d35">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="WhatsApp MCP">
+  <meta property="og:title" content="WhatsApp MCP: o seu WhatsApp no Claude">
+  <meta property="og:description" content="Um app gratuito para macOS, Windows e Linux. Peça ao Claude para resumir grupos, achar mensagens, responder e transcrever áudios.">
+  <meta property="og:url" content="https://whatsapp-mcp.brorlandi.xyz/">
+  <meta property="og:image" content="https://whatsapp-mcp.brorlandi.xyz/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&display=swap">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-logo" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9h24a12 12 0 0 1 12 12v11a12 12 0 0 1-12 12H26L15 54.5V43a12 12 0 0 1-7-11V21A12 12 0 0 1 20 9Z"/><path d="M19 21l13 6 13-6M32 27v8.5" stroke-width="3.6"/></g><g fill="currentColor"><circle cx="19" cy="21" r="3.6"/><circle cx="45" cy="21" r="3.6"/><circle cx="32" cy="35.5" r="3.6"/><circle cx="32" cy="27" r="4.4"/></g></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" opacity=".14"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-computer" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8.5 20h7M12 16v4"/></g></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></g></symbol>
+    <symbol id="i-tray" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8.5h18"/></g><circle cx="17.5" cy="6.3" r="1.2" fill="currentColor"/><circle cx="14" cy="6.3" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 10A7.8 7.8 0 0 0 5.6 7.4L4 9M4 4.5V9h4.5M4.5 14a7.8 7.8 0 0 0 13.9 2.6L20 15M20 19.5V15h-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+
+  <div class="top">
+    <header class="wrap bar">
+      <a class="brand" href="/"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-logo"/></svg>WhatsApp MCP</a>
+      <nav class="nav" aria-label="Principal">
+        <a class="nav__link nav__link--page" href="#como-funciona">Como funciona</a>
+        <a class="nav__link nav__link--page" href="/servidor">Versão servidor</a>
+        <a class="nav__link nav__link--gh" href="https://github.com/BrOrlandi/whatsapp-mcp-local"><svg aria-hidden="true"><use href="#i-github"/></svg><span>GitHub</span></a>
+        <a class="btn btn--mint btn--sm" href="/download">Baixar</a>
+      </nav>
+    </header>
+
+    <section class="wrap hero" id="conteudo">
+      <div class="hero__grid">
+        <div>
+          <h1>O seu WhatsApp no Claude, rodando no seu computador.</h1>
+          <p class="hero__lead">Peça ao Claude para resumir um grupo, achar uma mensagem de meses atrás, responder alguém ou transcrever um áudio. As mensagens não saem da sua máquina.</p>
+          <div class="hero__actions">
+            <a class="btn btn--mint btn--lg" href="/download"><svg aria-hidden="true"><use href="#i-download"/></svg>Baixar o app</a>
+            <a class="btn btn--line-dark btn--lg" href="https://github.com/BrOrlandi/whatsapp-mcp-local"><svg aria-hidden="true"><use href="#i-github"/></svg>Ver no GitHub</a>
+          </div>
+          <p class="hero__note">O WhatsApp MCP Local é grátis e de código aberto, para macOS, Windows e Linux.</p>
+        </div>
+
+        <div>
+          <div class="chat" data-chat aria-label="Exemplo de conversa com o Claude">
+            <div class="chat__bar">
+              <span class="chat__dots" aria-hidden="true"><span></span><span></span><span></span></span>
+              <span class="chat__title">Resumo do grupo da família</span>
+            </div>
+            <div class="chat__body">
+              <div class="ask">Resume o que rolou hoje no grupo da família</div>
+              <div class="tool"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-logo"/></svg><span>Leu 52 mensagens de Família</span><svg class="tool__chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron"/></svg></div>
+              <div class="answer">
+                <p>Hoje no grupo da família:</p>
+                <ul><li><strong>Almoço de domingo:</strong> na casa da vó, às 13h.</li><li><strong>Sobremesa:</strong> a Carla leva. Ainda falta alguém para as bebidas.</li><li><strong>Fotos:</strong> o Pedro mandou 12 da formatura.</li></ul>
+                <p>Ninguém te marcou. Quer que eu avise no grupo que você leva as bebidas?</p>
+              </div>
+            </div>
+            <div class="chat__composer" aria-hidden="true">Responder…<span class="chat__send"><svg viewBox="0 0 24 24"><use href="#i-send"/></svg></span></div>
+          </div>
+          <div class="try" role="group" aria-label="Exemplos de pedidos">
+            <span class="try__label">Experimente:</span>
+            <button class="chip" type="button" data-scenario="0" aria-pressed="true">Resumir um grupo</button>
+            <button class="chip" type="button" data-scenario="1" aria-pressed="false">Achar uma mensagem</button>
+            <button class="chip" type="button" data-scenario="2" aria-pressed="false">Transcrever um áudio</button>
+            <button class="chip" type="button" data-scenario="3" aria-pressed="false">Criar uma enquete</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <main>
+    <section class="section section--white" id="como-funciona">
+      <div class="wrap how">
+        <div>
+          <h2>Três passos, sem terminal</h2>
+          <ol class="steps">
+            <li>
+              <h3>Baixe e abra o app</h3>
+              <p>Tem versão para macOS, Windows e Linux. No Mac, arraste para Aplicativos; no Windows, rode o instalador.</p>
+            </li>
+            <li>
+              <h3>Leia o QR code com o celular</h3>
+              <p>No WhatsApp, entre em Dispositivos conectados e aponte a câmera para o código. Se preferir, peça um código para digitar no celular.</p>
+            </li>
+            <li>
+              <h3>Conecte o Claude</h3>
+              <p>Um clique liga o Claude Desktop (chat e Cowork) ou o Claude Code. Para outras ferramentas, o app dá um texto pronto para colar.</p>
+            </li>
+          </ol>
+        </div>
+        <figure class="shot">
+          <img src="/assets/app-instalacao.webp" width="1000" height="791" loading="lazy" alt="A primeira tela do app: o passo a passo para conectar o WhatsApp e o QR code para ler com o celular">
+        </figure>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2>Tudo acontece no seu computador</h2>
+        <p class="lede">Não há servidor nosso no meio. O app entra no WhatsApp como um dispositivo conectado, igual ao WhatsApp Web, guarda as mensagens na sua máquina e só atende programas dela.</p>
+        <div class="facts">
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-computer"/></svg>
+            <h3>As mensagens ficam com você</h3>
+            <p>O que chega do WhatsApp fica guardado no seu computador. Não tem conta para criar nem mensalidade.</p>
+          </div>
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-mic"/></svg>
+            <h3>Áudios viram texto aqui mesmo</h3>
+            <p>Quando você pede, o Whisper transcreve no próprio computador, sem o áudio sair da máquina. Com a GPU do Mac ou uma placa NVIDIA, leva segundos.</p>
+          </div>
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-tray"/></svg>
+            <h3>Fica na barra de menus</h3>
+            <p>Fechar a janela não encerra o app. Ele abre sozinho quando o computador liga, e o ícone mostra se o WhatsApp está conectado.</p>
+          </div>
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-refresh"/></svg>
+            <h3>Atualiza sozinho</h3>
+            <p>Uma vez por dia o app procura uma versão nova. Um clique baixa, confere o arquivo e reinicia já atualizado.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--white" id="versoes">
+      <div class="wrap">
+        <h2>Duas versões</h2>
+        <p class="lede">O mesmo WhatsApp no Claude, em dois lugares. Para quase todo mundo, o app no computador é o caminho mais simples.</p>
+        <div class="versions">
+          <article class="version version--main">
+            <span class="version__tag">Recomendada</span>
+            <h3>WhatsApp MCP Local</h3>
+            <p>Um app para macOS, Windows e Linux, que roda no seu computador. Você instala, lê o QR code e conecta o Claude.</p>
+            <ul class="checks">
+              <li><svg aria-hidden="true"><use href="#i-check"/></svg>Grátis, sem servidor para alugar nem manter</li>
+              <li><svg aria-hidden="true"><use href="#i-check"/></svg>As mensagens ficam guardadas no seu computador</li>
+              <li><svg aria-hidden="true"><use href="#i-check"/></svg>Conecta o Claude Desktop e o Claude Code com um clique, e dá um texto pronto para outras ferramentas</li>
+              <li><svg aria-hidden="true"><use href="#i-check"/></svg>Recebe mensagens enquanto o computador está ligado</li>
+            </ul>
+            <div class="version__actions">
+              <a class="btn btn--brand" href="/download"><svg aria-hidden="true"><use href="#i-download"/></svg>Baixar o app</a>
+              <a href="https://github.com/BrOrlandi/whatsapp-mcp-local">Código no GitHub</a>
+            </div>
+          </article>
+          <article class="version">
+            <span class="version__tag version__tag--quiet">Self-hosted</span>
+            <h3>WhatsApp MCP Servidor</h3>
+            <p>Um servidor seu, numa VPS, ligado o tempo todo. Usa a Evolution API para falar com o WhatsApp e tem um painel que guia a instalação.</p>
+            <ul class="checks">
+              <li><svg aria-hidden="true"><use href="#i-check"/></svg>Funciona 24 horas, mesmo com o seu computador desligado</li>
+              <li><svg aria-hidden="true"><use href="#i-check"/></svg>Funciona também no claude.ai e no app do Claude no celular</li>
+              <li><svg aria-hidden="true"><use href="#i-check"/></svg>Instala com um comando, num servidor Ubuntu com Docker</li>
+              <li><svg aria-hidden="true"><use href="#i-check"/></svg>Custa o aluguel do servidor, de US$ 7 a US$ 25 por mês</li>
+            </ul>
+            <div class="version__actions">
+              <a class="btn btn--line" href="/servidor">Conhecer a versão servidor</a>
+              <a href="https://github.com/BrOrlandi/whatsapp-mcp">Repositório do servidor</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2>Antes de instalar</h2>
+        <div class="notes">
+          <div>
+            <h3>Use por sua conta e risco</h3>
+            <p>O WhatsApp não tem API oficial para contas pessoais. O app usa o <a href="https://github.com/openclaw/wacli">wacli</a>, um cliente não oficial, e a conta pode ser desconectada ou restringida.</p>
+          </div>
+          <div>
+            <h3>O computador precisa estar ligado</h3>
+            <p>Para receber mensagens, o app precisa estar aberto. Se o computador ficar desligado por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele volta.</p>
+          </div>
+          <div>
+            <h3>Claude neste computador</h3>
+            <p>Funciona com o Claude Desktop, o Claude Code e outras ferramentas que aceitam MCP nesta máquina. O claude.ai no navegador e o app do celular precisam da <a href="/servidor">versão servidor</a>.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="wrap cta__inner">
+        <div>
+          <h2>Baixe o WhatsApp MCP Local</h2>
+          <p>Grátis, para macOS, Windows e Linux.</p>
+        </div>
+        <a class="btn btn--mint btn--lg" href="/download"><svg aria-hidden="true"><use href="#i-download"/></svg>Baixar o app</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__grid">
+      <p>Código aberto, licença MIT. Feito por <a href="https://github.com/BrOrlandi">Bruno Orlandi</a>.</p>
+      <nav aria-label="Rodapé">
+        <a href="https://github.com/BrOrlandi/whatsapp-mcp-local">GitHub</a>
+        <a href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/CHANGELOG.md">O que mudou</a>
+        <a href="/servidor">Versão servidor</a>
+        <a href="https://donate.stripe.com/8x200jdhA6c1d375jF9Ve06">Apoie o projeto</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
