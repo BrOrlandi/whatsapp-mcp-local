@@ -17,7 +17,8 @@ import (
 // built with scripts/sidecars and transcribes a voice note. It downloads and
 // runs real programs, so it only runs when asked:
 //
-//	WAMCP_E2E_PACKAGES=<dir with the archives and manifest.json>
+//	WAMCP_E2E_PACKAGES=<dir with the archives and manifest.json>, or
+//	                   "published" for the archives the app's manifest pins
 //	WAMCP_E2E_AUDIO=<an Ogg/Opus voice note>  WAMCP_E2E_EXPECT=<a word it says>
 //	WAMCP_E2E_MODEL=<an already downloaded model, to skip 574 MB>
 func TestInstallAndTranscribe(t *testing.T) {
@@ -25,17 +26,19 @@ func TestInstallAndTranscribe(t *testing.T) {
 	if dir == "" {
 		t.Skip("set WAMCP_E2E_PACKAGES to run")
 	}
-	srv := httptest.NewServer(http.FileServer(http.Dir(dir)))
-	defer srv.Close()
-	raw, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
-	if err != nil {
-		t.Fatal(err)
+	if dir != "published" {
+		srv := httptest.NewServer(http.FileServer(http.Dir(dir)))
+		defer srv.Close()
+		raw, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		manifest := filepath.Join(t.TempDir(), "manifest.json")
+		if err := os.WriteFile(manifest, []byte(strings.ReplaceAll(string(raw), "BASE", srv.URL)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("WHATSAPP_MCP_SIDECARS", manifest)
 	}
-	manifest := filepath.Join(t.TempDir(), "manifest.json")
-	if err := os.WriteFile(manifest, []byte(strings.ReplaceAll(string(raw), "BASE", srv.URL)), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	t.Setenv("WHATSAPP_MCP_SIDECARS", manifest)
 	// Only what this installs may be used.
 	old := systemTools
 	systemTools = func() sidecar.Tools { return sidecar.Tools{} }

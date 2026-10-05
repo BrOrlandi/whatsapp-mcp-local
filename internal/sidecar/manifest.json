@@ -1,4 +1,35 @@
 {
-  "version": "",
-  "packages": {}
+ "version": "sidecars-1",
+ "packages": {
+  "darwin/universal": {
+   "url": "https://github.com/BrOrlandi/whatsapp-mcp-local/releases/download/sidecars-1/transcription_darwin_universal.tar.gz",
+   "sha256": "7a96d680f75757598e0c300f0ee2520792f9f31ca6bcf6ac0ea17daf52b290bc",
+   "size": 4117410,
+   "accel": "metal"
+  },
+  "linux/amd64": {
+   "url": "https://github.com/BrOrlandi/whatsapp-mcp-local/releases/download/sidecars-1/transcription_linux_amd64.tar.gz",
+   "sha256": "26d13e0c40bfa3401c5c3ba1498b72011a631bcb0b42cbba198d064c86f3a30d",
+   "size": 2971973,
+   "accel": "cpu"
+  },
+  "linux/arm64": {
+   "url": "https://github.com/BrOrlandi/whatsapp-mcp-local/releases/download/sidecars-1/transcription_linux_arm64.tar.gz",
+   "sha256": "48af77e6df8a15969e6f0ea7d7dc1819c8e944bd51f14698aec90631469d0f73",
+   "size": 2727100,
+   "accel": "cpu"
+  },
+  "windows/amd64": {
+   "url": "https://github.com/BrOrlandi/whatsapp-mcp-local/releases/download/sidecars-1/transcription_windows_amd64.zip",
+   "sha256": "a1a86bdb004d79ca52d13aaf8e74e28a649705f4847573885aebd94e467e755a",
+   "size": 5334433,
+   "accel": "cpu"
+  },
+  "windows/amd64/cuda": {
+   "url": "https://github.com/BrOrlandi/whatsapp-mcp-local/releases/download/sidecars-1/transcription_windows_amd64_cuda.zip",
+   "sha256": "f7a12ee2f77e287ffcdccc9f6d134a8e8afd6f5539e4e35ba72c420623476de0",
+   "size": 659180890,
+   "accel": "cuda"
+  }
+ }
 }

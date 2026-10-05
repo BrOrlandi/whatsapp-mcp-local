@@ -103,6 +103,9 @@ WAMCP_E2E_PACKAGES=<pasta com os pacotes e um manifest.json> WAMCP_E2E_AUDIO=voz
   go test -run TestInstallAndTranscribe ./internal/localasr
 ```
 
+Com `WAMCP_E2E_PACKAGES=published`, ele baixa os pacotes fixados em
+`internal/sidecar/manifest.json`, do release publicado.
+
 ## Publicar
 
 - **Uma versão do app:** uma tag `v*` roda `.github/workflows/release.yml`, que
@@ -115,7 +118,10 @@ WAMCP_E2E_PACKAGES=<pasta com os pacotes e um manifest.json> WAMCP_E2E_AUDIO=voz
 - **Os programas da transcrição:** `.github/workflows/sidecars.yml`, rodado à
   mão com uma tag `sidecars-N`, compila o whisper-cli e o ffmpeg de cada
   sistema, publica um release só com eles e abre um pull request fixando-os em
-  `internal/sidecar/manifest.json`.
+  `internal/sidecar/manifest.json`. Os mesmos scripts de `scripts/sidecars/`
+  rodam localmente (o `sidecars-1` foi feito assim); o release não é marcado
+  como o mais recente, para o atualizador do app não o confundir com uma
+  versão.
 - **O wacli:** a versão e os sha256 ficam em `build/wacli.env`. Trocar a versão
   é trocar esse arquivo, rodar os testes e publicar uma versão nova do app.
 - **Os ícones** saem de `build/icons/*.svg` com `scripts/icons.sh`.
