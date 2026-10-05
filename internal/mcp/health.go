@@ -108,7 +108,7 @@ func evaluate(in healthInputs) Health {
 		if sync.LastError != "" {
 			detail += ": " + sync.LastError
 		}
-		add("sync", "fail", detail, "look at the daemon log (~/Library/Logs/whatsapp-mcp-v2.log); stop any wacli sync started by hand")
+		add("sync", "fail", detail, "look at the app's log; stop any wacli sync started by hand")
 	}
 
 	a := in.Activity

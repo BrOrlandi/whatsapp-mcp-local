@@ -124,11 +124,11 @@ As variáveis de ambiente valem para o app e para a linha de comando, e vencem o
 | `WHATSAPP_MCP_TOKEN` | vazio (sem token) |
 | `WACLI_BIN` | o wacli de dentro do app; na linha de comando, o instalado ao lado ou no PATH |
 | `WACLI_STORE_DIR` | `<pasta de dados>/wacli`; na linha de comando, o padrão do wacli (`~/.wacli`) |
-| `WHATSAPP_MCP_DATA` | a pasta de dados acima; na linha de comando, `~/.whatsapp-mcp-v2` |
+| `WHATSAPP_MCP_DATA` | a pasta de dados acima; na linha de comando, `~/.whatsapp-mcp` |
 
 Linha de comando: `whatsapp-mcp serve | bridge | service install | service uninstall | service stop | service start | open | config | transcription install | version`.
-Logs do serviço: `~/Library/Logs/whatsapp-mcp-v2.log` (macOS) ou
-`journalctl --user -u whatsapp-mcp-v2` (Linux).
+Logs do serviço: `~/Library/Logs/whatsapp-mcp.log` (macOS) ou
+`journalctl --user -u whatsapp-mcp` (Linux).
 
 ## Tools
 

@@ -74,8 +74,8 @@ histórico antigo e para reenviar mídia que expirou.
 | App no macOS 13+ | item de início do sistema (SMAppService); no macOS 11 e 12, um LaunchAgent |
 | App no Windows | valor `com.brorlandi.whatsapp-mcp` em `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` |
 | App no Linux | `~/.config/autostart/` (padrão XDG: GNOME, KDE, XFCE) |
-| Linha de comando no macOS | LaunchAgent `com.brorlandi.whatsapp-mcp-v2`, com `KeepAlive` |
-| Linha de comando no Linux | unit `systemd --user` `whatsapp-mcp-v2.service` |
+| Linha de comando no macOS | LaunchAgent `com.brorlandi.whatsapp-mcp`, com `KeepAlive` |
+| Linha de comando no Linux | unit `systemd --user` `whatsapp-mcp.service` |
 
 ### O webview de cada sistema
 
@@ -128,7 +128,7 @@ que não dependem de bibliotecas do sistema. O app usa cgo no macOS e no Linux
 
 Na pasta de dados do app (`~/Library/Application Support/WhatsApp MCP` no
 macOS, `%LOCALAPPDATA%\WhatsApp MCP` no Windows, `~/.local/share/whatsapp-mcp`
-no Linux; na linha de comando, `~/.wacli` e `~/.whatsapp-mcp-v2`):
+no Linux; na linha de comando, `~/.wacli` e `~/.whatsapp-mcp`):
 
 | Caminho | Dono | Conteúdo | Tamanho típico |
 |---|---|---|---|

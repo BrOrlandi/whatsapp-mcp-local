@@ -69,7 +69,7 @@ func load() (config, error) {
 	}
 	c.DataDir = os.Getenv("WHATSAPP_MCP_DATA")
 	if c.DataDir == "" {
-		c.DataDir = filepath.Join(home, ".whatsapp-mcp-v2")
+		c.DataDir = filepath.Join(home, ".whatsapp-mcp")
 	}
 	return c, nil
 }
@@ -107,9 +107,9 @@ func logPath() string {
 	switch runtime.GOOS {
 	case "darwin":
 		home, _ := os.UserHomeDir()
-		return filepath.Join(home, "Library", "Logs", "whatsapp-mcp-v2.log")
+		return filepath.Join(home, "Library", "Logs", "whatsapp-mcp.log")
 	case "linux":
-		return "journalctl --user -u whatsapp-mcp-v2"
+		return "journalctl --user -u whatsapp-mcp"
 	}
 	return ""
 }

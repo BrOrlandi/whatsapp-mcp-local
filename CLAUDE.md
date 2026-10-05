@@ -3,8 +3,8 @@
 The local version of WhatsApp MCP: a desktop app (and a command line) that runs on the person's
 own computer, over wacli. It is a rewrite from scratch, not a "v2" of the server version
 (`BrOrlandi/whatsapp-mcp`, Evolution API on a VPS), which stays maintained for running 24 hours.
-On-disk identifiers from before the rename (`~/.whatsapp-mcp-v2`, the `com.brorlandi.whatsapp-mcp-v2`
-service, its log file) are kept so existing installs keep working.
+Nothing keeps the old "v2" name: the command line's folder is `~/.whatsapp-mcp`, its service
+`com.brorlandi.whatsapp-mcp` (`whatsapp-mcp.service` on Linux).
 
 ## Site
 

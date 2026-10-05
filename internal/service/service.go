@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-const label = "com.brorlandi.whatsapp-mcp-v2"
+const label = "com.brorlandi.whatsapp-mcp"
 
 type Spec struct {
 	Binary string            // absolute path of this program
@@ -43,7 +43,7 @@ func Uninstall() error {
 		}
 		return nil
 	case "linux":
-		_ = exec.Command("systemctl", "--user", "disable", "--now", "whatsapp-mcp-v2.service").Run()
+		_ = exec.Command("systemctl", "--user", "disable", "--now", "whatsapp-mcp.service").Run()
 		if err := os.Remove(systemdPath()); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -71,7 +71,7 @@ func installLaunchd(spec Spec) (string, error) {
 	for k, v := range spec.Env {
 		fmt.Fprintf(&env, "\t\t<key>%s</key>\n\t\t<string>%s</string>\n", xmlEscape(k), xmlEscape(v))
 	}
-	log := filepath.Join(spec.LogDir, "whatsapp-mcp-v2.log")
+	log := filepath.Join(spec.LogDir, "whatsapp-mcp.log")
 	plist := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -120,7 +120,7 @@ func installLaunchd(spec Spec) (string, error) {
 
 func systemdPath() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "systemd", "user", "whatsapp-mcp-v2.service")
+	return filepath.Join(home, ".config", "systemd", "user", "whatsapp-mcp.service")
 }
 
 func installSystemd(spec Spec) (string, error) {
@@ -150,7 +150,7 @@ WantedBy=default.target
 	if err := os.WriteFile(path, []byte(unit), 0o644); err != nil {
 		return "", err
 	}
-	for _, args := range [][]string{{"daemon-reload"}, {"enable", "--now", "whatsapp-mcp-v2.service"}} {
+	for _, args := range [][]string{{"daemon-reload"}, {"enable", "--now", "whatsapp-mcp.service"}} {
 		if out, err := exec.Command("systemctl", append([]string{"--user"}, args...)...).CombinedOutput(); err != nil {
 			return "", fmt.Errorf("systemctl --user %s: %v: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 		}
@@ -169,7 +169,7 @@ func Stop() error {
 		}
 		return nil
 	case "linux":
-		return exec.Command("systemctl", "--user", "stop", "whatsapp-mcp-v2.service").Run()
+		return exec.Command("systemctl", "--user", "stop", "whatsapp-mcp.service").Run()
 	}
 	return fmt.Errorf("no service support on %s", runtime.GOOS)
 }
@@ -187,7 +187,7 @@ func Start() error {
 		}
 		return nil
 	case "linux":
-		return exec.Command("systemctl", "--user", "start", "whatsapp-mcp-v2.service").Run()
+		return exec.Command("systemctl", "--user", "start", "whatsapp-mcp.service").Run()
 	}
 	return fmt.Errorf("no service support on %s", runtime.GOOS)
 }
