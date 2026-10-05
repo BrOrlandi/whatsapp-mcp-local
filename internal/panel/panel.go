@@ -15,9 +15,11 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/url"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -52,6 +54,8 @@ type Panel struct {
 	LogPath string
 	// MCPProblem says why the MCP is not answering, or nil when it is.
 	MCPProblem func() *PortProblem
+	// Host is the desktop app around the panel; nil on the command line.
+	Host Host
 
 	pages *template.Template
 	code  codeCache
@@ -83,10 +87,43 @@ type internalKey struct{}
 // reaches the panel in memory rather than over the network: no other page
 // can send a request down that path, and the window's webview sends neither
 // Sec-Fetch-Site nor, on a fetch, Origin.
+//
+// The window's webview does not follow an HTTP redirect from the app, so a
+// redirect is answered with a page that navigates there itself.
 func Internal(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), internalKey{}, true)))
+		rw := &redirectWriter{ResponseWriter: w}
+		next.ServeHTTP(rw, r.WithContext(context.WithValue(r.Context(), internalKey{}, true)))
 	})
+}
+
+type redirectWriter struct {
+	http.ResponseWriter
+	redirected bool
+}
+
+func (w *redirectWriter) WriteHeader(code int) {
+	to := w.Header().Get("Location")
+	if code < 300 || code >= 400 || to == "" {
+		w.ResponseWriter.WriteHeader(code)
+		return
+	}
+	w.redirected = true
+	h := w.Header()
+	h.Del("Location")
+	h.Del("Content-Length")
+	h.Set("Content-Type", "text/html; charset=utf-8")
+	h.Set("Cache-Control", "no-store")
+	w.ResponseWriter.WriteHeader(http.StatusOK)
+	to = template.HTMLEscapeString(to)
+	_, _ = io.WriteString(w.ResponseWriter, `<!doctype html><meta http-equiv="refresh" content="0;url=`+to+`"><a href="`+to+`">…</a>`)
+}
+
+func (w *redirectWriter) Write(b []byte) (int, error) {
+	if w.redirected {
+		return len(b), nil // the redirect's own body
+	}
+	return w.ResponseWriter.Write(b)
 }
 
 func isInternal(r *http.Request) bool {
@@ -127,7 +164,14 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/pair", p.api(p.apiPair))
 	mux.HandleFunc("POST /api/pair/cancel", p.api(p.apiCancelPair))
 	mux.HandleFunc("POST /api/clients/{client}", p.api(p.apiAddClient))
+	if p.Host != nil {
+		p.registerApp(mux)
+	}
+	registerAssets(mux)
+}
 
+// registerAssets serves the scripts and icons every page loads.
+func registerAssets(mux *http.ServeMux) {
 	sub, _ := fs.Sub(assets, "assets")
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(sub))))
 	icon := func(ctype string, body []byte) http.HandlerFunc {
@@ -251,6 +295,12 @@ type layout struct {
 	HealthTone string
 	Error      string
 	OK         string
+	// App is set inside the desktop app, whose window has no address bar and
+	// opens links in the browser.
+	App        bool
+	MCPProblem *PortProblem
+	Settings   HostSettings
+	Update     UpdateState
 }
 
 // snapshot is what most pages need about the account, gathered once.
@@ -274,6 +324,7 @@ type snapshot struct {
 	ArrivingCount int64
 	Endpoint      string
 	LogPath       string
+	InApp         bool
 }
 
 type check struct {
@@ -286,7 +337,7 @@ type check struct {
 func (p *Panel) snapshot(ctx context.Context) snapshot {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	s := snapshot{Endpoint: p.endpoint(), LogPath: p.LogPath, Pairing: p.Supervisor.Pairing(), History: p.Server.HistoryStatus()}
+	s := snapshot{Endpoint: p.endpoint(), LogPath: p.LogPath, InApp: p.Host != nil, Pairing: p.Supervisor.Pairing(), History: p.Server.HistoryStatus()}
 	s.Account, _ = p.Supervisor.Account(ctx)
 	s.Sync = p.Supervisor.Status()
 	s.Health = p.Server.Health(ctx, 0)
@@ -310,7 +361,16 @@ func (p *Panel) snapshot(ctx context.Context) snapshot {
 }
 
 func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout {
-	return layout{Title: title, Active: active, HealthTone: s.Health.Status, Error: r.URL.Query().Get("erro"), OK: r.URL.Query().Get("ok")}
+	l := layout{Title: title, Active: active, HealthTone: s.Health.Status, Error: r.URL.Query().Get("erro"), OK: r.URL.Query().Get("ok")}
+	if p.MCPProblem != nil {
+		l.MCPProblem = p.MCPProblem()
+	}
+	if p.Host != nil {
+		l.App = true
+		l.Settings = p.Host.Settings()
+		l.Update = p.Host.Update()
+	}
+	return l
 }
 
 func syncLabel(s wacli.Status) (tone, label string) {
@@ -342,6 +402,9 @@ func describeCheck(c mcp.Check, s snapshot) (string, string) {
 	case "daemon":
 		return "Serviço", "Respondendo em " + s.Endpoint + "."
 	case "wacli":
+		if s.InApp {
+			return "wacli", "O wacli que vem com o app não respondeu. Reinstale o WhatsApp MCP."
+		}
 		return "wacli", "O wacli não respondeu. Instale com brew install openclaw/tap/wacli."
 	case "paired":
 		if c.Status == "ok" {
@@ -805,6 +868,8 @@ func funcs() template.FuncMap {
 		"supportURL":    func() string { return brand.SupportURL },
 		"version":       func() string { return strings.TrimPrefix(mcp.Version, "v") },
 		"serverName":    func() string { return ServerName },
+		"tray":          trayName,
+		"baseOf":        func(endpoint string) string { return strings.TrimSuffix(endpoint, "/mcp") },
 		"relativeSince": relativeSinceAny,
 		"moment":        momentAny,
 		"count":         countFormat,
@@ -829,6 +894,17 @@ func funcs() template.FuncMap {
 			return fmt.Sprintf("%.0f horas", h)
 		},
 	}
+}
+
+// trayName is what each system calls the place the app's icon lives.
+func trayName() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "barra de menus"
+	case "windows":
+		return "área de notificação"
+	}
+	return "bandeja do sistema"
 }
 
 func timeOf(v any) (time.Time, bool) {

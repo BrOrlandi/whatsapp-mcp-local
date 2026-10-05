@@ -6,7 +6,7 @@ package panel
 // rather than instances, no login, and a chat preview to confirm the sync.
 const pageSource = `
 {{define "head"}}<!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="alternate icon" href="/favicon.ico" sizes="16x16 32x32 48x48"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><script src="/assets/theme.js"></script><title>{{.Title}} · WhatsApp MCP</title><style>{{css}}</style></head><body><div class="shell">{{end}}
+<html lang="pt-BR"{{if .App}} data-app{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="alternate icon" href="/favicon.ico" sizes="16x16 32x32 48x48"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><script src="/assets/theme.js"></script><title>{{.Title}} · WhatsApp MCP</title><style>{{css}}</style></head><body><div class="shell">{{end}}
 
 {{define "foot"}}
 <footer class="colophon">
@@ -43,9 +43,22 @@ const pageSource = `
 <a href="/transcricao"{{if eq .Active "transcricao"}} aria-current="page"{{end}}>Transcrição</a>
 <a href="/documentacao"{{if eq .Active "documentacao"}} aria-current="page"{{end}}>Documentação</a>
 <a href="/receitas"{{if eq .Active "receitas"}} aria-current="page"{{end}}>Receitas</a>
+{{if .App}}<a href="/configuracoes"{{if eq .Active "configuracoes"}} aria-current="page"{{end}}>Configurações</a>{{end}}
 </nav>
+{{template "portbanner" .}}
+{{if and .App (ne .Active "configuracoes") (eq .Update.State "available" "ready" "manual")}}<p class="note">A versão {{.Update.Latest}} do WhatsApp MCP está disponível. <a href="/configuracoes#atualizacoes">Atualizar</a></p>{{end}}
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
 {{end}}
+
+{{/* The MCP's port taken by another program: WhatsApp keeps running, and the
+way out is one click away. */}}
+{{define "portbanner"}}{{with .MCPProblem}}<div class="alert" role="alert">
+<p style="margin:0"><strong>As ferramentas de IA não alcançam o WhatsApp agora.</strong> {{if .OtherGateway}}Outra cópia do WhatsApp MCP, provavelmente a versão de linha de comando, já usa a porta {{.Port}}.{{else}}A porta {{.Port}} já está em uso por outro programa.{{end}} O WhatsApp continua conectado e recebendo; só o MCP espera uma porta livre.</p>
+{{if .Suggest}}<form method="post" action="/configuracoes/porta" class="actions" style="margin-top:10px"><input type="hidden" name="port" value="{{.Suggest}}"><button class="btn btn--small" type="submit">Usar a porta {{.Suggest}}</button><a class="btn btn--quiet btn--small" href="/configuracoes#porta">Escolher outra</a></form>{{end}}
+</div>{{end}}{{end}}
+
+{{define "autostartcheck"}}{{if .App}}<div class="wizard__escape"><label class="check check--inline"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span>Abrir o WhatsApp MCP quando o computador ligar</span></label></div>
+<p class="busy" data-setting-note role="status" hidden></p>{{end}}{{end}}
 
 {{/* The three routes out of this panel, in the order to try them: the app
 that needs no terminal, the terminal, and the "whatever you use" escape hatch.
@@ -322,7 +335,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <section class="card">
 <div class="card__head"><h2>Verificação externa</h2></div>
 <div class="card__body">
-<div class="actions"><a class="btn btn--ghost btn--small" href="/health">/health</a><a class="btn btn--ghost btn--small" href="/healthz">/healthz</a></div>
+<div class="actions"><a class="btn btn--ghost btn--small" href="{{baseOf .Endpoint}}/health" target="_blank" rel="noopener">/health</a><a class="btn btn--ghost btn--small" href="{{baseOf .Endpoint}}/healthz" target="_blank" rel="noopener">/healthz</a></div>
 <p class="muted">O <code>/health</code> responde 503 quando alguma verificação falha, para quem quiser monitorar.</p>
 </div></section>
 {{template "foot"}}{{end}}
@@ -331,6 +344,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <header class="masthead"><a class="brand" href="/instalacao">{{template "brandmark"}}</a>
 <div class="masthead__tools">{{template "themeswitch"}}</div></header>
 <div class="wizard-shell"{{if eq .Step 2}} style="max-width:620px"{{end}}>
+{{template "portbanner" .}}
 <ol class="wizard" aria-label="Etapas da instalação" style="max-width:520px;margin-left:auto;margin-right:auto">
 {{range .Steps}}<li class="wizard__step wizard__step--{{.State}}"{{if eq .State "now"}} aria-current="step"{{end}}>
 <span class="wizard__n" aria-hidden="true">{{if eq .State "done"}}✓{{else}}{{.Number}}{{end}}</span><span class="wizard__label">{{.Label}}</span></li>{{end}}
@@ -379,6 +393,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </div>
 </div></section>
 <p class="muted" style="text-align:center">Tudo roda neste computador: as mensagens ficam aqui, e nada passa por servidor de terceiros.</p>
+{{template "autostartcheck" .}}
 {{end}}
 
 {{if eq .Step 2}}
@@ -412,6 +427,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done">
 <div class="wizard__escape"><button class="btn btn--quiet" type="submit">Pular por enquanto</button></div></form>
 {{end}}
+{{template "autostartcheck" .}}
 {{end}}
 </div>
 {{template "foot"}}{{end}}
@@ -537,4 +553,102 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </article>
 {{end}}
 </div>
-{{template "foot"}}{{end}}`
+{{template "foot"}}{{end}}
+
+{{define "configuracoes"}}{{template "head" .}}{{template "nav" .}}
+<h1>Configurações</h1>
+<p class="lead">Como o WhatsApp MCP roda neste computador.</p>
+{{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
+
+{{if .PortChanged}}
+<section class="card card--accent">
+<div class="card__head"><h2>Avise as suas ferramentas de IA</h2></div>
+<div class="card__body stack">
+<ul class="rows">
+<li class="row"><span class="row__main"><span class="row__title">Claude Desktop e Cowork</span><span class="row__meta">Nada a fazer: ele encontra a porta nova sozinho. Uma conversa já aberta reconecta no próximo uso.</span></span><span class="pill pill--ok">Automático</span></li>
+<li class="row"><span class="row__main"><span class="row__title">Claude Code</span><span class="row__meta">{{if .Setup.Code.Configured}}Já usa o endereço novo.{{else if .Setup.Code.Found}}Ele guarda o endereço com a porta: atualize com um clique.{{else}}O comando claude não foi encontrado neste computador.{{end}}</span></span>
+{{if and .Setup.Code.Found (not .Setup.Code.Configured)}}<button class="btn btn--small" type="button" data-add-client="claude-code">Atualizar o Claude Code agora</button>{{end}}</li>
+</ul>
+<p class="busy" data-client-note="claude-code" role="status" hidden></p>
+<p class="muted">Outras ferramentas (Cursor, Windsurf, Codex…) guardam o endereço antigo e precisam ser configuradas de novo. Mande isto no chat delas:</p>
+<div class="snippet"><pre class="plain" data-copy><code>{{.Setup.AgentPrompt}}</code></pre></div>
+</div></section>
+{{end}}
+
+<section class="card" id="porta">
+<div class="card__head"><h2>Porta do MCP</h2></div>
+<div class="card__body stack">
+<p class="muted">As ferramentas de IA falam com o WhatsApp MCP por este endereço, que só responde a programas deste computador. Troque a porta se outro programa já usa esta, ou se você quiser uma porta específica.</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">Endereço</span></div><pre data-copy><code>{{.Setup.Endpoint}}</code></pre></div>
+{{if .Settings.PortLocked}}<p class="note">A porta está definida pela variável de ambiente <code>WHATSAPP_MCP_PORT</code> e não pode ser trocada aqui.</p>
+{{else}}<form method="post" action="/configuracoes/porta" data-busy="Trocando…">
+<label class="field" for="port"><span class="field__label">Porta</span><span class="field__hint">Um número de 1024 a 65535. O WhatsApp não é desconectado na troca.</span></label>
+<div class="actions"><input id="port" class="input--short" type="number" name="port" min="1024" max="65535" value="{{.Port}}" required><button class="btn" type="submit">Salvar</button></div>
+</form>{{end}}
+</div></section>
+
+<section class="card">
+<div class="card__head"><h2>Ao ligar e ao fechar</h2></div>
+<div class="card__body stack">
+<label class="check"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span><strong>Abrir o WhatsApp MCP quando o computador ligar</strong><span class="check__hint">Ele abre só na {{tray}}, sem janela, e as ferramentas de IA já encontram o WhatsApp.</span></span></label>
+{{if .Settings.CanHide}}<label class="check"><input type="checkbox" data-setting="close_to_tray"{{if .Settings.CloseToTray}} checked{{end}}><span><strong>Fechar a janela mantém o app na {{tray}}</strong><span class="check__hint">Desmarcado, fechar a janela encerra o WhatsApp MCP, e as ferramentas de IA perdem o acesso até ele ser aberto de novo.</span></span></label>
+{{else}}<p class="muted">Este sistema não mostra ícones na bandeja (no GNOME, isso pede a extensão AppIndicator). Por isso, fechar a janela só a minimiza.</p>{{end}}
+<p class="busy" data-setting-note role="status" hidden></p>
+</div></section>
+
+<section class="card" id="atualizacoes" data-update>
+<div class="card__head"><h2>Versão e atualizações</h2></div>
+<div class="card__body stack">
+<dl class="facts"><div class="fact"><dt>Versão instalada</dt><dd>{{.Settings.Version}}</dd></div><div class="fact"><dt>Mais recente</dt><dd data-update-latest>{{with .Update.Latest}}{{.}}{{else}}—{{end}}</dd></div></dl>
+<p class="muted" data-update-text>O app procura uma versão nova uma vez por dia.</p>
+<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-update-check>Procurar atualização</button><button class="btn btn--small" type="button" data-update-install hidden>Instalar e reiniciar</button><a class="btn btn--ghost btn--small" data-update-page href="#" target="_blank" rel="noopener" hidden>Baixar a versão nova</a></div>
+</div></section>
+
+<section class="card">
+<div class="card__head"><h2>Dados</h2></div>
+<div class="card__body stack">
+<p class="muted">As mensagens, a sessão do WhatsApp, as transcrições, o modelo de transcrição e as mídias baixadas ficam nesta pasta. Desinstalar o app não a apaga.</p>
+<div class="snippet"><pre data-copy><code>{{.Settings.DataDir}}</code></pre></div>
+<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-open-folder>Abrir a pasta</button><a class="btn btn--danger btn--small" href="#apagar-tudo">Apagar todos os dados deste computador</a></div>
+</div></section>
+
+<div class="overlay" id="apagar-tudo" role="dialog" aria-modal="true" aria-labelledby="apagar-tudo-titulo">
+<div class="dialog">
+<div class="dialog__head"><h2 id="apagar-tudo-titulo">Apagar tudo?</h2><a class="dialog__close" href="#" aria-label="Fechar">&times;</a></div>
+<div class="dialog__body">
+<p>Este computador sai dos dispositivos conectados do seu WhatsApp. As mensagens guardadas, as transcrições, o modelo e as mídias são apagados, e o app fecha. Não tem volta.</p>
+<p class="muted">O WhatsApp no celular não perde nada.</p>
+<form method="post" action="/configuracoes/apagar" data-busy="Apagando…">
+<label class="field" for="confirm"><span class="field__label">Digite <strong>apagar</strong> para confirmar</span></label>
+<input id="confirm" type="text" name="confirm" autocomplete="off" spellcheck="false" required>
+<div class="actions actions--end" style="margin-top:14px"><a class="btn btn--quiet" href="#">Cancelar</a><button class="btn btn--danger" type="submit">Apagar tudo</button></div>
+</form>
+</div></div></div>
+{{template "foot"}}{{end}}
+
+{{define "migracao"}}{{template "head" .}}
+<header class="masthead"><span class="brand">{{template "brandmark"}}</span>
+<div class="masthead__tools">{{template "themeswitch"}}</div></header>
+<div class="wizard-shell" style="max-width:560px">
+{{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
+<section class="card">
+<div class="card__head"><h2>Encontramos uma instalação anterior</h2></div>
+<div class="card__body stack">
+<div class="hello"><span class="avatar" style="background:#128c7e">{{initial .Offer.Name}}</span><div><p class="hello__name">{{with .Offer.Name}}{{.}}{{else}}Sua conta{{end}}</p><p class="hello__phone">{{.Offer.Phone}}</p></div></div>
+<p>Este computador já tinha o WhatsApp MCP{{if .Offer.Service}}, rodando como serviço,{{end}} conectado a esta conta. Usar a mesma conexão?</p>
+<p class="muted">Assim não é preciso ler o QR code de novo: as mensagens, as transcrições e o modelo passam para o app{{if .Offer.Service}}, e o serviço antigo é desligado{{end}}.</p>
+<form method="post" action="/migracao" data-busy="Trazendo a conexão…"><input type="hidden" name="escolha" value="manter">
+<div class="actions"><button class="btn btn--block" type="submit">Usar a mesma conexão</button></div></form>
+<form method="post" action="/migracao"><input type="hidden" name="escolha" value="zero">
+<div class="wizard__escape"><button class="btn btn--quiet" type="submit">Começar do zero</button></div></form>
+<p class="muted" style="text-align:center">Começando do zero, nada da instalação anterior é apagado{{if .Offer.Service}} nem desligado{{end}}.</p>
+</div></section>
+</div>
+{{template "foot"}}{{end}}
+
+{{define "apagado"}}{{template "head" .}}
+<div class="wizard-shell" style="max-width:520px">
+<section class="card">
+<div class="card__head"><h2>Tudo apagado</h2></div>
+<div class="card__body"><p class="muted">Este computador saiu dos dispositivos conectados do seu WhatsApp, e os dados foram apagados. O WhatsApp MCP vai fechar.</p></div>
+</section></div></div></body></html>{{end}}`

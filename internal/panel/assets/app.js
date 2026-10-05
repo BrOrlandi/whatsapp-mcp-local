@@ -464,3 +464,107 @@
   });
   if (!progress.hidden) poll();
 })();
+
+// Inside the desktop app: links leave for the browser, settings save as they
+// change, and updates are looked for and installed from the Configurações page.
+(function () {
+  "use strict";
+  if (!document.documentElement.hasAttribute("data-app")) return;
+
+  function post(path, body) {
+    return fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body || {}) })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (!r.ok) throw new Error(data.error || "erro " + r.status);
+          return data;
+        });
+      });
+  }
+
+  // The window shows only the panel: anything on the web opens in the
+  // browser, the way a link in any other app does.
+  document.addEventListener("click", function (event) {
+    var link = event.target.closest && event.target.closest("a[href]");
+    if (!link) return;
+    var href = link.getAttribute("href");
+    if (!/^https?:\/\//i.test(href)) return;
+    event.preventDefault();
+    post("/api/abrir", { url: href }).catch(function () {});
+  });
+
+  document.querySelectorAll("[data-setting]").forEach(function (input) {
+    input.addEventListener("change", function () {
+      var body = {};
+      body[input.getAttribute("data-setting")] = input.checked;
+      var note = input.closest(".card__body, .wizard-shell, body").querySelector("[data-setting-note]");
+      input.disabled = true;
+      post("/api/configuracoes", body).then(function () {
+        if (note) note.hidden = true;
+      }).catch(function (error) {
+        input.checked = !input.checked;
+        if (note) { note.hidden = false; note.textContent = error.message; }
+      }).then(function () { input.disabled = false; });
+    });
+  });
+
+  var folder = document.querySelector("[data-open-folder]");
+  if (folder) folder.addEventListener("click", function () { post("/api/abrir-pasta").catch(function () {}); });
+
+  var card = document.querySelector("[data-update]");
+  if (!card) return;
+  var text = card.querySelector("[data-update-text]");
+  var latest = card.querySelector("[data-update-latest]");
+  var check = card.querySelector("[data-update-check]");
+  var install = card.querySelector("[data-update-install]");
+  var page = card.querySelector("[data-update-page]");
+  var timer = null;
+
+  function render(u) {
+    if (u.latest) latest.textContent = u.latest;
+    install.hidden = true;
+    page.hidden = true;
+    check.disabled = false;
+    switch (u.state) {
+      case "checking":
+        check.disabled = true;
+        text.textContent = "Procurando…";
+        break;
+      case "current":
+        text.textContent = "Você já tem a versão mais recente.";
+        break;
+      case "available":
+        text.textContent = "A versão " + u.latest + " está disponível. Instalar baixa a versão nova, confere que ela chegou inteira e reinicia o app; o WhatsApp volta conectado.";
+        install.hidden = false;
+        break;
+      case "downloading":
+        check.disabled = true;
+        text.textContent = "Baixando a versão " + u.latest + "… " + (u.progress || 0) + "%";
+        break;
+      case "ready":
+        text.textContent = "Versão " + u.latest + " pronta. O app vai reiniciar.";
+        break;
+      case "manual":
+        text.textContent = "A versão " + u.latest + " está disponível. Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez.";
+        if (u.page) { page.href = u.page; page.hidden = false; }
+        break;
+      case "error":
+        text.textContent = "Não foi possível atualizar: " + u.error;
+        break;
+      default:
+        text.textContent = "O app procura uma versão nova uma vez por dia.";
+    }
+    window.clearTimeout(timer);
+    if (u.state === "checking" || u.state === "downloading" || u.state === "ready") {
+      timer = window.setTimeout(poll, 1000);
+    }
+  }
+  function poll() {
+    fetch("/api/atualizacao", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(render).catch(function () {});
+  }
+  check.addEventListener("click", function () { post("/api/atualizacao/verificar").then(render).catch(function (e) { text.textContent = e.message; }); });
+  install.addEventListener("click", function () {
+    install.disabled = true;
+    post("/api/atualizacao/instalar").then(render).catch(function (e) { text.textContent = e.message; install.disabled = false; });
+  });
+  poll();
+})();

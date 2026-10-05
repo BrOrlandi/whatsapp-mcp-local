@@ -418,4 +418,12 @@ const extraCSS = `
 .hello__phone{margin:0;color:var(--muted);font-variant-numeric:tabular-nums}
 .linkbtn{background:none;border:0;padding:0;font:inherit;font-size:.9rem;font-weight:600;color:var(--brand-strong);cursor:pointer;text-decoration:underline}
 .pick__action{margin-top:10px}
+
+.check{display:flex;gap:12px;align-items:flex-start;cursor:pointer;line-height:1.5}
+.check input{accent-color:var(--brand-strong);width:18px;height:18px;flex:none;margin:3px 0 0}
+.check__hint{display:block;color:var(--text-soft);font-size:.88rem;margin-top:2px}
+.check--inline{align-items:center;font-size:.92rem;color:var(--text-soft)}
+.check--inline input{margin:0}
+input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:var(--surface-soft);border:1px solid var(--border-strong);border-radius:var(--radius-sm)}
+.input--short{width:9em}
 `

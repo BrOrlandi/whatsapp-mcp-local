@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
 )
 
@@ -235,5 +237,63 @@ func TestWatchFollowsSync(t *testing.T) {
 		case <-deadline:
 			t.Fatal("the watcher never saw sync connect")
 		}
+	}
+}
+
+type fakeHost struct{ port func(int) error }
+
+func (fakeHost) Settings() panel.HostSettings {
+	return panel.HostSettings{Autostart: true, CloseToTray: true, CanHide: true, DataDir: "/data", Version: "1.0.0"}
+}
+func (fakeHost) SetAutostart(bool) error   { return nil }
+func (fakeHost) SetCloseToTray(bool) error { return nil }
+func (h fakeHost) SetPort(p int) error     { return h.port(p) }
+func (fakeHost) OpenURL(string) error      { return nil }
+func (fakeHost) OpenDataFolder() error     { return nil }
+func (fakeHost) Update() panel.UpdateState {
+	return panel.UpdateState{State: "available", Current: "1.0.0", Latest: "1.1.0"}
+}
+func (fakeHost) CheckUpdate()           {}
+func (fakeHost) InstallUpdate() error   { return nil }
+func (fakeHost) EraseEverything() error { return nil }
+
+// Every page renders inside the app, where the window loads them in memory.
+func TestEveryPageRendersInTheApp(t *testing.T) {
+	var d *Daemon
+	base := ""
+	if runtime.GOOS != "windows" {
+		base = "/tmp"
+	}
+	root, err := os.MkdirTemp(base, "daemon-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+	store := filepath.Join(root, "s")
+	_ = os.MkdirAll(store, 0o700)
+	_ = os.WriteFile(filepath.Join(store, "AUTHED"), nil, 0o600)
+	d, err = Start(Config{Port: freePort(t), WacliBin: fakeWacli, StoreDir: store, DataDir: filepath.Join(root, "data"),
+		Panel: func(p *panel.Panel) { p.Host = fakeHost{port: func(port int) error { return d.SetPort(port) }} }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Stop()
+	waitSync(t, d, "connected")
+	h := d.AppHandler()
+	for _, path := range []string{"/", "/instalacao", "/whatsapp", "/estado", "/transcricao", "/documentacao", "/receitas", "/configuracoes", "/configuracoes?porta=1"} {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("GET", "wails://localhost"+path, nil))
+		body := rec.Body.String()
+		if rec.Code != 200 || strings.Contains(body, "can't evaluate") {
+			t.Errorf("%s answered %d: %.300s", path, rec.Code, body)
+		}
+		if strings.Contains(body, "<html") && !strings.Contains(body, "data-app") {
+			t.Errorf("%s is not marked as the app's", path)
+		}
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "wails://localhost/configuracoes", nil))
+	if !strings.Contains(rec.Body.String(), "Configurações") || !strings.Contains(rec.Body.String(), "1.1.0") {
+		t.Error("the settings page does not show the update")
 	}
 }

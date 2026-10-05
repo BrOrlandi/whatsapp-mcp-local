@@ -3,6 +3,7 @@ package panel
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -45,6 +46,20 @@ func TestInternalRequestsAreTheAppsOwn(t *testing.T) {
 	}
 	if sameOrigin(r) {
 		t.Fatal("the same request over the network, unmarked, must be refused")
+	}
+}
+
+// The app's webview does not follow redirects from the in-memory handler: a
+// redirect becomes a page that navigates.
+func TestInternalRedirectsNavigate(t *testing.T) {
+	h := Internal(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/instalacao?erro=a&b", http.StatusSeeOther)
+	}))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "/", nil))
+	body := rec.Body.String()
+	if rec.Code != 200 || rec.Header().Get("Location") != "" || !strings.Contains(body, `url=/instalacao?erro=a&amp;b`) || strings.Contains(body, "See Other") {
+		t.Fatalf("redirect answered %d %q: %s", rec.Code, rec.Header().Get("Location"), body)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
 )
 
@@ -33,6 +35,33 @@ type clientInfo struct {
 	// Other is where an existing server of the same name points, when it is
 	// not this one: typically the hosted v1. Replacing it needs a yes.
 	Other string `json:"other,omitempty"`
+	// Stale is this same gateway configured with an older address: another
+	// port, or the command line's bridge before the app. Updating it needs
+	// no question.
+	Stale bool `json:"stale,omitempty"`
+}
+
+// isLocalMCP reports whether an address is a WhatsApp MCP on this computer,
+// whatever its port.
+func isLocalMCP(addr string) bool {
+	u, err := url.Parse(addr)
+	if err != nil || u.Path != "/mcp" {
+		return false
+	}
+	host := u.Hostname()
+	return host == "127.0.0.1" || host == "localhost" || host == "::1"
+}
+
+// isOurBridge reports whether a Claude Desktop entry starts one of this
+// gateway's bridges: the app's program, or the command line's subcommand.
+func isOurBridge(entry map[string]any) bool {
+	command, _ := entry["command"].(string)
+	base := strings.TrimSuffix(strings.ToLower(filepath.Base(command)), ".exe")
+	if base == "whatsapp-mcp-bridge" {
+		return true
+	}
+	args, _ := entry["args"].([]any)
+	return (base == "whatsapp-mcp" || base == "whatsapp-mcp-v2") && len(args) == 1 && args[0] == "bridge"
 }
 
 // errConflict is a server of the same name that is not this one.
@@ -131,12 +160,16 @@ type codeCache struct {
 	mu   sync.Mutex
 	at   time.Time
 	info clientInfo
+	// endpoint is the address the answer was compared with: a port change
+	// makes it stale at once.
+	endpoint string
 }
 
 func (p *Panel) codeInfo(ctx context.Context, fresh bool) clientInfo {
 	p.code.mu.Lock()
 	defer p.code.mu.Unlock()
-	if !fresh && time.Since(p.code.at) < 30*time.Second {
+	endpoint := p.endpoint()
+	if !fresh && time.Since(p.code.at) < 30*time.Second && p.code.endpoint == endpoint {
 		return p.code.info
 	}
 	info := clientInfo{}
@@ -144,18 +177,23 @@ func (p *Panel) codeInfo(ctx context.Context, fresh bool) clientInfo {
 		info.Found = true
 		ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 		defer cancel()
-		out, err := exec.CommandContext(ctx, bin, "mcp", "get", ServerName).CombinedOutput()
+		cmd := exec.CommandContext(ctx, bin, "mcp", "get", ServerName)
+		platform.Background(cmd)
+		out, err := cmd.CombinedOutput()
 		if err == nil {
-			if where := parseMCPGet(string(out)); where == p.endpoint() {
+			switch where := parseMCPGet(string(out)); {
+			case where == endpoint:
 				info.Configured = true
-			} else {
+			case isLocalMCP(where):
+				info.Stale = true
+			default:
 				info.Other = where
 			}
 		}
 	} else {
 		info.Detail = "o comando claude não foi encontrado neste computador"
 	}
-	p.code.info, p.code.at = info, time.Now()
+	p.code.info, p.code.at, p.code.endpoint = info, time.Now(), endpoint
 	return info
 }
 
@@ -176,9 +214,12 @@ func (p *Panel) desktopInfo() clientInfo {
 		info.Found = true
 		if servers, ok := cfg["mcpServers"].(map[string]any); ok {
 			if entry, ok := servers[ServerName].(map[string]any); ok {
-				if entry["command"] == p.Desktop.Command {
+				switch {
+				case entry["command"] == p.Desktop.Command:
 					info.Configured = true
-				} else {
+				case isOurBridge(entry):
+					info.Stale = true
+				default:
 					info.Other = describeEntry(entry)
 				}
 			}
@@ -252,9 +293,13 @@ func (p *Panel) addClaudeCode(ctx context.Context, replace bool) error {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	for _, name := range append([]string{ServerName}, legacyNames...) {
-		_ = exec.CommandContext(ctx, bin, "mcp", "remove", "--scope", "user", name).Run()
+		rm := exec.CommandContext(ctx, bin, "mcp", "remove", "--scope", "user", name)
+		platform.Background(rm)
+		_ = rm.Run()
 	}
-	out, err := exec.CommandContext(ctx, bin, p.codeArgs()...).CombinedOutput()
+	add := exec.CommandContext(ctx, bin, p.codeArgs()...)
+	platform.Background(add)
+	out, err := add.CombinedOutput()
 	p.codeInfo(ctx, true)
 	if err != nil {
 		return fmt.Errorf("claude mcp add falhou: %s", strings.TrimSpace(string(out)))
@@ -270,7 +315,9 @@ func (p *Panel) removeClaudeCode(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 	for _, name := range append([]string{ServerName}, legacyNames...) {
-		_ = exec.CommandContext(ctx, bin, "mcp", "remove", "--scope", "user", name).Run()
+		rm := exec.CommandContext(ctx, bin, "mcp", "remove", "--scope", "user", name)
+		platform.Background(rm)
+		_ = rm.Run()
 	}
 	p.codeInfo(ctx, true)
 	return nil
@@ -326,6 +373,15 @@ func (p *Panel) addClaudeDesktop(replace bool) error {
 	})
 }
 
+// AdoptDesktop points a Claude Desktop entry left by an earlier installation
+// of this gateway at this one, and leaves anything else alone.
+func (p *Panel) AdoptDesktop() error {
+	if !p.desktopInfo().Stale {
+		return nil
+	}
+	return p.addClaudeDesktop(false)
+}
+
 func (p *Panel) removeClaudeDesktop() error {
 	if p.desktopInfo().Other != "" {
 		return nil // the "whatsapp" there is not this one: leave it alone
@@ -372,19 +428,27 @@ func readDesktopConfig() (map[string]any, error) {
 	return cfg, nil
 }
 
-// findClaude looks beyond PATH, because a login service starts with a minimal
-// one.
+// findClaude looks beyond PATH, because an app opened at login, or from the
+// Dock, starts with a minimal one.
 func findClaude() string {
 	if p, err := exec.LookPath("claude"); err == nil {
 		return p
 	}
 	home, _ := os.UserHomeDir()
-	for _, p := range []string{
+	candidates := []string{
 		filepath.Join(home, ".local", "bin", "claude"),
 		filepath.Join(home, ".claude", "local", "claude"),
 		"/opt/homebrew/bin/claude",
 		"/usr/local/bin/claude",
-	} {
+	}
+	if runtime.GOOS == "windows" {
+		candidates = []string{
+			filepath.Join(home, ".local", "bin", "claude.exe"),
+			filepath.Join(os.Getenv("APPDATA"), "npm", "claude.cmd"),
+			filepath.Join(os.Getenv("LOCALAPPDATA"), "Programs", "claude", "claude.exe"),
+		}
+	}
+	for _, p := range candidates {
 		if info, err := os.Stat(p); err == nil && !info.IsDir() {
 			return p
 		}

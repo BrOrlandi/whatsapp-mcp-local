@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- The logo's bubble in one colour: the app tints it by status. -->
+  <g fill="none" stroke="#000" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M20 8h24a13 13 0 0 1 13 13v11a13 13 0 0 1-13 13H27L14 56V44.5A13 13 0 0 1 7 32V21A13 13 0 0 1 20 8Z"/>
+    <path d="M19 21l13 6 13-6M32 27v8.5" stroke-width="4.4"/>
+  </g>
+  <g fill="#000">
+    <circle cx="19" cy="21" r="4.4"/>
+    <circle cx="45" cy="21" r="4.4"/>
+    <circle cx="32" cy="35.5" r="4.4"/>
+    <circle cx="32" cy="27" r="5.2"/>
+  </g>
+</svg>
