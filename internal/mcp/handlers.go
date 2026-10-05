@@ -53,10 +53,7 @@ type arguments struct {
 	Action     string   `json:"action"`
 	Language   string   `json:"language"`
 	Refresh    bool     `json:"refresh"`
-	APIKey     string   `json:"api_key"`
-	Remove     bool     `json:"remove"`
 	Link       bool     `json:"link"`
-	Engine     string   `json:"engine"`
 	Model      string   `json:"model"`
 
 	MaxSilenceHours float64 `json:"max_silence_hours"`
@@ -76,30 +73,29 @@ func (s *Server) call(ctx context.Context, params callParams) map[string]any {
 		}
 	}
 	handlers := map[string]func(context.Context, arguments) map[string]any{
-		"health":                s.health,
-		"whatsapp_status":       s.status,
-		"list_chats":            s.listChats,
-		"get_chat_messages":     s.chatMessages,
-		"search_messages":       s.searchMessages,
-		"list_contacts":         s.listContacts,
-		"list_groups":           s.listGroups,
-		"get_group":             s.getGroup,
-		"send_text_message":     s.sendText,
-		"send_media_message":    s.sendMedia,
-		"download_media":        s.downloadMedia,
-		"transcribe_audio":      s.transcribeAudio,
-		"save_transcript":       s.saveTranscript,
-		"set_transcription_key": s.setTranscriptionKey,
-		"sync_history":          s.syncHistory,
-		"delete_message":        s.deleteMessage,
-		"edit_message":          s.editMessage,
-		"react_to_message":      s.react,
-		"check_numbers":         s.checkNumbers,
-		"get_profile_picture":   s.profilePicture,
-		"send_location":         s.sendLocation,
-		"send_poll":             s.sendPoll,
-		"get_poll_results":      s.pollResults,
-		"organise_chat":         s.organiseChat,
+		"health":              s.health,
+		"whatsapp_status":     s.status,
+		"list_chats":          s.listChats,
+		"get_chat_messages":   s.chatMessages,
+		"search_messages":     s.searchMessages,
+		"list_contacts":       s.listContacts,
+		"list_groups":         s.listGroups,
+		"get_group":           s.getGroup,
+		"send_text_message":   s.sendText,
+		"send_media_message":  s.sendMedia,
+		"download_media":      s.downloadMedia,
+		"transcribe_audio":    s.transcribeAudio,
+		"save_transcript":     s.saveTranscript,
+		"sync_history":        s.syncHistory,
+		"delete_message":      s.deleteMessage,
+		"edit_message":        s.editMessage,
+		"react_to_message":    s.react,
+		"check_numbers":       s.checkNumbers,
+		"get_profile_picture": s.profilePicture,
+		"send_location":       s.sendLocation,
+		"send_poll":           s.sendPoll,
+		"get_poll_results":    s.pollResults,
+		"organise_chat":       s.organiseChat,
 	}
 	handler, ok := handlers[params.Name]
 	if !ok {

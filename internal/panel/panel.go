@@ -32,7 +32,6 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/mcp"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/transcribe"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/wacli"
 )
 
@@ -133,7 +132,6 @@ func isInternal(r *http.Request) bool {
 
 const (
 	setupSetting     = "setup_step" // "done" once the first run is over
-	openAISetting    = "openai_api_key"
 	recentChats      = 10
 	conversationSize = 10
 )
@@ -148,8 +146,6 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /whatsapp/sair", p.form(p.logout))
 	mux.HandleFunc("GET /estado", p.page(p.estado))
 	mux.HandleFunc("GET /transcricao", p.page(p.transcricao))
-	mux.HandleFunc("POST /transcricao", p.form(p.saveKey))
-	mux.HandleFunc("POST /transcricao/remover", p.form(p.removeKey))
 	mux.HandleFunc("GET /api/asr", p.api(p.apiASR))
 	mux.HandleFunc("POST /api/asr/install", p.api(p.apiASRInstall))
 	mux.HandleFunc("GET /documentacao", p.page(p.documentacao))
@@ -598,11 +594,6 @@ func (p *Panel) estado(w http.ResponseWriter, r *http.Request) (string, any) {
 
 func (p *Panel) transcricao(w http.ResponseWriter, r *http.Request) (string, any) {
 	s := p.snapshot(r.Context())
-	key, _ := p.State.Setting(r.Context(), openAISetting)
-	hint := ""
-	if len(key) > 8 {
-		hint = key[:3] + "…" + key[len(key)-4:]
-	}
 	var local localasr.Status
 	if asr := p.Server.ASR(); asr != nil {
 		local = asr.Status()
@@ -610,11 +601,10 @@ func (p *Panel) transcricao(w http.ResponseWriter, r *http.Request) (string, any
 	total, corrected, _ := p.State.TranscriptCount(r.Context())
 	return "transcricao", struct {
 		layout
-		KeyHint   string
 		Local     localasr.Status
 		Total     int
 		Corrected int
-	}{p.layout(r, "Transcrição de áudios", "transcricao", s), hint, local, total, corrected}
+	}{p.layout(r, "Transcrição de áudios", "transcricao", s), local, total, corrected}
 }
 
 func (p *Panel) apiASR(r *http.Request) (any, error) {
@@ -634,32 +624,6 @@ func (p *Panel) apiASRInstall(r *http.Request) (any, error) {
 		return nil, err
 	}
 	return asr.Status(), nil
-}
-
-func (p *Panel) saveKey(r *http.Request) (string, error) {
-	key := strings.TrimSpace(r.FormValue("api_key"))
-	if !strings.HasPrefix(key, "sk-") || len(key) < 20 {
-		return "/transcricao", userError{"isso não parece uma chave da OpenAI: ela começa com sk- e é bem mais longa"}
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-	if err := transcribe.CheckKey(ctx, key); err != nil {
-		if errors.Is(err, transcribe.ErrRejectedKey) {
-			return "/transcricao", userError{"a OpenAI recusou esta chave; confira se ela foi copiada inteira e se ainda está ativa"}
-		}
-		return "/transcricao", userError{"não foi possível conferir a chave com a OpenAI agora: " + err.Error()}
-	}
-	if err := p.State.SetSetting(r.Context(), openAISetting, key); err != nil {
-		return "/transcricao", err
-	}
-	return "/transcricao?ok=" + url.QueryEscape("Chave salva. A transcrição já está disponível para a sua ferramenta de IA."), nil
-}
-
-func (p *Panel) removeKey(r *http.Request) (string, error) {
-	if err := p.State.SetSetting(r.Context(), openAISetting, ""); err != nil {
-		return "/transcricao", err
-	}
-	return "/transcricao?ok=" + url.QueryEscape("Chave removida. As transcrições já feitas continuam guardadas."), nil
 }
 
 func (p *Panel) documentacao(w http.ResponseWriter, r *http.Request) (string, any) {
@@ -869,6 +833,15 @@ func funcs() template.FuncMap {
 		"version":       func() string { return strings.TrimPrefix(mcp.Version, "v") },
 		"serverName":    func() string { return ServerName },
 		"tray":          trayName,
+		"accel": func(a string) string {
+			switch a {
+			case "metal":
+				return "na GPU do seu Mac"
+			case "cuda":
+				return "na placa de vídeo NVIDIA"
+			}
+			return "no processador"
+		},
 		"baseOf":        func(endpoint string) string { return strings.TrimSuffix(endpoint, "/mcp") },
 		"relativeSince": relativeSinceAny,
 		"moment":        momentAny,

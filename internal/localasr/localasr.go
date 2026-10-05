@@ -1,5 +1,7 @@
 // Package localasr transcribes voice notes on this computer with whisper.cpp,
-// the way Handy does: no audio leaves the machine and nothing is billed.
+// the way Handy does: no audio leaves the machine and nothing is billed. The
+// programs come from this project's release (internal/sidecar) and the model
+// from Hugging Face, both checked by sha256, the first time it is turned on.
 //
 // Whisper rather than Parakeet because Whisper takes an initial prompt, and the
 // prompt is where the conversation's context goes: the chat's name, the people
@@ -9,6 +11,8 @@ package localasr
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -20,6 +24,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/sidecar"
 )
 
 const (
@@ -28,12 +35,15 @@ const (
 	ModelName = "ggml-large-v3-turbo-q5_0.bin"
 	ModelURL  = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/" + ModelName
 	modelSize = 574_041_195
+	// modelSHA256 is the file Hugging Face serves under that name.
+	modelSHA256 = "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2"
 	// Label says which engine wrote a transcript.
 	Label = "whisper.cpp large-v3-turbo (local)"
 )
 
 type Engine struct {
-	dir string // where the model lives
+	data string // the data folder: the programs go in bin/, the model in models/
+	dir  string // where the model lives
 
 	mu      sync.Mutex
 	install Install
@@ -52,44 +62,56 @@ type Install struct {
 
 // Status says whether local transcription can run here.
 type Status struct {
-	Supported bool     `json:"supported"` // Apple Silicon
-	Ready     bool     `json:"ready"`
-	Whisper   string   `json:"whisper,omitempty"`
-	FFmpeg    string   `json:"ffmpeg,omitempty"`
-	Model     string   `json:"model,omitempty"`
-	Brew      bool     `json:"brew"`
-	Missing   []string `json:"missing,omitempty"`
-	Install   Install  `json:"install"`
+	// Supported is set where there is something to install: a published
+	// package for this system, or the programs already on the computer.
+	Supported bool   `json:"supported"`
+	Ready     bool   `json:"ready"`
+	Whisper   string `json:"whisper,omitempty"`
+	FFmpeg    string `json:"ffmpeg,omitempty"`
+	Model     string `json:"model,omitempty"`
+	// Accel is how whisper runs: metal (an Apple GPU), cuda (an NVIDIA GPU)
+	// or cpu, where a voice note takes about as long as it lasts.
+	Accel   string   `json:"accel,omitempty"`
+	Missing []string `json:"missing,omitempty"`
+	Install Install  `json:"install"`
 }
 
 func New(dataDir string) *Engine {
-	return &Engine{dir: filepath.Join(dataDir, "models")}
+	return &Engine{data: dataDir, dir: filepath.Join(dataDir, "models")}
 }
 
-func find(names ...string) string {
-	for _, n := range names {
-		if p, err := exec.LookPath(n); err == nil {
-			return p
-		}
-		for _, dir := range []string{"/opt/homebrew/bin", "/usr/local/bin"} {
-			p := filepath.Join(dir, n)
-			if info, err := os.Stat(p); err == nil && !info.IsDir() {
-				return p
-			}
-		}
+// tools finds the programs: the ones this app installed, checked against
+// their recorded sha256, or else ones already on the computer (Homebrew,
+// a package manager), which the command line has always accepted.
+func (e *Engine) tools() (sidecar.Tools, error) {
+	if t, err := sidecar.Installed(e.data); err == nil {
+		return t, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return sidecar.Tools{}, err
 	}
-	return ""
+	return systemTools(), nil
+}
+
+// systemTools finds the programs already on the computer. It is a variable
+// so tests can leave them out.
+var systemTools = func() sidecar.Tools {
+	t := sidecar.Tools{Whisper: platform.LookPath("whisper-cli"), FFmpeg: platform.LookPath("ffmpeg"), Accel: "cpu"}
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		t.Accel = "metal" // Homebrew's whisper.cpp is built with Metal
+	}
+	return t
 }
 
 func (e *Engine) modelPath() string { return filepath.Join(e.dir, ModelName) }
 
 func (e *Engine) Status() Status {
-	s := Status{
-		Supported: runtime.GOOS == "darwin" && runtime.GOARCH == "arm64",
-		Whisper:   find("whisper-cli"),
-		FFmpeg:    find("ffmpeg"),
-		Brew:      find("brew") != "",
+	t, toolsErr := e.tools()
+	pkg, published := sidecar.ForThisSystem()
+	s := Status{Whisper: t.Whisper, FFmpeg: t.FFmpeg, Accel: t.Accel}
+	if s.Whisper == "" && published {
+		s.Accel = pkg.Accel
 	}
+	s.Supported = published || (s.Whisper != "" && s.FFmpeg != "")
 	if info, err := os.Stat(e.modelPath()); err == nil && info.Size() > modelSize/2 {
 		s.Model = e.modelPath()
 	}
@@ -109,6 +131,9 @@ func (e *Engine) Status() Status {
 	if s.Install.State == "" {
 		s.Install.State = "idle"
 	}
+	if toolsErr != nil && s.Install.State != "running" {
+		s.Install.State, s.Install.Error = "error", toolsErr.Error()
+	}
 	return s
 }
 
@@ -121,8 +146,8 @@ func (e *Engine) setInstall(f func(*Install)) {
 
 var ErrInstalling = errors.New("the installation is already running")
 
-// StartInstall sets the engine up in the background: whisper.cpp and ffmpeg
-// through Homebrew when missing, then the model.
+// StartInstall sets the engine up in the background: whisper-cli and ffmpeg
+// from this project's release when missing, then the model.
 func (e *Engine) StartInstall() error {
 	e.mu.Lock()
 	if e.install.State == "running" {
@@ -171,26 +196,17 @@ func (e *Engine) InstallNow(ctx context.Context, out io.Writer) error {
 
 func (e *Engine) installAll(ctx context.Context) error {
 	s := e.Status()
-	if !s.Supported {
-		return errors.New("a transcrição local é feita para Macs com Apple Silicon")
-	}
-	var pkgs []string
-	if s.Whisper == "" {
-		pkgs = append(pkgs, "whisper.cpp")
-	}
-	if s.FFmpeg == "" {
-		pkgs = append(pkgs, "ffmpeg")
-	}
-	if len(pkgs) > 0 {
-		brew := find("brew")
-		if brew == "" {
-			return fmt.Errorf("instale o Homebrew (https://brew.sh) e tente de novo; faltam: %s", strings.Join(pkgs, ", "))
+	if s.Whisper == "" || s.FFmpeg == "" || s.Install.Error != "" {
+		pkg, ok := sidecar.ForThisSystem()
+		if !ok {
+			return fmt.Errorf("ainda não há transcrição local publicada para %s/%s", runtime.GOOS, runtime.GOARCH)
 		}
-		e.setInstall(func(i *Install) { i.Step = "Instalando " + strings.Join(pkgs, " e ") + " pelo Homebrew" })
-		cmd := exec.CommandContext(ctx, brew, append([]string{"install"}, pkgs...)...)
-		cmd.Env = append(os.Environ(), "HOMEBREW_NO_AUTO_UPDATE=1", "HOMEBREW_NO_INSTALL_CLEANUP=1")
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("brew install %s falhou: %s", strings.Join(pkgs, " "), lastLines(string(out), 3))
+		e.setInstall(func(i *Install) { i.Step, i.Downloaded, i.Total = "Baixando o whisper.cpp", 0, pkg.Size })
+		err := sidecar.Install(ctx, e.data, pkg, func(done, total int64) {
+			e.setInstall(func(i *Install) { i.Downloaded, i.Total = done, total })
+		})
+		if err != nil {
+			return err
 		}
 	}
 	if s.Model == "" {
@@ -226,6 +242,8 @@ func (e *Engine) download(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	defer os.Remove(tmp)
+	h := sha256.New()
 	buf := make([]byte, 1<<20)
 	var n int64
 	for {
@@ -235,6 +253,7 @@ func (e *Engine) download(ctx context.Context) error {
 				f.Close()
 				return err
 			}
+			h.Write(buf[:k])
 			n += int64(k)
 			got := n
 			e.setInstall(func(i *Install) { i.Downloaded = got })
@@ -250,8 +269,8 @@ func (e *Engine) download(ctx context.Context) error {
 	if err := f.Close(); err != nil {
 		return err
 	}
-	if n < modelSize/2 {
-		return fmt.Errorf("o modelo baixado está incompleto (%d bytes)", n)
+	if got := hex.EncodeToString(h.Sum(nil)); got != modelSHA256 {
+		return fmt.Errorf("o modelo baixado não confere (%d bytes, sha256 %s); tente de novo", n, got)
 	}
 	return os.Rename(tmp, e.modelPath())
 }
@@ -275,6 +294,7 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 	wav := filepath.Join(dir, "audio.wav")
 	// WhatsApp voice notes are Ogg Opus; whisper.cpp wants 16 kHz mono PCM.
 	conv := exec.CommandContext(ctx, s.FFmpeg, "-nostdin", "-loglevel", "error", "-i", audio, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav)
+	platform.Background(conv)
 	if out, err := conv.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("ffmpeg não conseguiu ler o áudio: %s", lastLines(string(out), 2))
 	}
@@ -282,12 +302,18 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 		language = "auto"
 	}
 	base := filepath.Join(dir, "out")
+	// On a GPU the threads only feed it; on the CPU they do the work.
+	threads := max(2, runtime.NumCPU()/2)
+	if s.Accel == "cpu" {
+		threads = max(2, runtime.NumCPU()-1)
+	}
 	args := []string{"-m", s.Model, "-f", wav, "-l", language, "-otxt", "-of", base, "-np", "-nt",
-		"-t", fmt.Sprint(max(2, runtime.NumCPU()/2))}
+		"-t", fmt.Sprint(threads)}
 	if p := strings.TrimSpace(prompt); p != "" {
 		args = append(args, "--prompt", p)
 	}
 	run := exec.CommandContext(ctx, s.Whisper, args...)
+	platform.Background(run)
 	if out, err := run.CombinedOutput(); err != nil {
 		return "", fmt.Errorf("whisper.cpp falhou: %s", lastLines(string(out), 3))
 	}

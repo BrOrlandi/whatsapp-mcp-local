@@ -4,7 +4,7 @@ FROM ubuntu:22.04
 ARG GO_VERSION=1.26.5
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential pkg-config curl ca-certificates git file unzip xz-utils \
+      build-essential cmake pkg-config curl ca-certificates git file unzip zip xz-utils \
       libgtk-3-dev libwebkit2gtk-4.1-dev dpkg-dev fuse libfuse2 \
     && rm -rf /var/lib/apt/lists/*
 RUN arch="$(dpkg --print-architecture)" && \

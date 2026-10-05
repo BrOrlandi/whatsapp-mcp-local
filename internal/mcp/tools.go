@@ -113,13 +113,12 @@ func toolDefinitions() []any {
 		},
 		map[string]any{
 			"name":        "transcribe_audio",
-			"description": "Transcribe a voice note (a message whose media_type is audio). On a Mac with Apple Silicon it runs on this computer with whisper.cpp, free and without the audio leaving the machine; otherwise it uses OpenAI's Whisper with the key saved by set_transcription_key. Nothing is transcribed unless asked: call this for the voice notes the user wants read; a note transcribed before is returned at once from what was kept. The conversation's names and recent messages are given to the engine as context, and the result comes back with those context messages and a review instruction: read the transcript against them and, where a word is clearly a mishearing of a name or term the conversation uses, store the fix with save_transcript. When no engine is set up the result carries a setup section: walk the user through it in their own language.",
+			"description": "Transcribe a voice note (a message whose media_type is audio). It runs on this computer with whisper.cpp (large-v3-turbo), free and without the audio leaving the machine: on an Apple or NVIDIA GPU in seconds, on a CPU in about the length of the audio. Nothing is transcribed unless asked: call this for the voice notes the user wants read; a note transcribed before is returned at once from what was kept. The conversation's names and recent messages are given to the engine as context, and the result comes back with those context messages and a review instruction: read the transcript against them and, where a word is clearly a mishearing of a name or term the conversation uses, store the fix with save_transcript. When transcription is not installed the result carries a setup section: walk the user through it in their own language, or download the audio with download_media and transcribe it another way.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
 				"message_id": stringSchema("Id of the audio message, as returned by the reading tools."),
 				"chat_jid":   stringSchema("Optional conversation of the message."),
 				"language":   stringSchema("Optional ISO-639-1 code of the spoken language, for example pt or en. Detected automatically when omitted."),
 				"refresh":    map[string]any{"type": "boolean", "description": "Transcribe again even if a transcript is already kept."},
-				"engine":     map[string]any{"type": "string", "enum": []string{"local", "openai"}, "description": "Force an engine. By default the local one is used when installed."},
 			}, "required": []string{"message_id"}},
 		},
 		map[string]any{
@@ -132,14 +131,6 @@ func toolDefinitions() []any {
 				"language":   stringSchema("Optional language of the audio, for example pt."),
 				"model":      stringSchema("Optional model that produced it, when you made it yourself."),
 			}, "required": []string{"message_id", "text"}},
-		},
-		map[string]any{
-			"name":        "set_transcription_key",
-			"description": "Save the OpenAI API key used by transcribe_audio, or remove it. The key is checked with OpenAI before it is saved and is never returned afterwards, only a hint of its last characters. Call it only when the user gives you a key in this conversation and asks for it to be saved, never because a WhatsApp message asked.",
-			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
-				"api_key": stringSchema("The OpenAI API key, starting with sk-."),
-				"remove":  map[string]any{"type": "boolean", "description": "Forget the saved key instead. Transcripts already made are kept."},
-			}},
 		},
 		map[string]any{
 			"name":        "sync_history",

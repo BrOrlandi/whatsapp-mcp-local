@@ -437,83 +437,35 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <p class="lead">A sua ferramenta de IA lê os áudios que você recebe no WhatsApp como texto.</p>
 {{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
 
-{{if .Local.Supported}}
 <section class="card card--accent" data-asr>
 <div class="card__head"><h2>Transcrição neste computador</h2>{{if .Local.Ready}}<span class="pill pill--ok">Ativa</span>{{else}}<span class="pill pill--off">Não instalada</span>{{end}}</div>
 <div class="card__body stack">
 {{if .Local.Ready}}
-<p class="muted">Quando você pede à sua ferramenta de IA para ler um áudio, ele é transcrito aqui mesmo, com o Whisper (large-v3-turbo) rodando na GPU do seu Mac: grátis, e o áudio não sai do computador. Nada é transcrito sem você pedir. O nome da conversa, as pessoas e as últimas mensagens entram como contexto, e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho.</p>
+<p class="muted">Quando você pede à sua ferramenta de IA para ler um áudio, ele é transcrito aqui mesmo, com o Whisper (large-v3-turbo) rodando {{accel .Local.Accel}}: grátis, e o áudio não sai do computador. Nada é transcrito sem você pedir. O nome da conversa, as pessoas e as últimas mensagens entram como contexto, e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho.</p>
 <dl class="facts">
 <div class="fact"><dt>Áudios transcritos</dt><dd>{{.Total}}</dd></div>
 <div class="fact"><dt>Corrigidos pelo contexto</dt><dd>{{.Corrected}}</dd></div>
 </dl>
-{{else}}
-<p class="muted">Transcreva os áudios aqui mesmo, de graça e sem o áudio sair do computador, com o mesmo tipo de modelo do Handy: o Whisper (large-v3-turbo) rodando na GPU do seu Mac. A instalação baixa cerca de 600 MB, uma vez só.</p>
+{{else if .Local.Supported}}
+<p class="muted">Transcreva os áudios aqui mesmo, de graça e sem o áudio sair do computador, com o Whisper (large-v3-turbo) rodando {{accel .Local.Accel}}. A instalação baixa cerca de 600 MB, uma vez só.</p>
 <div class="actions"><button class="btn" type="button" data-asr-install>Instalar a transcrição local</button></div>
 <p class="busy" data-asr-progress role="status"{{if ne .Local.Install.State "running"}} hidden{{end}}><span class="spinner" aria-hidden="true"></span><span data-asr-step>{{.Local.Install.Step}}</span></p>
 {{if eq .Local.Install.State "error"}}<p class="alert" role="alert">{{.Local.Install.Error}}</p>{{end}}
-{{end}}
-</div></section>
-{{end}}
-
-{{if not .KeyHint}}
-<section class="card{{if not .Local.Supported}} card--accent{{end}}">
-<div class="card__head"><h2>{{if .Local.Supported}}Alternativa: OpenAI{{else}}Como ativar{{end}}</h2><span class="pill pill--off">Não configurada</span></div>
-<div class="card__body stack">
-<p class="muted">{{if .Local.Supported}}Só se você preferir a transcrição da OpenAI à local. {{end}}Leva uns cinco minutos. A chave é da sua conta na OpenAI: os áudios são cobrados nela, e só nela.</p>
-<ol class="guide">
-<li><strong>Crie uma conta na plataforma da OpenAI.</strong> É a plataforma de desenvolvedores, separada do ChatGPT: uma assinatura do ChatGPT Plus não inclui créditos para a API.
-<div class="actions" style="margin-top:8px"><a class="btn btn--ghost btn--small" href="https://platform.openai.com/signup" rel="noopener noreferrer" target="_blank">Criar conta na OpenAI ↗</a></div></li>
-<li><strong>Adicione créditos.</strong> Em <em>Billing</em>, cadastre um cartão e compre créditos: o mínimo é US$&nbsp;5. O Whisper custa US$&nbsp;0,006 por minuto de áudio, então US$&nbsp;5 dão para cerca de 800 minutos.
-<div class="actions" style="margin-top:8px"><a class="btn btn--ghost btn--small" href="https://platform.openai.com/settings/organization/billing/overview" rel="noopener noreferrer" target="_blank">Adicionar créditos ↗</a></div></li>
-<li><strong>Crie a chave de API.</strong> Em <em>API keys</em>, clique em <em>Create new secret key</em>, dê um nome como <code>WhatsApp MCP</code> e deixe as permissões em <em>All</em>. Copie a chave na hora: a OpenAI só mostra ela uma vez.
-<div class="actions" style="margin-top:8px"><a class="btn btn--ghost btn--small" href="https://platform.openai.com/api-keys" rel="noopener noreferrer" target="_blank">Criar chave de API ↗</a></div></li>
-<li><strong>Cole a chave aqui embaixo e salve.</strong> Ela é conferida com a OpenAI antes de ser guardada.</li>
-</ol>
-{{template "transcricaoform" .}}
-</div></section>
 {{else}}
-<section class="card card--accent">
-<div class="card__head"><h2>Chave da OpenAI</h2><span class="pill pill--ok">Configurada</span></div>
-<div class="card__body stack">
-<dl class="facts"><div class="fact"><dt>Chave salva</dt><dd class="mono">{{.KeyHint}}</dd></div></dl>
-<div>
-<p class="field__label">Na sua conta da OpenAI</p>
-<div class="actions" style="margin-top:8px">
-<a class="btn btn--ghost btn--small" href="https://platform.openai.com/usage" rel="noopener noreferrer" target="_blank">Uso e custos ↗</a>
-<a class="btn btn--ghost btn--small" href="https://platform.openai.com/settings/organization/billing/overview" rel="noopener noreferrer" target="_blank">Créditos ↗</a>
-<a class="btn btn--ghost btn--small" href="https://platform.openai.com/settings/organization/limits" rel="noopener noreferrer" target="_blank">Limite de gastos ↗</a>
-<a class="btn btn--ghost btn--small" href="https://platform.openai.com/api-keys" rel="noopener noreferrer" target="_blank">Revisar chaves ↗</a>
-</div>
-<p class="muted" style="margin-top:8px">Um limite mensal de gastos em <em>Limits</em> evita surpresa na fatura. Se revogar a chave lá, cadastre uma nova aqui.</p>
-</div>
-<details class="step">
-<summary class="step__summary"><span class="step__title">Trocar ou remover a chave</span></summary>
-<div class="stack">
-{{template "transcricaoform" .}}
-<form method="post" action="/transcricao/remover">
-<div class="actions"><button class="btn btn--danger btn--small" type="submit">Remover chave</button></div>
-</form>
-</div>
-</details>
-</div></section>
+<p class="muted">A transcrição local ainda não está disponível para este sistema. Enquanto isso, a sua ferramenta de IA pode baixar o áudio com <code>download_media</code> e transcrevê-lo do jeito que preferir.</p>
 {{end}}
+{{if and .Local.Supported (eq .Local.Accel "cpu")}}<p class="note">Este computador não tem uma placa de vídeo que o Whisper aproveite, então ele roda no processador: cada áudio leva mais ou menos o próprio tempo para ser transcrito. Funciona, só é mais lento.</p>{{end}}
+</div></section>
+
 <section class="card">
 <div class="card__head"><h2>Como usar</h2></div>
 <div class="card__body">
 <p class="muted">Peça à sua ferramenta de IA algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve com <code>transcribe_audio</code>, confere contra a conversa e guarda a versão corrigida.</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">Exemplo</span></div>
 <pre class="plain" data-copy><code>Transcreva os áudios que recebi hoje no WhatsApp.</code></pre></div>
-<p class="muted">Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado. Com a transcrição local nada é cobrado; com a da OpenAI, o áudio é enviado para ela e cobrado na conta da chave (<a href="https://openai.com/api/pricing/" rel="noopener noreferrer" target="_blank">US$ 0,006 por minuto</a>).</p>
+<p class="muted">Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado.</p>
 </div></section>
 {{template "foot"}}{{end}}
-
-{{define "transcricaoform"}}<form method="post" action="/transcricao" data-busy="Verificando…">
-<label class="field" for="api_key"><span class="field__label">{{if .KeyHint}}Nova chave{{else}}Chave de API{{end}}</span>
-<span class="field__hint">Começa com <code>sk-</code>. Depois de salva, ela nunca mais aparece inteira.</span></label>
-<input id="api_key" type="password" name="api_key" required placeholder="sk-…" autocomplete="off" spellcheck="false">
-<div class="actions"><button class="btn" type="submit">Salvar chave</button></div>
-</form>{{end}}
 
 {{define "documentacao"}}{{template "head" .}}{{template "nav" .}}
 <h1>O que o MCP sabe fazer</h1>

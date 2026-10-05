@@ -47,13 +47,10 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	if job := s.historyStatus(); job != nil {
 		report["history_request"] = job
 	}
-	transcription := map[string]any{"openai_key": nil, "mode": "on request only: transcribe_audio"}
-	if key, _ := s.state.Setting(ctx, keySetting); key != "" {
-		transcription["openai_key"] = "…" + key[len(key)-4:]
-	}
+	transcription := map[string]any{"mode": "on request only: transcribe_audio"}
 	if s.asr != nil {
 		st := s.asr.Status()
-		transcription["local"] = map[string]any{"ready": st.Ready, "supported": st.Supported, "missing": st.Missing, "engine": "whisper.cpp large-v3-turbo"}
+		transcription["local"] = map[string]any{"ready": st.Ready, "supported": st.Supported, "missing": st.Missing, "accel": st.Accel, "engine": "whisper.cpp large-v3-turbo"}
 	}
 	if total, corrected, err := s.state.TranscriptCount(ctx); err == nil {
 		transcription["transcripts"] = total

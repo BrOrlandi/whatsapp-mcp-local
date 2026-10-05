@@ -4,56 +4,38 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/state"
-	"github.com/BrOrlandi/whatsapp-mcp-v2/internal/transcribe"
 )
-
-const keySetting = "openai_api_key"
 
 // reviewGuidance asks the client to do what speech recognition cannot: read
 // the transcript against the conversation and fix what was misheard.
 const reviewGuidance = "This transcript was made by speech recognition, which mishears names, places and jargon. Read it against the context messages: where a word is clearly a mishearing of something the conversation mentions (a name, a place, a product, a term), call save_transcript with the corrected text. Change only what the context makes certain; keep the speaker's wording, slang and mistakes otherwise, and never add content. The original stays kept as raw_text."
 
-// ErrNoEngine means neither local transcription nor an OpenAI key is set up.
-var ErrNoEngine = errors.New("no transcription engine is set up")
+// ErrNoEngine means local transcription is not installed.
+var ErrNoEngine = errors.New("transcription is not installed")
 
-// Transcribe makes and keeps the transcript of one voice note: on this
-// computer when the local engine is installed, with OpenAI otherwise. The
-// conversation around the note is handed to the engine as context.
-func (s *Server) Transcribe(ctx context.Context, m index.Message, language string, useOpenAI bool) (state.Transcript, index.AudioContext, error) {
+// Transcribe makes and keeps the transcript of one voice note, on this
+// computer. The conversation around the note is handed to the engine as
+// context.
+func (s *Server) Transcribe(ctx context.Context, m index.Message, language string) (state.Transcript, index.AudioContext, error) {
 	audioCtx, _ := s.index.AudioContext(ctx, m.ChatJID, m.ID, 12, 4)
 	d, err := s.fetchMedia(ctx, m)
 	if err != nil {
 		return state.Transcript{}, audioCtx, err
 	}
 	t := state.Transcript{ChatJID: m.ChatJID, MessageID: m.ID, Language: language}
-	switch {
-	case !useOpenAI && s.asr != nil && s.asr.Status().Ready:
-		text, err := s.asr.Transcribe(ctx, d.Path, language, audioCtx.Prompt())
-		if err != nil {
-			return t, audioCtx, err
-		}
-		t.Text, t.Raw, t.Model, t.Source = text, text, localasr.Label, "local"
-	default:
-		key, _ := s.state.Setting(ctx, keySetting)
-		if key == "" {
-			return t, audioCtx, ErrNoEngine
-		}
-		body, err := os.ReadFile(d.Path)
-		if err != nil {
-			return t, audioCtx, err
-		}
-		text, err := transcribe.Audio(ctx, key, d.Path, body, language)
-		if err != nil {
-			return t, audioCtx, err
-		}
-		t.Text, t.Raw, t.Model, t.Source = text, text, "openai "+transcribe.Model, "openai"
+	if s.asr == nil || !s.asr.Status().Ready {
+		return t, audioCtx, ErrNoEngine
 	}
+	text, err := s.asr.Transcribe(ctx, d.Path, language, audioCtx.Prompt())
+	if err != nil {
+		return t, audioCtx, err
+	}
+	t.Text, t.Raw, t.Model, t.Source = text, text, localasr.Label, "local"
 	if err := s.state.SaveTranscript(ctx, t); err != nil {
 		return t, audioCtx, fmt.Errorf("transcribed, but could not keep the transcript: %w", err)
 	}
@@ -74,17 +56,12 @@ func (s *Server) transcribeAudio(ctx context.Context, a arguments) map[string]an
 			return textResult(map[string]any{"transcript": t, "cached": true, "context": audioCtx, "review": reviewGuidance, "untrusted_content": UntrustedContent}, false)
 		}
 	}
-	t, audioCtx, err := s.Transcribe(ctx, m, a.Language, a.Engine == "openai")
+	t, audioCtx, err := s.Transcribe(ctx, m, a.Language)
 	switch {
 	case errors.Is(err, ErrNoEngine):
-		return textResult(map[string]any{"error": "no transcription engine is set up", "setup": []string{
-			"On a Mac with Apple Silicon, install free local transcription: open the panel at " + s.base() + "/transcricao and click the install button, or run `whatsapp-mcp-v2 transcription install`. Audio never leaves the computer.",
-			"Elsewhere, save an OpenAI API key with set_transcription_key (billed by OpenAI per minute of audio).",
-		}}, true)
-	case errors.Is(err, transcribe.ErrRejectedKey):
-		return textResult(map[string]any{"error": "OpenAI rejected the saved key", "setup": []string{
-			"Check the key at https://platform.openai.com/api-keys and that billing is active.",
-			"Save a working key with set_transcription_key.",
+		return textResult(map[string]any{"error": "transcription is not installed on this computer", "setup": []string{
+			"In the WhatsApp MCP app (or its panel at " + s.base() + "/transcricao), open Transcrição and click the install button: it downloads about 600 MB once, and audio never leaves the computer. On the command line: `whatsapp-mcp transcription install`.",
+			"Meanwhile, download_media gives this audio as a file, to transcribe it another way.",
 		}}, true)
 	case err != nil:
 		return toolError("%v", err)
@@ -119,24 +96,4 @@ func (s *Server) saveTranscript(ctx context.Context, a arguments) map[string]any
 		return toolError("%v", err)
 	}
 	return textResult(map[string]any{"saved": true, "transcript": t}, false)
-}
-
-func (s *Server) setTranscriptionKey(ctx context.Context, a arguments) map[string]any {
-	if a.Remove {
-		if err := s.state.SetSetting(ctx, keySetting, ""); err != nil {
-			return toolError("%v", err)
-		}
-		return textResult(map[string]any{"removed": true}, false)
-	}
-	key := strings.TrimSpace(a.APIKey)
-	if !strings.HasPrefix(key, "sk-") {
-		return toolError("api_key must be an OpenAI key starting with sk-")
-	}
-	if err := transcribe.CheckKey(ctx, key); err != nil {
-		return toolError("the key was not saved: %v", err)
-	}
-	if err := s.state.SetSetting(ctx, keySetting, key); err != nil {
-		return toolError("%v", err)
-	}
-	return textResult(map[string]any{"saved": true, "key_hint": "…" + key[len(key)-4:]}, false)
 }

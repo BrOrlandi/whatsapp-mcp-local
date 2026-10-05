@@ -22,7 +22,7 @@ cd "$WORK/ffmpeg-${VERSION}"
 flags=(
   --disable-everything --disable-autodetect --disable-doc --disable-debug
   --disable-network --disable-ffplay --disable-ffprobe --enable-small
-  --enable-static --disable-shared
+  --enable-static --disable-shared --disable-x86asm
   --disable-avdevice --disable-swscale --disable-postproc
   --enable-protocol=file --enable-protocol=pipe
   --enable-demuxer=ogg,mov,mp3,wav,matroska
@@ -45,8 +45,10 @@ elif [ "$(uname -s)" = Linux ]; then
   flags+=(--extra-ldflags=-static)
 fi
 
-./configure --prefix="$WORK/prefix" "${flags[@]}" >/dev/null
-make -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)" >/dev/null
+# Decoding a voice note takes milliseconds without hand-written assembly,
+# and leaving it out spares every build machine an assembler.
+./configure --prefix="$WORK/prefix" "${flags[@]}" >"$WORK/configure.log" 2>&1 || { tail -20 "$WORK/configure.log" >&2; exit 1; }
+make -j"$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)" >"$WORK/make.log" 2>&1 || { tail -20 "$WORK/make.log" >&2; exit 1; }
 bin=ffmpeg
 [ -n "$CROSS" ] && bin=ffmpeg.exe
 "${CROSS}strip" "$bin" 2>/dev/null || strip "$bin" 2>/dev/null || true
