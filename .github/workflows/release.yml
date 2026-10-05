@@ -11,7 +11,26 @@ permissions:
   contents: write
 
 jobs:
+  # A release published by hand, built locally with the same scripts, is
+  # left as it is rather than rebuilt over.
+  check:
+    runs-on: ubuntu-22.04
+    outputs:
+      exists: ${{ steps.release.outputs.exists }}
+    steps:
+      - id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ github.ref_name }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
   macos:
+    needs: check
+    if: needs.check.outputs.exists != 'true'
     runs-on: macos-14
     env:
       HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
@@ -45,6 +64,8 @@ jobs:
         with: { name: app-macos, path: build/bin/WhatsApp-MCP.dmg }
 
   windows:
+    needs: check
+    if: needs.check.outputs.exists != 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
@@ -57,6 +78,8 @@ jobs:
         with: { name: app-windows, path: build/bin/WhatsApp-MCP-Setup.exe }
 
   linux:
+    needs: check
+    if: needs.check.outputs.exists != 'true'
     strategy:
       matrix:
         include:
@@ -79,6 +102,8 @@ jobs:
             build/bin/*.deb
 
   cli:
+    needs: check
+    if: needs.check.outputs.exists != 'true'
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4

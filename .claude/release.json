@@ -1,0 +1,45 @@
+{
+  "manifestVersion": 1,
+  "commitConvention": "conventional",
+  "bump": { "policy": "conventional-commits", "cadence": "per-release", "confirm": true },
+  "apps": [
+    {
+      "id": "whatsapp-mcp",
+      "label": "WhatsApp MCP (app desktop e linha de comando)",
+      "kind": "desktop",
+      "version": {
+        "anchor": "tag",
+        "tagPrefix": "v",
+        "annotatedTag": true,
+        "files": []
+      },
+      "changelogs": [
+        { "path": "CHANGELOG.md", "format": "keep-a-changelog", "audience": "public", "language": "pt-BR", "detail": "full" }
+      ],
+      "build": [
+        { "cmd": "VERSION=X.Y.Z SIGN_IDENTITY=… NOTARY_KEY=… NOTARY_KEY_ID=… NOTARY_ISSUER=… scripts/build-macos.sh", "artifact": "build/bin/WhatsApp-MCP.dmg" },
+        { "cmd": "VERSION=X.Y.Z scripts/build-windows.sh", "artifact": "build/bin/WhatsApp-MCP-Setup.exe" },
+        { "cmd": "VERSION=X.Y.Z scripts/build-linux.sh (in build/linux/Dockerfile, once per architecture)", "artifact": "build/bin/WhatsApp-MCP-<x86_64|aarch64>.AppImage, build/bin/whatsapp-mcp_X.Y.Z_<amd64|arm64>.deb" },
+        { "cmd": "the cli job of .github/workflows/release.yml", "artifact": "whatsapp-mcp_<os>_<arch>.tar.gz, whatsapp-mcp_windows_amd64.zip" }
+      ],
+      "publish": [
+        { "channel": "git-tag" },
+        {
+          "channel": "github-release",
+          "notesFrom": "CHANGELOG.md",
+          "assets": [
+            "WhatsApp-MCP.dmg", "WhatsApp-MCP-Setup.exe",
+            "WhatsApp-MCP-x86_64.AppImage", "WhatsApp-MCP-aarch64.AppImage",
+            "whatsapp-mcp_{version}_amd64.deb", "whatsapp-mcp_{version}_arm64.deb",
+            "whatsapp-mcp_darwin_arm64.tar.gz", "whatsapp-mcp_darwin_amd64.tar.gz",
+            "whatsapp-mcp_linux_arm64.tar.gz", "whatsapp-mcp_linux_amd64.tar.gz",
+            "whatsapp-mcp_windows_amd64.zip", "checksums.txt"
+          ],
+          "latest": true
+        }
+      ],
+      "docs": ["docs/desenvolvimento.md#publicar"],
+      "versionDisplay": { "where": "Configurações › Versão e atualizações, and the panel's footer", "how": "the version is stamped from the tag at build time (-X main.version)" }
+    }
+  ]
+}
