@@ -19,11 +19,10 @@ WhatsApp.
 
 Site e downloads: **[whatsapp-mcp.brorlandi.xyz](https://whatsapp-mcp.brorlandi.xyz)**
 
-> **Esta é a versão Local**, um app que roda no seu computador: não tem
-> infraestrutura para manter e não custa nada, mas só recebe mensagens com o
-> computador ligado. Para rodar num servidor, 24 horas por dia, use a versão
-> Servidor, que fica em outro repositório:
-> [WhatsApp MCP Servidor](https://github.com/BrOrlandi/whatsapp-mcp).
+> **Esta é a versão Local**, um app que roda no seu computador, sem servidor e
+> sem mensalidade. Existe também a versão
+> [WhatsApp MCP Servidor](https://github.com/BrOrlandi/whatsapp-mcp), em outro
+> repositório.
 
 ## Baixar
 
@@ -105,7 +104,8 @@ serviço do sistema e abre o mesmo painel no navegador, em
   volta.
 - **Funciona com o Claude Desktop e o Claude Code** neste computador, e com
   outras ferramentas que aceitem MCP. O claude.ai no navegador e o app do
-  celular não alcançam um servidor local.
+  celular não alcançam o seu computador; para usar o WhatsApp neles, existe a
+  [versão Servidor](https://github.com/BrOrlandi/whatsapp-mcp).
 - **Use por sua conta e risco.** O WhatsApp não tem API oficial para contas
   pessoais. Este projeto usa o [wacli](https://github.com/openclaw/wacli), um
   cliente não oficial, e a conta pode ser desconectada ou restringida.
