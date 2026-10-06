@@ -24,6 +24,8 @@ type Host interface {
 	InstallUpdate() error
 	// Quit closes the app for good, as the page asks once the person confirmed.
 	Quit()
+	// ShowWindow brings the app's window up, at path when one is given.
+	ShowWindow(path string)
 	// EraseEverything unlinks WhatsApp, deletes the data folder and quits.
 	EraseEverything() error
 }
@@ -61,6 +63,7 @@ func (p *Panel) registerApp(mux *http.ServeMux) {
 	mux.HandleFunc("POST /configuracoes/apagar", p.erase)
 	mux.HandleFunc("POST /api/configuracoes", p.api(p.apiSettings))
 	mux.HandleFunc("POST /api/abrir", p.api(p.apiOpen))
+	mux.HandleFunc("POST /api/app/open", p.api(p.apiOpenApp))
 	mux.HandleFunc("POST /api/abrir-pasta", p.api(func(*http.Request) (any, error) { return map[string]bool{"ok": true}, p.Host.OpenDataFolder() }))
 	mux.HandleFunc("GET /api/atualizacao", p.api(func(*http.Request) (any, error) { return p.Host.Update(), nil }))
 	mux.HandleFunc("POST /api/atualizacao/verificar", p.api(func(*http.Request) (any, error) { p.Host.CheckUpdate(); return p.Host.Update(), nil }))

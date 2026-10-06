@@ -152,6 +152,7 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /receitas", p.page(p.receitas))
 	mux.HandleFunc("POST /conexoes/remover", p.form(p.removeConnection))
 
+	mux.HandleFunc("GET /api/status", p.api(p.apiStatus))
 	mux.HandleFunc("GET /api/state", p.api(p.apiState))
 	mux.HandleFunc("GET /api/pulse", p.api(p.apiPulse))
 	mux.HandleFunc("GET /api/chats", p.api(p.apiChats))
@@ -263,8 +264,8 @@ func (p *Panel) form(f func(*http.Request) (string, error)) http.HandlerFunc {
 func (p *Panel) api(f func(*http.Request) (any, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		if !sameOrigin(r) {
-			http.Error(w, "this API answers only its own page", http.StatusForbidden)
+		if !sameOrigin(r) && !p.fromAgent(r) {
+			http.Error(w, "this API answers its own page and programs on this computer", http.StatusForbidden)
 			return
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
@@ -847,6 +848,12 @@ func (p *Panel) apiPair(r *http.Request) (any, error) {
 	}, body.Phone)
 	if body.Phone != "" && (len(phone) < 8 || len(phone) > 15) {
 		return nil, userError{"informe o número com DDI e DDD, por exemplo +55 11 91234-5678"}
+	}
+	// A code asked for while a QR code (or a code for another number) is up
+	// takes its place; a QR code never replaces a pairing under way, so a
+	// window opening does not undo what an agent asked for.
+	if cur := p.Supervisor.Pairing(); phone != "" && phone != cur.Phone && (cur.State == "starting" || cur.State == "qr" || cur.State == "code") {
+		p.Supervisor.CancelPairing()
 	}
 	if err := p.Supervisor.StartPairing(phone); err != nil && !errors.Is(err, wacli.ErrPairingRunning) {
 		return nil, err

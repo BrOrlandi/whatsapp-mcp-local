@@ -94,6 +94,9 @@ func (a *App) CheckUpdate() { a.updates.check() }
 
 func (a *App) InstallUpdate() error { return a.updates.install() }
 
+// ShowWindow brings the window up for an agent, at path when one is given.
+func (a *App) ShowWindow(path string) { go a.showWindow(path) }
+
 // Quit closes the app for good, once the person confirmed it on the page.
 func (a *App) Quit() {
 	go func() {
