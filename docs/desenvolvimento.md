@@ -28,6 +28,10 @@ scripts/build-macos.sh              # build/bin/WhatsApp MCP.app e WhatsApp-MCP.
 ARCHS=arm64 scripts/build-macos.sh  # só para este Mac, mais rápido
 ```
 
+O `.dmg` abre com um fundo que manda arrastar o app para Applications
+(`build/darwin/dmg-settings.py`); quem o monta é o `dmgbuild`, rodado pelo `uv`
+(`brew install uv`).
+
 Sem `SIGN_IDENTITY`, o app é assinado ad hoc e roda só neste Mac. Com
 `SIGN_IDENTITY="Developer ID Application: …"` ele sai assinado, e com
 `NOTARY_KEY`, `NOTARY_KEY_ID` e `NOTARY_ISSUER` (uma chave da API do App Store

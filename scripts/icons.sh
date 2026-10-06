@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Renders the app's icons from build/icons/*.svg: the macOS .icns, the
-# Windows .ico, the Linux PNG, and the tray glyph the app tints by status.
+# Windows .ico, the Linux PNG, the tray glyph the app tints by status, and the
+# background of the .dmg window.
 # Needs rsvg-convert (brew install librsvg) and, for the .icns, macOS.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -19,6 +20,8 @@ done
 if command -v iconutil >/dev/null; then
   iconutil -c icns "$set_dir" -o build/darwin/icon.icns
 fi
+rsvg-convert -w 640 -h 480 build/icons/dmg-background.svg -o build/darwin/dmg-background.png
+rsvg-convert -w 1280 -h 960 build/icons/dmg-background.svg -o build/darwin/dmg-background@2x.png
 
 # Windows and Linux: the full-bleed tile, as the favicon draws it
 for size in 16 24 32 48 64 128 256 512; do
@@ -40,4 +43,4 @@ PY
 cp "$tmp/tile-512.png" build/linux/whatsapp-mcp.png
 cp "$tmp/tile-256.png" cmd/app/icons/app.png
 png build/icons/tray.svg 64 cmd/app/icons/tray.png
-ls -l build/darwin/icon.icns build/windows/icon.ico build/linux/whatsapp-mcp.png cmd/app/icons/*.png
+ls -l build/darwin/icon.icns build/darwin/dmg-background*.png build/windows/icon.ico build/linux/whatsapp-mcp.png cmd/app/icons/*.png

@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Builds WhatsApp MCP.app for macOS (arm64 and amd64 in one universal app),
 # with the bridge and the pinned wacli inside, signs it, and wraps it in a
-# .dmg that opens with a shortcut to Applications.
+# .dmg that opens with a shortcut to Applications over a background that says
+# to drag the app onto it (build/darwin/dmg-settings.py; dmgbuild runs through
+# uv, brew install uv).
 #
 #   scripts/build-macos.sh                 build/bin/WhatsApp MCP.app and .dmg
 #
@@ -60,12 +62,8 @@ codesign --verify --deep --strict "$APP"
 
 echo "==> making the .dmg"
 DMG="$OUT/WhatsApp-MCP.dmg"
-stage="$work/dmg"
-mkdir -p "$stage"
-cp -R "$APP" "$stage/"
-ln -s /Applications "$stage/Applications"
 rm -f "$DMG"
-hdiutil create -quiet -volname "WhatsApp MCP" -srcfolder "$stage" -ov -format UDZO "$DMG"
+uv tool run dmgbuild==1.6.7 -s build/darwin/dmg-settings.py -D "app=$APP" "WhatsApp MCP" "$DMG" >/dev/null
 if [ -n "${SIGN_IDENTITY:-}" ]; then
   codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"
 fi
