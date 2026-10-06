@@ -4,6 +4,21 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.1.1] - 2026-10-06
+
+### Corrigido
+
+- **A aba Estado não mostra mais um alerta falso quando o app abre.** Nos
+  primeiros segundos, o WhatsApp já está conectado e recebendo enquanto o envio
+  de mensagens fica pronto; isso aparecia como um "!" amarelo. Agora aparece
+  como "Carregando", sem alerta.
+- **O painel se atualiza sozinho.** O alerta da aba Estado e as páginas que
+  mostram a conexão acompanham o WhatsApp em segundo plano, sem precisar trocar
+  de página. Se você estiver com um diálogo aberto ou digitando, a página
+  espera.
+
+Inclui o wacli 0.20.0.
+
 ## [1.1.0] - 2026-10-06
 
 ### Mudou
@@ -101,6 +116,7 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.1.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.1.1
 [1.1.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.1.0
 [1.0.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.0.0
 [0.1.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v0.1.1
