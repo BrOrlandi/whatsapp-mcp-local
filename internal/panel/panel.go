@@ -153,6 +153,7 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /conexoes/remover", p.form(p.removeConnection))
 
 	mux.HandleFunc("GET /api/state", p.api(p.apiState))
+	mux.HandleFunc("GET /api/pulse", p.api(p.apiPulse))
 	mux.HandleFunc("GET /api/chats", p.api(p.apiChats))
 	mux.HandleFunc("GET /api/chats/{jid}", p.api(p.apiConversation))
 	mux.HandleFunc("POST /api/history", p.api(p.apiHistory))
@@ -289,8 +290,12 @@ type layout struct {
 	Title      string
 	Active     string
 	HealthTone string
-	Error      string
-	OK         string
+	// LiveKey is the connection the page was made with: the page follows it
+	// in the background, more closely while LiveBusy. Empty, it does not.
+	LiveKey  string
+	LiveBusy bool
+	Error    string
+	OK       string
 	// App is set inside the desktop app, whose window has no address bar and
 	// opens links in the browser.
 	App        bool
@@ -311,6 +316,9 @@ type snapshot struct {
 	// pause of seconds): the page shows a spinner and refreshes itself.
 	SyncBusy bool
 	Health   mcp.Health
+	// Tone is the health the panel shows: a connection still settling is no
+	// cause for alarm.
+	Tone     string
 	Checks   []check
 	Activity index.Activity
 	Coverage index.Coverage
@@ -356,15 +364,69 @@ func (p *Panel) snapshot(ctx context.Context) snapshot {
 		s.Arriving = true
 		s.ArrivingCount = s.Pairing.Synced + s.Sync.History.Messages
 	}
-	for _, c := range s.Health.Checks {
-		title, text := describeCheck(c, s)
-		s.Checks = append(s.Checks, check{Name: c.Name, Status: c.Status, Title: title, Text: text})
-	}
+	s.readChecks()
 	return s
 }
 
+// readChecks says the health checks for the page, and how worried to be.
+func (s *snapshot) readChecks() {
+	s.Tone = tone(s.Health.Checks, s.Sync)
+	for _, c := range s.Health.Checks {
+		title, text := describeCheck(c, *s)
+		status := c.Status
+		if quietCheck(c, s.Sync) {
+			status = "busy"
+		}
+		s.Checks = append(s.Checks, check{Name: c.Name, Status: status, Title: title, Text: text})
+	}
+}
+
+// settling is a connection on its way up, or paused for seconds while
+// WhatsApp does something: there is nothing for the person to do.
+func settling(s wacli.Status) bool {
+	switch s.State {
+	case "starting", "paused":
+		return true
+	case "connected":
+		// Receiving already; sending is ready a few seconds later.
+		return !s.Delegate
+	}
+	return false
+}
+
+// quietCheck is the connection's warning while it settles, which the panel
+// shows as on its way rather than as a problem.
+func quietCheck(c mcp.Check, sync wacli.Status) bool {
+	return c.Name == "sync" && c.Status == "warn" && settling(sync)
+}
+
+// tone is the worst of the health checks, leaving out a settling connection.
+func tone(checks []mcp.Check, sync wacli.Status) string {
+	t := "ok"
+	for _, c := range checks {
+		if quietCheck(c, sync) {
+			continue
+		}
+		switch c.Status {
+		case "fail":
+			return "fail"
+		case "warn":
+			t = "warn"
+		}
+	}
+	return t
+}
+
+// syncKey changes whenever the connection a page shows does.
+func syncKey(s wacli.Status) string {
+	return s.State + "/" + s.PausedFor + "/" + strconv.FormatBool(s.Delegate)
+}
+
 func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout {
-	l := layout{Title: title, Active: active, HealthTone: s.Health.Status, Error: r.URL.Query().Get("erro"), OK: r.URL.Query().Get("ok")}
+	l := layout{Title: title, Active: active, HealthTone: s.Tone, Error: r.URL.Query().Get("erro"), OK: r.URL.Query().Get("ok")}
+	if s.Sync.State != "" {
+		l.LiveKey, l.LiveBusy = syncKey(s.Sync), settling(s.Sync) || s.Sync.State == "reconnecting"
+	}
 	if p.MCPProblem != nil {
 		l.MCPProblem = p.MCPProblem()
 	}
@@ -417,6 +479,9 @@ func describeCheck(c mcp.Check, s snapshot) (string, string) {
 	case "sync":
 		switch s.Sync.State {
 		case "connected":
+			if !s.Sync.Delegate {
+				return "Conexão", "Conectado e recebendo. O envio de mensagens fica pronto em instantes."
+			}
 			return "Conexão", "Conectado ao WhatsApp e recebendo em tempo real."
 		case "paused":
 			return "Conexão", "Pausada por alguns segundos para " + pauseReason(s.Sync.PausedFor) + ". Volta sozinha."
@@ -527,8 +592,9 @@ func (p *Panel) instalacao(w http.ResponseWriter, r *http.Request) (string, any)
 		}
 	}
 	l := p.layout(r, "Instalação", "", s)
-	// Setting up is not a problem to be alarmed about.
-	l.HealthTone = ""
+	// Setting up is not a problem to be alarmed about, and the wizard follows
+	// the pairing on its own.
+	l.HealthTone, l.LiveKey = "", ""
 	return "instalacao", struct {
 		layout
 		snapshot
@@ -698,6 +764,17 @@ func (p *Panel) apiState(r *http.Request) (any, error) {
 		"account": s.Account, "name": s.Name, "phone": s.Phone,
 		"sync": sync, "pairing": s.Pairing, "health": s.Health,
 		"history": s.History, "clients_live": live, "endpoint": p.endpoint(), "version": mcp.Version,
+	}, nil
+}
+
+// apiPulse is what every page asks, over and over, to follow the connection
+// and the Estado tab's alert: far less than the whole state.
+func (p *Panel) apiPulse(r *http.Request) (any, error) {
+	sync := p.Supervisor.Status()
+	h := p.Server.Health(r.Context(), 0)
+	return map[string]any{
+		"key": syncKey(sync), "tone": tone(h.Checks, sync),
+		"busy": settling(sync) || sync.State == "reconnecting",
 	}, nil
 }
 

@@ -420,21 +420,64 @@
     window.setInterval(refresh, 15000);
   }
 
-  // While WhatsApp is loading or reconnecting, ask again every two seconds
-  // and refresh the page as soon as the state has moved on, connected or not.
-  var syncWait = document.querySelector("[data-sync-wait]");
-  if (syncWait) {
-    var waitingFor = syncWait.getAttribute("data-sync-wait");
-    var syncPolls = 0;
-    var syncTimer = window.setInterval(function () {
-      if (++syncPolls > 300) { window.clearInterval(syncTimer); return; }
-      api("/api/state").then(function (state) {
-        if (state.sync && state.sync.state !== waitingFor) {
-          window.clearInterval(syncTimer);
-          window.location.reload();
-        }
-      }).catch(function () {});
-    }, 2000);
+  // The connection, followed in the background: every two seconds while it
+  // is on its way, every ten otherwise. The Estado tab's alert changes in
+  // place; a page that shows the connection refreshes when it moves on,
+  // unless the person is in the middle of something there.
+  var live = document.querySelector("[data-live]");
+  if (live) {
+    var liveKey = live.getAttribute("data-live");
+    var liveTone = live.getAttribute("data-live-tone");
+    var liveBusy = live.hasAttribute("data-live-busy");
+    var showsSync = !!document.querySelector("[data-sync]");
+    var reloading = false;
+
+    var showTone = function (tone) {
+      var tab = live.querySelector('a[href="/estado"]');
+      if (!tab) return;
+      var mark = tab.querySelector(".nav__alert");
+      var said = tab.querySelector(".sr-only");
+      if (tone === "ok") {
+        if (mark) mark.remove();
+        if (said) said.remove();
+        return;
+      }
+      if (!mark) {
+        said = el("span", "sr-only", "Atenção: ");
+        mark = el("span", "nav__alert", "!");
+        mark.setAttribute("aria-hidden", "true");
+        tab.insertBefore(said, tab.firstChild);
+        tab.insertBefore(mark, said);
+      }
+      mark.classList.toggle("nav__alert--warn", tone === "warn");
+    };
+
+    var undisturbed = function () {
+      var active = document.activeElement;
+      if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return false;
+      if (document.querySelector("form[data-state=busy]")) return false;
+      var open = window.location.hash.length > 1 && document.getElementById(window.location.hash.slice(1));
+      return !(open && open.classList.contains("overlay"));
+    };
+
+    var follow = function () {
+      window.setTimeout(function () {
+        if (document.hidden || reloading) { follow(); return; }
+        api("/api/pulse").then(function (pulse) {
+          liveBusy = pulse.busy;
+          if (showsSync && (pulse.key !== liveKey || pulse.tone !== liveTone) && undisturbed()) {
+            reloading = true;
+            window.location.reload();
+            return;
+          }
+          if (pulse.tone !== liveTone) {
+            liveTone = pulse.tone;
+            showTone(liveTone);
+          }
+        }).catch(function () {}).then(follow);
+      }, liveBusy ? 2000 : 10000);
+    };
+    follow();
   }
 
   // The first history sync may still be arriving after pairing.

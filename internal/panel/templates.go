@@ -43,7 +43,7 @@ const pageSource = `
 {{define "nav"}}
 <header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
 <div class="masthead__tools">{{template "themeswitch"}}</div></header>
-<nav class="nav" aria-label="Seções">
+<nav class="nav" aria-label="Seções"{{if .LiveKey}} data-live="{{.LiveKey}}" data-live-tone="{{.HealthTone}}"{{if .LiveBusy}} data-live-busy{{end}}{{end}}>
 <a href="/"{{if eq .Active "conectar"}} aria-current="page"{{end}}>Conectar</a>
 <a href="/whatsapp"{{if eq .Active "whatsapp"}} aria-current="page"{{end}}>WhatsApp</a>
 <a href="/estado"{{if eq .Active "estado"}} aria-current="page"{{end}}>{{if and (ne .HealthTone "ok") (ne .HealthTone "")}}<span class="nav__alert{{if eq .HealthTone "warn"}} nav__alert--warn{{end}}" aria-hidden="true">!</span><span class="sr-only">Atenção: </span>{{end}}Estado</a>
@@ -65,7 +65,7 @@ way out is one click away. */}}
 
 {{/* The connection's state; one that passes on its own spins, and the page
 refreshes when it has passed. */}}
-{{define "syncpill"}}<span class="pill pill--{{.SyncTone}}{{if .SyncBusy}} pill--busy{{end}}"{{if .SyncBusy}} data-sync-wait="{{.Sync.State}}"{{end}}>{{if .SyncBusy}}<span class="spinner" aria-hidden="true"></span>{{end}}{{.SyncLabel}}</span>{{end}}
+{{define "syncpill"}}<span class="pill pill--{{.SyncTone}}{{if .SyncBusy}} pill--busy{{end}}" data-sync>{{if .SyncBusy}}<span class="spinner" aria-hidden="true"></span>{{end}}{{.SyncLabel}}</span>{{end}}
 
 {{define "autostartcheck"}}{{if .App}}<div class="wizard__escape"><label class="check check--inline"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span>Abrir o WhatsApp MCP quando o computador ligar</span></label></div>
 <p class="busy" data-setting-note role="status" hidden></p>{{end}}{{end}}
@@ -165,7 +165,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <p class="lead">Aqui você vê se está tudo funcionando e liga o seu WhatsApp a uma ferramenta de inteligência artificial que aceite MCP, como o Claude, o Codex ou a que você usar.</p>
 
 <section class="overview" data-wait-client="{{if .LiveCount}}false{{else}}true{{end}}">
-<div class="overview__item overview__item--{{if eq .SyncTone "ok"}}ok{{else}}wait{{end}}"{{if .SyncBusy}} data-sync-wait="{{.Sync.State}}"{{end}}>
+<div class="overview__item overview__item--{{if eq .SyncTone "ok"}}ok{{else}}wait{{end}}" data-sync>
 <span class="overview__icon" aria-hidden="true">{{if .SyncBusy}}<span class="spinner"></span>{{else if eq .SyncTone "ok"}}&#10003;{{else}}!{{end}}</span>
 <div class="overview__body">
 <p class="overview__title">{{if eq .SyncTone "ok"}}WhatsApp conectado{{else}}{{.SyncLabel}}{{end}}</p>
@@ -299,8 +299,8 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <section class="card">
 <div class="card__head"><h2>WhatsApp</h2>{{template "syncpill" .}}</div>
 <div class="card__body stack">
-{{if eq .Health.Status "ok"}}<p class="alert alert--ok">Nenhum problema detectado. As mensagens estão sendo recebidas e guardadas.</p>
-{{else}}<ul class="problems">{{range .Checks}}{{if ne .Status "ok"}}<li{{if eq .Status "warn"}} class="problems__warn"{{end}}><strong>{{.Title}}:</strong> {{.Text}}</li>{{end}}{{end}}</ul>{{end}}
+{{if eq .Tone "ok"}}<p class="alert alert--ok">Nenhum problema detectado. As mensagens estão sendo recebidas e guardadas.</p>
+{{else}}<ul class="problems">{{range .Checks}}{{if or (eq .Status "warn") (eq .Status "fail")}}<li{{if eq .Status "warn"}} class="problems__warn"{{end}}><strong>{{.Title}}:</strong> {{.Text}}</li>{{end}}{{end}}</ul>{{end}}
 <dl class="facts">
 <div class="fact"><dt>Última mensagem recebida</dt><dd>{{relativeSince .Activity.NewestIncoming}}<span class="fact__detail">{{moment .Activity.NewestIncoming}}</span></dd></div>
 {{with .Name}}<div class="fact"><dt>Conta</dt><dd>{{.}}</dd></div>{{end}}
@@ -315,7 +315,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <ul class="rows">
 {{range .Checks}}<li class="row">
 <span class="row__main"><span class="row__title">{{.Title}}</span><span class="row__meta">{{.Text}}</span></span>
-<span class="pill pill--{{if eq .Status "ok"}}ok{{else if eq .Status "warn"}}warn{{else}}off{{end}}">{{if eq .Status "ok"}}Ok{{else if eq .Status "warn"}}Atenção{{else}}Problema{{end}}</span>
+<span class="pill pill--{{if eq .Status "ok"}}ok{{else if eq .Status "busy"}}warn pill--busy{{else if eq .Status "warn"}}warn{{else}}off{{end}}">{{if eq .Status "ok"}}Ok{{else if eq .Status "busy"}}<span class="spinner" aria-hidden="true"></span>Carregando{{else if eq .Status "warn"}}Atenção{{else}}Problema{{end}}</span>
 </li>{{end}}
 </ul>
 </div></section>

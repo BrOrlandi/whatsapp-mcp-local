@@ -5,6 +5,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
 
 func TestSameOrigin(t *testing.T) {
@@ -92,5 +95,56 @@ func TestParseMCPGet(t *testing.T) {
 	}
 	if got := parseMCPGet("whatsapp:\n  Type: stdio\n  Command: /bin/x\n"); got != "/bin/x" {
 		t.Fatalf("parseMCPGet stdio = %q", got)
+	}
+}
+
+// A connection on its way up is no alert; one that keeps failing still is.
+func TestToneLeavesOutSettling(t *testing.T) {
+	warnSync := []mcp.Check{{Name: "sync", Status: "warn"}, {Name: "receiving", Status: "ok"}}
+	for _, c := range []struct {
+		name   string
+		checks []mcp.Check
+		sync   wacli.Status
+		want   string
+	}{
+		{"sending not ready yet", warnSync, wacli.Status{State: "connected"}, "ok"},
+		{"starting", warnSync, wacli.Status{State: "starting"}, "ok"},
+		{"reconnecting", warnSync, wacli.Status{State: "reconnecting"}, "warn"},
+		{"starting for too long", []mcp.Check{{Name: "sync", Status: "fail"}}, wacli.Status{State: "starting"}, "fail"},
+		{"another warning", []mcp.Check{{Name: "sync", Status: "warn"}, {Name: "coverage", Status: "warn"}}, wacli.Status{State: "connected"}, "warn"},
+		{"all ready", []mcp.Check{{Name: "sync", Status: "ok"}}, wacli.Status{State: "connected", Delegate: true}, "ok"},
+	} {
+		if got := tone(c.checks, c.sync); got != c.want {
+			t.Errorf("%s: tone = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// Right after the app opens, WhatsApp is connected and receiving while
+// sending gets ready: Estado says so, with no alert and no warning box.
+func TestEstadoWhileSendingGetsReady(t *testing.T) {
+	s := snapshot{Sync: wacli.Status{State: "connected"}, Health: mcp.Health{Status: "warn", Checks: []mcp.Check{
+		{Name: "sync", Status: "warn"}, {Name: "receiving", Status: "ok"},
+	}}}
+	s.SyncTone, s.SyncLabel = syncLabel(s.Sync)
+	s.readChecks()
+	var b strings.Builder
+	l := layout{Title: "Estado", Active: "estado", HealthTone: s.Tone, LiveKey: syncKey(s.Sync), LiveBusy: settling(s.Sync)}
+	if err := parseTemplates().ExecuteTemplate(&b, "estado", struct {
+		layout
+		snapshot
+	}{l, s}); err != nil {
+		t.Fatal(err)
+	}
+	page := b.String()
+	for _, want := range []string{"Nenhum problema detectado", "O envio de mensagens fica pronto em instantes", "pill--busy", `data-live="connected//false"`, "data-live-busy"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("Estado lacks %q", want)
+		}
+	}
+	for _, unwanted := range []string{`class="nav__alert`, `class="problems__warn"`} {
+		if strings.Contains(page, unwanted) {
+			t.Errorf("Estado shows %q", unwanted)
+		}
 	}
 }
