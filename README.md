@@ -17,9 +17,10 @@ Peça ao Claude para resumir uma conversa, achar aquela mensagem de meses atrás
 responder alguém, criar uma enquete ou transcrever um áudio, direto do seu
 WhatsApp.
 
-> **Esta é a versão Local**, que só recebe mensagens com o computador ligado.
-> Para rodar 24 horas num servidor alugado, existe a
-> [versão Servidor](https://github.com/BrOrlandi/whatsapp-mcp).
+> **Esta é a versão Local**, a mais simples para quase todo mundo. Para rodar
+> 24 horas num servidor alugado, existe a
+> [versão Servidor](https://github.com/BrOrlandi/whatsapp-mcp). São projetos
+> independentes: você usa um ou outro, e este app não precisa do servidor.
 
 ## Como instalar
 
@@ -170,8 +171,9 @@ Ela se instala como serviço do sistema e abre o mesmo painel no navegador, em
   volta.
 - **Funciona com o Claude Desktop e o Claude Code** neste computador, e com
   outras ferramentas que aceitem MCP. O claude.ai no navegador e o app do
-  celular não alcançam o seu computador; para usar o WhatsApp neles, existe a
-  [versão Servidor](https://github.com/BrOrlandi/whatsapp-mcp).
+  celular não alcançam o seu computador; para usar o WhatsApp neles, a
+  alternativa é a [versão Servidor](https://github.com/BrOrlandi/whatsapp-mcp),
+  no lugar do app.
 - **Use por sua conta e risco.** O WhatsApp não tem API oficial para contas
   pessoais. Este projeto usa o [wacli](https://github.com/openclaw/wacli), um
   cliente não oficial, e a conta pode ser desconectada ou restringida.

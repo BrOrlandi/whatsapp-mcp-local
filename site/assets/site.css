@@ -140,6 +140,9 @@ code {
 .hero__lead { margin-top: 24px; max-width: 36ch; font-size: clamp(1.125rem, 1.6vw, 1.3rem); line-height: 1.55; color: var(--on-deep-soft); }
 .hero__actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; }
 .hero__note { margin-top: 16px; font-size: 0.95rem; color: var(--on-deep-soft); }
+.hero__note + .hero__note { margin-top: 8px; }
+.hero__note a { color: var(--on-deep); }
+.hero__note a:hover { color: var(--on-deep); }
 @media (max-width: 920px) { .hero__grid { grid-template-columns: minmax(0, 1fr); } }
 .hero-shot { margin: 0; }
 .hero-shot img { border-radius: 16px; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.08); }
