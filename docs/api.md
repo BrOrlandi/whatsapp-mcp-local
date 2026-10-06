@@ -8,11 +8,14 @@ precisar da janela. O app e a versão de linha de comando têm a mesma API; só
 
 ## Acesso
 
-- **Leituras** (`GET`) respondem a qualquer programa deste computador.
+- **Leituras** (`GET`) respondem a qualquer programa deste computador, sem
+  chave. Isso inclui as rotas internas do painel, como as conversas recentes.
 - **Ações** (`POST`) pedem `Content-Type: application/json`. Uma página de
-  outro site aberta no navegador não consegue chamá-las.
-- Com a variável `WHATSAPP_MCP_TOKEN` definida, as ações pedem também
-  `Authorization: Bearer <token>`, como o `/mcp`.
+  outro site aberta no navegador não consegue ler nem chamar nada daqui.
+- Com a variável `WHATSAPP_MCP_TOKEN` definida, o `/mcp`, o `/health` e as
+  ações pedem `Authorization: Bearer <token>`; as leituras continuam abertas.
+  Uma chave de acesso para todas as rotas, ligada em Configurações, fica para
+  uma versão futura.
 - **A porta** é 47821, a menos que tenha sido trocada em Configurações. Ela
   fica no `config.json` (campo `port`) da pasta de dados:
 
