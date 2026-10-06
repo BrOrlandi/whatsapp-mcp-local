@@ -4,6 +4,25 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.1.0] - 2026-10-06
+
+### Mudou
+
+- **O app continua rodando quando você fecha a janela, também pelo ⌘Q.** No
+  Mac, ⌘Q e "Encerrar" no Dock só fecham a janela: o WhatsApp MCP segue na
+  barra de menus e as ferramentas de IA continuam usando o WhatsApp.
+- **Encerrar de vez pede confirmação.** "Encerrar o WhatsApp MCP…" fica no
+  ícone da barra de menus (área de notificação no Windows), no menu do app e em
+  Configurações, e avisa antes: o MCP é desligado e o computador para de
+  receber mensagens enquanto o app estiver fechado.
+
+### Corrigido
+
+- No Mac, a janela não aparece mais por cima de outro app em tela cheia: abre
+  numa mesa própria ou na própria tela cheia.
+
+Inclui o wacli 0.20.0.
+
 ## [1.0.0] - 2026-10-05
 
 A primeira versão pública do WhatsApp MCP Local.
@@ -82,6 +101,7 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.1.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.1.0
 [1.0.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.0.0
 [0.1.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v0.1.1
 [0.1.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v0.1.0
