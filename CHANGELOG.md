@@ -4,6 +4,25 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.2.0] - 2026-10-06
+
+### Adicionado
+
+- **Instalação por uma IA.** O README traz um prompt para colar no Claude Code
+  ou em outro agente que rode comandos no seu computador: ele baixa a versão
+  certa para o seu sistema, instala, abre o app, te guia no QR code e confere
+  se ficou tudo funcionando.
+- **API local para agentes de IA.** Um agente no seu computador vê o estado do
+  app e do WhatsApp, conecta o WhatsApp (por QR code ou por um código para
+  digitar no celular), configura o Claude e abre a janela. Está descrita em
+  [docs/api.md](docs/api.md).
+
+### Mudou
+
+- Pedir um código para digitar no celular troca o QR code que estava na tela.
+
+Inclui o wacli 0.20.0.
+
 ## [1.1.1] - 2026-10-06
 
 ### Corrigido
@@ -116,6 +135,7 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.2.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.2.0
 [1.1.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.1.1
 [1.1.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.1.0
 [1.0.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.0.0
