@@ -16,6 +16,11 @@ Other branches get preview deployments. A manual deploy runs from the repository
 this repository's latest release by the fixed asset names, and `/servidor` is a separate page
 for the server project, whose links all point at `BrOrlandi/whatsapp-mcp`.
 
+The "Veja como funciona" video on the home page is a Remotion project in `video/` (narrated with
+Gemini TTS, subtitles burned in); `npm run publish` there renders it into `site/assets/video/`.
+It shows the app's screens and names its features, so a change to the setup flow or the tools
+may call for a new cut (`video/README.md`).
+
 ## wacli version
 
 The app ships one wacli, pinned in `build/wacli.env` (the version and the sha256 of each system,

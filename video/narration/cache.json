@@ -1,0 +1,1457 @@
+{
+ "01": {
+  "key": "3cafa5e38fdae91c1ecbc323eacb4cb254e3f3fc",
+  "heard": [
+   {
+    "text": "Hoje,",
+    "startMs": 40,
+    "endMs": 490
+   },
+   {
+    "text": "você",
+    "startMs": 490,
+    "endMs": 820
+   },
+   {
+    "text": "conecta",
+    "startMs": 820,
+    "endMs": 1390
+   },
+   {
+    "text": "todas",
+    "startMs": 1390,
+    "endMs": 1870
+   },
+   {
+    "text": "as",
+    "startMs": 1870,
+    "endMs": 1960
+   },
+   {
+    "text": "suas",
+    "startMs": 1960,
+    "endMs": 2290
+   },
+   {
+    "text": "ferramentas",
+    "startMs": 2290,
+    "endMs": 3190
+   },
+   {
+    "text": "de",
+    "startMs": 3190,
+    "endMs": 3350
+   },
+   {
+    "text": "trabalho",
+    "startMs": 3350,
+    "endMs": 4080
+   },
+   {
+    "text": "à",
+    "startMs": 4080,
+    "endMs": 4330
+   },
+   {
+    "text": "sua",
+    "startMs": 4330,
+    "endMs": 4480
+   },
+   {
+    "text": "IA",
+    "startMs": 4480,
+    "endMs": 4680
+   },
+   {
+    "text": "preferida.",
+    "startMs": 4680,
+    "endMs": 5900
+   }
+  ]
+ },
+ "02": {
+  "key": "6d995f3b2ae563166b246dabe97478e4910aa05f",
+  "heard": [
+   {
+    "text": "O",
+    "startMs": 40,
+    "endMs": 150
+   },
+   {
+    "text": "Gmail,",
+    "startMs": 150,
+    "endMs": 1360
+   },
+   {
+    "text": "a",
+    "startMs": 1360,
+    "endMs": 1430
+   },
+   {
+    "text": "Agenda,",
+    "startMs": 1430,
+    "endMs": 2710
+   },
+   {
+    "text": "o",
+    "startMs": 2710,
+    "endMs": 2820
+   },
+   {
+    "text": "Drive,",
+    "startMs": 2820,
+    "endMs": 3920
+   },
+   {
+    "text": "o",
+    "startMs": 3920,
+    "endMs": 4240
+   },
+   {
+    "text": "Slack,",
+    "startMs": 4240,
+    "endMs": 5040
+   },
+   {
+    "text": "o",
+    "startMs": 5040,
+    "endMs": 5210
+   },
+   {
+    "text": "Notion,",
+    "startMs": 5210,
+    "endMs": 6620
+   },
+   {
+    "text": "o",
+    "startMs": 6620,
+    "endMs": 6960
+   },
+   {
+    "text": "Gira,",
+    "startMs": 6960,
+    "endMs": 7790
+   },
+   {
+    "text": "o",
+    "startMs": 7790,
+    "endMs": 7960
+   },
+   {
+    "text": "GitHub.",
+    "startMs": 7960,
+    "endMs": 9500
+   },
+   {
+    "text": "Tudo",
+    "startMs": 10500,
+    "endMs": 10540
+   },
+   {
+    "text": "num",
+    "startMs": 10540,
+    "endMs": 10710
+   },
+   {
+    "text": "lugar",
+    "startMs": 10710,
+    "endMs": 11920
+   },
+   {
+    "text": "só.",
+    "startMs": 11920,
+    "endMs": 12460
+   }
+  ]
+ },
+ "03": {
+  "key": "068866287c45ef725d2898b91b7c210109e7b60d",
+  "heard": [
+   {
+    "text": "Mas",
+    "startMs": 40,
+    "endMs": 310
+   },
+   {
+    "text": "uma",
+    "startMs": 310,
+    "endMs": 620
+   },
+   {
+    "text": "delas",
+    "startMs": 620,
+    "endMs": 1140
+   },
+   {
+    "text": "ainda",
+    "startMs": 1140,
+    "endMs": 1670
+   },
+   {
+    "text": "fica",
+    "startMs": 1670,
+    "endMs": 2090
+   },
+   {
+    "text": "de",
+    "startMs": 2090,
+    "endMs": 2310
+   },
+   {
+    "text": "fora.",
+    "startMs": 2310,
+    "endMs": 2760
+   },
+   {
+    "text": "O",
+    "startMs": 3460,
+    "endMs": 3460
+   },
+   {
+    "text": "seu",
+    "startMs": 3460,
+    "endMs": 3500
+   },
+   {
+    "text": "WhatsApp.",
+    "startMs": 3500,
+    "endMs": 4460
+   }
+  ]
+ },
+ "04": {
+  "key": "ceec6beb284130999688cbfef114b727f6045aa3",
+  "heard": [
+   {
+    "text": "Agora,",
+    "startMs": 40,
+    "endMs": 730
+   },
+   {
+    "text": "isso",
+    "startMs": 730,
+    "endMs": 1220
+   },
+   {
+    "text": "está",
+    "startMs": 1220,
+    "endMs": 1570
+   },
+   {
+    "text": "resolvido.",
+    "startMs": 1570,
+    "endMs": 2840
+   }
+  ]
+ },
+ "05": {
+  "key": "ee91e7ca16c1a564f72ea2c28451225b63627989",
+  "heard": [
+   {
+    "text": "Conheça",
+    "startMs": 40,
+    "endMs": 910
+   },
+   {
+    "text": "o",
+    "startMs": 910,
+    "endMs": 1000
+   },
+   {
+    "text": "WhatsApp",
+    "startMs": 1000,
+    "endMs": 2020
+   },
+   {
+    "text": "MCP,",
+    "startMs": 2020,
+    "endMs": 2730
+   },
+   {
+    "text": "o",
+    "startMs": 2730,
+    "endMs": 3050
+   },
+   {
+    "text": "seu",
+    "startMs": 3050,
+    "endMs": 3050
+   },
+   {
+    "text": "WhatsApp",
+    "startMs": 3050,
+    "endMs": 3880
+   },
+   {
+    "text": "conectado",
+    "startMs": 3880,
+    "endMs": 4830
+   },
+   {
+    "text": "à",
+    "startMs": 4830,
+    "endMs": 4910
+   },
+   {
+    "text": "sua",
+    "startMs": 4910,
+    "endMs": 5220
+   },
+   {
+    "text": "IA",
+    "startMs": 5220,
+    "endMs": 5420
+   },
+   {
+    "text": "direto",
+    "startMs": 5420,
+    "endMs": 6030
+   },
+   {
+    "text": "do",
+    "startMs": 6030,
+    "endMs": 6330
+   },
+   {
+    "text": "seu",
+    "startMs": 6330,
+    "endMs": 6550
+   },
+   {
+    "text": "computador.",
+    "startMs": 6550,
+    "endMs": 8000
+   }
+  ]
+ },
+ "06": {
+  "key": "6fb9c36d1d64c8a6ca23d6a58c92eced6a253cbc",
+  "heard": [
+   {
+    "text": "Para",
+    "startMs": 40,
+    "endMs": 330
+   },
+   {
+    "text": "começar,",
+    "startMs": 330,
+    "endMs": 1240
+   },
+   {
+    "text": "baixe",
+    "startMs": 1240,
+    "endMs": 1490
+   },
+   {
+    "text": "o",
+    "startMs": 1490,
+    "endMs": 1570
+   },
+   {
+    "text": "app.",
+    "startMs": 1570,
+    "endMs": 2120
+   },
+   {
+    "text": "Tem",
+    "startMs": 2720,
+    "endMs": 2760
+   },
+   {
+    "text": "versão",
+    "startMs": 2760,
+    "endMs": 3030
+   },
+   {
+    "text": "para",
+    "startMs": 3030,
+    "endMs": 3430
+   },
+   {
+    "text": "Mac,",
+    "startMs": 3430,
+    "endMs": 3970
+   },
+   {
+    "text": "Windows",
+    "startMs": 3970,
+    "endMs": 4820
+   },
+   {
+    "text": "e",
+    "startMs": 4820,
+    "endMs": 4890
+   },
+   {
+    "text": "Linux.",
+    "startMs": 4890,
+    "endMs": 5840
+   }
+  ]
+ },
+ "07": {
+  "key": "153473522d28d14cc80a5d890a32c43fdfa90a5e",
+  "heard": [
+   {
+    "text": "Ao",
+    "startMs": 50,
+    "endMs": 180
+   },
+   {
+    "text": "abrir,",
+    "startMs": 180,
+    "endMs": 1000
+   },
+   {
+    "text": "ele",
+    "startMs": 1000,
+    "endMs": 1110
+   },
+   {
+    "text": "mostra",
+    "startMs": 1110,
+    "endMs": 1670
+   },
+   {
+    "text": "um",
+    "startMs": 1670,
+    "endMs": 1970
+   },
+   {
+    "text": "QR",
+    "startMs": 1970,
+    "endMs": 2030
+   },
+   {
+    "text": "Code.",
+    "startMs": 2030,
+    "endMs": 2740
+   },
+   {
+    "text": "No",
+    "startMs": 3540,
+    "endMs": 3590
+   },
+   {
+    "text": "celular,",
+    "startMs": 3590,
+    "endMs": 3890
+   },
+   {
+    "text": "abra",
+    "startMs": 3890,
+    "endMs": 4550
+   },
+   {
+    "text": "WhatsApp,",
+    "startMs": 4550,
+    "endMs": 5460
+   },
+   {
+    "text": "entre",
+    "startMs": 5460,
+    "endMs": 5930
+   },
+   {
+    "text": "em",
+    "startMs": 5930,
+    "endMs": 6130
+   },
+   {
+    "text": "Dispositivos",
+    "startMs": 6130,
+    "endMs": 7360
+   },
+   {
+    "text": "Conectados",
+    "startMs": 7360,
+    "endMs": 8440
+   },
+   {
+    "text": "e",
+    "startMs": 8440,
+    "endMs": 8510
+   },
+   {
+    "text": "aponte",
+    "startMs": 8510,
+    "endMs": 8970
+   },
+   {
+    "text": "a",
+    "startMs": 8970,
+    "endMs": 9040
+   },
+   {
+    "text": "câmera",
+    "startMs": 9040,
+    "endMs": 9720
+   },
+   {
+    "text": "para",
+    "startMs": 9720,
+    "endMs": 9820
+   },
+   {
+    "text": "o",
+    "startMs": 9820,
+    "endMs": 9960
+   },
+   {
+    "text": "código.",
+    "startMs": 9960,
+    "endMs": 10660
+   }
+  ]
+ },
+ "08": {
+  "key": "3986317568efcc2de917e634e1de37e5aba18bc7",
+  "heard": [
+   {
+    "text": "Pronto!",
+    "startMs": 50,
+    "endMs": 410
+   },
+   {
+    "text": "O",
+    "startMs": 410,
+    "endMs": 750
+   },
+   {
+    "text": "seu",
+    "startMs": 750,
+    "endMs": 920
+   },
+   {
+    "text": "WhatsApp",
+    "startMs": 920,
+    "endMs": 1520
+   },
+   {
+    "text": "está",
+    "startMs": 1520,
+    "endMs": 1790
+   },
+   {
+    "text": "conectado.",
+    "startMs": 1790,
+    "endMs": 2820
+   }
+  ]
+ },
+ "09": {
+  "key": "974307d86bfe11ce0cbfedfadab2bc3f6db95dad",
+  "heard": [
+   {
+    "text": "Agora,",
+    "startMs": 30,
+    "endMs": 940
+   },
+   {
+    "text": "escolha",
+    "startMs": 940,
+    "endMs": 1400
+   },
+   {
+    "text": "a",
+    "startMs": 1400,
+    "endMs": 1500
+   },
+   {
+    "text": "sua",
+    "startMs": 1500,
+    "endMs": 1800
+   },
+   {
+    "text": "ferramenta",
+    "startMs": 1800,
+    "endMs": 2810
+   },
+   {
+    "text": "de",
+    "startMs": 2810,
+    "endMs": 3000
+   },
+   {
+    "text": "IA",
+    "startMs": 3000,
+    "endMs": 3240
+   },
+   {
+    "text": "e",
+    "startMs": 3240,
+    "endMs": 3610
+   },
+   {
+    "text": "siga",
+    "startMs": 3610,
+    "endMs": 3700
+   },
+   {
+    "text": "o",
+    "startMs": 3700,
+    "endMs": 3790
+   },
+   {
+    "text": "passo",
+    "startMs": 3790,
+    "endMs": 4340
+   },
+   {
+    "text": "a",
+    "startMs": 4340,
+    "endMs": 4370
+   },
+   {
+    "text": "passo.",
+    "startMs": 4370,
+    "endMs": 5120
+   }
+  ]
+ },
+ "10": {
+  "key": "d7c8cf6c5142eec10b1ec64915f999606346aa1b",
+  "heard": [
+   {
+    "text": "O",
+    "startMs": 30,
+    "endMs": 80
+   },
+   {
+    "text": "Cloud",
+    "startMs": 80,
+    "endMs": 510
+   },
+   {
+    "text": "se",
+    "startMs": 510,
+    "endMs": 670
+   },
+   {
+    "text": "conecta",
+    "startMs": 670,
+    "endMs": 1300
+   },
+   {
+    "text": "com",
+    "startMs": 1300,
+    "endMs": 1660
+   },
+   {
+    "text": "um",
+    "startMs": 1660,
+    "endMs": 1690
+   },
+   {
+    "text": "clique.",
+    "startMs": 1690,
+    "endMs": 2500
+   },
+   {
+    "text": "Para",
+    "startMs": 3200,
+    "endMs": 3200
+   },
+   {
+    "text": "o",
+    "startMs": 3200,
+    "endMs": 3240
+   },
+   {
+    "text": "Codex,",
+    "startMs": 3240,
+    "endMs": 3890
+   },
+   {
+    "text": "o",
+    "startMs": 3890,
+    "endMs": 4000
+   },
+   {
+    "text": "Cursor",
+    "startMs": 4000,
+    "endMs": 4800
+   },
+   {
+    "text": "e",
+    "startMs": 4800,
+    "endMs": 4860
+   },
+   {
+    "text": "outras,",
+    "startMs": 4860,
+    "endMs": 5790
+   },
+   {
+    "text": "o",
+    "startMs": 5790,
+    "endMs": 6120
+   },
+   {
+    "text": "app",
+    "startMs": 6120,
+    "endMs": 6120
+   },
+   {
+    "text": "dá",
+    "startMs": 6120,
+    "endMs": 6420
+   },
+   {
+    "text": "um",
+    "startMs": 6420,
+    "endMs": 6440
+   },
+   {
+    "text": "texto",
+    "startMs": 6440,
+    "endMs": 6850
+   },
+   {
+    "text": "pronto",
+    "startMs": 6850,
+    "endMs": 7320
+   },
+   {
+    "text": "para",
+    "startMs": 7320,
+    "endMs": 7780
+   },
+   {
+    "text": "colar.",
+    "startMs": 7780,
+    "endMs": 8360
+   }
+  ]
+ },
+ "11": {
+  "key": "cf745383192d8d042be756a221589f25de8e7f9a",
+  "heard": [
+   {
+    "text": "Feito",
+    "startMs": 40,
+    "endMs": 480
+   },
+   {
+    "text": "isso,",
+    "startMs": 480,
+    "endMs": 1000
+   },
+   {
+    "text": "é",
+    "startMs": 1000,
+    "endMs": 1420
+   },
+   {
+    "text": "só",
+    "startMs": 1420,
+    "endMs": 1580
+   },
+   {
+    "text": "pedir.",
+    "startMs": 1580,
+    "endMs": 2400
+   }
+  ]
+ },
+ "12": {
+  "key": "d8034b0e1d2e72bce8842e8ece183b7a468cb024",
+  "heard": [
+   {
+    "text": "A",
+    "startMs": 30,
+    "endMs": 100
+   },
+   {
+    "text": "sua",
+    "startMs": 100,
+    "endMs": 420
+   },
+   {
+    "text": "IA",
+    "startMs": 420,
+    "endMs": 610
+   },
+   {
+    "text": "pode",
+    "startMs": 610,
+    "endMs": 1140
+   },
+   {
+    "text": "ler",
+    "startMs": 1140,
+    "endMs": 1360
+   },
+   {
+    "text": "as",
+    "startMs": 1360,
+    "endMs": 1570
+   },
+   {
+    "text": "suas",
+    "startMs": 1570,
+    "endMs": 1990
+   },
+   {
+    "text": "conversas",
+    "startMs": 1990,
+    "endMs": 3030
+   },
+   {
+    "text": "e",
+    "startMs": 3030,
+    "endMs": 3060
+   },
+   {
+    "text": "os",
+    "startMs": 3060,
+    "endMs": 3180
+   },
+   {
+    "text": "seus",
+    "startMs": 3180,
+    "endMs": 3430
+   },
+   {
+    "text": "grupos,",
+    "startMs": 3430,
+    "endMs": 3940
+   },
+   {
+    "text": "achar",
+    "startMs": 4560,
+    "endMs": 4600
+   },
+   {
+    "text": "aquela",
+    "startMs": 4600,
+    "endMs": 5020
+   },
+   {
+    "text": "mensagem",
+    "startMs": 5020,
+    "endMs": 5810
+   },
+   {
+    "text": "de",
+    "startMs": 5810,
+    "endMs": 6010
+   },
+   {
+    "text": "meses",
+    "startMs": 6010,
+    "endMs": 6500
+   },
+   {
+    "text": "atrás",
+    "startMs": 6500,
+    "endMs": 7040
+   },
+   {
+    "text": "e",
+    "startMs": 7040,
+    "endMs": 7120
+   },
+   {
+    "text": "resumir",
+    "startMs": 7120,
+    "endMs": 7710
+   },
+   {
+    "text": "o",
+    "startMs": 7710,
+    "endMs": 7790
+   },
+   {
+    "text": "que",
+    "startMs": 7790,
+    "endMs": 8070
+   },
+   {
+    "text": "você",
+    "startMs": 8070,
+    "endMs": 8420
+   },
+   {
+    "text": "perdeu.",
+    "startMs": 8420,
+    "endMs": 9200
+   }
+  ]
+ },
+ "13": {
+  "key": "37d61e1fbf17a160f1bdb42d134e59149bfe3e42",
+  "heard": [
+   {
+    "text": "Ela",
+    "startMs": 40,
+    "endMs": 340
+   },
+   {
+    "text": "também",
+    "startMs": 340,
+    "endMs": 1100
+   },
+   {
+    "text": "responde",
+    "startMs": 1100,
+    "endMs": 1610
+   },
+   {
+    "text": "e",
+    "startMs": 1610,
+    "endMs": 1700
+   },
+   {
+    "text": "envia",
+    "startMs": 1700,
+    "endMs": 2240
+   },
+   {
+    "text": "mensagens,",
+    "startMs": 2240,
+    "endMs": 3280
+   },
+   {
+    "text": "manda",
+    "startMs": 3280,
+    "endMs": 3880
+   },
+   {
+    "text": "fotos",
+    "startMs": 3880,
+    "endMs": 4480
+   },
+   {
+    "text": "e",
+    "startMs": 4480,
+    "endMs": 4710
+   },
+   {
+    "text": "arquivos,",
+    "startMs": 4710,
+    "endMs": 5820
+   },
+   {
+    "text": "transcreve",
+    "startMs": 5820,
+    "endMs": 6930
+   },
+   {
+    "text": "áudios",
+    "startMs": 6930,
+    "endMs": 7600
+   },
+   {
+    "text": "e",
+    "startMs": 7600,
+    "endMs": 7920
+   },
+   {
+    "text": "até",
+    "startMs": 7920,
+    "endMs": 8380
+   },
+   {
+    "text": "cria",
+    "startMs": 8380,
+    "endMs": 8820
+   },
+   {
+    "text": "enquetes.",
+    "startMs": 8820,
+    "endMs": 9600
+   }
+  ]
+ },
+ "14": {
+  "key": "9ab8f5e0eb6f84710bbdad99d3f4bcce5113cb1d",
+  "heard": [
+   {
+    "text": "Mas,",
+    "startMs": 60,
+    "endMs": 460
+   },
+   {
+    "text": "atenção!",
+    "startMs": 460,
+    "endMs": 1420
+   }
+  ]
+ },
+ "15": {
+  "key": "95438a72d0c662a0cdb786618f84069d3bd72e73",
+  "heard": [
+   {
+    "text": "O",
+    "startMs": 30,
+    "endMs": 120
+   },
+   {
+    "text": "WhatsApp",
+    "startMs": 120,
+    "endMs": 1180
+   },
+   {
+    "text": "MCP",
+    "startMs": 1180,
+    "endMs": 1540
+   },
+   {
+    "text": "não",
+    "startMs": 1540,
+    "endMs": 1880
+   },
+   {
+    "text": "foi",
+    "startMs": 1880,
+    "endMs": 1960
+   },
+   {
+    "text": "feito",
+    "startMs": 1960,
+    "endMs": 2450
+   },
+   {
+    "text": "para",
+    "startMs": 2450,
+    "endMs": 2590
+   },
+   {
+    "text": "disparar",
+    "startMs": 2590,
+    "endMs": 3150
+   },
+   {
+    "text": "mensagens",
+    "startMs": 3150,
+    "endMs": 3780
+   },
+   {
+    "text": "em",
+    "startMs": 3780,
+    "endMs": 3920
+   },
+   {
+    "text": "massa.",
+    "startMs": 3920,
+    "endMs": 4520
+   },
+   {
+    "text": "Isso",
+    "startMs": 5180,
+    "endMs": 5190
+   },
+   {
+    "text": "vai",
+    "startMs": 5190,
+    "endMs": 5210
+   },
+   {
+    "text": "contra",
+    "startMs": 5210,
+    "endMs": 5770
+   },
+   {
+    "text": "as",
+    "startMs": 5770,
+    "endMs": 5960
+   },
+   {
+    "text": "regras",
+    "startMs": 5960,
+    "endMs": 6560
+   },
+   {
+    "text": "da",
+    "startMs": 6560,
+    "endMs": 6720
+   },
+   {
+    "text": "meta",
+    "startMs": 6720,
+    "endMs": 7140
+   },
+   {
+    "text": "e",
+    "startMs": 7140,
+    "endMs": 7210
+   },
+   {
+    "text": "pode",
+    "startMs": 7210,
+    "endMs": 7630
+   },
+   {
+    "text": "bloquear",
+    "startMs": 7630,
+    "endMs": 8060
+   },
+   {
+    "text": "o",
+    "startMs": 8060,
+    "endMs": 8140
+   },
+   {
+    "text": "seu",
+    "startMs": 8140,
+    "endMs": 8350
+   },
+   {
+    "text": "número.",
+    "startMs": 8350,
+    "endMs": 9020
+   }
+  ]
+ },
+ "16": {
+  "key": "f1b3424ff5bc482ada8b530697b1045bc3d7158a",
+  "heard": [
+   {
+    "text": "Então,",
+    "startMs": 50,
+    "endMs": 1020
+   },
+   {
+    "text": "nada",
+    "startMs": 1020,
+    "endMs": 1050
+   },
+   {
+    "text": "de",
+    "startMs": 1050,
+    "endMs": 1240
+   },
+   {
+    "text": "respostas",
+    "startMs": 1240,
+    "endMs": 2100
+   },
+   {
+    "text": "automáticas",
+    "startMs": 2100,
+    "endMs": 3200
+   },
+   {
+    "text": "ou",
+    "startMs": 3200,
+    "endMs": 3360
+   },
+   {
+    "text": "da",
+    "startMs": 3360,
+    "endMs": 3520
+   },
+   {
+    "text": "mesma",
+    "startMs": 3520,
+    "endMs": 3920
+   },
+   {
+    "text": "mensagem",
+    "startMs": 3920,
+    "endMs": 4560
+   },
+   {
+    "text": "para",
+    "startMs": 4560,
+    "endMs": 4880
+   },
+   {
+    "text": "muitos",
+    "startMs": 4880,
+    "endMs": 5360
+   },
+   {
+    "text": "contatos.",
+    "startMs": 5360,
+    "endMs": 6260
+   },
+   {
+    "text": "Ele",
+    "startMs": 7040,
+    "endMs": 7080
+   },
+   {
+    "text": "existe",
+    "startMs": 7080,
+    "endMs": 7190
+   },
+   {
+    "text": "para",
+    "startMs": 7190,
+    "endMs": 7600
+   },
+   {
+    "text": "levar",
+    "startMs": 7600,
+    "endMs": 8120
+   },
+   {
+    "text": "suas",
+    "startMs": 8120,
+    "endMs": 8530
+   },
+   {
+    "text": "conversas",
+    "startMs": 8530,
+    "endMs": 9460
+   },
+   {
+    "text": "até",
+    "startMs": 9460,
+    "endMs": 9770
+   },
+   {
+    "text": "a",
+    "startMs": 9770,
+    "endMs": 9870
+   },
+   {
+    "text": "sua",
+    "startMs": 9870,
+    "endMs": 10200
+   },
+   {
+    "text": "IA.",
+    "startMs": 10200,
+    "endMs": 10760
+   }
+  ]
+ },
+ "17": {
+  "key": "31e40aae2c548e9153e74b9645cf206a8f8a19ea",
+  "heard": [
+   {
+    "text": "Use",
+    "startMs": 40,
+    "endMs": 320
+   },
+   {
+    "text": "por",
+    "startMs": 320,
+    "endMs": 640
+   },
+   {
+    "text": "sua",
+    "startMs": 640,
+    "endMs": 960
+   },
+   {
+    "text": "conta",
+    "startMs": 960,
+    "endMs": 1500
+   },
+   {
+    "text": "e",
+    "startMs": 1500,
+    "endMs": 1600
+   },
+   {
+    "text": "risco.",
+    "startMs": 1600,
+    "endMs": 2180
+   },
+   {
+    "text": "Com",
+    "startMs": 3020,
+    "endMs": 3020
+   },
+   {
+    "text": "um",
+    "startMs": 3020,
+    "endMs": 3060
+   },
+   {
+    "text": "uso",
+    "startMs": 3060,
+    "endMs": 3170
+   },
+   {
+    "text": "normal,",
+    "startMs": 3170,
+    "endMs": 4210
+   },
+   {
+    "text": "no",
+    "startMs": 4210,
+    "endMs": 4360
+   },
+   {
+    "text": "ritmo",
+    "startMs": 4360,
+    "endMs": 4810
+   },
+   {
+    "text": "de",
+    "startMs": 4810,
+    "endMs": 4920
+   },
+   {
+    "text": "uma",
+    "startMs": 4920,
+    "endMs": 5160
+   },
+   {
+    "text": "pessoa,",
+    "startMs": 5160,
+    "endMs": 6020
+   },
+   {
+    "text": "você",
+    "startMs": 6020,
+    "endMs": 6120
+   },
+   {
+    "text": "não",
+    "startMs": 6120,
+    "endMs": 6350
+   },
+   {
+    "text": "deve",
+    "startMs": 6350,
+    "endMs": 6650
+   },
+   {
+    "text": "ter",
+    "startMs": 6650,
+    "endMs": 6880
+   },
+   {
+    "text": "problemas.",
+    "startMs": 6880,
+    "endMs": 7820
+   }
+  ]
+ },
+ "18": {
+  "key": "d84c2be9da288e384ae9350d20111180ba4d2b88",
+  "heard": [
+   {
+    "text": "O",
+    "startMs": 50,
+    "endMs": 150
+   },
+   {
+    "text": "WhatsApp",
+    "startMs": 150,
+    "endMs": 1360
+   },
+   {
+    "text": "MCP",
+    "startMs": 1360,
+    "endMs": 1810
+   },
+   {
+    "text": "é",
+    "startMs": 1810,
+    "endMs": 2260
+   },
+   {
+    "text": "gratuito",
+    "startMs": 2260,
+    "endMs": 3180
+   },
+   {
+    "text": "e",
+    "startMs": 3180,
+    "endMs": 3500
+   },
+   {
+    "text": "tem",
+    "startMs": 3500,
+    "endMs": 3510
+   },
+   {
+    "text": "código",
+    "startMs": 3510,
+    "endMs": 3990
+   },
+   {
+    "text": "aberto",
+    "startMs": 3990,
+    "endMs": 4470
+   },
+   {
+    "text": "no",
+    "startMs": 4470,
+    "endMs": 4630
+   },
+   {
+    "text": "GitHub.",
+    "startMs": 4630,
+    "endMs": 5400
+   }
+  ]
+ },
+ "19": {
+  "key": "43f12e0beaaaf86d82cd65f5144e294b61d3ab0a",
+  "heard": [
+   {
+    "text": "Baixe",
+    "startMs": 40,
+    "endMs": 490
+   },
+   {
+    "text": "agora",
+    "startMs": 490,
+    "endMs": 990
+   },
+   {
+    "text": "mesmo",
+    "startMs": 990,
+    "endMs": 1570
+   },
+   {
+    "text": "para",
+    "startMs": 1570,
+    "endMs": 1970
+   },
+   {
+    "text": "Mac,",
+    "startMs": 1970,
+    "endMs": 2650
+   },
+   {
+    "text": "Windows",
+    "startMs": 2650,
+    "endMs": 3490
+   },
+   {
+    "text": "ou",
+    "startMs": 3490,
+    "endMs": 3750
+   },
+   {
+    "text": "Linux",
+    "startMs": 3750,
+    "endMs": 4480
+   },
+   {
+    "text": "no",
+    "startMs": 4480,
+    "endMs": 4590
+   },
+   {
+    "text": "link",
+    "startMs": 4590,
+    "endMs": 4900
+   },
+   {
+    "text": "aqui",
+    "startMs": 4900,
+    "endMs": 5190
+   },
+   {
+    "text": "na",
+    "startMs": 5190,
+    "endMs": 5330
+   },
+   {
+    "text": "tela.",
+    "startMs": 5330,
+    "endMs": 5660
+   }
+  ]
+ }
+}
