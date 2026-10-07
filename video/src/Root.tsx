@@ -4,7 +4,7 @@ import { Explainer } from "./Video";
 import { buildTimeline, FPS, HEIGHT, WIDTH } from "./timeline";
 import { VERSIONS } from "./versions";
 
-// Each version is a composition named after it ("longo", "curto"), and its
+// Each version is a composition named after it ("curto"), and its
 // poster a still: the ring of tools with the WhatsApp in it, at the end of the
 // first scene, after its last subtitle.
 export const Root: React.FC = () => (

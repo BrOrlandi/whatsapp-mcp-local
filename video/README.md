@@ -5,20 +5,17 @@ O vídeo "Veja como funciona" de https://whatsapp-mcp.brorlandi.xyz, feito com
 e legenda gravada na imagem. O que está no site fica em
 `site/assets/video/como-funciona.mp4`, com o pôster em `como-funciona.jpg`.
 
-## As versões
+## A versão
 
-| Versão | Duração | Roteiro | Composição |
-| --- | --- | --- | --- |
-| `longo` | 2:34 | `narration/longo.json` | `longo` |
-| `curto` | 1:06 | `narration/curto.json` | `curto` |
-
-As duas contam a mesma história com as mesmas cenas. A curta tem o roteiro
-enxuto, a voz acelerada (`"tempo": 1.4`) e cenas com menos respiro. O ritmo de
-cada uma e as palavras em que as animações disparam estão em `src/versions.ts`.
+O vídeo é o corte `curto` (1:06), com o roteiro em `narration/curto.json`: a voz
+acelerada (`"tempo": 1.4`) e cenas com pouco respiro. O ritmo e as palavras em
+que as animações disparam estão em `src/versions.ts`, que aceita mais de um
+corte com as mesmas cenas. O primeiro, `longo` (2:34, na voz em velocidade
+normal), foi substituído por este e está no histórico do git (commit `59d0b60`).
 
 ## A voz
 
-As duas versões usam a mesma voz, que é a escolhida para os vídeos do projeto:
+A voz escolhida para os vídeos do projeto:
 
 | | |
 | --- | --- |
@@ -35,11 +32,11 @@ cada roteiro, junto com o modelo e a voz.
 O TTS não repete a mesma gravação: com a mesma voz e a mesma instrução, o
 timbre é o mesmo, mas cada geração sai com uma leitura um pouco diferente. Por
 isso as gravações usadas ficam no repositório: `public/narration/<versão>/`
-(o que toca no vídeo) e, na versão curta, `narration/takes/curto/` (a leitura
-original, antes de acelerar). Mudar a velocidade só estica de novo essas
+(o que toca no vídeo) e `narration/takes/<versão>/` (a leitura original, antes
+de acelerar). Mudar a velocidade só estica de novo essas
 gravações; mudar uma fala gera só aquela fala de novo.
 
-Para acelerar, a versão curta usa o `atempo` do ffmpeg, que mantém o tom da
+Para acelerar, o roteiro usa o `atempo` do ffmpeg, que mantém o tom da
 voz. Pedir ao modelo para falar mais rápido mudaria a entonação.
 
 Outros testes, para referência: o `gemini-3.8-flash-tts` lê a instrução de

@@ -1,92 +1,14 @@
-import longoNarration from "./narration/longo.json";
 import curtoNarration from "./narration/curto.json";
 import type { Clip, Cue, Version } from "./timeline";
 
-// The two cuts of the video. Both tell the same story with the same scenes;
-// they differ in the script (narration/<id>.json), in the pace, and so in the
-// words each animation fires on.
+// The cuts of the video. A cut is a script (narration/<id>.json), a pace, and
+// the words each animation fires on; the scenes are the same for every cut.
+// The first one, "longo" (2:34), was replaced by "curto" and lives in git
+// history (commit 59d0b60).
 
 const w = (clip: string, word: string, offset = 0, nth = 0): Cue => ({ clip, word, offset, nth });
 const start = (clip: string, offset = 0): Cue => ({ clip, at: "start", offset });
 const end = (clip: string, offset = 0): Cue => ({ clip, at: "end", offset });
-
-/** The first cut, 2:34, at the voice's own pace. */
-export const longo: Version = {
-  id: "longo",
-  narration: longoNarration as Clip[],
-  lead: { ecosystem: 1.2, brand: 0.5, download: 0.5, qr: 0.6, choose: 0.5, features: 0.5, warning: 0.6, cta: 0.5 },
-  tail: { ecosystem: 0.7, brand: 1.0, download: 1.5, qr: 0.8, choose: 1.2, features: 1.2, warning: 1.0, cta: 3.5 },
-  pauses: { "02": 0.3, "03": 0.6, "04": 1.4, "08": 1.8, "10": 0.6, "11": 0, "12": 0.5, "13": 0.5, "15": 0.5, "16": 0.6, "17": 0.6, "19": 0.4 },
-  pause: 0.4,
-  enter: 16,
-  out: 12,
-  cues: {
-    "tools.gather": w("01", "conecta", -6),
-    "tools.gmail": w("02", "Gmail"),
-    "tools.agenda": w("02", "agenda"),
-    "tools.drive": w("02", "Drive"),
-    "tools.slack": w("02", "Slack"),
-    "tools.notion": w("02", "Notion"),
-    "tools.jira": w("02", "Jira"),
-    "tools.github": w("02", "GitHub"),
-    "tools.all": w("02", "Tudo"),
-    "tools.dim": start("03"),
-    "tools.alone": w("03", "fora", -4),
-    "tools.named": w("03", "WhatsApp"),
-    "tools.solved": w("04", "resolvido", -2),
-    "brand.tag1": w("05", "seu", -4),
-    "brand.tag2": w("05", "direto", -4),
-    "download.mac": w("06", "Mac", -3),
-    "download.windows": w("06", "Windows", -3),
-    "download.linux": w("06", "Linux", -3),
-    "download.click": w("06", "Linux", 8),
-    "download.end": end("06"),
-    "qr.qr": w("07", "QR"),
-    "qr.phone": w("07", "celular", -6),
-    "qr.devices": w("07", "Dispositivos"),
-    "qr.aim": w("07", "aponte"),
-    "qr.ok": start("08", -10),
-    "choose.scroll": start("09", 6),
-    "choose.pick": w("09", "passo", 0, 1),
-    "choose.add": w("10", "clique"),
-    "choose.side": w("10", "Codex", -10),
-    "choose.codex": w("10", "Codex", -4),
-    "choose.cursor": w("10", "Cursor", -4),
-    "choose.others": w("10", "outras", -4),
-    "choose.paste": w("10", "texto", -4),
-    "choose.copied": w("10", "colar"),
-    "features.ask1": start("11", 20),
-    "features.read": w("12", "ler"),
-    "features.sum": w("12", "resumir", -14),
-    "features.ask2": start("13", -2),
-    "features.sent": w("13", "envia"),
-    "features.f0": w("12", "conversas", -3),
-    "features.f1": w("12", "achar", -3),
-    "features.f2": w("12", "resumir", -3),
-    "features.f3": w("13", "responde", -3),
-    "features.f4": w("13", "fotos", -3),
-    "features.f5": w("13", "transcreve", -3),
-    "features.f6": w("13", "enquetes", -3),
-    "warning.sign": start("14", -6),
-    "warning.head": start("15"),
-    "warning.rules": w("15", "regras", -4),
-    "warning.block": w("15", "bloquear", -4),
-    "warning.list": start("16"),
-    "warning.auto": w("16", "respostas", -4),
-    "warning.same": w("16", "mesma", -4),
-    "warning.purpose": w("16", "levar", -4),
-    "warning.risk": start("17"),
-    "warning.normal": w("17", "normal", -4),
-    "cta.free": w("18", "gratuito", -4),
-    "cta.open": w("18", "codigo", -4),
-    "cta.github": w("18", "GitHub", -4),
-    "cta.download": w("19", "Baixe", -4),
-    "cta.link": w("19", "link"),
-    "cta.mac": w("19", "Mac", -4),
-    "cta.windows": w("19", "Windows", -4),
-    "cta.linux": w("19", "Linux", -4),
-  },
-};
 
 /** The one-minute cut: a tighter script, the voice sped up, shorter scenes. */
 export const curto: Version = {
@@ -161,4 +83,4 @@ export const curto: Version = {
   },
 };
 
-export const VERSIONS = [longo, curto];
+export const VERSIONS = [curto];
