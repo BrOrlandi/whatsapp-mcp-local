@@ -16,6 +16,23 @@ Other branches get preview deployments. A manual deploy runs from the repository
 this repository's latest release by the fixed asset names, and `/servidor` is a separate page
 for the server project, whose links all point at `BrOrlandi/whatsapp-mcp`.
 
+## wacli version
+
+The app ships one wacli, pinned in `build/wacli.env` (the version and the sha256 of each system,
+from that release's `checksums.txt`); it is what talks to WhatsApp, through whatsmeow. Bruno
+watches the releases of `openclaw/wacli` on GitHub. When building a feature or changing the
+code, check whether a newer wacli is out:
+
+```sh
+. build/wacli.env; echo "pinned v$WACLI_VERSION, latest $(gh release view -R openclaw/wacli --json tagName -q .tagName)"
+```
+
+If it is newer, read its release notes and tell Bruno. A release that fixes the connection after
+a change on WhatsApp's side (a whatsmeow update, pairing, sync, sending) is worth a patch release
+of its own that only bumps `build/wacli.env`; anything else can wait for the next release. Before
+bumping, run the tests and check the Status tab and the chat previews: the database schema can
+change between versions (`docs/dependencias.md#wacli`).
+
 ## Release & Changelog
 
 Structured convention: `.claude/release.json` (read by the `release` skill). Process:
