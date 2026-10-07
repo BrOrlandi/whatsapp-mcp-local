@@ -74,6 +74,18 @@
     var form = card.querySelector("[data-webhook-form]");
     var formError = card.querySelector("[data-webhook-error]");
     var secretBox = card.querySelector("[data-webhook-secret]");
+    var intro = card.querySelector("[data-webhooks-intro]");
+    var cancel = form.querySelector("[data-webhook-cancel]");
+    // With no webhook the card only says the feature exists; the form opens
+    // when someone sets up the first one.
+    var count = 0, adding = false;
+    var layout = function () {
+      var open = count > 0 || adding;
+      empty.hidden = open;
+      intro.hidden = !open;
+      form.hidden = !open;
+      cancel.hidden = count > 0;
+    };
     var EVENTS = { message: "Mensagens", reaction: "Reações", receipt: "Entregas e leituras" };
     // What a row last said (a test's result, an error), kept across the
     // refreshes that redraw the list.
@@ -137,8 +149,9 @@
         card.querySelector("[data-webhooks-unavailable]").hidden = data.available !== false;
         list.textContent = "";
         (data.webhooks || []).forEach(function (w) { list.appendChild(row(w)); });
-        list.hidden = !(data.webhooks || []).length;
-        empty.hidden = !list.hidden;
+        count = (data.webhooks || []).length;
+        list.hidden = !count;
+        layout();
       }).catch(function (e) {
         loading.hidden = false;
         loading.textContent = "Não foi possível ler os webhooks: " + e.message;
@@ -158,6 +171,7 @@
         include_own: form.querySelector("[data-webhook-own]").checked
       }).then(function (r) {
         form.reset();
+        adding = false;
         secretBox.querySelector("[data-webhook-secret-value]").textContent = r.secret;
         secretBox.hidden = false;
         secretBox.scrollIntoView({ block: "nearest" });
@@ -166,6 +180,18 @@
         formError.textContent = e.message;
         formError.hidden = false;
       }).then(function () { submit.disabled = false; });
+    });
+
+    card.querySelector("[data-webhook-start]").addEventListener("click", function () {
+      adding = true;
+      layout();
+      form.querySelector("[data-webhook-url]").focus();
+    });
+    cancel.addEventListener("click", function () {
+      adding = false;
+      form.reset();
+      formError.hidden = true;
+      layout();
     });
 
     var copyKey = secretBox.querySelector("[data-webhook-secret-copy]");

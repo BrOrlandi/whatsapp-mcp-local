@@ -526,6 +526,16 @@ steps for that one, which end when it connects. No tabs on the way. */}}
 </ul>
 <div class="note"><p style="margin:0">Quer ir além? As <a href="/receitas">Receitas</a> trazem pedidos prontos para agendar mensagens, vigiar assuntos, resumir grupos e mais.</p></div>
 </div></section>
+
+<section class="card" id="transcrever">
+<div class="card__head"><h2 class="card__title">{{icon "mic"}}Transcrever áudios</h2></div>
+<div class="card__body stack">
+<p class="muted">Com a <a href="/configuracoes#transcricao">transcrição de áudio</a> instalada, os áudios viram texto aqui mesmo, com o Whisper: de graça, e o áudio não sai do computador. Nada é transcrito sem você pedir. O nome da conversa, as pessoas e as últimas mensagens entram como contexto, e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho.</p>
+<p class="muted">Peça algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve na hora, confere com a conversa e guarda a versão corrigida.</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">Exemplo</span></div>
+<pre class="plain" data-copy><code>Transcreva os áudios que recebi hoje no WhatsApp.</code></pre></div>
+<p class="muted" style="margin:0">Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado.</p>
+</div></section>
 {{template "foot" .}}{{end}}
 
 {{define "receitas"}}{{template "head" .}}{{template "nav" .}}
@@ -616,18 +626,18 @@ steps for that one, which end when it connects. No tabs on the way. */}}
 <section class="card" id="webhooks" data-webhooks>
 <div class="card__head"><h2 class="card__title">{{icon "code"}}Webhooks</h2><a class="btn btn--ghost btn--small" href="/webhooks/documentacao">{{icon "book"}}Documentação</a></div>
 <div class="card__body stack">
-<p class="muted">Avisam um programa seu a cada mensagem nova que chega, para ele agir sozinho: responder, registrar numa planilha, avisar em outro lugar. São para quem usa scripts ou automações. <span class="tip" tabindex="0" aria-describedby="tip-webhooks"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-webhooks">A cada mensagem, o WhatsApp MCP faz um POST com JSON no endereço, assinado com a chave do webhook. Se o endereço não responder com sucesso, ele tenta de novo até 10 vezes em menos de um minuto; depois disso o webhook é desligado e os avisos que esperavam são descartados. O formato de cada aviso está em Documentação, no alto deste card.</span></span></p>
+<p class="muted" data-webhooks-intro hidden>Avisam um programa seu a cada mensagem nova que chega, para ele agir sozinho: responder, registrar numa planilha, avisar em outro lugar. São para quem usa scripts ou automações. <span class="tip" tabindex="0" aria-describedby="tip-webhooks"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-webhooks">A cada mensagem, o WhatsApp MCP faz um POST com JSON no endereço, assinado com a chave do webhook. Se o endereço não responder com sucesso, ele tenta de novo até 10 vezes em menos de um minuto; depois disso o webhook é desligado e os avisos que esperavam são descartados. O formato de cada aviso está em Documentação, no alto deste card.</span></span></p>
 <p class="note" data-webhooks-unavailable hidden>O wacli instalado não avisa mensagens novas: atualize-o para os webhooks funcionarem.</p>
 <p class="busy" data-webhooks-loading role="status"><span class="spinner" aria-hidden="true"></span>Carregando…</p>
 <ul class="rows" data-webhooks-list hidden></ul>
-<div class="empty" data-webhooks-empty hidden><p class="empty__title">Nenhum webhook ainda</p><p class="muted" style="margin:6px 0 0">Adicione abaixo o endereço do seu programa.</p></div>
+<div class="empty" data-webhooks-empty hidden><p class="empty__title">Nenhum webhook configurado</p><p class="muted" style="margin:6px 0 12px">Avisam um programa seu a cada mensagem nova, para quem usa scripts ou automações.</p><button class="btn btn--ghost btn--small" type="button" data-webhook-start>Configurar o primeiro webhook</button></div>
 <div class="secret" data-webhook-secret hidden>
 <p class="secret__title">Webhook adicionado. Guarde a chave dele</p>
 <p class="muted" style="margin:0">Ela não aparece de novo. Com ela, o seu programa confere que cada aviso veio mesmo do WhatsApp MCP.</p>
 <code class="secret__value" data-webhook-secret-value></code>
 <div class="actions"><button class="btn btn--ghost btn--small" type="button" data-webhook-secret-copy>Copiar a chave</button><button class="btn btn--quiet btn--small" type="button" data-webhook-secret-close>Já guardei</button></div>
 </div>
-<form class="stack" data-webhook-form>
+<form class="stack" data-webhook-form hidden>
 <h3 class="card__sub">Adicionar um webhook</h3>
 <label class="field" for="webhook-url"><span class="field__label">Endereço</span><span class="field__hint">O endereço do seu programa, começando com http:// ou https://.</span></label>
 <input id="webhook-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:8080/whatsapp" required data-webhook-url>
@@ -636,34 +646,31 @@ steps for that one, which end when it connects. No tabs on the way. */}}
 <label class="check"><input type="checkbox" value="reaction" data-webhook-event><span>Alguém reagir a uma mensagem</span></label>
 <label class="check"><input type="checkbox" value="receipt" data-webhook-event><span>Uma mensagem sua for entregue, lida ou ouvida</span></label>
 <label class="check"><input type="checkbox" data-webhook-own><span>Incluir as mensagens que você manda<span class="check__hint">Do celular ou pela sua ferramenta de IA.</span></span></label>
-<div class="actions"><button class="btn btn--small" type="submit">Adicionar webhook</button></div>
+<div class="actions"><button class="btn btn--small" type="submit">Adicionar webhook</button><button class="btn btn--quiet btn--small" type="button" data-webhook-cancel hidden>Cancelar</button></div>
 <p class="alert" role="alert" data-webhook-error hidden></p>
 </form>
 </div></section>
 
 <section class="card" id="transcricao" data-asr>
-<div class="card__head"><h2 class="card__title">{{icon "mic"}}Transcrição de áudio</h2>{{if .Local.Ready}}<span class="pill pill--ok">Ativa</span>{{else}}<span class="pill pill--off">Não instalada</span>{{end}}</div>
+<div class="card__head"><h2 class="card__title">{{icon "mic"}}Transcrição de áudio</h2>{{if .Local.Ready}}<span class="pill pill--ok">Ativa</span>{{else if .Local.Supported}}<span class="pill pill--off">Não instalada</span>{{else}}<span class="pill pill--off">Indisponível</span>{{end}}</div>
 <div class="card__body stack">
 {{if .Local.Ready}}
-<p class="muted">Quando você pede à sua ferramenta de IA para ler um áudio, ele é transcrito aqui mesmo, com o Whisper (large-v3-turbo) rodando {{accel .Local.Accel}}: grátis, e o áudio não sai do computador. Nada é transcrito sem você pedir. O nome da conversa, as pessoas e as últimas mensagens entram como contexto, e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho.</p>
-<dl class="facts">
-<div class="fact"><dt>Áudios transcritos</dt><dd>{{.Total}}</dd></div>
-<div class="fact"><dt>Corrigidos pelo contexto</dt><dd>{{.Corrected}}</dd></div>
-</dl>
+<p class="muted">Os áudios viram texto neste computador, com o Whisper rodando {{accel .Local.Accel}}, só quando você pede.</p>
 {{else if .Local.Supported}}
-<p class="muted">Transcreva os áudios aqui mesmo, de graça e sem o áudio sair do computador, com o Whisper (large-v3-turbo) rodando {{accel .Local.Accel}}. A instalação baixa cerca de 600 MB, uma vez só.</p>
+<p class="muted">Este computador consegue transcrever os áudios sem que eles saiam daqui. A instalação baixa cerca de 600 MB, uma vez só.</p>
 <div class="actions"><button class="btn" type="button" data-asr-install>Instalar a transcrição local</button></div>
 <p class="busy" data-asr-progress role="status"{{if ne .Local.Install.State "running"}} hidden{{end}}><span class="spinner" aria-hidden="true"></span><span data-asr-step>{{.Local.Install.Step}}</span></p>
 {{if eq .Local.Install.State "error"}}<p class="alert" role="alert">{{.Local.Install.Error}}</p>{{end}}
 {{else}}
-<p class="muted">A transcrição neste computador ainda não está disponível para este sistema. Enquanto isso, a sua ferramenta de IA pode baixar o áudio e transcrevê-lo do jeito que preferir.</p>
+<p class="muted">A transcrição ainda não está disponível para este sistema.</p>
 {{end}}
-{{if and .Local.Supported (eq .Local.Accel "cpu")}}<p class="note">Este computador não tem uma placa de vídeo que o Whisper aproveite, então ele roda no processador: cada áudio leva mais ou menos o próprio tempo para ser transcrito. Funciona, só é mais lento.</p>{{end}}
-<h3 class="card__sub">Como usar</h3>
-<p class="muted">Peça à sua ferramenta de IA algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve na hora, confere com a conversa e guarda a versão corrigida.</p>
-<div class="snippet"><div class="snippet__head"><span class="snippet__title">Exemplo</span></div>
-<pre class="plain" data-copy><code>Transcreva os áudios que recebi hoje no WhatsApp.</code></pre></div>
-<p class="muted">Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado.</p>
+{{if and .Local.Supported (eq .Local.Accel "cpu")}}<p class="note">Sem uma placa de vídeo que o Whisper aproveite, ele roda no processador: cada áudio leva mais ou menos o próprio tempo para ser transcrito.</p>{{end}}
+{{if .Local.Supported}}<details class="disclose"><summary><span style="display:inline-flex;align-items:center;gap:6px">{{icon "help"}}Como usar</span></summary>
+<div class="stack">
+<p class="muted" style="margin:0">Peça à sua ferramenta de IA algo como:</p>
+<div class="snippet"><pre class="plain" data-copy><code>Transcreva os áudios que recebi hoje no WhatsApp.</code></pre></div>
+<p class="muted" style="margin:0">Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado. Mais detalhes na <a href="/ajuda#transcrever">Ajuda</a>.</p>
+</div></details>{{end}}
 </div></section>
 
 {{if .App}}
