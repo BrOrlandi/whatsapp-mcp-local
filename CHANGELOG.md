@@ -28,13 +28,10 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 - **Marcar como resolvido ou adiar.** O que você já resolveu sai da lista até
   alguém escrever de novo; adiar faz a conversa voltar na hora marcada. Fica só
   no seu computador: a outra pessoa não vê nada.
-- **Números e arquivos grandes.** A IA conta mensagens por conversa,
+- **Contar e exportar mensagens.** A IA conta mensagens por conversa,
   pessoa, dia ou mês sem ler tudo, lê só o pedaço necessário de conversas
   longas, mostra o que veio antes e depois de uma mensagem e exporta conversas
   inteiras para um arquivo.
-- **Ler fotos e documentos que chegaram.** Uma foto chega à IA como
-  imagem; um PDF, um Word ou uma planilha do Excel, como texto; um PDF
-  escaneado, como imagens das páginas. Tudo no seu computador.
 - **Conectar outras ferramentas de IA.** Cada uma tem o seu passo a passo:
   Claude Desktop, Claude Code, ChatGPT / Codex, Cursor ou outra. O Codex e o
   Cursor se configuram com um clique, o passo a passo termina sozinho quando a
@@ -50,7 +47,8 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
   testa, desliga e apaga cada um, e vê quando foi a última entrega; um webhook
   que para de responder é desligado sozinho. Uma página de documentação mostra
   o JSON de cada tipo de aviso e como conferir que ele veio do app. Também dá
-  para configurar pela [API local](docs/api.md#webhooks).
+  para configurar pela [API local](docs/api.md#webhooks). A IA sabe que eles
+  existem e os sugere quando você pede para ser avisado de mensagens novas.
 
 ### Mudou
 
@@ -61,7 +59,12 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 - No Mac, o `.dmg` mostra para arrastar o app para Aplicativos.
 - Arquivar, fixar e silenciar uma conversa não pausam mais o recebimento de
   mensagens.
-- O app ficou cerca de 10 MB maior, por causa do leitor de PDF.
+- **Arquivos grandes chegam por link.** Fotos, áudios e documentos continuam
+  chegando à IA inteiros, do jeito que vieram no WhatsApp; um arquivo de mais
+  de 20 MB, ou um que a ferramenta não aceite, vem por um link deste
+  computador.
+- A transcrição de áudio, em Configurações, mostra só se está ativa; como usar
+  foi para a Ajuda.
 
 Inclui o wacli 0.20.0.
 
