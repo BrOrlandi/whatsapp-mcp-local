@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BrandMark, Rise } from "../components";
 import { C, ease, lerp, pop } from "../theme";
-import { clipStart, scene, wordAt } from "../timeline";
+import { useScene } from "../timeline";
 
 // "Feito isso, é só pedir. A sua IA pode ler as suas conversas e os seus
 // grupos, achar aquela mensagem de meses atrás e resumir o que você perdeu.
@@ -19,13 +19,13 @@ const icon = (d: string) => (
 );
 
 const FEATURES = [
-  { label: "Ler conversas e grupos", clip: "12", word: "conversas", d: "M5 5h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9.5L6 19v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM7 9.5h7M7 12.5h4.5" },
-  { label: "Achar mensagens antigas", clip: "12", word: "achar", d: "M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM15.4 15.4L20 20" },
-  { label: "Resumir o que você perdeu", clip: "12", word: "resumir", d: "M5 6h14M5 10h14M5 14h9M5 18h6" },
-  { label: "Responder e enviar mensagens", clip: "13", word: "responde", d: "M4 12L20 4l-6 16-2.6-6.4L4 12zM11.4 13.6L20 4" },
-  { label: "Mandar fotos e arquivos", clip: "13", word: "fotos", d: "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM4 16l4.5-4.5 4 4L15 13l5 5M15.5 8.5h.01" },
-  { label: "Transcrever áudios", clip: "13", word: "transcreve", d: "M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" },
-  { label: "Criar enquetes", clip: "13", word: "enquetes", d: "M6 20V11M12 20V4M18 20v-6" },
+  { label: "Ler conversas e grupos", d: "M5 5h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H9.5L6 19v-3H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM7 9.5h7M7 12.5h4.5" },
+  { label: "Achar mensagens antigas", d: "M10.5 4a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM15.4 15.4L20 20" },
+  { label: "Resumir o que você perdeu", d: "M5 6h14M5 10h14M5 14h9M5 18h6" },
+  { label: "Responder e enviar mensagens", d: "M4 12L20 4l-6 16-2.6-6.4L4 12zM11.4 13.6L20 4" },
+  { label: "Mandar fotos e arquivos", d: "M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM4 16l4.5-4.5 4 4L15 13l5 5M15.5 8.5h.01" },
+  { label: "Transcrever áudios", d: "M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" },
+  { label: "Criar enquetes", d: "M6 20V11M12 20V4M18 20v-6" },
 ];
 
 /** What the composer shows while a request is being typed. */
@@ -68,14 +68,13 @@ const Tool: React.FC<{ at: number; done: number; busy: string; label: string }> 
 
 export const Features: React.FC = () => {
   const f = useCurrentFrame();
-  const s = scene("features");
-  const at = (abs: number) => abs - s.from;
+  const s = useScene("features");
 
-  const ask1 = at(clipStart("11")) + 20;
-  const read = at(wordAt("12", "ler"));
-  const sum = at(wordAt("12", "resumir")) - 14;
-  const ask2 = at(clipStart("13")) - 2;
-  const sent = at(wordAt("13", "envia"));
+  const ask1 = s.cue("features.ask1");
+  const read = s.cue("features.read");
+  const sum = s.cue("features.sum");
+  const ask2 = s.cue("features.ask2");
+  const sent = s.cue("features.sent");
 
   const composer =
     typed(f, "Resume o que rolou hoje no grupo da família", ask1 - 24, ask1 - 4) ||
@@ -183,7 +182,7 @@ export const Features: React.FC = () => {
           A sua IA pode:
         </Rise>
         {FEATURES.map((ft, i) => {
-          const t = pop(f, at(wordAt(ft.clip, ft.word)) - 3, 14);
+          const t = pop(f, s.cue(`features.f${i}`), 14);
           return (
             <div
               key={ft.label}

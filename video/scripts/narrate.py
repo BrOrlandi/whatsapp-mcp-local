@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Generates the narration: one clip per line of narration/script.json.
+"""Generates the narration of one version of the video: one clip per line of
+narration/<version>.json.
 
 Each clip is spoken by Gemini TTS, trimmed of the silence at its ends, kept as
 an MP3 (so the repository holds the takes the video was cut to), and
@@ -7,8 +8,12 @@ transcribed back with whisper.cpp to time every word, which is what the
 subtitles and the scenes follow. A clip whose text, voice, model and style did
 not change is not generated again, so editing one line costs one request.
 
-    GEMINI_API_KEY=... python3 scripts/narrate.py          # from video/
-    python3 scripts/narrate.py --force 07                  # redo one clip
+A version may set a "tempo" above 1 to speed the voice up without changing its
+pitch. The take as the model spoke it is then kept in narration/takes/, and
+changing the tempo only stretches it again.
+
+    GEMINI_API_KEY=... python3 scripts/narrate.py curto     # from video/
+    python3 scripts/narrate.py curto --force 07             # redo one clip
 
 Needs ffmpeg and whisper-cli on the PATH, and a whisper model (WHISPER_MODEL;
 by default the one the app installs for transcription).
@@ -28,10 +33,6 @@ import wave
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCRIPT = ROOT / "narration" / "script.json"
-CACHE = ROOT / "narration" / "cache.json"
-OUT_DIR = ROOT / "public" / "narration"
-TIMELINE = ROOT / "src" / "narration.json"
 MODEL = os.environ.get(
     "WHISPER_MODEL",
     str(Path.home() / "Library/Application Support/WhatsApp MCP/models/ggml-large-v3-turbo-q5_0.bin"),
@@ -63,16 +64,25 @@ def tts(model, voice, style, text):
     return Path(path).read_bytes()
 
 
+MP3 = ["-ar", "48000", "-ac", "1", "-c:a", "libmp3lame", "-b:a", "192k"]
+
+
 def trim(raw: bytes, out: Path):
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
         f.write(raw)
         src = f.name
     edge = "silenceremove=start_periods=1:start_silence=0.04:start_threshold=-45dB"
+    out.parent.mkdir(parents=True, exist_ok=True)
     subprocess.run(
-        ["ffmpeg", "-loglevel", "error", "-y", "-i", src, "-af", f"{edge},areverse,{edge},areverse",
-         "-ar", "48000", "-ac", "1", "-c:a", "libmp3lame", "-b:a", "192k", str(out)],
+        ["ffmpeg", "-loglevel", "error", "-y", "-i", src, "-af", f"{edge},areverse,{edge},areverse", *MP3, str(out)],
         check=True,
     )
+
+
+def stretch(take: Path, out: Path, tempo: float):
+    """Speeds a take up by `tempo`, keeping the pitch of the voice."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(take), "-af", f"atempo={tempo}", *MP3, str(out)], check=True)
 
 
 def duration_ms(path: Path) -> int:
@@ -144,19 +154,26 @@ def similar(text: str, heard: list) -> float:
 
 
 def main():
-    script = json.loads(SCRIPT.read_text())
-    cache = json.loads(CACHE.read_text()) if CACHE.exists() else {}
-    force = set(sys.argv[sys.argv.index("--force") + 1:]) if "--force" in sys.argv else set()
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    args = [a for a in sys.argv[1:] if a != "--force"]
+    if not args:
+        sys.exit("usage: narrate.py <version> [--force id ...]")
+    version, force = args[0], set(args[1:])
+    script_file = ROOT / "narration" / f"{version}.json"
+    cache_file = ROOT / "narration" / f"{version}.cache.json"
+    timeline_file = ROOT / "src" / "narration" / f"{version}.json"
+    script = json.loads(script_file.read_text())
+    cache = json.loads(cache_file.read_text()) if cache_file.exists() else {}
+    tempo = script.get("tempo", 1)
     timeline = []
     for clip in script["clips"]:
         key = hashlib.sha1(json.dumps([script["model"], script["voice"], script["style"], clip["text"]]).encode()).hexdigest()
-        out = OUT_DIR / f"{clip['id']}.mp3"
+        out = ROOT / "public" / "narration" / version / f"{clip['id']}.mp3"
+        take = out if tempo == 1 else ROOT / "narration" / "takes" / version / f"{clip['id']}.mp3"
         entry = cache.get(clip["id"])
-        if clip["id"] in force or not out.exists() or not entry or entry["key"] != key:
+        if clip["id"] in force or not take.exists() or not entry or entry["key"] != key:
             for attempt in range(5):
-                trim(tts(script["model"], script["voice"], script["style"], clip["text"]), out)
-                heard = transcribe(out)
+                trim(tts(script["model"], script["voice"], script["style"], clip["text"]), take)
+                heard = transcribe(take)
                 score = similar(clip["text"], heard)
                 print(f"{clip['id']} attempt {attempt + 1}: {score:.2f} {' '.join(h['text'] for h in heard)}")
                 # The model sometimes reads the style instruction aloud, or
@@ -165,15 +182,19 @@ def main():
                     break
             else:
                 sys.exit(f"clip {clip['id']} never matched its text")
-            entry = {"key": key, "heard": heard}
-            cache[clip["id"]] = entry
-            CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1) + "\n")
+            entry = {"key": key, "tempo": 1, "heard": heard}
+        if take != out and (not out.exists() or entry.get("tempo") != tempo):
+            stretch(take, out, tempo)
+            entry = {**entry, "tempo": tempo, "heard": transcribe(out)}
+        cache[clip["id"]] = entry
+        cache_file.write_text(json.dumps(cache, ensure_ascii=False, indent=1) + "\n")
         total = duration_ms(out)
         timeline.append({
-            "id": clip["id"], "scene": clip["scene"], "text": clip["text"], "file": f"narration/{clip['id']}.mp3",
+            "id": clip["id"], "scene": clip["scene"], "text": clip["text"], "file": f"narration/{version}/{clip['id']}.mp3",
             "durationMs": total, "words": align(clip["text"], entry["heard"], total),
         })
-    TIMELINE.write_text(json.dumps(timeline, ensure_ascii=False, indent=1) + "\n")
+    timeline_file.parent.mkdir(parents=True, exist_ok=True)
+    timeline_file.write_text(json.dumps(timeline, ensure_ascii=False, indent=1) + "\n")
     print(f"{len(timeline)} clips, {sum(c['durationMs'] for c in timeline) / 1000:.1f}s of narration")
 
 

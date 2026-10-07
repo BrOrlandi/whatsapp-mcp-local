@@ -5,8 +5,7 @@
   "scripts": {
     "studio": "remotion studio",
     "narrate": "python3 scripts/narrate.py",
-    "render": "remotion render Explainer out/whatsapp-mcp.mp4",
-    "publish": "bash scripts/publish.sh",
+    "render": "bash scripts/render.sh",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

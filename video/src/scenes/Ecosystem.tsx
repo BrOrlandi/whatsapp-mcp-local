@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { LogoTile } from "../components";
 import { C, ease, lerp, pop } from "../theme";
-import { clipStart, scene, wordAt } from "../timeline";
+import { useScene } from "../timeline";
 
 // "Hoje, você conecta todas as suas ferramentas de trabalho à sua IA
 // preferida" — the tools gather around Claude; "só falta o WhatsApp", alone in
@@ -14,15 +14,16 @@ const RX = 430;
 const RY = 300;
 const TILE = 104;
 
-type Tool = { logo: string; label: string; word?: string };
+// `cue` names the word that lights a tool up, where the narration says it.
+type Tool = { logo: string; label: string; cue?: string };
 const TOOLS: Tool[] = [
-  { logo: "gmail", label: "Gmail", word: "Gmail" },
-  { logo: "google-calendar", label: "Agenda", word: "agenda" },
-  { logo: "google-drive", label: "Drive", word: "Drive" },
-  { logo: "slack", label: "Slack", word: "Slack" },
-  { logo: "notion", label: "Notion", word: "Notion" },
-  { logo: "jira", label: "Jira", word: "Jira" },
-  { logo: "github", label: "GitHub", word: "GitHub" },
+  { logo: "gmail", label: "Gmail", cue: "gmail" },
+  { logo: "google-calendar", label: "Agenda", cue: "agenda" },
+  { logo: "google-drive", label: "Drive", cue: "drive" },
+  { logo: "slack", label: "Slack", cue: "slack" },
+  { logo: "notion", label: "Notion", cue: "notion" },
+  { logo: "jira", label: "Jira", cue: "jira" },
+  { logo: "github", label: "GitHub", cue: "github" },
   { logo: "figma", label: "Figma" },
   { logo: "linear", label: "Linear" },
   { logo: "asana", label: "Asana" },
@@ -36,15 +37,14 @@ const onRing = (a: number) => ({ x: CX + RX * Math.cos(a), y: CY + RY * Math.sin
 
 export const Ecosystem: React.FC = () => {
   const f = useCurrentFrame();
-  const s = scene("ecosystem");
-  const at = (abs: number) => abs - s.from;
+  const s = useScene("ecosystem");
 
-  const gather = at(wordAt("01", "conecta")) - 6;
-  const all = at(wordAt("02", "Tudo"));
-  const alone = at(wordAt("03", "fora")) - 4;
-  const named = at(wordAt("03", "WhatsApp"));
-  const dim = ease(f, at(clipStart("03")), 20);
-  const solved = at(wordAt("04", "resolvido")) - 2;
+  const gather = s.cue("tools.gather");
+  const all = s.cue("tools.all");
+  const alone = s.cue("tools.alone");
+  const named = s.cue("tools.named");
+  const dim = ease(f, s.cue("tools.dim"), 20);
+  const solved = s.cue("tools.solved");
   const join = pop(f, solved, 18);
 
   const claudeIn = pop(f, 4);
@@ -58,7 +58,7 @@ export const Ecosystem: React.FC = () => {
     const a = lerp(angle(i, TOOLS.length), angle(i < WA_SLOT ? i : i + 1, TOOLS.length + 1), join);
     const slot = onRing(a);
     const pos = { x: lerp(CX, slot.x, t), y: lerp(CY, slot.y, t) };
-    const said = tool.word ? at(wordAt("02", tool.word)) : all;
+    const said = tool.cue ? s.cue(`tools.${tool.cue}`, all) : all;
     const bump = interpolate(f, [said, said + 5, said + 18], [0, 1, 0.25], {
       extrapolateLeft: "clamp",
       extrapolateRight: "clamp",

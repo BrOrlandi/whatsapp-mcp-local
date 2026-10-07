@@ -2,14 +2,14 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { along, Cursor, SiteIcon, StepTitle } from "../components";
 import { C, ease, lerp, pop } from "../theme";
-import { clipEnd, scene, wordAt } from "../timeline";
+import { useScene } from "../timeline";
 
 // "Para começar, baixe o app. Tem versão para Mac, Windows e Linux."
 
 const SYSTEMS = [
-  { icon: "APPLE", name: "macOS", word: "Mac" },
-  { icon: "WINDOWS", name: "Windows", word: "Windows" },
-  { icon: "LINUX", name: "Linux", word: "Linux" },
+  { icon: "APPLE", name: "macOS", cue: "download.mac" },
+  { icon: "WINDOWS", name: "Windows", cue: "download.windows" },
+  { icon: "LINUX", name: "Linux", cue: "download.linux" },
 ] as const;
 
 const CARD_W = 440;
@@ -20,16 +20,15 @@ const left = (i: number) => 960 - (CARD_W * 3 + GAP * 2) / 2 + i * (CARD_W + GAP
 
 export const Download: React.FC = () => {
   const f = useCurrentFrame();
-  const s = scene("download");
-  const at = (abs: number) => abs - s.from;
+  const s = useScene("download");
 
   const button = { x: left(0) + CARD_W / 2, y: TOP + CARD_H - 74 };
-  const click = at(wordAt("06", "Linux")) + 8;
+  const click = s.cue("download.click");
   const [cx, cy] = along(f, [
     [click - 22, 1500, 980],
     [click - 2, button.x + 40, button.y + 6],
   ]);
-  const cursorIn = ease(f, click - 24, 8) * (1 - ease(f, Math.max(click + 40, at(clipEnd("06"))), 10));
+  const cursorIn = ease(f, click - 24, 8) * (1 - ease(f, Math.max(click + 40, s.cue("download.end")), 10));
   const progress = interpolate(f, [click + 4, click + 30], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const done = ease(f, click + 30, 8);
 
@@ -37,7 +36,7 @@ export const Download: React.FC = () => {
     <AbsoluteFill>
       <StepTitle step={1} title="Baixe o app" align="center" y={86} />
       {SYSTEMS.map((sys, i) => {
-        const t = pop(f, at(wordAt("06", sys.word)) - 3, 13);
+        const t = pop(f, s.cue(sys.cue), 13);
         const isMac = i === 0;
         return (
           <div

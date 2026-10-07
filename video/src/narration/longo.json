@@ -3,7 +3,7 @@
   "id": "01",
   "scene": "ecosystem",
   "text": "Hoje, você conecta todas as suas ferramentas de trabalho à sua IA preferida.",
-  "file": "narration/01.mp3",
+  "file": "narration/longo/01.mp3",
   "durationMs": 5971,
   "words": [
    {
@@ -77,7 +77,7 @@
   "id": "02",
   "scene": "ecosystem",
   "text": "O Gmail, a agenda, o Drive, o Slack, o Notion, o Jira, o GitHub… Tudo num lugar só.",
-  "file": "narration/02.mp3",
+  "file": "narration/longo/02.mp3",
   "durationMs": 12459,
   "words": [
    {
@@ -176,7 +176,7 @@
   "id": "03",
   "scene": "ecosystem",
   "text": "Mas uma delas ainda fica de fora: o seu WhatsApp.",
-  "file": "narration/03.mp3",
+  "file": "narration/longo/03.mp3",
   "durationMs": 4782,
   "words": [
    {
@@ -235,7 +235,7 @@
   "id": "04",
   "scene": "ecosystem",
   "text": "Agora, isso está resolvido.",
-  "file": "narration/04.mp3",
+  "file": "narration/longo/04.mp3",
   "durationMs": 2842,
   "words": [
    {
@@ -264,7 +264,7 @@
   "id": "05",
   "scene": "brand",
   "text": "Conheça o WhatsApp MCP: o seu WhatsApp conectado à sua IA, direto do seu computador.",
-  "file": "narration/05.mp3",
+  "file": "narration/longo/05.mp3",
   "durationMs": 8046,
   "words": [
    {
@@ -348,7 +348,7 @@
   "id": "06",
   "scene": "download",
   "text": "Para começar, baixe o app. Tem versão para Mac, Windows e Linux.",
-  "file": "narration/06.mp3",
+  "file": "narration/longo/06.mp3",
   "durationMs": 6036,
   "words": [
    {
@@ -417,7 +417,7 @@
   "id": "07",
   "scene": "qr",
   "text": "Ao abrir, ele mostra um QR code. No celular, abra o WhatsApp, entre em Dispositivos conectados e aponte a câmera para o código.",
-  "file": "narration/07.mp3",
+  "file": "narration/longo/07.mp3",
   "durationMs": 10758,
   "words": [
    {
@@ -541,7 +541,7 @@
   "id": "08",
   "scene": "qr",
   "text": "Pronto: o seu WhatsApp está conectado.",
-  "file": "narration/08.mp3",
+  "file": "narration/longo/08.mp3",
   "durationMs": 2892,
   "words": [
    {
@@ -580,7 +580,7 @@
   "id": "09",
   "scene": "choose",
   "text": "Agora, escolha a sua ferramenta de IA e siga o passo a passo.",
-  "file": "narration/09.mp3",
+  "file": "narration/longo/09.mp3",
   "durationMs": 5221,
   "words": [
    {
@@ -654,7 +654,7 @@
   "id": "10",
   "scene": "choose",
   "text": "O Claude se conecta com um clique. Para o Codex, o Cursor e outras, o app dá um texto pronto para colar.",
-  "file": "narration/10.mp3",
+  "file": "narration/longo/10.mp3",
   "durationMs": 8355,
   "words": [
    {
@@ -773,7 +773,7 @@
   "id": "11",
   "scene": "features",
   "text": "Feito isso, é só pedir.",
-  "file": "narration/11.mp3",
+  "file": "narration/longo/11.mp3",
   "durationMs": 2402,
   "words": [
    {
@@ -807,7 +807,7 @@
   "id": "12",
   "scene": "features",
   "text": "A sua IA pode ler as suas conversas e os seus grupos, achar aquela mensagem de meses atrás e resumir o que você perdeu.",
-  "file": "narration/12.mp3",
+  "file": "narration/longo/12.mp3",
   "durationMs": 9200,
   "words": [
    {
@@ -936,7 +936,7 @@
   "id": "13",
   "scene": "features",
   "text": "Ela também responde e envia mensagens, manda fotos e arquivos, transcreve áudios e até cria enquetes.",
-  "file": "narration/13.mp3",
+  "file": "narration/longo/13.mp3",
   "durationMs": 9689,
   "words": [
    {
@@ -1025,7 +1025,7 @@
   "id": "14",
   "scene": "warning",
   "text": "Mas atenção.",
-  "file": "narration/14.mp3",
+  "file": "narration/longo/14.mp3",
   "durationMs": 1638,
   "words": [
    {
@@ -1044,7 +1044,7 @@
   "id": "15",
   "scene": "warning",
   "text": "O WhatsApp MCP não foi feito para disparar mensagens em massa. Isso vai contra as regras da Meta e pode bloquear o seu número.",
-  "file": "narration/15.mp3",
+  "file": "narration/longo/15.mp3",
   "durationMs": 9124,
   "words": [
    {
@@ -1173,7 +1173,7 @@
   "id": "16",
   "scene": "warning",
   "text": "Então, nada de respostas automáticas ou da mesma mensagem para muitos contatos. Ele existe para levar as suas conversas até a sua IA.",
-  "file": "narration/16.mp3",
+  "file": "narration/longo/16.mp3",
   "durationMs": 10846,
   "words": [
    {
@@ -1297,7 +1297,7 @@
   "id": "17",
   "scene": "warning",
   "text": "Use por sua conta e risco. Com um uso normal, no ritmo de uma pessoa, você não deve ter problemas.",
-  "file": "narration/17.mp3",
+  "file": "narration/longo/17.mp3",
   "durationMs": 8052,
   "words": [
    {
@@ -1406,7 +1406,7 @@
   "id": "18",
   "scene": "cta",
   "text": "O WhatsApp MCP é gratuito e tem código aberto no GitHub.",
-  "file": "narration/18.mp3",
+  "file": "narration/longo/18.mp3",
   "durationMs": 5726,
   "words": [
    {
@@ -1470,7 +1470,7 @@
   "id": "19",
   "scene": "cta",
   "text": "Baixe agora mesmo, para Mac, Windows ou Linux, no link aqui na tela.",
-  "file": "narration/19.mp3",
+  "file": "narration/longo/19.mp3",
   "durationMs": 5662,
   "words": [
    {

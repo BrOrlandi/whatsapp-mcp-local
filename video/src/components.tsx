@@ -246,7 +246,11 @@ export const Cursor: React.FC<{ x: number; y: number; clickAt?: number[]; opacit
 };
 
 /** Moves along keyframes of [frame, x, y], easing between each pair. */
-export const along = (f: number, keys: [number, number, number][]): [number, number] => {
+export const along = (f: number, path: [number, number, number][]): [number, number] => {
+  // Cues close together could put a keyframe before the one it follows: each
+  // keyframe comes at least a frame after the previous one.
+  const keys = path.map(([k, x, y]) => [k, x, y] as [number, number, number]);
+  for (let i = 1; i < keys.length; i++) keys[i][0] = Math.max(keys[i][0], keys[i - 1][0] + 1);
   if (f <= keys[0][0]) return [keys[0][1], keys[0][2]];
   for (let i = 1; i < keys.length; i++) {
     const [f1, x1, y1] = keys[i];

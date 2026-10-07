@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { interpolate, useCurrentFrame } from "remotion";
-import { allClips, FPS, PlacedClip } from "./timeline";
+import { FPS, PlacedClip, useTimeline } from "./timeline";
 import { C } from "./theme";
 
 // Subtitles burned into the picture, so the video explains itself with the
@@ -14,7 +14,13 @@ const MAX = 64; // characters; past this a sentence is split in two
 
 const length = (words: TimedWord[]) => words.map((w) => w.text).join(" ").length;
 
-/** Splits a run of words in two at the comma nearest its middle, or the word nearest it. */
+// Words a line should not end on: they belong with what follows them.
+const LEADING = new Set(["a", "o", "as", "os", "e", "ou", "de", "da", "do", "das", "dos", "em", "no", "na", "um", "uma", "com", "para", "por", "que", "à"]);
+
+/**
+ * Splits a run of words in two near its middle, preferring a comma and never
+ * leaving an article or a preposition at the end of the first line.
+ */
 function halve(words: TimedWord[]): TimedWord[][] {
   if (length(words) <= MAX) return [words];
   const middle = length(words) / 2;
@@ -24,7 +30,8 @@ function halve(words: TimedWord[]): TimedWord[][] {
   for (let i = 0; i < words.length - 1; i++) {
     pos += words[i].text.length + 1;
     const comma = /[,;]$/.test(words[i].text);
-    const score = Math.abs(pos - middle) - (comma ? 14 : 0);
+    const dangling = LEADING.has(words[i].text.toLowerCase());
+    const score = Math.abs(pos - middle) - (comma ? 14 : 0) + (dangling ? 30 : 0);
     if (score < bestScore) {
       bestScore = score;
       best = i + 1;
@@ -55,18 +62,20 @@ function chunksOf(clip: PlacedClip): TimedWord[][] {
   return merged.flatMap(halve);
 }
 
-const chunks: Chunk[] = (() => {
-  const all = allClips.flatMap(chunksOf).map((words) => ({ words, from: words[0].from - 2, to: words[words.length - 1].to }));
+function chunksFor(clips: PlacedClip[]): Chunk[] {
+  const all = clips.flatMap(chunksOf).map((words) => ({ words, from: words[0].from - 2, to: words[words.length - 1].to }));
   // Hold each line a little after its last word, but never over the next one.
   return all.map((c, i) => {
     const next = all[i + 1];
     const hold = c.to + 14;
     return { ...c, to: next ? Math.min(hold, next.from) : hold };
   });
-})();
+}
 
 export const Captions: React.FC = () => {
   const f = useCurrentFrame();
+  const { clips } = useTimeline();
+  const chunks = useMemo(() => chunksFor(clips), [clips]);
   const chunk = chunks.find((c) => f >= c.from && f < c.to);
   if (!chunk) return null;
   const enter = interpolate(f, [chunk.from, chunk.from + 5], [0, 1], { extrapolateRight: "clamp" });

@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { BrandMark, Rise, SiteIcon } from "../components";
 import { C, ease, lerp, mono, pop } from "../theme";
-import { scene, wordAt } from "../timeline";
+import { useScene } from "../timeline";
 
 // "O WhatsApp MCP é gratuito e tem código aberto no GitHub. Baixe agora mesmo,
 // para Mac, Windows ou Linux, no link aqui na tela."
@@ -10,21 +10,20 @@ import { scene, wordAt } from "../timeline";
 const clamp = { extrapolateLeft: "clamp", extrapolateRight: "clamp" } as const;
 
 const SYSTEMS = [
-  { icon: "APPLE", name: "macOS", word: "Mac" },
-  { icon: "WINDOWS", name: "Windows", word: "Windows" },
-  { icon: "LINUX", name: "Linux", word: "Linux" },
+  { icon: "APPLE", name: "macOS", cue: "cta.mac" },
+  { icon: "WINDOWS", name: "Windows", cue: "cta.windows" },
+  { icon: "LINUX", name: "Linux", cue: "cta.linux" },
 ] as const;
 
 export const Cta: React.FC = () => {
   const f = useCurrentFrame();
-  const s = scene("cta");
-  const at = (abs: number) => abs - s.from;
+  const s = useScene("cta");
 
-  const free = at(wordAt("18", "gratuito")) - 4;
-  const open = at(wordAt("18", "codigo")) - 4;
-  const github = at(wordAt("18", "GitHub")) - 4;
-  const download = at(wordAt("19", "Baixe")) - 4;
-  const link = at(wordAt("19", "link"));
+  const free = s.cue("cta.free");
+  const open = s.cue("cta.open");
+  const github = s.cue("cta.github");
+  const download = s.cue("cta.download");
+  const link = s.cue("cta.link");
 
   const url = pop(f, download, 13);
   const glow = 0.5 + 0.5 * Math.sin((f - link) / 9);
@@ -105,8 +104,9 @@ export const Cta: React.FC = () => {
       </div>
 
       <div style={{ position: "absolute", top: 680, display: "flex", gap: 64 }}>
-        {SYSTEMS.map((sys) => {
-          const t = pop(f, at(wordAt("19", sys.word)) - 4, 14);
+        {SYSTEMS.map((sys, i) => {
+          // Systems the line doesn't name come in one after the other with the link.
+          const t = pop(f, s.cue(sys.cue, download + 6 + i * 5), 14);
           return (
             <div
               key={sys.name}

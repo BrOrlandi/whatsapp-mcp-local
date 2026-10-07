@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { along, AppWindow, Cursor, LogoTile, Rise, Shot, StepTitle, TITLE_BAR } from "../components";
 import { C, ease, lerp, mono, pop } from "../theme";
-import { clipStart, scene, wordAt } from "../timeline";
+import { useScene } from "../timeline";
 
 // "Agora, escolha a sua ferramenta de IA e siga o passo a passo." — "O Claude
 // se conecta com um clique. Para o Codex, o Cursor e outras, o app dá um texto
@@ -13,29 +13,28 @@ const K = WIN.w / 1000;
 const SCROLL = 250; // CSS pixels: from the top of the page down to the list of tools
 
 const OTHERS = [
-  { logo: "openai", name: "Codex", word: "Codex" },
-  { logo: "cursor", name: "Cursor", word: "Cursor" },
+  { logo: "openai", name: "Codex", cue: "choose.codex" },
+  { logo: "cursor", name: "Cursor", cue: "choose.cursor" },
 ] as const;
 
 export const Choose: React.FC = () => {
   const f = useCurrentFrame();
-  const s = scene("choose");
-  const at = (abs: number) => abs - s.from;
+  const s = useScene("choose");
 
   const winIn = pop(f, 2, 16);
-  const toSide = ease(f, at(wordAt("10", "Codex")) - 10, 22);
+  const toSide = ease(f, s.cue("choose.side"), 22);
   const winX = lerp(420, 100, toSide);
   // Where a point of the page (in CSS pixels) is on the video, at a given scroll.
   const onScreen = (x: number, y: number, scroll = 0) => [winX + x * K, WIN.y + TITLE_BAR + (y - scroll) * K] as const;
 
-  const scrollStart = at(clipStart("09")) + 6;
+  const scrollStart = s.cue("choose.scroll");
   const scroll = interpolate(f, [scrollStart, scrollStart + 26], [0, SCROLL], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: (t) => 1 - Math.pow(1 - t, 3),
   });
-  const pick = at(wordAt("09", "passo", 1));
-  const add = at(wordAt("10", "clique"));
+  const pick = s.cue("choose.pick");
+  const add = s.cue("choose.add");
   const showSetup = ease(f, pick + 5, 8);
   const showDone = ease(f, add + 10, 8);
 
@@ -49,8 +48,8 @@ export const Choose: React.FC = () => {
   ]);
   const cursorOpacity = ease(f, scrollStart + 18, 8) * (1 - ease(f, add + 22, 10));
 
-  const pasteCard = at(wordAt("10", "texto")) - 4;
-  const copied = at(wordAt("10", "colar"));
+  const pasteCard = s.cue("choose.paste");
+  const copied = s.cue("choose.copied");
 
   return (
     <AbsoluteFill>
@@ -85,7 +84,7 @@ export const Choose: React.FC = () => {
       <div style={{ position: "absolute", left: 1250, top: WIN.y + 10, width: 600 }}>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 18 }}>
           {OTHERS.map((o) => {
-            const t = pop(f, at(wordAt("10", o.word)) - 4, 13);
+            const t = pop(f, s.cue(o.cue), 13);
             return (
               <div
                 key={o.name}
@@ -107,7 +106,7 @@ export const Choose: React.FC = () => {
             );
           })}
           {(() => {
-            const t = pop(f, at(wordAt("10", "outras")) - 4, 13);
+            const t = pop(f, s.cue("choose.others"), 13);
             return (
               <div
                 style={{

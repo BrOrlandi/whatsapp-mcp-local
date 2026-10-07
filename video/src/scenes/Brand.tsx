@@ -2,15 +2,14 @@ import React from "react";
 import { AbsoluteFill, useCurrentFrame } from "remotion";
 import { BrandMark, Rise } from "../components";
 import { C, ease, pop } from "../theme";
-import { scene, wordAt } from "../timeline";
+import { useScene } from "../timeline";
 
 // "Conheça o WhatsApp MCP: o seu WhatsApp conectado à sua IA, direto do seu
 // computador."
 
 export const Brand: React.FC = () => {
   const f = useCurrentFrame();
-  const s = scene("brand");
-  const at = (abs: number) => abs - s.from;
+  const s = useScene("brand");
   const mark = pop(f, 2, 16);
   const glow = ease(f, 0, 30);
   return (
@@ -36,10 +35,10 @@ export const Brand: React.FC = () => {
         </div>
       </Rise>
       <div style={{ position: "absolute", top: 580, textAlign: "center", fontSize: 46, fontWeight: 500, lineHeight: 1.35, color: C.onDeepSoft }}>
-        <Rise at={at(wordAt("05", "seu")) - 4}>
+        <Rise at={s.cue("brand.tag1")}>
           O seu WhatsApp conectado à <span style={{ color: C.mint, fontWeight: 700 }}>sua IA</span>,
         </Rise>
-        <Rise at={at(wordAt("05", "direto")) - 4}>direto do seu computador.</Rise>
+        <Rise at={s.cue("brand.tag2")}>direto do seu computador.</Rise>
       </div>
     </AbsoluteFill>
   );

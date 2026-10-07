@@ -1,7 +1,7 @@
 import React from "react";
 import { AbsoluteFill, interpolate, useCurrentFrame } from "remotion";
 import { C, ease, lerp, pop } from "../theme";
-import { clipStart, scene, wordAt } from "../timeline";
+import { useScene } from "../timeline";
 
 // "Mas atenção. O WhatsApp MCP não foi feito para disparar mensagens em massa.
 // Isso vai contra as regras da Meta e pode bloquear o seu número. Então, nada
@@ -64,13 +64,12 @@ const Line: React.FC<{ at: number; ok: boolean; children: React.ReactNode; out?:
 
 export const Warning: React.FC = () => {
   const f = useCurrentFrame();
-  const s = scene("warning");
-  const at = (abs: number) => abs - s.from;
+  const s = useScene("warning");
 
-  const attention = at(clipStart("14")) - 6;
-  const p15 = at(clipStart("15"));
-  const p16 = at(clipStart("16"));
-  const p17 = at(clipStart("17"));
+  const attention = s.cue("warning.sign");
+  const p15 = s.cue("warning.head");
+  const p16 = s.cue("warning.list");
+  const p17 = s.cue("warning.risk");
 
   const sign = pop(f, attention, 10);
   const up = ease(f, p15 - 6, 22);
@@ -129,13 +128,13 @@ export const Warning: React.FC = () => {
       </div>
       <div style={{ position: "absolute", top: 440, display: "flex", gap: 28, opacity: pills }}>
         {[
-          { word: "regras", text: "Vai contra as regras da Meta" },
-          { word: "bloquear", text: "Pode bloquear o seu número" },
+          { cue: "warning.rules", text: "Vai contra as regras da Meta" },
+          { cue: "warning.block", text: "Pode bloquear o seu número" },
         ].map((p) => {
-          const t = pop(f, at(wordAt("15", p.word)) - 4, 14);
+          const t = pop(f, s.cue(p.cue), 14);
           return (
             <div
-              key={p.word}
+              key={p.cue}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -159,15 +158,17 @@ export const Warning: React.FC = () => {
       </div>
 
       <div style={{ position: "absolute", top: 440, left: 420, display: "flex", flexDirection: "column", gap: 34 }}>
-        <Line at={at(wordAt("16", "respostas")) - 4} ok={false} out={p17 - 4}>
+        <Line at={s.cue("warning.auto")} ok={false} out={p17 - 4}>
           Respostas automáticas
         </Line>
-        <Line at={at(wordAt("16", "mesma")) - 4} ok={false} out={p17 - 4}>
+        <Line at={s.cue("warning.same")} ok={false} out={p17 - 4}>
           A mesma mensagem para muitos contatos
         </Line>
-        <Line at={at(wordAt("16", "levar")) - 4} ok out={p17 - 4}>
-          Levar as suas conversas até a sua IA
-        </Line>
+        {s.has("warning.purpose") ? (
+          <Line at={s.cue("warning.purpose")} ok out={p17 - 4}>
+            Levar as suas conversas até a sua IA
+          </Line>
+        ) : null}
       </div>
 
       {/* "Use por sua conta e risco" */}
@@ -186,7 +187,7 @@ export const Warning: React.FC = () => {
         Use por sua conta e risco
       </div>
       {(() => {
-        const t = pop(f, at(wordAt("17", "normal")) - 4, 14);
+        const t = pop(f, s.cue("warning.normal"), 14);
         return (
           <div
             style={{

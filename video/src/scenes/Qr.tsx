@@ -2,7 +2,7 @@ import React from "react";
 import { AbsoluteFill, interpolate, staticFile, useCurrentFrame } from "remotion";
 import { AppWindow, Shot, StepTitle } from "../components";
 import { C, ease, lerp, pop } from "../theme";
-import { clipStart, scene, wordAt } from "../timeline";
+import { useScene } from "../timeline";
 
 // "Ao abrir, ele mostra um QR code. No celular, abra o WhatsApp, entre em
 // Dispositivos conectados e aponte a câmera para o código." — "Pronto: o seu
@@ -36,15 +36,14 @@ const QR_K = 200 / 259;
 
 export const Qr: React.FC = () => {
   const f = useCurrentFrame();
-  const s = scene("qr");
-  const at = (abs: number) => abs - s.from;
+  const s = useScene("qr");
 
   const winIn = pop(f, 2, 16);
-  const qrWord = at(wordAt("07", "QR"));
-  const phoneWord = at(wordAt("07", "celular")) - 6;
-  const devices = at(wordAt("07", "Dispositivos"));
-  const aim = at(wordAt("07", "aponte"));
-  const ok = at(clipStart("08")) - 10;
+  const qrWord = s.cue("qr.qr");
+  const phoneWord = s.cue("qr.phone");
+  const devices = s.cue("qr.devices");
+  const aim = s.cue("qr.aim");
+  const ok = s.cue("qr.ok");
 
   const hlQr = Math.max(
     ease(f, qrWord - 2, 10) * (1 - ease(f, phoneWord + 6, 10)),
