@@ -62,7 +62,7 @@ func definitions() []any {
 		},
 		map[string]any{
 			"name":        "whatsapp_status",
-			"description": "Report the WhatsApp session state, which account is paired, whether the sync process is running, how far back the local message index reaches, windows the index may be missing, and any problem that needs attention. Always answers.",
+			"description": "Report the WhatsApp session state, which account is paired, whether the sync process is running, how far back the local message index reaches, windows the index may be missing, any problem that needs attention, and the webhooks that deliver new messages to the user's scripts. Always answers.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{}},
 		},
 		map[string]any{
@@ -324,7 +324,7 @@ func definitions() []any {
 		},
 		map[string]any{
 			"name":        "list_unread",
-			"description": "List the conversations with unread messages, as the phone shows them, with the latest messages received in each. Reading a chat on the phone clears it here too.",
+			"description": "List the conversations with unread messages, as the phone shows them, with the latest messages received in each. Reading a chat on the phone clears it here too. To be told about messages as they arrive instead of asking, the app has webhooks (see whatsapp_status).",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
 				"limit":            map[string]any{"type": "integer", "minimum": 1, "maximum": 100, "description": "Most conversations to return. Defaults to 20."},
 				"per_chat":         map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "Latest received messages to include per conversation. Defaults to 5."},
@@ -334,7 +334,7 @@ func definitions() []any {
 		},
 		map[string]any{
 			"name":        "list_unanswered",
-			"description": "List the conversations waiting for the account's reply: those whose latest message came from the other side, with how many messages wait and since when. Direct chats by default; groups on request, or only the groups where someone mentioned the account. Short closings such as ok, obrigado or 👍 do not count as waiting. Chats marked with mark_handled or snooze_chat stay off the list until someone writes in them again.",
+			"description": "List the conversations waiting for the account's reply: those whose latest message came from the other side, with how many messages wait and since when. Direct chats by default; groups on request, or only the groups where someone mentioned the account. Short closings such as ok, obrigado or 👍 do not count as waiting. Chats marked with mark_handled or snooze_chat stay off the list until someone writes in them again. To act on messages as they arrive instead of asking, the app has webhooks (see whatsapp_status).",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
 				"since":                  stringSchema("Only conversations active since then, RFC 3339 or a date. Defaults to 30 days ago."),
 				"include_groups":         boolSchema("Include every group whose latest message is from someone else."),

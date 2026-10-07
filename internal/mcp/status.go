@@ -57,6 +57,22 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 		transcription["corrected_from_context"] = corrected
 	}
 	report["transcription"] = transcription
+	// Webhooks are how a script hears about messages as they arrive; saying
+	// they exist here lets an assistant offer them when the user asks to be
+	// told about new messages.
+	webhooks := map[string]any{"setup": "in the app, Configurações › Webhooks: " + s.base() + "/configuracoes#webhooks",
+		"documentation": s.base() + "/webhooks/documentacao",
+		"what":          "the app posts every new message, reaction or read receipt to a script of the user's, so it can act as messages arrive; these tools only answer when asked"}
+	if hooks, err := s.state.Webhooks(ctx); err == nil {
+		enabled := 0
+		for _, h := range hooks {
+			if h.Enabled {
+				enabled++
+			}
+		}
+		webhooks["configured"], webhooks["enabled"] = len(hooks), enabled
+	}
+	report["webhooks"] = webhooks
 	if problems == nil {
 		problems = []string{}
 	}

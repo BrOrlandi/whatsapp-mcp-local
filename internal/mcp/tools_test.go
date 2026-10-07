@@ -1,6 +1,11 @@
 package mcp
 
-import "testing"
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+)
 
 // Every tool listed has a handler and a category, and every handler is listed.
 func TestToolsAreComplete(t *testing.T) {
@@ -31,6 +36,17 @@ func TestToolsAreComplete(t *testing.T) {
 	for name := range toolCategories {
 		if !listed[name] {
 			t.Errorf("%s has a category but is not listed", name)
+		}
+	}
+}
+
+// An assistant learns at initialize that webhooks exist, and where.
+func TestInstructionsMentionWebhooks(t *testing.T) {
+	s := &Server{baseURL: "http://127.0.0.1:47821", clients: map[string]string{}, touched: map[string]time.Time{}}
+	out := string(s.Handle(context.Background(), []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)))
+	for _, want := range []string{"Configurações › Webhooks", "http://127.0.0.1:47821/webhooks/documentacao"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("initialize lacks %q", want)
 		}
 	}
 }
