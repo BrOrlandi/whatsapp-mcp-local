@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/appconfig"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
@@ -96,6 +97,10 @@ func Start(cfg Config) (*Daemon, error) {
 	if cfg.Version != "" {
 		mcp.Version = cfg.Version
 	}
+	proxy, err := appconfig.ResolveProxy(cfg.DataDir)
+	if err != nil {
+		return nil, fmt.Errorf("cannot configure WhatsApp network: %w", err)
+	}
 	if _, err := os.Stat(cfg.WacliBin); err != nil {
 		if _, lookErr := exec.LookPath(cfg.WacliBin); lookErr != nil {
 			return nil, fmt.Errorf("%w (%s)", ErrWacliMissing, cfg.WacliBin)
@@ -121,7 +126,7 @@ func Start(cfg Config) (*Daemon, error) {
 
 	d := &Daemon{cfg: cfg, logger: logger, port: cfg.Port, listenErr: problem,
 		syncDone: make(chan struct{}), watchDone: make(chan struct{})}
-	d.cli = &wacli.CLI{Bin: cfg.WacliBin, StoreDir: cfg.StoreDir}
+	d.cli = &wacli.CLI{Bin: cfg.WacliBin, StoreDir: cfg.StoreDir, Proxy: proxy}
 	if d.idx, err = index.Open(filepath.Join(cfg.StoreDir, "wacli.db")); err != nil {
 		closeQuietly(ln)
 		return nil, err

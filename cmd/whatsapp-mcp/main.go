@@ -167,7 +167,7 @@ const usage = `whatsapp-mcp — WhatsApp for MCP clients, on localhost, over wac
   open                open the control panel in the browser
   version             print the version
 
-Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
+Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WHATSAPP_MCP_PROXY, WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
 `
 
 func fatal(err error) {
@@ -221,6 +221,14 @@ func serviceCmd(cfg config, args []string) error {
 			"WHATSAPP_MCP_DATA": cfg.DataDir, "WHATSAPP_MCP_PORT": strconv.Itoa(cfg.Port)}
 		if cfg.Token != "" {
 			env["WHATSAPP_MCP_TOKEN"] = cfg.Token
+		}
+		if proxy, ok := os.LookupEnv("WHATSAPP_MCP_PROXY"); ok {
+			// Service definitions are readable by other users and systemd
+			// expands percent specifiers in Environment=. Keep a proxy URL
+			// (which can contain credentials) in the private config instead.
+			if err := appconfig.SaveProxy(cfg.DataDir, proxy); err != nil {
+				return err
+			}
 		}
 		home, _ := os.UserHomeDir()
 		path, err := service.Install(service.Spec{Binary: bin, Args: []string{"serve"}, Env: env,

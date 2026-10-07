@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"strings"
 	"sync"
@@ -127,7 +126,7 @@ func (s *Supervisor) runAuth(ctx context.Context, gen int, phone string) error {
 		args = append(args, "--phone", phone)
 	}
 	cmd := exec.Command(s.cli.Bin, args...)
-	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+s.cli.StoreDir, "NO_COLOR=1")
+	cmd.Env = s.cli.commandEnv()
 	platform.Prepare(cmd)
 	cmd.WaitDelay = 5 * time.Second
 	cmd.Stdout = io.Discard

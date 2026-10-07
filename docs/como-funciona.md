@@ -132,6 +132,7 @@ As variáveis de ambiente valem para o app e para a linha de comando, e vencem o
 |---|---|
 | `WHATSAPP_MCP_PORT` | `47821` (no app, a da página Configurações) |
 | `WHATSAPP_MCP_TOKEN` | vazio (sem token) |
+| `WHATSAPP_MCP_PROXY` | o campo `whatsapp_proxy` do `config.json`; vazio herda o ambiente do wacli ([proxy e Tailscale](proxy-tailscale.md)) |
 | `WACLI_BIN` | o wacli de dentro do app; na linha de comando, o instalado ao lado ou no PATH |
 | `WACLI_STORE_DIR` | `<pasta de dados>/wacli`; na linha de comando, o padrão do wacli (`~/.wacli`) |
 | `WHATSAPP_MCP_DATA` | a pasta de dados acima; na linha de comando, `~/.whatsapp-mcp` |

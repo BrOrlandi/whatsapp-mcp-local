@@ -243,7 +243,7 @@ func (s *Supervisor) runOnce(ctx context.Context) error {
 	args = append(args, s.webhook...)
 	s.mu.Unlock()
 	cmd := exec.Command(s.cli.Bin, args...)
-	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+s.cli.StoreDir, "NO_COLOR=1")
+	cmd.Env = s.cli.commandEnv()
 	// Its own process group, so a stop reaches every process it started, and a
 	// bounded wait for its pipes, so a stray child cannot hang the supervisor.
 	platform.Prepare(cmd)

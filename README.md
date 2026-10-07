@@ -4,6 +4,8 @@
 
 <h1 align="center">WhatsApp MCP Local</h1>
 
+> Para configurar a saída do WhatsApp por proxy HTTP/SOCKS5, proxy residencial ou Tailscale, veja [Proxy e Tailscale](docs/proxy-tailscale.md).
+
 <p align="center">
   <strong>O seu WhatsApp no Claude, rodando no seu próprio computador.</strong><br>
   Um app para macOS, Windows e Linux. Sem servidor, sem mensalidade: as mensagens ficam na sua máquina.

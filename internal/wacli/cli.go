@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/egress"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
@@ -24,6 +25,12 @@ import (
 type CLI struct {
 	Bin      string
 	StoreDir string
+	Proxy    egress.Proxy
+}
+
+// commandEnv is shared by one-shot commands, pairing and the sync process.
+func (c *CLI) commandEnv() []string {
+	return append(c.Proxy.Environment(os.Environ()), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1")
 }
 
 // envelope is the shape every `--json` command prints.
@@ -45,8 +52,15 @@ func (e *Error) Error() string { return e.Message }
 // Run executes one command with --json and returns its data.
 func (c *CLI) Run(ctx context.Context, args ...string) (json.RawMessage, error) {
 	full := append([]string{"--json"}, args...)
+	// wacli's automatic link previews deliberately use a direct transport
+	// for SSRF protection. An explicit proxy must not trigger that separate
+	// website request from this machine's IP. The pinned wacli supports this
+	// flag, including when the send is delegated to the running sync.
+	if c.Proxy != "" && c.Proxy != "direct" && len(args) >= 2 && args[0] == "send" && args[1] == "text" {
+		full = append(full, "--no-preview")
+	}
 	cmd := exec.CommandContext(ctx, c.Bin, full...)
-	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1")
+	cmd.Env = c.commandEnv()
 	platform.Background(cmd)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -104,7 +118,7 @@ func lastLine(s string) string {
 // command line may run an older wacli than the app ships.
 func (c *CLI) Supports(ctx context.Context, flag string, command ...string) bool {
 	cmd := exec.CommandContext(ctx, c.Bin, append(command, "--help")...)
-	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1")
+	cmd.Env = c.commandEnv()
 	platform.Background(cmd)
 	out, _ := cmd.CombinedOutput()
 	return bytes.Contains(out, []byte(flag))

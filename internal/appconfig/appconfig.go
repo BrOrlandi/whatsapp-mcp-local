@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/egress"
 )
 
 // DefaultPort is uncommon on purpose: the MCP should not collide with the dev
@@ -20,6 +22,9 @@ const File = "config.json"
 
 type Config struct {
 	Port int `json:"port"`
+	// WhatsAppProxy only affects wacli. Empty inherits the environment;
+	// "direct" disables proxies; otherwise it is an HTTP(S)/SOCKS5 URL.
+	WhatsAppProxy string `json:"whatsapp_proxy,omitempty"`
 	// CloseToTray keeps the app running in the tray when its window closes.
 	CloseToTray bool `json:"close_to_tray"`
 	// Autostart opens the app, in the tray only, when the user logs in.
@@ -120,4 +125,32 @@ func ResolvePort(dataDir string) int {
 		return c.Port
 	}
 	return DefaultPort
+}
+
+// ResolveProxy reads the WhatsApp exit independently of the local MCP.
+// An explicitly set environment variable (including empty) wins over disk.
+func ResolveProxy(dataDir string) (egress.Proxy, error) {
+	if value, ok := os.LookupEnv("WHATSAPP_MCP_PROXY"); ok {
+		return egress.Parse(value)
+	}
+	c, err := Load(dataDir)
+	if err != nil {
+		return "", err
+	}
+	return egress.Parse(c.WhatsAppProxy)
+}
+
+// SaveProxy persists a shell's proxy choice for a background service without
+// putting credentials in its service definition. Other settings are retained.
+func SaveProxy(dataDir, value string) error {
+	proxy, err := egress.Parse(value)
+	if err != nil {
+		return err
+	}
+	c, err := Load(dataDir)
+	if err != nil {
+		return err
+	}
+	c.WhatsAppProxy = string(proxy)
+	return Save(dataDir, c)
 }

@@ -10,9 +10,13 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -28,6 +32,9 @@ func main() {
 	for len(args) > 0 && (args[0] == "--json" || args[0] == "--read-only") {
 		args = args[1:]
 	}
+	if os.Getenv("FAKE_WACLI_RECORD_PROXY") == "1" {
+		recordProxy(args)
+	}
 	if len(args) == 1 && args[0] == "doctor" {
 		reply(map[string]any{"authenticated": exists("AUTHED"), "session_revoked": false})
 		return
@@ -37,6 +44,8 @@ func main() {
 	}
 	logArgs(args)
 	switch args[0] + " " + args[1] {
+	case "network probe":
+		probeNetwork()
 	case "sync --help":
 		fmt.Println("Flags:\n      --webhook string\n      --webhook-events string")
 	case "chats mark-read", "chats pin", "presence typing", "presence paused", "send file", "send sticker":
@@ -73,6 +82,42 @@ func main() {
 	default:
 		fail("unknown")
 	}
+}
+
+func recordProxy(args []string) {
+	entry := map[string]any{"command": strings.Join(args, " "), "https_proxy": os.Getenv("HTTPS_PROXY"), "no_proxy": os.Getenv("NO_PROXY")}
+	body, _ := json.Marshal(entry)
+	f, err := os.OpenFile(filepath.Join(store, "proxy.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err == nil {
+		defer f.Close()
+		f.Write(append(body, '\n'))
+	}
+}
+
+// probeNetwork exercises the same default Go HTTP transport that the pinned
+// wacli/whatsmeow uses. The URL and test CA come from the test, not WhatsApp.
+func probeNetwork() {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	ca, err := os.ReadFile(os.Getenv("FAKE_WACLI_PROBE_CA"))
+	if err != nil {
+		fail(err.Error())
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(ca) {
+		fail("invalid probe CA")
+	}
+	transport.TLSClientConfig = &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+	client := &http.Client{Transport: transport, Timeout: 5 * time.Second}
+	response, err := client.Get(os.Getenv("FAKE_WACLI_PROBE_URL"))
+	if err != nil {
+		fail(err.Error())
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		fail(err.Error())
+	}
+	reply(map[string]any{"status": response.StatusCode, "body": string(body)})
 }
 
 func logArgs(args []string) {
