@@ -37,10 +37,11 @@ só dos comandos:
 |---|---|---|
 | Saída `--json` dos comandos (`{success, data, error}`) | todas as tools | uma tool passa a falhar ao ler a resposta |
 | Eventos `--events` do `sync` e do `auth` (`connected`, `qr_code`, `pair_code`, `history_sync`, `progress`…) | supervisor, pareamento, painel | o QR code ou o estado do sync deixam de aparecer |
-| O socket `.send.sock` que o `sync --follow` abre para receber envios | supervisor | envios esperam o tempo limite em vez de sair |
+| O socket `.send.sock` que o `sync --follow` abre para receber envios e mudanças de estado das conversas | supervisor | envios esperam o tempo limite em vez de sair; arquivar e marcar como lida passam a pausar o sync |
+| O webhook do `sync` (`--webhook`, `--webhook-secret`, `--webhook-events`, `--webhook-allow-private`) e o formato do que ele posta | relay dos webhooks (`internal/webhook`) | os webhooks param de receber; sem as flags, o sync roda sem elas e a API diz `"available": false` |
 | O arquivo `LOCK`, com `pid=` | recuperação depois de uma queda | um sync órfão não é encerrado sozinho |
 | O esquema do `wacli.db` (tabelas `messages`, `chats`, `contacts`, `groups`…), lido em modo somente leitura | prévias, nomes, contexto de áudio, saúde | a consulta afetada falha com erro de SQL |
-| O esquema do `session.db` do whatsmeow (`whatsmeow_contacts`, `whatsmeow_lid_map`, `whatsmeow_device`), lido só para nomes | nomes de pessoas e o seu próprio nome | volta a aparecer número em vez de nome |
+| O esquema do `session.db` do whatsmeow (`whatsmeow_contacts`, `whatsmeow_lid_map`, `whatsmeow_device`), lido só para nomes e para o seu próprio número e LID | nomes de pessoas, o seu próprio nome, as menções | volta a aparecer número em vez de nome; as menções deixam de ser achadas |
 
 No app, o wacli é fixado: cada versão do app traz uma versão testada, baixada
 dos releases oficiais e conferida pelo sha256 que eles publicam, e ele só muda
@@ -119,6 +120,9 @@ versões, por isso a versão é fixa e só muda com um novo `sidecars-N`. O mode
 | `github.com/godbus/dbus/v5` | no Linux, descobrir se há bandeja |
 | `modernc.org/sqlite` | SQLite em Go puro: lê `wacli.db` e `session.db` e mantém o `state.db` |
 | `github.com/skip2/go-qrcode` | desenha o QR code do pareamento no painel |
+| `golang.org/x/image` | reduz as imagens que o `read_media` entrega e lê WebP, TIFF e BMP |
+| `golang.org/x/text` | lê arquivos de texto em UTF-16 e Windows-1252 |
+| `github.com/klippa-app/go-pdfium` + `github.com/tetratelabs/wazero` | o PDFium compilado para WebAssembly, rodando dentro do processo sem cgo: extrai o texto de PDFs e desenha as páginas de um PDF escaneado. Soma cerca de 10 MB ao binário; o primeiro PDF leva cerca de 1,5 s para preparar o leitor |
 
 A linha de comando e o bridge não usam cgo nem o Wails: são binários Go puros,
 que não dependem de bibliotecas do sistema. O app usa cgo no macOS e no Linux
@@ -134,11 +138,12 @@ no Linux; na linha de comando, `~/.wacli` e `~/.whatsapp-mcp`):
 |---|---|---|---|
 | `wacli/session.db` | wacli/whatsmeow | a sessão e as chaves do dispositivo conectado | pequeno |
 | `wacli/wacli.db` | wacli | mensagens, conversas, contatos, grupos | ~130 MB para ~40 mil mensagens |
-| `state.db` | app | transcrições, clientes conectados, etapa da instalação | menos de 1 MB |
+| `state.db` | app | transcrições, clientes conectados, etapa da instalação, conversas marcadas como resolvidas ou adiadas, webhooks | menos de 1 MB |
 | `config.json` | app | porta, abrir com o sistema, fechar = esconder | pequeno |
 | `models/` | app | o modelo de transcrição | 574 MB |
 | `bin/` | app | `whisper-cli` e `ffmpeg`, com o sha256 de cada um | poucos MB |
-| `media/` | app | áudios e arquivos baixados para transcrever ou entregar | cresce com o uso, sem limpeza automática |
+| `media/` | app | áudios e arquivos baixados para transcrever ou entregar | cresce com o uso; a retenção (`POST /api/media/retention`) apaga os antigos |
+| `exports/` | app | as exportações do `export_messages`, em NDJSON | o tamanho do que foi exportado |
 | `updates/` | app | a versão nova baixada, até ser instalada | o tamanho do instalador |
 
 O app nunca escreve no `wacli.db` nem no `session.db`. A pasta `media/` pode

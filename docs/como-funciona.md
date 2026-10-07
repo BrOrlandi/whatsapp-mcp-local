@@ -7,7 +7,8 @@ WhatsApp MCP (o app: um processo só)
 ├── MCP em 127.0.0.1:47821 ◄── Claude Code (HTTP)
 │                          ◄── whatsapp-mcp-bridge (stdio) ◄── Claude Desktop / Cowork
 ├── supervisor ──► wacli sync --follow   (dono da sessão e do lock)
-│        └─ envia pelo socket de delegação do sync
+│        ├─ envia pelo socket de delegação do sync
+│        └─ cada mensagem nova ──► relay em 127.0.0.1:<porta aleatória> ──► webhooks
 ├── leituras ───► wacli --read-only --json + wacli.db (somente leitura)
 └── transcrição sob pedido ──► ffmpeg ──► whisper-cli
 ```
@@ -18,13 +19,22 @@ janela e sem a bandeja, como serviço do sistema.
 - **Um único daemon é dono da sessão.** O wacli permite um só processo com o
   lock do store. O daemon mantém o `wacli sync --follow` sempre rodando, e todos
   os clientes falam com ele. Nenhum cliente sobe um segundo WhatsApp.
-- **Envios** (texto, arquivo, localização, enquete, reação, edição) vão para o
-  sync que já está rodando, sem interrompê-lo.
-- **Operações que precisam do lock** (histórico, revogar mensagem,
-  arquivar/fixar/silenciar, verificar números, foto de perfil) pausam o sync
-  por alguns segundos, rodam e religam o sync. O WhatsApp entrega na reconexão
-  o que chegou nesse intervalo, e os envios feitos durante a pausa esperam na
+- **Envios** (texto, arquivo, localização, enquete, reação, edição, "digitando")
+  e as mudanças de estado das conversas (marcar como lida, arquivar, fixar,
+  silenciar) vão para o sync que já está rodando, sem interrompê-lo. Um wacli
+  mais antigo, que não aceita essas mudanças pelo socket, cai na pausa abaixo.
+- **Operações que precisam do lock** (histórico, apagar mensagem, encaminhar,
+  administrar grupos, verificar números, foto de perfil) pausam o sync por
+  alguns segundos, rodam e religam o sync. O WhatsApp entrega na reconexão o
+  que chegou nesse intervalo, e os envios feitos durante a pausa esperam na
   fila em vez de falhar.
+- **Triagem, estatísticas e exportação** são consultas ao `wacli.db`. As marcas
+  de "resolvido" e "adiado" ficam no `state.db` do app, junto das transcrições:
+  nada disso chega ao WhatsApp.
+- **Webhooks.** O sync entrega cada mensagem nova a um relay do próprio app, num
+  endereço de loopback com porta aleatória e um segredo novo a cada execução.
+  O app repassa a cada webhook configurado, com fila, novas tentativas e
+  desligamento automático ([api.md](api.md#webhooks)).
 - **Leituras** usam `wacli --read-only` e uma conexão SQLite somente leitura,
   que o wacli documenta como segura durante o sync. Nada escreve no `wacli.db`.
 - **Nomes** vêm, em ordem: do nome do grupo, do apelido, da agenda do celular
