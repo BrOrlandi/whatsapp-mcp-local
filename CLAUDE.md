@@ -16,10 +16,10 @@ Other branches get preview deployments. A manual deploy runs from the repository
 this repository's latest release by the fixed asset names, and `/servidor` is a separate page
 for the server project, whose links all point at `BrOrlandi/whatsapp-mcp`.
 
-The "Veja como funciona" video on the home page is a Remotion project in `video/`, in two cuts
-(`longo`, 2:34, and `curto`, about a minute), narrated with Gemini TTS in the voice recorded in
-`video/README.md#a-voz`, subtitles burned in; `npm run render -- <cut> --site` there puts one on
-the page, in `site/assets/video/`.
+The "Veja como funciona" video on the home page (autoplays muted, with a button for the sound) is
+a Remotion project in `video/`, the one-minute cut `curto`, narrated with Gemini TTS in the voice
+recorded in `video/README.md#a-voz`, subtitles burned in; `npm run render -- curto --site` there
+puts it on the page, in `site/assets/video/`.
 It shows the app's screens and names its features, so a change to the setup flow or the tools
 may call for a new cut (`video/README.md`).
 

@@ -97,12 +97,19 @@
     <section class="section" id="video">
       <div class="wrap">
         <h2>Veja como funciona</h2>
-        <p class="lede">Do download à primeira conversa com a sua IA, em dois minutos e meio.</p>
+        <p class="lede">Do download à primeira conversa com a sua IA, em um minuto. Tem narração: ligue o som.</p>
         <figure class="video">
-          <video controls preload="none" playsinline width="1920" height="1080" poster="/assets/video/como-funciona.jpg">
-            <source src="/assets/video/como-funciona.mp4" type="video/mp4">
-            <a href="/assets/video/como-funciona.mp4">Assista ao vídeo</a>
-          </video>
+          <video src="/assets/video/como-funciona.mp4" poster="/assets/video/como-funciona.jpg" width="1920" height="1080"
+                 autoplay muted loop playsinline preload="metadata" data-video
+                 aria-label="Como o WhatsApp MCP funciona, do download à primeira conversa com a IA, com legendas"></video>
+          <button class="sound" type="button" aria-pressed="false" data-sound>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/>
+              <path class="sound__on" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>
+              <path class="sound__off" d="m16 9 6 6m0-6-6 6"/>
+            </svg>
+            <span class="sound__off">Ouvir com som</span><span class="sound__on">Tirar o som</span>
+          </button>
         </figure>
       </div>
     </section>

@@ -225,7 +225,41 @@ code {
 .section h2 { font-size: clamp(2rem, 3.8vw, 2.9rem); }
 .lede { margin-top: 18px; max-width: 58ch; font-size: 1.15rem; color: var(--ink-soft); }
 
-.video { margin: 40px 0 0; }
+.video { position: relative; margin: 40px 0 0; }
+/*
+  A browser only starts a video by itself when it is muted, so the sound is the
+  viewer's gesture. The button sits over the video's top corner, which no
+  scene uses (the subtitles take the bottom), and says what pressing it will
+  do, not the current state.
+*/
+.sound {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 10px 13px;
+  border: 1px solid rgba(238, 248, 244, 0.22);
+  border-radius: 999px;
+  background: rgba(5, 46, 40, 0.78);
+  color: var(--on-deep);
+  font: 600 0.92rem/1 var(--font);
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: background-color 0.15s;
+}
+.sound:hover { background: rgba(5, 46, 40, 0.95); }
+.sound svg { width: 18px; height: 18px; flex: none; }
+.sound .sound__on { display: none; }
+.sound[aria-pressed="true"] .sound__on { display: inline; }
+.sound[aria-pressed="true"] .sound__off { display: none; }
+/* On a phone the video is small: the button keeps only its icon, and the words for screen readers. */
+@media (max-width: 560px) {
+  .sound { top: 8px; right: 8px; padding: 8px; }
+  .sound span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 .video video {
   display: block;
   width: 100%;

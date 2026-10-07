@@ -63,6 +63,32 @@
   openFromHash();
   window.addEventListener("hashchange", openFromHash);
 
+  // The explainer plays muted by itself; the button turns its narration on.
+  const video = document.querySelector("[data-video]");
+  const sound = document.querySelector("[data-sound]");
+  if (video && sound) {
+    if (reduceMotion) {
+      // Whoever asked the system for less motion gets the video still, with controls.
+      video.removeAttribute("autoplay");
+      video.pause();
+      video.controls = true;
+      sound.hidden = true;
+    } else {
+      let heard = false;
+      sound.addEventListener("click", () => {
+        video.muted = !video.muted;
+        sound.setAttribute("aria-pressed", String(!video.muted));
+        // The narration tells a story from its start: the first time the sound
+        // comes on, the video goes back to the beginning to be heard whole.
+        if (!video.muted && !heard) {
+          heard = true;
+          video.currentTime = 0;
+        }
+        video.play();
+      });
+    }
+  }
+
   // The hero conversation: a request, what the app did in WhatsApp, and the answer.
   const chat = document.querySelector("[data-chat]");
   if (!chat) return;
