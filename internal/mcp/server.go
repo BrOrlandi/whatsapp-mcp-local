@@ -28,10 +28,11 @@ type Server struct {
 	logger     *slog.Logger
 	// baseURL is where this gateway listens, for the media links it hands
 	// out. It changes when the port does.
-	baseMu   sync.RWMutex
-	baseURL  string
-	mediaDir string
-	links    *mediaLinks
+	baseMu    sync.RWMutex
+	baseURL   string
+	mediaDir  string
+	exportDir string
+	links     *mediaLinks
 
 	historyMu sync.Mutex
 	history   *HistoryJob
@@ -117,6 +118,7 @@ type Config struct {
 	Logger     *slog.Logger
 	BaseURL    string
 	MediaDir   string
+	ExportDir  string
 	ASR        *localasr.Engine
 }
 
@@ -125,7 +127,7 @@ func New(c Config) *Server {
 		c.Logger = slog.Default()
 	}
 	return &Server{cli: c.CLI, supervisor: c.Supervisor, index: c.Index, state: c.State, logger: c.Logger,
-		baseURL: c.BaseURL, mediaDir: c.MediaDir, links: newMediaLinks(), started: time.Now(), asr: c.ASR,
+		baseURL: c.BaseURL, mediaDir: c.MediaDir, exportDir: c.ExportDir, links: newMediaLinks(), started: time.Now(), asr: c.ASR,
 		clients: map[string]string{}, touched: map[string]time.Time{}}
 }
 

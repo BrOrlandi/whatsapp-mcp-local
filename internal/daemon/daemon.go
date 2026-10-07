@@ -137,7 +137,7 @@ func Start(cfg Config) (*Daemon, error) {
 
 	asr := localasr.New(cfg.DataDir)
 	d.server = mcp.New(mcp.Config{CLI: d.cli, Supervisor: d.sup, Index: d.idx, State: d.st, Logger: logger,
-		BaseURL: baseURL(cfg.Port), MediaDir: filepath.Join(cfg.DataDir, "media"), ASR: asr})
+		BaseURL: baseURL(cfg.Port), MediaDir: filepath.Join(cfg.DataDir, "media"), ExportDir: filepath.Join(cfg.DataDir, "exports"), ASR: asr})
 	d.panel = &panel.Panel{Server: d.server, Supervisor: d.sup, Index: d.idx, State: d.st, Token: cfg.Token,
 		Endpoint: d.MCPURL, Desktop: cfg.Desktop, LogPath: cfg.LogPath, MCPProblem: d.PortProblem}
 	if cfg.Panel != nil {

@@ -618,3 +618,9 @@ func (x *Index) RecentAudio(ctx context.Context, since time.Time, limit int) ([]
 	}
 	return out, rows.Err()
 }
+
+// ChatKnown reports whether the store holds a chat with that JID.
+func (x *Index) ChatKnown(ctx context.Context, jid string) bool {
+	var one int
+	return x.db.QueryRowContext(ctx, `SELECT 1 FROM chats WHERE jid = ? UNION SELECT 1 FROM messages WHERE chat_jid = ? LIMIT 1`, jid, jid).Scan(&one) == nil
+}

@@ -66,6 +66,10 @@ func Open(dir string) (*State, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := st.migrateTriage(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return st, nil
 }
 

@@ -222,3 +222,31 @@ func (n *Names) Contacts(ctx context.Context, search string, limit int) []Contac
 	}
 	return out
 }
+
+// Same reports whether two JIDs reach the same chat: equal, or one person's
+// phone-number JID and LID.
+func (n *Names) Same(ctx context.Context, a, b string) bool {
+	if a == b {
+		return true
+	}
+	n.refresh(ctx)
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return n.canonical(a) == n.canonical(b)
+}
+
+// Own is the paired account's phone number and LID, bare (no server, no
+// device), as the session knows them. Either is empty when not known.
+func (n *Names) Own(ctx context.Context) (phone, lid string) {
+	if n.session == nil {
+		return "", ""
+	}
+	var jid, l string
+	_ = n.session.QueryRowContext(ctx, `SELECT jid, COALESCE(lid,'') FROM whatsmeow_device LIMIT 1`).Scan(&jid, &l)
+	user := func(v string) string {
+		u, _, _ := strings.Cut(v, "@")
+		u, _, _ = strings.Cut(u, ":")
+		return u
+	}
+	return user(jid), user(l)
+}

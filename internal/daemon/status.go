@@ -94,10 +94,18 @@ func (d *Daemon) watchLoop(ctx context.Context) {
 	defer close(d.watchDone)
 	tick := time.NewTicker(30 * time.Second)
 	defer tick.Stop()
+	// Downloaded media past its retention goes a minute after start, then
+	// every six hours.
+	sweep := time.NewTimer(time.Minute)
+	defer sweep.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-sweep.C:
+			_, _, _ = d.server.SweepMedia(ctx)
+			sweep.Reset(6 * time.Hour)
+			continue
 		case <-d.sup.Changes():
 		case <-tick.C:
 		}

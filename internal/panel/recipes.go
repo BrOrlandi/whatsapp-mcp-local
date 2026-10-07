@@ -55,15 +55,18 @@ Agrupe por categoria. Se não houver nenhum, responda apenas
 		},
 		{
 			Title:   "Resumo do que ficou sem resposta",
-			Summary: "Varre as conversas em que a última mensagem é da outra pessoa e já tem algumas horas. É a lista de quem está esperando você.",
-			Uses:    []string{"list_chats", "get_chat_messages"},
-			Prompt: `Liste as conversas em que a última mensagem não é minha
-e chegou há mais de 4 horas.
+			Summary: "Lista as conversas em que a última mensagem é da outra pessoa e já tem algumas horas, com quantas mensagens esperam e desde quando. É a lista de quem está esperando você, e o que você já resolveu sai dela.",
+			Uses:    []string{"list_unanswered", "mark_handled", "snooze_chat"},
+			Prompt: `Liste as conversas do WhatsApp esperando minha resposta
+há mais de 4 horas, incluindo os grupos em que me mencionaram.
 
 Para cada uma: quem é, há quanto tempo, e o que a pessoa pediu.
-Ordene pela mais antiga. Ignore grupos.`,
+Ordene pela mais antiga.
+
+Quando eu disser que uma já está resolvida, marque com mark_handled.
+Se eu pedir para lembrar depois, use snooze_chat.`,
 			Schedule: "Duas vezes ao dia",
-			Caveat:   "list_chats devolve o último texto de cada conversa, então o corte por tempo é barato. Ler cada conversa inteira não é.",
+			Caveat:   "Respostas curtas como \"ok\", \"obrigado\" ou 👍 não contam como espera. As marcas de resolvido e adiado ficam só neste computador: a outra pessoa não vê nada, e uma mensagem nova traz a conversa de volta.",
 		},
 		{
 			Title:   "Enquete e apuração",
@@ -93,6 +96,18 @@ esticar um resumo do nada.`,
 			Caveat:   "Use get_chat_messages com since e until do dia e order oldest, para ler em ordem cronológica. Áudio e imagem entram sem texto, então o resumo vai ter buracos onde a conversa foi por voz. Peça para marcar isso em vez de fingir que não existiu.",
 		},
 		{
+			Title:   "Ler o documento ou a foto que chegou",
+			Summary: "Um PDF, uma planilha ou a foto de um papel chegam no WhatsApp e o assistente lê o conteúdo direto, sem você baixar e anexar. PDF escaneado vira imagem das páginas, para o assistente ler como uma foto.",
+			Uses:    []string{"get_chat_messages", "read_media"},
+			Prompt: `Abra o último PDF que o [contato] me mandou no WhatsApp
+e me diga o valor total, o vencimento e o que está sendo cobrado.
+
+Se for uma foto ou um documento escaneado, leia mesmo assim.
+Se não der para ler alguma parte, diga qual.`,
+			Schedule: "Sob demanda",
+			Caveat:   "Áudio não entra aqui: para ele, a transcrição. Vídeo não é lido. O arquivo baixado fica na pasta do app; media_stats diz quanto espaço ocupa e purge_media libera.",
+		},
+		{
 			Title:   "Arquivo do que foi combinado",
 			Summary: "Transforma uma conversa longa em uma lista de compromissos, com quem prometeu o quê e quando.",
 			Uses:    []string{"get_chat_messages", "search_messages"},
@@ -116,6 +131,7 @@ var suggestedPrompts = []string{
 	"Me resuma a conversa do WhatsApp com o João da Silva de hoje.",
 	"Procure no meu WhatsApp as mensagens que falam sobre contrato.",
 	"Quais grupos do WhatsApp eu participo? Quem são os administradores do maior deles?",
+	"Quem está esperando minha resposta no WhatsApp?",
 }
 
 // verificationPrompt is what the operator pastes into the client to confirm the

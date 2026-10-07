@@ -57,6 +57,46 @@ type arguments struct {
 	Model      string   `json:"model"`
 
 	MaxSilenceHours float64 `json:"max_silence_hours"`
+
+	ReplyTo  string   `json:"reply_to"`
+	Mentions []string `json:"mentions"`
+	DryRun   bool     `json:"dry_run"`
+	ForMe    bool     `json:"for_me"`
+	Typing   *bool    `json:"typing"`
+	Audio    bool     `json:"audio"`
+	Receipts *bool    `json:"receipts"`
+
+	Fields          []string `json:"fields"`
+	MaxContentChars int      `json:"max_content_chars"`
+	CountOnly       bool     `json:"count_only"`
+	Before          *int     `json:"before"`
+	After           *int     `json:"after"`
+	GroupBy         string   `json:"group_by"`
+	Direction       string   `json:"direction"`
+	MediaType       string   `json:"media_type"`
+	ExcludeGroups   bool     `json:"exclude_groups"`
+
+	IncludeGroups        bool     `json:"include_groups"`
+	IncludeGroupMentions bool     `json:"include_group_mentions"`
+	IncludeMuted         *bool    `json:"include_muted"`
+	IncludeArchived      bool     `json:"include_archived"`
+	IncludeHandled       bool     `json:"include_handled"`
+	IgnoreClosing        *bool    `json:"ignore_closing"`
+	MinAgeHours          float64  `json:"min_age_hours"`
+	OnlyUnanswered       bool     `json:"only_unanswered"`
+	PerChat              int      `json:"per_chat"`
+	Note                 string   `json:"note"`
+	Clear                bool     `json:"clear"`
+	Participants         []string `json:"participants"`
+	Description          *string  `json:"description"`
+	Reset                bool     `json:"reset"`
+
+	As          string `json:"as"`
+	MaxEdge     int    `json:"max_edge"`
+	FirstPage   int    `json:"first_page"`
+	Pages       int    `json:"pages"`
+	OlderThan   int    `json:"older_than_days"`
+	MinMegabyte int    `json:"min_megabytes"`
 }
 
 const (
@@ -72,7 +112,16 @@ func (s *Server) call(ctx context.Context, params callParams) map[string]any {
 			return toolError("could not read the tool arguments: %v", err)
 		}
 	}
-	handlers := map[string]func(context.Context, arguments) map[string]any{
+	handler, ok := s.handlers()[params.Name]
+	if !ok {
+		return toolError("unknown tool %q", params.Name)
+	}
+	return handler(ctx, a)
+}
+
+// handlers maps each tool to the method that answers it.
+func (s *Server) handlers() map[string]func(context.Context, arguments) map[string]any {
+	return map[string]func(context.Context, arguments) map[string]any{
 		"health":              s.health,
 		"whatsapp_status":     s.status,
 		"list_chats":          s.listChats,
@@ -96,12 +145,30 @@ func (s *Server) call(ctx context.Context, params callParams) map[string]any {
 		"send_poll":           s.sendPoll,
 		"get_poll_results":    s.pollResults,
 		"organise_chat":       s.organiseChat,
+
+		"forward_message": s.forwardMessage,
+		"mark_chat_read":  s.markChatRead,
+		"send_typing":     s.sendTyping,
+
+		"get_message_context": s.messageContext,
+		"message_stats":       s.messageStats,
+		"export_messages":     s.exportMessages,
+
+		"list_unread":     s.listUnread,
+		"list_unanswered": s.listUnanswered,
+		"list_mentions":   s.listMentions,
+		"mark_handled":    s.markHandled,
+		"snooze_chat":     s.snoozeChat,
+
+		"manage_group_participants": s.manageParticipants,
+		"update_group":              s.updateGroup,
+		"get_group_invite_link":     s.groupInviteLink,
+		"leave_group":               s.leaveGroup,
+
+		"read_media":  s.readMedia,
+		"media_stats": s.mediaStats,
+		"purge_media": s.purgeMedia,
 	}
-	handler, ok := handlers[params.Name]
-	if !ok {
-		return toolError("unknown tool %q", params.Name)
-	}
-	return handler(ctx, a)
 }
 
 func limit(n, fallback int) int {
@@ -173,6 +240,8 @@ type message struct {
 	Starred    bool              `json:"starred,omitempty"`
 	Snippet    string            `json:"snippet,omitempty"`
 	Transcript *state.Transcript `json:"transcript,omitempty"`
+	// TextTruncated says max_content_chars cut the text or the transcript.
+	TextTruncated bool `json:"text_truncated,omitempty"`
 }
 
 func convert(m wacliMessage) message {
@@ -220,6 +289,10 @@ func (s *Server) attachTranscripts(ctx context.Context, msgs []message) {
 }
 
 func (s *Server) listChats(ctx context.Context, a arguments) map[string]any {
+	sh, err := newShaping(a, chatFields)
+	if err != nil {
+		return toolError("%v", err)
+	}
 	ctx, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
 	args := []string{"--read-only", "chats", "list", "--limit", strconv.Itoa(limit(a.Limit, 50))}
@@ -240,12 +313,27 @@ func (s *Server) listChats(ctx context.Context, a arguments) map[string]any {
 		}
 	}
 	coverage, _ := s.index.Coverage(ctx)
-	return textResult(map[string]any{"chats": chats, "count": len(chats), "history_since": coverage.Oldest}, false)
+	var rows any = chats
+	if len(sh.fields) > 0 {
+		picked := make([]map[string]any, 0, len(chats))
+		for _, c := range chats {
+			picked = append(picked, sh.pick(c))
+		}
+		rows = picked
+	}
+	return textResult(map[string]any{"chats": rows, "count": len(chats), "history_since": coverage.Oldest}, false)
 }
 
 func (s *Server) chatMessages(ctx context.Context, a arguments) map[string]any {
 	if strings.TrimSpace(a.ChatJID) == "" {
 		return toolError("chat_jid is required")
+	}
+	sh, err := newShaping(a, messageFields)
+	if err != nil {
+		return toolError("%v", err)
+	}
+	if a.CountOnly {
+		return s.countChatMessages(ctx, a)
 	}
 	since, err := parseTime(a.Since, "since")
 	if err != nil {
@@ -280,7 +368,7 @@ func (s *Server) chatMessages(ctx context.Context, a arguments) map[string]any {
 		msgs = append(msgs, msg)
 	}
 	s.attachTranscripts(ctx, msgs)
-	result := map[string]any{"chat_jid": a.ChatJID, "chat_name": s.index.Names.Name(ctx, a.ChatJID), "messages": msgs, "count": len(msgs), "untrusted_content": UntrustedContent}
+	result := map[string]any{"chat_jid": a.ChatJID, "chat_name": s.index.Names.Name(ctx, a.ChatJID), "messages": sh.messages(msgs), "count": len(msgs), "untrusted_content": UntrustedContent}
 	if oldest, err := s.index.ChatOldest(ctx, a.ChatJID); err == nil {
 		result["history_since"] = oldest
 		if oldest != nil && since != "" {
@@ -324,6 +412,10 @@ func (s *Server) searchMessages(ctx context.Context, a arguments) map[string]any
 	q := strings.TrimSpace(a.Query)
 	if q == "" {
 		return toolError("query is required")
+	}
+	sh, err := newShaping(a, messageFields)
+	if err != nil {
+		return toolError("%v", err)
 	}
 	since, err := parseTime(a.Since, "since")
 	if err != nil {
@@ -377,7 +469,7 @@ func (s *Server) searchMessages(ctx context.Context, a arguments) map[string]any
 	}
 	s.attachTranscripts(ctx, msgs)
 	coverage, _ := s.index.Coverage(ctx)
-	return textResult(map[string]any{"query": q, "messages": msgs, "count": len(msgs), "full_text": out.FTS,
+	return textResult(map[string]any{"query": q, "messages": sh.messages(msgs), "count": len(msgs), "full_text": out.FTS,
 		"history_since": coverage.Oldest, "untrusted_content": UntrustedContent}, false)
 }
 
@@ -482,7 +574,28 @@ func (s *Server) sendText(ctx context.Context, a arguments) map[string]any {
 	if strings.TrimSpace(a.To) == "" || a.Text == "" {
 		return toolError("to and text are required")
 	}
-	return sendResult(s.delegated(ctx, "send", "text", "--to", a.To, "--message", a.Text))
+	args := []string{"send", "text", "--to", a.To, "--message", a.Text}
+	draft := map[string]any{"text": a.Text}
+	reply, fail := s.replyArgs(ctx, a.ReplyTo, a.To)
+	if fail != nil {
+		return fail
+	}
+	if reply != nil {
+		args = append(args, reply.args...)
+		draft["reply_to"] = reply.quoted
+	}
+	mentions, err := mentionArgs(a.Text, a.Mentions)
+	if err != nil {
+		return toolError("%v", err)
+	}
+	if len(mentions) > 0 {
+		args = append(args, mentions...)
+		draft["mentions"] = a.Mentions
+	}
+	if a.DryRun {
+		return s.dryRun(ctx, a.To, draft)
+	}
+	return sendResult(s.delegated(ctx, args...))
 }
 
 const maxMedia = 100 << 20
@@ -491,15 +604,51 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 	if strings.TrimSpace(a.To) == "" || strings.TrimSpace(a.URL) == "" {
 		return toolError("to and url are required")
 	}
-	as := map[string]string{"image": "image", "video": "video", "audio": "audio", "document": "document"}[a.Type]
+	as := map[string]string{"image": "image", "video": "video", "audio": "audio", "document": "document", "sticker": "sticker"}[a.Type]
 	if as == "" {
-		return toolError("type must be image, video, audio or document")
+		return toolError("type must be image, video, audio, document or sticker")
+	}
+	sticker := as == "sticker"
+	if sticker && (a.Caption != "" || a.Filename != "") {
+		return toolError("a sticker carries no caption or file name")
+	}
+	reply, fail := s.replyArgs(ctx, a.ReplyTo, a.To)
+	if fail != nil {
+		return fail
+	}
+	if a.DryRun {
+		// A dry run checks the source without downloading it.
+		draft := map[string]any{"type": as, "file": a.URL, "caption": a.Caption, "filename": a.Filename}
+		if reply != nil {
+			draft["reply_to"] = reply.quoted
+		}
+		if src := strings.TrimPrefix(strings.TrimSpace(a.URL), "file://"); filepath.IsAbs(src) {
+			info, err := os.Stat(src)
+			if err != nil || info.IsDir() || info.Size() > maxMedia {
+				return toolError("%s is not a readable file of at most 100 MiB", src)
+			}
+			if sticker && !isWebP(src) {
+				return toolError("a sticker must be a WebP image, and %s is not one", src)
+			}
+			draft["bytes"] = info.Size()
+		}
+		return s.dryRun(ctx, a.To, draft)
 	}
 	path, cleanup, err := s.fetchFile(ctx, a.URL, a.Filename)
 	if err != nil {
 		return toolError("%v", err)
 	}
 	defer cleanup()
+	if sticker {
+		if !isWebP(path) {
+			return toolError("a sticker must be a WebP image, and %s is not one", a.URL)
+		}
+		args := []string{"send", "sticker", "--to", a.To, "--file", path}
+		if reply != nil {
+			args = append(args, reply.args...)
+		}
+		return sendResult(s.delegated(ctx, args...))
+	}
 	args := []string{"send", "file", "--to", a.To, "--file", path, "--as", as}
 	if a.Caption != "" {
 		args = append(args, "--caption", a.Caption)
@@ -507,7 +656,25 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 	if a.Filename != "" {
 		args = append(args, "--filename", a.Filename)
 	}
+	if reply != nil {
+		args = append(args, reply.args...)
+	}
 	return sendResult(s.delegated(ctx, args...))
+}
+
+// isWebP reports whether a file starts like a WebP image, the only format
+// WhatsApp shows as a sticker.
+func isWebP(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	head := make([]byte, 12)
+	if _, err := io.ReadFull(f, head); err != nil {
+		return false
+	}
+	return string(head[:4]) == "RIFF" && string(head[8:]) == "WEBP"
 }
 
 // fetchFile resolves a send's source to a local file: a path on this machine
@@ -650,8 +817,19 @@ func (s *Server) deleteMessage(ctx context.Context, a arguments) map[string]any 
 	if fail != nil {
 		return fail
 	}
+	if a.ForMe {
+		if !a.Confirm {
+			return textResult(map[string]any{"preview": true, "for_me": true, "would_delete": m,
+				"next": "call delete_message again with for_me and confirm true to remove it from this account's devices; the other side keeps it, and this cannot be undone"}, false)
+		}
+		var out map[string]any
+		if err := s.exclusive(ctx, "delete message for me", &out, "messages", "delete", "--chat", m.ChatJID, "--id", m.ID, "--for-me"); err != nil {
+			return toolError("%v", err)
+		}
+		return textResult(map[string]any{"deleted": true, "for_me": true, "message_id": m.ID, "chat_jid": m.ChatJID}, false)
+	}
 	if !m.FromMe {
-		return toolError("only the account's own messages can be revoked; this one was sent by %s", m.SenderJID)
+		return toolError("only the account's own messages can be deleted for everyone; this one was sent by %s. for_me true removes it from this account only", m.SenderJID)
 	}
 	if !a.Confirm {
 		return textResult(map[string]any{"preview": true, "would_delete": m,
@@ -703,8 +881,8 @@ func (s *Server) organiseChat(ctx context.Context, a arguments) map[string]any {
 	if strings.TrimSpace(a.ChatJID) == "" {
 		return toolError("chat_jid is required")
 	}
-	var out any
-	if err := s.exclusive(ctx, a.Action+" chat", &out, "chats", a.Action, "--chat", a.ChatJID); err != nil {
+	out, err := s.delegatedOrExclusive(ctx, a.Action+" chat", "chats", a.Action, "--chat", a.ChatJID)
+	if err != nil {
 		return toolError("%v", err)
 	}
 	return textResult(map[string]any{"done": true, "action": a.Action, "chat_jid": a.ChatJID, "result": out}, false)
@@ -751,7 +929,7 @@ func (s *Server) fetchMedia(ctx context.Context, m index.Message) (downloaded, e
 	// Read-only download takes no store lock, so it runs while sync does.
 	if err := s.cli.Decode(ctx, &d, "--read-only", "media", "download", "--chat", m.ChatJID, "--id", m.ID, "--output", target); err != nil {
 		if strings.Contains(err.Error(), "403") || strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "410") {
-			return d, fmt.Errorf("WhatsApp's CDN no longer holds this file (%v); the phone may still have it, and `wacli media retry --chat %s` asks it to upload it again", err, m.ChatJID)
+			return d, fmt.Errorf("WhatsApp's servers no longer hold this file (%v); the phone may still have it, where the user can open or forward it", err)
 		}
 		return d, err
 	}
