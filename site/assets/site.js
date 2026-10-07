@@ -55,6 +55,14 @@
     });
   });
 
+  // A link to a question (#banimento) opens it.
+  function openFromHash() {
+    const target = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));
+    if (target && target.tagName === "DETAILS") target.open = true;
+  }
+  openFromHash();
+  window.addEventListener("hashchange", openFromHash);
+
   // The hero conversation: a request, what the app did in WhatsApp, and the answer.
   const chat = document.querySelector("[data-chat]");
   if (!chat) return;
@@ -91,17 +99,6 @@
         "<p>O Marcos disse:</p>",
         "<blockquote>Fala! Consegui adiantar a reunião com o cliente para quinta, às 10h. Se puder, leva o contrato impresso, que eles querem assinar lá mesmo.</blockquote>",
         "<p><strong>Resumindo:</strong> reunião na quinta às 10h, e levar o contrato impresso.</p>",
-      ],
-    },
-    {
-      title: "Enquete da pelada",
-      ask: "Cria uma enquete no grupo da pelada: sábado ou domingo?",
-      working: "Enviando a enquete para Pelada dos amigos",
-      done: "Enviou uma enquete para Pelada dos amigos",
-      reply: [
-        "<p>Pronto, a enquete está no grupo Pelada dos amigos:</p>",
-        "<ul><li><strong>Pergunta:</strong> Qual dia fica melhor?</li><li><strong>Opções:</strong> Sábado e Domingo</li></ul>",
-        "<p>Quando quiser, eu te conto qual dia ganhou.</p>",
       ],
     },
   ];

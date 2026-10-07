@@ -3,17 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>WhatsApp MCP: o seu WhatsApp no Claude</title>
-  <meta name="description" content="Um app gratuito para macOS, Windows e Linux que conecta o seu WhatsApp ao Claude. Resuma grupos, ache mensagens, responda e transcreva áudios, com as mensagens no seu computador.">
+  <title>WhatsApp MCP: a sua IA com o contexto do seu WhatsApp</title>
+  <meta name="description" content="Um app gratuito para macOS, Windows e Linux que conecta o seu WhatsApp ao Claude, ao Codex e a qualquer ferramenta de IA que aceite MCP. Resuma grupos, ache mensagens, responda e transcreva áudios, com as mensagens no seu computador.">
   <link rel="canonical" href="https://whatsapp-mcp.brorlandi.xyz/">
   <meta name="theme-color" content="#073d35">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="pt_BR">
   <meta property="og:site_name" content="WhatsApp MCP">
-  <meta property="og:title" content="WhatsApp MCP: o seu WhatsApp no Claude">
-  <meta property="og:description" content="Um app gratuito para macOS, Windows e Linux. Peça ao Claude para resumir grupos, achar mensagens, responder e transcrever áudios.">
+  <meta property="og:title" content="WhatsApp MCP: a sua IA com o contexto do seu WhatsApp">
+  <meta property="og:description" content="Um app gratuito para macOS, Windows e Linux. Peça ao Claude, ao Codex ou à sua ferramenta de IA para resumir grupos, achar mensagens, responder e transcrever áudios.">
   <meta property="og:url" content="https://whatsapp-mcp.brorlandi.xyz/">
-  <meta property="og:image" content="https://whatsapp-mcp.brorlandi.xyz/assets/og.png">
+  <meta property="og:image" content="https://whatsapp-mcp.brorlandi.xyz/assets/og.png?v=2">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
@@ -29,6 +29,7 @@
     <symbol id="i-logo" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9h24a12 12 0 0 1 12 12v11a12 12 0 0 1-12 12H26L15 54.5V43a12 12 0 0 1-7-11V21A12 12 0 0 1 20 9Z"/><path d="M19 21l13 6 13-6M32 27v8.5" stroke-width="3.6"/></g><g fill="currentColor"><circle cx="19" cy="21" r="3.6"/><circle cx="45" cy="21" r="3.6"/><circle cx="32" cy="35.5" r="3.6"/><circle cx="32" cy="27" r="4.4"/></g></symbol>
     <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></symbol>
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
     <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" opacity=".14"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
@@ -45,6 +46,7 @@
       <a class="brand" href="/"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-logo"/></svg>WhatsApp MCP</a>
       <nav class="nav" aria-label="Principal">
         <a class="nav__link nav__link--page" href="#como-funciona">Como funciona</a>
+        <a class="nav__link nav__link--page" href="#perguntas">Perguntas</a>
         <a class="nav__link nav__link--page" href="/servidor">Versão servidor</a>
         <a class="nav__link nav__link--gh" href="https://github.com/BrOrlandi/whatsapp-mcp-local"><svg aria-hidden="true"><use href="#i-github"/></svg><span>GitHub</span></a>
         <a class="btn btn--mint btn--sm" href="/download">Baixar</a>
@@ -54,8 +56,8 @@
     <section class="wrap hero" id="conteudo">
       <div class="hero__grid">
         <div>
-          <h1>O seu WhatsApp no Claude, rodando no seu computador.</h1>
-          <p class="hero__lead">Peça ao Claude para resumir um grupo, achar uma mensagem de meses atrás, responder alguém ou transcrever um áudio. As mensagens não saem da sua máquina.</p>
+          <h1>A sua IA com o contexto do seu WhatsApp, rodando no seu computador.</h1>
+          <p class="hero__lead">Peça ao Claude, ao Codex ou à ferramenta de IA que você usa para resumir um grupo, achar uma mensagem de meses atrás, responder alguém ou transcrever um áudio. As mensagens não saem da sua máquina.</p>
           <div class="hero__actions">
             <a class="btn btn--mint btn--lg" href="/download"><svg aria-hidden="true"><use href="#i-download"/></svg>Baixar o app</a>
             <a class="btn btn--line-dark btn--lg" href="https://github.com/BrOrlandi/whatsapp-mcp-local"><svg aria-hidden="true"><use href="#i-github"/></svg>Ver no GitHub</a>
@@ -64,7 +66,7 @@
         </div>
 
         <div>
-          <div class="chat" data-chat aria-label="Exemplo de conversa com o Claude">
+          <div class="chat" data-chat aria-label="Exemplo de conversa com uma ferramenta de IA">
             <div class="chat__bar">
               <span class="chat__dots" aria-hidden="true"><span></span><span></span><span></span></span>
               <span class="chat__title">Resumo do grupo da família</span>
@@ -85,7 +87,6 @@
             <button class="chip" type="button" data-scenario="0" aria-pressed="true">Resumir um grupo</button>
             <button class="chip" type="button" data-scenario="1" aria-pressed="false">Achar uma mensagem</button>
             <button class="chip" type="button" data-scenario="2" aria-pressed="false">Transcrever um áudio</button>
-            <button class="chip" type="button" data-scenario="3" aria-pressed="false">Criar uma enquete</button>
           </div>
         </div>
       </div>
@@ -107,8 +108,8 @@
               <p>No WhatsApp, entre em Dispositivos conectados e aponte a câmera para o código. Se preferir, peça um código para digitar no celular.</p>
             </li>
             <li>
-              <h3>Conecte o Claude</h3>
-              <p>Um clique liga o Claude Desktop (chat e Cowork) ou o Claude Code. Para outras ferramentas, o app dá um texto pronto para colar.</p>
+              <h3>Conecte a sua ferramenta de IA</h3>
+              <p>Um clique liga o Claude Desktop (chat e Cowork) ou o Claude Code. Para o Codex, o Cursor e outras ferramentas que aceitam MCP, o app dá um texto pronto para colar.</p>
             </li>
           </ol>
         </div>
@@ -160,9 +161,52 @@
             <p>Para receber mensagens, o app precisa estar aberto. Se o computador ficar desligado por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele volta.</p>
           </div>
           <div>
-            <h3>Claude neste computador</h3>
-            <p>Funciona com o Claude Desktop, o Claude Code e outras ferramentas que aceitam MCP nesta máquina. O claude.ai no navegador e o app do celular não alcançam o seu computador; para eles, a alternativa é a <a href="/servidor">versão servidor</a>, no lugar do app.</p>
+            <h3>A ferramenta de IA roda neste computador</h3>
+            <p>Funciona com qualquer ferramenta de IA que aceite MCP e rode nesta máquina, como o Claude Desktop, o Claude Code, o Codex e o Cursor. O claude.ai no navegador e os apps de celular não alcançam o seu computador; para eles, a alternativa é a <a href="/servidor">versão servidor</a>, no lugar do app.</p>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="perguntas">
+      <div class="wrap">
+        <h2>Perguntas frequentes</h2>
+        <div class="faq">
+          <details class="faq__item" id="banimento">
+            <summary><h3>Tem risco de a Meta banir o meu número?</h3><svg class="faq__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <div class="faq__answer">
+              <p>O app, por si só, não causa banimento. O que leva a Meta a banir uma conta é o jeito como a conta envia mensagens:</p>
+              <ul>
+                <li>disparar mensagens de forma automatizada e em massa;</li>
+                <li>mandar a mesma mensagem, repetida, para muitos contatos;</li>
+                <li>enviar num ritmo que nenhuma pessoa teria, com um comportamento que não parece humano.</li>
+              </ul>
+              <p>O WhatsApp MCP foi feito para levar o contexto das suas conversas, como os grupos de trabalho com clientes, para as ferramentas de IA. Ele não foi feito para disparo em massa nem para criar chatbots. Usado para o que foi feito, não deve causar banimento nem problemas com a Meta.</p>
+              <p>Se ainda ficar alguma dúvida, leia os <a href="https://www.whatsapp.com/legal/terms-of-service?lang=pt_BR">Termos de Serviço do WhatsApp</a>.</p>
+            </div>
+          </details>
+          <details class="faq__item" id="ferramentas">
+            <summary><h3>Com quais ferramentas de IA funciona?</h3><svg class="faq__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <div class="faq__answer">
+              <p>Com qualquer ferramenta de IA que aceite MCP e rode no seu computador, como o Claude Desktop (chat e Cowork), o Claude Code, o Codex, o Cursor e o Windsurf.</p>
+              <p>O Claude Desktop e o Claude Code se conectam com um clique no app. Para as outras, o app dá um texto pronto: você cola no chat da ferramenta e ela mesma se configura.</p>
+              <p>O claude.ai no navegador e os apps de celular não alcançam o seu computador. Para eles, existe a <a href="/servidor">versão servidor</a>.</p>
+            </div>
+          </details>
+          <details class="faq__item" id="historico">
+            <summary><h3>Como trazer mensagens mais antigas?</h3><svg class="faq__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <div class="faq__answer">
+              <p>Quando você conecta, o WhatsApp manda para o app parte do histórico recente, como faz com o WhatsApp Web. Daí em diante, tudo o que chega fica guardado no seu computador.</p>
+              <p>Para voltar mais numa conversa, peça à sua IA para buscar as mensagens mais antigas dela. O app pede ao seu celular, que precisa estar com internet, e as mensagens chegam aos poucos, das mais novas para as mais antigas. O próprio WhatsApp limita até onde dá para voltar.</p>
+              <p>Para ter uma conversa inteira, exporte pelo celular (nas opções da conversa, Exportar conversa) e entregue o arquivo à sua IA.</p>
+            </div>
+          </details>
+          <details class="faq__item" id="business">
+            <summary><h3>Funciona com o WhatsApp Business?</h3><svg class="faq__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <div class="faq__answer">
+              <p>Sim. Funciona com o WhatsApp comum e com o WhatsApp Business: o app entra na conta como um dispositivo conectado, igual ao WhatsApp Web.</p>
+            </div>
+          </details>
         </div>
       </div>
     </section>

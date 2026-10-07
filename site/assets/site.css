@@ -262,6 +262,33 @@ code {
 .notes p { margin-top: 8px; font-size: 1rem; color: var(--ink-soft); }
 @media (max-width: 820px) { .notes { grid-template-columns: minmax(0, 1fr); } }
 
+.faq { max-width: 860px; margin-top: 40px; border-bottom: 1px solid var(--line); }
+.faq__item { border-top: 1px solid var(--line); scroll-margin-top: 24px; }
+.faq__item summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 0;
+  list-style: none;
+  cursor: pointer;
+}
+.faq__item summary::-webkit-details-marker { display: none; }
+.faq__item summary h3 { font-size: 1.25rem; letter-spacing: -0.015em; }
+.faq__item summary:hover h3 { color: var(--brand-strong); }
+.faq__icon { flex: none; width: 24px; height: 24px; color: var(--brand); }
+.faq__item[open] .faq__icon { transform: rotate(45deg); }
+.faq__answer { max-width: 62ch; padding-bottom: 28px; color: var(--ink-soft); }
+.faq__answer ul { margin: 0.6em 0 0; padding-left: 1.2em; }
+.faq__answer li + li { margin-top: 0.3em; }
+.faq__answer ul + p { margin-top: 0.9em; }
+@media (prefers-reduced-motion: no-preference) {
+  .faq { interpolate-size: allow-keywords; }
+  .faq__icon { transition: transform 0.2s; }
+  .faq__item::details-content { block-size: 0; overflow: hidden; transition: block-size 0.25s ease, content-visibility 0.25s allow-discrete; }
+  .faq__item[open]::details-content { block-size: auto; }
+}
+
 .cta { background: var(--deep); color: var(--on-deep); padding-block: clamp(64px, 9vw, 104px); }
 .cta__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 28px; }
 .cta h2 { font-size: clamp(2rem, 4vw, 3rem); color: #f6fcf9; }
