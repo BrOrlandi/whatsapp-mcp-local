@@ -61,5 +61,5 @@ favoritas.
   recebidas?
 - Favoritas: esperar o wacli ou implementar a captura aqui?
 - Como a IA sabe o que cada figurinha mostra: olhar a imagem quando precisa
-  (o `read_media` já lê WebP, inclusive o primeiro quadro das animadas) ou uma
+  (o `download_media` entrega o WebP como imagem) ou uma
   legenda que a pessoa escreve na tela.

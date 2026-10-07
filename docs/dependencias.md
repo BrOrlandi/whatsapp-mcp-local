@@ -120,9 +120,6 @@ versões, por isso a versão é fixa e só muda com um novo `sidecars-N`. O mode
 | `github.com/godbus/dbus/v5` | no Linux, descobrir se há bandeja |
 | `modernc.org/sqlite` | SQLite em Go puro: lê `wacli.db` e `session.db` e mantém o `state.db` |
 | `github.com/skip2/go-qrcode` | desenha o QR code do pareamento no painel |
-| `golang.org/x/image` | reduz as imagens que o `read_media` entrega e lê WebP, TIFF e BMP |
-| `golang.org/x/text` | lê arquivos de texto em UTF-16 e Windows-1252 |
-| `github.com/klippa-app/go-pdfium` + `github.com/tetratelabs/wazero` | o PDFium compilado para WebAssembly, rodando dentro do processo sem cgo: extrai o texto de PDFs e desenha as páginas de um PDF escaneado. Soma cerca de 10 MB ao binário; o primeiro PDF leva cerca de 1,5 s para preparar o leitor |
 
 A linha de comando e o bridge não usam cgo nem o Wails: são binários Go puros,
 que não dependem de bibliotecas do sistema. O app usa cgo no macOS e no Linux

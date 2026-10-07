@@ -3,6 +3,7 @@ package daemon
 import (
 	"bytes"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -238,8 +239,8 @@ func TestNewToolsReachWacliTheRightWay(t *testing.T) {
 		t.Errorf("export file: %q %v", b, err)
 	}
 
-	// read_media reads what download_media keeps: a picture comes back as
-	// one, a text document as its text.
+	// download_media hands over the file as WhatsApp delivered it: a picture
+	// as the very same image, anything else as a file.
 	media := filepath.Join(root, "data", "media", testMae)
 	_ = os.MkdirAll(media, 0o700)
 	img := image.NewRGBA(image.Rect(0, 0, 3000, 1000))
@@ -247,12 +248,16 @@ func TestNewToolsReachWacliTheRightWay(t *testing.T) {
 	_ = pngEncode(&png, img)
 	_ = os.WriteFile(filepath.Join(media, "P1.png"), png.Bytes(), 0o600)
 	_ = os.WriteFile(filepath.Join(media, "D1.txt"), []byte("arroz\nfeijão\n"), 0o600)
-	blocks := callContent(t, port, "read_media", map[string]any{"message_id": "P1"})
-	if len(blocks) != 2 || blocks[1]["type"] != "image" || !strings.Contains(fmt.Sprint(blocks[0]["text"]), `"width": 1568`) {
-		t.Errorf("read_media of a picture should scale it to 1568 px and return it as an image: %.400v", blocks)
+	blocks := callContent(t, port, "download_media", map[string]any{"message_id": "P1"})
+	if len(blocks) != 2 || blocks[1]["type"] != "image" || blocks[1]["data"] != base64.StdEncoding.EncodeToString(png.Bytes()) {
+		t.Errorf("download_media of a picture should return the original image: %.300v", blocks)
 	}
-	if res, isErr := callTool(t, port, "read_media", map[string]any{"message_id": "D1"}); isErr || !strings.Contains(fmt.Sprint(res["text"]), "feijão") {
-		t.Errorf("read_media of a text file: %v", res)
+	blocks = callContent(t, port, "download_media", map[string]any{"message_id": "D1"})
+	if len(blocks) != 2 || blocks[1]["type"] != "resource" {
+		t.Errorf("download_media of a document should return it as a file: %.300v", blocks)
+	}
+	if res, _ := callTool(t, port, "download_media", map[string]any{"message_id": "D1", "link": true}); !strings.Contains(fmt.Sprint(res["url"]), "/media/") {
+		t.Errorf("download_media with link: %v", res)
 	}
 	if res, _ := callTool(t, port, "media_stats", nil); res["inventory"].(map[string]any)["files"] != float64(2) {
 		t.Errorf("media_stats: %v", res)

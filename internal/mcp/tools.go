@@ -152,7 +152,7 @@ func definitions() []any {
 		},
 		map[string]any{
 			"name":        "download_media",
-			"description": "Download the media of an indexed message to this machine. The result always carries the local path of the file, which a client with file access should simply read. By default the content is also returned as base64 inside this result, which puts the whole file into the conversation; link true returns instead a localhost URL valid for ten minutes, with a curl command that saves it.",
+			"description": "Download the media of an indexed message to this machine, exactly as WhatsApp delivered it: original size and format, nothing converted. The result always carries the local path of the file, which a client with file access should simply read. By default the content also comes inside this result (a picture as an image, an audio as audio, anything else as a file), which puts the whole file into the conversation. When it is too large for you or your client cannot take it, call again with link true: that returns a localhost URL valid for ten minutes, with a curl command that saves it. Files over 20 MiB always come as a link.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
 				"message_id": stringSchema("Message id, as returned by the reading tools."),
 				"chat_jid":   stringSchema("Optional conversation of the message, when the same id could exist in two chats."),
@@ -410,19 +410,6 @@ func definitions() []any {
 				"group_jid": stringSchema("JID of the group, ending in @g.us."),
 				"confirm":   boolSchema("Required to leave."),
 			}, "required": []string{"group_jid"}},
-		},
-		map[string]any{
-			"name":        "read_media",
-			"description": "Read the content of a message's media, ready for the model: an image comes back as a picture scaled to what vision models read; a PDF, Word (DOCX) or Excel (XLSX) document comes back as its text; a scanned PDF, whose pages hold no text, as pictures of its pages. For audio use transcribe_audio; for the file itself, download_media.",
-			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
-				"message_id":        stringSchema("Message id, as returned by the reading tools."),
-				"chat_jid":          stringSchema("Optional conversation of the message."),
-				"as":                map[string]any{"type": "string", "enum": []string{"auto", "text", "pages"}, "description": "auto (default) picks by type; text extracts a document's text; pages renders PDF pages as pictures."},
-				"max_edge":          map[string]any{"type": "integer", "minimum": 256, "maximum": 4096, "description": "Longest side of returned pictures, in pixels. Defaults to 1568."},
-				"first_page":        map[string]any{"type": "integer", "minimum": 1, "description": "First PDF page to read. Defaults to 1."},
-				"pages":             map[string]any{"type": "integer", "minimum": 1, "maximum": 20, "description": "How many PDF pages to render as pictures. Defaults to 5."},
-				"max_content_chars": maxCharsSchema(),
-			}, "required": []string{"message_id"}},
 		},
 		map[string]any{
 			"name":        "media_stats",

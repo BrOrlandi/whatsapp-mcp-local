@@ -34,29 +34,6 @@ modernc.org/sqlite
 BSD 3-Clause License. https://gitlab.com/cznic/sqlite/-/blob/master/LICENSE
 
 
-PDFium (https://pdfium.googlesource.com/pdfium/), compiled to WebAssembly
-=========================================================================
-Apache License 2.0 and BSD 3-Clause License, with the libraries built into it
-(FreeType, libjpeg-turbo, OpenJPEG, Little CMS, zlib) under their own licences.
-https://pdfium.googlesource.com/pdfium/+/main/LICENSE
-Built for WebAssembly by go-pdfium from https://github.com/bblanchon/pdfium-binaries.
-
-
-go-pdfium (https://github.com/klippa-app/go-pdfium)
-===================================================
-MIT License. https://github.com/klippa-app/go-pdfium/blob/main/LICENSE
-
-
-wazero (https://wazero.io)
-==========================
-Apache License 2.0. https://github.com/tetratelabs/wazero/blob/main/LICENSE
-
-
-Go extended libraries (golang.org/x/image, golang.org/x/text, golang.org/x/sys)
-==============================================================================
-BSD 3-Clause License. https://go.dev/LICENSE
-
-
 whisper.cpp and ffmpeg (downloaded only when transcription is turned on)
 =======================================================================
 whisper.cpp: MIT License, https://github.com/ggml-org/whisper.cpp

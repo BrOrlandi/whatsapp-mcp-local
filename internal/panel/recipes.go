@@ -97,15 +97,15 @@ esticar um resumo do nada.`,
 		},
 		{
 			Title:   "Ler o documento ou a foto que chegou",
-			Summary: "Um PDF, uma planilha ou a foto de um papel chegam no WhatsApp e o assistente lê o conteúdo direto, sem você baixar e anexar. PDF escaneado vira imagem das páginas, para o assistente ler como uma foto.",
-			Uses:    []string{"get_chat_messages", "read_media"},
+			Summary: "Um PDF, uma planilha ou a foto de um papel chegam no WhatsApp e o assistente pega o arquivo do jeito que veio, sem você baixar e anexar, e lê com os recursos dele.",
+			Uses:    []string{"get_chat_messages", "download_media"},
 			Prompt: `Abra o último PDF que o [contato] me mandou no WhatsApp
 e me diga o valor total, o vencimento e o que está sendo cobrado.
 
 Se for uma foto ou um documento escaneado, leia mesmo assim.
 Se não der para ler alguma parte, diga qual.`,
 			Schedule: "Sob demanda",
-			Caveat:   "Áudio não entra aqui: para ele, a transcrição. Vídeo não é lido. O arquivo baixado fica na pasta do app; media_stats diz quanto espaço ocupa e purge_media libera.",
+			Caveat:   "Quem lê o arquivo é a sua ferramenta de IA: o Claude lê fotos e PDFs, e um Word ou uma planilha dependem do que ela consegue abrir. Um arquivo grande chega como um link deste computador. Para áudio, a transcrição. O arquivo baixado fica na pasta do app; media_stats diz quanto espaço ocupa e purge_media libera.",
 		},
 		{
 			Title:   "Arquivo do que foi combinado",

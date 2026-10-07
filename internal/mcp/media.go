@@ -15,7 +15,7 @@ import (
 )
 
 // The media folder holds what the tools downloaded on request (download_media,
-// read_media, transcribe_audio), one folder per chat. Every file in it can be
+// transcribe_audio), one folder per chat. Every file in it can be
 // downloaded again from WhatsApp while WhatsApp still holds it, so clearing it
 // frees space without losing a message.
 

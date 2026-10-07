@@ -91,12 +91,8 @@ type arguments struct {
 	Description          *string  `json:"description"`
 	Reset                bool     `json:"reset"`
 
-	As          string `json:"as"`
-	MaxEdge     int    `json:"max_edge"`
-	FirstPage   int    `json:"first_page"`
-	Pages       int    `json:"pages"`
-	OlderThan   int    `json:"older_than_days"`
-	MinMegabyte int    `json:"min_megabytes"`
+	OlderThan   int `json:"older_than_days"`
+	MinMegabyte int `json:"min_megabytes"`
 }
 
 const (
@@ -165,7 +161,6 @@ func (s *Server) handlers() map[string]func(context.Context, arguments) map[stri
 		"get_group_invite_link":     s.groupInviteLink,
 		"leave_group":               s.leaveGroup,
 
-		"read_media":  s.readMedia,
 		"media_stats": s.mediaStats,
 		"purge_media": s.purgeMedia,
 	}
@@ -959,7 +954,12 @@ func (s *Server) downloadMedia(ctx context.Context, a arguments) map[string]any 
 		return textResult(result, false)
 	}
 	if d.Bytes > 20<<20 {
-		result["note"] = "the file is larger than 20 MiB, so it is not inlined; read it from path, or ask again with link true"
+		// Too large to travel inside a tool result: hand out a link instead.
+		token := s.links.add(d.Path, m.MimeType, 10*time.Minute)
+		url := s.base() + "/media/" + token
+		result["url"], result["expires_in_seconds"] = url, 600
+		result["curl"] = fmt.Sprintf("curl -sSf -o %q %q", filepath.Base(d.Path), url)
+		result["note"] = "the file is larger than 20 MiB, so it is not inlined: read it from path, or download it from url"
 		return textResult(result, false)
 	}
 	body, err := os.ReadFile(d.Path)

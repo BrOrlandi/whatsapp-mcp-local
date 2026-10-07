@@ -24,7 +24,6 @@ var toolCategories = map[string]string{
 	"get_group":           CategoryRead,
 	"download_media":      CategoryRead,
 	"transcribe_audio":    CategoryRead,
-	"read_media":          CategoryRead,
 	"get_poll_results":    CategoryRead,
 	"check_numbers":       CategoryRead,
 	"get_profile_picture": CategoryRead,

@@ -80,7 +80,7 @@ func webhookExamples() []webhookExampleGroup {
 		{ID: "message", Title: "Mensagens (message)", Intro: "Cada mensagem nova, de uma conversa ou de um grupo. Os campos que não se aplicam ficam de fora do JSON.", Examples: []webhookExample{
 			{ID: "texto", Title: "Texto numa conversa", JSON: event("message", "9f2c41d07a3b8e65", direct("3EB0C767D26A1D8B1E00", "Oi! Você vem amanhã?"))},
 			{ID: "grupo", Title: "Resposta num grupo", Note: "group é true, e reply_to diz qual mensagem foi citada. sender_jid é quem escreveu; chat_jid, o grupo.", JSON: event("message", "1b7e93c2a4f05d68", reply)},
-			{ID: "foto", Title: "Foto com legenda", Note: "A mídia vem descrita, sem o arquivo; a legenda vem em text e em media.caption. Para o conteúdo, a sua ferramenta de IA usa read_media ou download_media com o id.", JSON: event("message", "2c8f04d3b5a16e79", photo)},
+			{ID: "foto", Title: "Foto com legenda", Note: "A mídia vem descrita, sem o arquivo; a legenda vem em text e em media.caption. Para o arquivo, a sua ferramenta de IA usa download_media com o id.", JSON: event("message", "2c8f04d3b5a16e79", photo)},
 			{ID: "documento", Title: "Documento", JSON: event("message", "3d9015e4c6b27f8a", document)},
 			{ID: "audio", Title: "Áudio", Note: "Áudios de voz chegam assim, sem transcrição: a transcrição acontece quando a sua ferramenta de IA pede.", JSON: event("message", "4ea126f5d7c3809b", voice)},
 			{ID: "localizacao", Title: "Localização", JSON: event("message", "5fb23706e8d491ac", place)},
@@ -171,7 +171,7 @@ function assinaturaValida(corpo, cabecalho, chave) {
 </ul>
 <h3 class="card__sub">message, em message e reaction</h3>
 <ul class="rows">
-<li class="row"><span class="row__main"><span class="row__title mono">id</span><span class="row__meta">O id da mensagem no WhatsApp, o mesmo que as ferramentas do MCP usam (responder, reagir, read_media).</span></span></li>
+<li class="row"><span class="row__main"><span class="row__title mono">id</span><span class="row__meta">O id da mensagem no WhatsApp, o mesmo que as ferramentas do MCP usam (responder, reagir, baixar a mídia).</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">chat_jid · chat_name · group</span><span class="row__meta">A conversa: um número@s.whatsapp.net, ou um grupo terminado em @g.us. group diz se é grupo.</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">timestamp</span><span class="row__meta">Quando a mensagem foi enviada, em UTC.</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">from_me</span><span class="row__meta">true quando a mensagem é da própria conta.</span></span></li>

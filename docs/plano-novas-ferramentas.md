@@ -109,6 +109,23 @@ Todas por consulta ao banco do wacli, sem pausar nada:
 
 ## 6. Leitura de mídia
 
+> **Cancelado.** O `read_media` chegou a ser implementado (pacote
+> `internal/mediaread`, com o PDFium em WebAssembly) e foi retirado antes de
+> publicar a 1.3.0, por decisão: a função do MCP é dar acesso aos arquivos do
+> WhatsApp, e processá-los é trabalho da ferramenta de IA que os usa. A
+> transcrição de áudio fica, porque a IA não tem outro jeito de ouvir um áudio;
+> uma foto ou um PDF ela já lê. O retirado: cerca de 10 MB no app, cinco
+> dependências (`go-pdfium`, `wazero`, `go-commons-pool`, `golang.org/x/image`,
+> `golang.org/x/text`) e o app interpretando arquivos mandados por terceiros.
+>
+> No lugar, o `download_media` entrega o arquivo exatamente como chegou, sem
+> reduzir nem converter, e um arquivo que não cabe no resultado (ou que o
+> cliente não aceita) vem por um link deste computador (`link: true`, e sempre
+> acima de 20 MiB). Ficaram o inventário, a limpeza e a retenção dos arquivos
+> baixados.
+
+O plano original, para registro:
+
 `read_media(chat_jid, message_id)` entrega o conteúdo pronto para o modelo ler.
 O `download_media` continua existindo para guardar o arquivo ou gerar um link.
 
@@ -228,9 +245,8 @@ ponta). Diferenças em relação ao plano:
 - **O relay do webhook fica sempre ligado**, numa porta própria de loopback:
   criar, mudar ou apagar webhooks não reinicia o sync. Se o wacli em uso não
   tiver webhook, o sync roda sem ele e a API responde `"available": false`.
-- **`read_media` devolve até 60 mil caracteres de um documento** por padrão
-  (`max_content_chars` lê até 500 mil). Sem texto, um PDF vira imagens das
-  páginas sozinho; `as: "pages"` força isso.
+- **`read_media` foi implementado e retirado antes da 1.3.0** (seção 6): o
+  MCP entrega o arquivo original, e a IA processa.
 - **Mídia expirada no WhatsApp não é pedida de novo ao celular
   automaticamente.** O `media retry` do wacli escolhe sozinho quais mídias
   pedir, pausando o sync por até meio minuto; a mensagem de erro agora explica
@@ -240,6 +256,7 @@ ponta). Diferenças em relação ao plano:
 
 - Desligamento do webhook: depois de 10 tentativas em menos de um minuto, com
   a fila descartada (decisão do Bruno).
-- `read_media` é uma ferramenta separada do `download_media`.
+- `read_media`: cancelado; o `download_media` entrega o arquivo original, com
+  um link local quando ele não cabe no resultado.
 - `list_mentions` busca `@<número>` e `@<LID>` no texto; uma coluna de
   mencionados no wacli continua sendo a alternativa robusta.

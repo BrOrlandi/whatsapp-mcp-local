@@ -142,9 +142,9 @@ entrega é um `POST` com JSON e estes cabeçalhos:
 ```
 
 Uma mensagem com mídia traz `media` (`type`, `mime_type`, `filename`, `bytes`,
-`caption`), sem o arquivo: o script pede pelo MCP (`download_media`,
-`read_media`) se precisar. Uma reação traz `reaction` (`to`, `emoji`; vazio
-quando foi removida); uma confirmação, `receipt` (`message_ids`, `type`:
+`caption`), sem o arquivo: se precisar dele, o script pede pelo MCP
+(`download_media`, que o devolve do jeito que chegou). Uma reação traz
+`reaction` (`to`, `emoji`; vazio quando foi removida); uma confirmação, `receipt` (`message_ids`, `type`:
 `delivered`, `read` ou `played`). Só chegam mensagens novas: o histórico que o
 celular manda depois de conectar não é entregue.
 
