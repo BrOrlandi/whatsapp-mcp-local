@@ -613,6 +613,34 @@ steps for that one, which end when it connects. No tabs on the way. */}}
 
 {{end}}
 
+<section class="card" id="webhooks" data-webhooks>
+<div class="card__head"><h2 class="card__title">{{icon "code"}}Webhooks</h2><a class="btn btn--ghost btn--small" href="/webhooks/documentacao">{{icon "book"}}Documentação</a></div>
+<div class="card__body stack">
+<p class="muted">Avisam um programa seu a cada mensagem nova que chega, para ele agir sozinho: responder, registrar numa planilha, avisar em outro lugar. São para quem usa scripts ou automações. <span class="tip" tabindex="0" aria-describedby="tip-webhooks"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-webhooks">A cada mensagem, o WhatsApp MCP faz um POST com JSON no endereço, assinado com a chave do webhook. Se o endereço não responder com sucesso, ele tenta de novo até 10 vezes em menos de um minuto; depois disso o webhook é desligado e os avisos que esperavam são descartados. O formato de cada aviso está em Documentação, no alto deste card.</span></span></p>
+<p class="note" data-webhooks-unavailable hidden>O wacli instalado não avisa mensagens novas: atualize-o para os webhooks funcionarem.</p>
+<p class="busy" data-webhooks-loading role="status"><span class="spinner" aria-hidden="true"></span>Carregando…</p>
+<ul class="rows" data-webhooks-list hidden></ul>
+<div class="empty" data-webhooks-empty hidden><p class="empty__title">Nenhum webhook ainda</p><p class="muted" style="margin:6px 0 0">Adicione abaixo o endereço do seu programa.</p></div>
+<div class="secret" data-webhook-secret hidden>
+<p class="secret__title">Webhook adicionado. Guarde a chave dele</p>
+<p class="muted" style="margin:0">Ela não aparece de novo. Com ela, o seu programa confere que cada aviso veio mesmo do WhatsApp MCP.</p>
+<code class="secret__value" data-webhook-secret-value></code>
+<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-webhook-secret-copy>Copiar a chave</button><button class="btn btn--quiet btn--small" type="button" data-webhook-secret-close>Já guardei</button></div>
+</div>
+<form class="stack" data-webhook-form>
+<h3 class="card__sub">Adicionar um webhook</h3>
+<label class="field" for="webhook-url"><span class="field__label">Endereço</span><span class="field__hint">O endereço do seu programa, começando com http:// ou https://.</span></label>
+<input id="webhook-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:8080/whatsapp" required data-webhook-url>
+<span class="field__label">Avisar quando</span>
+<label class="check"><input type="checkbox" value="message" checked data-webhook-event><span>Chegar uma mensagem</span></label>
+<label class="check"><input type="checkbox" value="reaction" data-webhook-event><span>Alguém reagir a uma mensagem</span></label>
+<label class="check"><input type="checkbox" value="receipt" data-webhook-event><span>Uma mensagem sua for entregue, lida ou ouvida</span></label>
+<label class="check"><input type="checkbox" data-webhook-own><span>Incluir as mensagens que você manda<span class="check__hint">Do celular ou pela sua ferramenta de IA.</span></span></label>
+<div class="actions"><button class="btn btn--small" type="submit">Adicionar webhook</button></div>
+<p class="alert" role="alert" data-webhook-error hidden></p>
+</form>
+</div></section>
+
 <section class="card" id="transcricao" data-asr>
 <div class="card__head"><h2 class="card__title">{{icon "mic"}}Transcrição de áudio</h2>{{if .Local.Ready}}<span class="pill pill--ok">Ativa</span>{{else}}<span class="pill pill--off">Não instalada</span>{{end}}</div>
 <div class="card__body stack">
@@ -658,6 +686,23 @@ steps for that one, which end when it connects. No tabs on the way. */}}
 <label class="theme-pick"><input type="radio" name="tema" value="system" data-theme-choice><span class="theme-pick__preview" aria-hidden="true"><span class="mini mini--light"><i></i><i></i><i></i></span><span class="mini mini--dark mini--half"><i></i><i></i><i></i></span></span><span class="theme-pick__label">{{icon "monitor"}}Sistema</span></label>
 </fieldset>
 </div></section>
+
+<section class="card" id="arquivos" data-media>
+<div class="card__head"><h2 class="card__title">{{icon "folder"}}Arquivos baixados</h2></div>
+<div class="card__body stack">
+<p class="muted">Fotos, áudios e documentos que a sua ferramenta de IA abriu ficam guardados neste computador, para não serem baixados de novo. Apagar não perde nenhuma mensagem: se precisar, o arquivo é baixado outra vez, enquanto o WhatsApp ainda o tiver.</p>
+<dl class="facts">
+<div class="fact"><dt>Espaço usado</dt><dd data-media-bytes>…</dd></div>
+<div class="fact"><dt>Arquivos</dt><dd data-media-files>…</dd></div>
+<div class="fact"><dt>Exportações</dt><dd data-media-exports>…</dd></div>
+</dl>
+<p class="muted" data-media-types hidden></p>
+<div class="actions"><label class="check check--inline"><input type="checkbox" data-media-retention><span>Apagar sozinho os arquivos baixados há mais de</span></label><input class="input--short" type="number" min="1" max="3650" value="30" aria-label="dias" data-media-days disabled><span class="muted">dias</span></div>
+<p class="muted" style="margin:0">As exportações de conversas ficam até você apagar. <span class="tip" tabindex="0" aria-describedby="tip-exportacoes"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-exportacoes">Quando você pede à sua ferramenta de IA para exportar conversas, ela grava um arquivo com as mensagens neste computador, para analisar sem carregar tudo na conversa.</span></span></p>
+<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-media-clear hidden>Apagar os arquivos baixados</button><button class="btn btn--ghost btn--small" type="button" data-media-clear-exports hidden>Apagar as exportações</button></div>
+<p class="busy" data-media-note role="status" hidden></p>
+</div></section>
+<script src="/assets/settings.js" defer></script>
 
 {{if .App}}
 <section class="card" id="dados">

@@ -27,6 +27,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/webhook"
 )
 
 type Config struct {
@@ -62,6 +63,10 @@ type Daemon struct {
 	server *mcp.Server
 	panel  *panel.Panel
 	routes *http.ServeMux
+
+	hooks      *webhook.Manager
+	relay      *webhook.Relay
+	webhooksOn bool
 
 	syncDone  chan struct{}
 	watchDone chan struct{}
@@ -130,6 +135,7 @@ func Start(cfg Config) (*Daemon, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	d.cancel = cancel
 	d.sup = wacli.NewSupervisor(d.cli, logger)
+	d.startWebhooks(ctx)
 	go func() {
 		d.sup.Run(ctx)
 		close(d.syncDone)
@@ -143,7 +149,11 @@ func Start(cfg Config) (*Daemon, error) {
 	if cfg.Panel != nil {
 		cfg.Panel(d.panel)
 	}
-	d.routes = httpserver.Routes(d.server, httpserver.Options{Token: cfg.Token, Logger: logger, Register: d.panel.Register})
+	register := func(mux *http.ServeMux) {
+		d.panel.Register(mux)
+		d.panel.RegisterWebhooks(mux, d.hooks, d.webhooksOn)
+	}
+	d.routes = httpserver.Routes(d.server, httpserver.Options{Token: cfg.Token, Logger: logger, Register: register})
 
 	if ln != nil {
 		d.serve(ln)
@@ -189,6 +199,9 @@ func (d *Daemon) Stop() {
 	d.mu.Unlock()
 	if srv != nil {
 		httpserver.Shutdown(srv)
+	}
+	if d.relay != nil {
+		_ = d.relay.Close()
 	}
 	d.st.Close()
 	d.idx.Close()
@@ -285,4 +298,28 @@ func describePortProblem(port int) *PortProblem {
 		p.OtherGateway = resp.StatusCode == http.StatusOK && strings.TrimSpace(string(body)) == "ok"
 	}
 	return p
+}
+
+// startWebhooks opens the relay sync posts new messages to and starts
+// delivering them to the configured webhooks. A wacli too old to post
+// messages leaves webhooks off rather than failing sync on an unknown flag.
+func (d *Daemon) startWebhooks(ctx context.Context) {
+	d.hooks = webhook.New(d.st, d.logger, mcp.Version, d.idx.Names.Same)
+	relay, err := webhook.NewRelay(d.hooks, d.idx.Names)
+	if err != nil {
+		d.logger.Warn("webhooks are off: no loopback port for the relay", "error", err)
+		return
+	}
+	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	if !d.cli.Supports(cctx, "--webhook-events", "sync") {
+		d.logger.Warn("webhooks are off: this wacli cannot post new messages", "wacli", d.cfg.WacliBin)
+		_ = relay.Close()
+		return
+	}
+	d.relay, d.webhooksOn = relay, true
+	d.sup.SetWebhook(relay.URL(), relay.Secret())
+	if err := d.hooks.Start(ctx); err != nil {
+		d.logger.Warn("could not load the webhooks", "error", err)
+	}
 }

@@ -100,6 +100,16 @@ func lastLine(s string) string {
 	return ""
 }
 
+// Supports reports whether a wacli command has a flag, from its help: the
+// command line may run an older wacli than the app ships.
+func (c *CLI) Supports(ctx context.Context, flag string, command ...string) bool {
+	cmd := exec.CommandContext(ctx, c.Bin, append(command, "--help")...)
+	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1")
+	platform.Background(cmd)
+	out, _ := cmd.CombinedOutput()
+	return bytes.Contains(out, []byte(flag))
+}
+
 // IsLockError reports whether wacli refused because another process holds the
 // store lock.
 func IsLockError(err error) bool {

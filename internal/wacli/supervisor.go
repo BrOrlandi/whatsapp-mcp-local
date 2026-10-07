@@ -52,6 +52,9 @@ type Supervisor struct {
 	pairWG sync.WaitGroup
 
 	history HistoryProgress
+
+	// webhook is where sync posts each live message, when set.
+	webhook []string
 }
 
 // HistoryProgress is the history the phone has been sending to the running
@@ -89,6 +92,14 @@ func NewSupervisor(cli *CLI, logger *slog.Logger) *Supervisor {
 	}
 	return &Supervisor{cli: cli, logger: logger, want: true, wake: make(chan struct{}, 1), changed: make(chan struct{}, 1),
 		state: "starting", since: time.Now()}
+}
+
+// SetWebhook makes sync post every live message and receipt to url, signed
+// with secret. It takes effect when sync next starts, so it is set before Run.
+func (s *Supervisor) SetWebhook(url, secret string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.webhook = []string{"--webhook", url, "--webhook-secret", secret, "--webhook-allow-private", "--webhook-events", "message,receipt"}
 }
 
 // Changes signals, without blocking, every time sync's state changes, so a
@@ -227,8 +238,11 @@ func (s *Supervisor) paired(ctx context.Context) (bool, error) {
 
 // runOnce starts sync and blocks until it exits.
 func (s *Supervisor) runOnce(ctx context.Context) error {
-	cmd := exec.Command(s.cli.Bin, "sync", "--follow", "--events",
-		"--max-reconnect", "0", "--presence-mode", "quiet", "--refresh-contacts", "--refresh-groups")
+	args := []string{"sync", "--follow", "--events", "--max-reconnect", "0", "--presence-mode", "quiet", "--refresh-contacts", "--refresh-groups"}
+	s.mu.Lock()
+	args = append(args, s.webhook...)
+	s.mu.Unlock()
+	cmd := exec.Command(s.cli.Bin, args...)
 	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+s.cli.StoreDir, "NO_COLOR=1")
 	// Its own process group, so a stop reaches every process it started, and a
 	// bounded wait for its pipes, so a stray child cannot hang the supervisor.

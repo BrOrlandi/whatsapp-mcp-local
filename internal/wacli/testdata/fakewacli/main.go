@@ -4,8 +4,9 @@
 // commands succeed while the socket is up, and auth walks through a pairing.
 //
 // Files in the store steer it: AUTHED marks the store as paired, HANG makes
-// auth keep going after the link like a large account's history does, and
-// calls.log records which kind of command ran.
+// auth keep going after the link like a large account's history does,
+// calls.log records which kind of command ran, and args.log every command
+// line, sync's included.
 package main
 
 import (
@@ -15,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -33,7 +35,23 @@ func main() {
 	if len(args) < 2 {
 		fail("unknown")
 	}
+	logArgs(args)
 	switch args[0] + " " + args[1] {
+	case "sync --help":
+		fmt.Println("Flags:\n      --webhook string\n      --webhook-events string")
+	case "chats mark-read", "chats pin", "presence typing", "presence paused", "send file", "send sticker":
+		// What a running sync accepts over its socket, like send text.
+		if locked() && !exists(".send.sock") {
+			fail("store is locked")
+		}
+		record("delegated")
+		reply(map[string]any{"ok": true})
+	case "messages forward", "messages delete", "messages revoke", "groups participants", "groups leave", "groups rename", "groups invite":
+		if locked() {
+			fail("store is locked by another process")
+		}
+		record("exclusive")
+		reply(map[string]any{"ok": true, "id": "FWD"})
 	case "auth status":
 		reply(map[string]any{"authenticated": exists("AUTHED"), "phone": "5511912345678"})
 	case "auth --events":
@@ -55,6 +73,15 @@ func main() {
 	default:
 		fail("unknown")
 	}
+}
+
+func logArgs(args []string) {
+	f, err := os.OpenFile(filepath.Join(store, "args.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintln(f, strings.Join(args, " "))
 }
 
 func reply(data any) {
