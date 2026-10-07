@@ -225,6 +225,17 @@ code {
 .section h2 { font-size: clamp(2rem, 3.8vw, 2.9rem); }
 .lede { margin-top: 18px; max-width: 58ch; font-size: 1.15rem; color: var(--ink-soft); }
 
+.video { margin: 40px 0 0; }
+.video video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border-radius: 20px;
+  background: var(--deep);
+  box-shadow: 0 30px 80px -30px rgba(7, 61, 53, 0.55);
+}
+
 .how { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: clamp(40px, 6vw, 88px); align-items: center; }
 .steps { list-style: none; margin: 40px 0 0; padding: 0; counter-reset: step; }
 .steps > li {
