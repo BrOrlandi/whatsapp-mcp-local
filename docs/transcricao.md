@@ -78,8 +78,8 @@ primeiro terminar.
 | Mac com Apple Silicon (M3 Pro, Metal) | cerca de 2 segundos |
 | Só processador (Linux arm64, 12 núcleos) | cerca de 13 segundos |
 
-No processador, um áudio leva mais ou menos o próprio tempo, e a página
-Transcrição avisa disso. O primeiro uso depois de ligar o computador leva
+No processador, um áudio leva mais ou menos o próprio tempo, e a seção
+Transcrição de áudio das Configurações avisa disso. O primeiro uso depois de ligar o computador leva
 alguns segundos a mais para carregar o modelo.
 
 **Por que Whisper e não Parakeet V3.** O Handy oferece os dois. O Parakeet é
@@ -111,8 +111,9 @@ A tool devolve a transcrição com as mensagens de contexto e uma instrução: o
 uma palavra for claramente um erro de audição de algo que a conversa menciona
 (nome, lugar, produto, termo), corrigir com `save_transcript`, mudando só o que
 o contexto deixa certo, sem trocar o jeito de falar nem acrescentar nada. O
-daemon guarda a correção e mantém o original em `raw_text`. A página
-Transcrição mostra quantos áudios foram corrigidos assim.
+daemon guarda a correção e mantém o original em `raw_text`. A seção
+Transcrição de áudio das Configurações mostra quantos áudios foram corrigidos
+assim.
 
 O daemon não roda um modelo de linguagem próprio para isso: quem corrige é a
 ferramenta de IA que pediu a transcrição, que já está no meio da conversa.

@@ -137,7 +137,7 @@ func (p *Panel) apiOpenApp(r *http.Request) (any, error) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	if body.Path != "" && (!strings.HasPrefix(body.Path, "/") || strings.HasPrefix(body.Path, "//")) {
-		return nil, userError{"path must be a page of the app, such as /estado"}
+		return nil, userError{"path must be a page of the app, such as /status"}
 	}
 	p.Host.ShowWindow(body.Path)
 	return map[string]bool{"ok": true}, nil

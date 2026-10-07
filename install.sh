@@ -118,7 +118,7 @@ esac
 # it up later, and OpenAI remains an option.
 if [ "$OS" = darwin ] && [ "$ARCH" = arm64 ]; then
   say "setting up local voice-note transcription (whisper.cpp, about 600 MB)"
-  "$BIN_DIR/whatsapp-mcp" transcription install || warn "local transcription was not set up; the panel's Transcrição page can do it later"
+  "$BIN_DIR/whatsapp-mcp" transcription install || warn "local transcription was not set up; the panel's Configurações › Transcrição de áudio can do it later"
 fi
 
 WACLI_BIN="$(command -v wacli || echo "$BIN_DIR/wacli")"

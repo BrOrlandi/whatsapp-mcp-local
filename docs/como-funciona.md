@@ -132,7 +132,7 @@ Logs do serviço: `~/Library/Logs/whatsapp-mcp.log` (macOS) ou
 
 ## Tools
 
-A aba **Documentação** do painel lista as tools direto do servidor. Em relação
+A aba **Funções** do painel lista as tools direto do servidor. Em relação
 ao [WhatsApp MCP hospedado](https://github.com/BrOrlandi/whatsapp-mcp):
 
 | Diferença | Por quê |

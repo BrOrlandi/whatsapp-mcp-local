@@ -1,10 +1,11 @@
 // The theme the panel paints in.
 //
 // The stylesheet already follows the operating system. This only adds the
-// override: a choice made in the masthead, kept in this browser alone, applied
-// before the first paint so the page never flashes the other palette on its way
-// to the right one. Without this file the system preference still decides, and
-// the switch stays hidden rather than sitting there doing nothing.
+// override: a choice made in Configurações › Aparência, kept in this browser
+// alone, applied before the first paint so the page never flashes the other
+// palette on its way to the right one. Without this file the system preference
+// still decides, and the Aparência section stays hidden rather than sitting
+// there doing nothing.
 (function () {
   "use strict";
 
@@ -43,16 +44,24 @@
   apply(stored());
 
   document.addEventListener("DOMContentLoaded", function () {
-    var select = document.querySelector("[data-theme-select]");
-    if (!select) {
+    var choices = document.querySelectorAll("[data-theme-choice]");
+    if (!choices.length) {
       return;
     }
-    select.value = stored() || "system";
-    var holder = select.closest("[data-theme-switch]") || select;
-    holder.hidden = false;
-    select.addEventListener("change", function () {
-      remember(select.value);
-      apply(select.value);
+    var current = stored() || "system";
+    choices.forEach(function (input) {
+      input.checked = input.value === current;
+      input.addEventListener("change", function () {
+        if (!input.checked) {
+          return;
+        }
+        remember(input.value);
+        apply(input.value);
+      });
     });
+    var holder = document.querySelector("[data-theme-switch]");
+    if (holder) {
+      holder.hidden = false;
+    }
   });
 })();

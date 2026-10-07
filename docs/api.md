@@ -36,7 +36,9 @@ precisar da janela. O app e a versão de linha de comando têm a mesma API; só
 | `POST /api/pair/cancel` | Cancela a conexão em andamento |
 | `POST /api/clients/claude-code` | Configura o MCP no Claude Code deste computador. `{"replace": true}` substitui uma configuração antiga |
 | `POST /api/clients/claude-desktop` | O mesmo no Claude Desktop (chat e Cowork), que precisa ser reiniciado |
-| `POST /api/app/open` | Só no app: abre a janela, opcionalmente numa página: `{"path": "/estado"}` |
+| `POST /api/clients/codex` | O mesmo no Codex (o do app do ChatGPT, o app do Codex, o terminal e o editor), pelo comando `codex mcp add` |
+| `POST /api/clients/cursor` | O mesmo no Cursor, no `~/.cursor/mcp.json` de todos os projetos (com uma cópia do arquivo anterior) |
+| `POST /api/app/open` | Só no app: abre a janela, opcionalmente numa página: `{"path": "/status"}` |
 | `GET /health` | O relatório de saúde completo; responde 503 quando algo falha |
 | `GET /healthz` | Só diz que o processo está de pé |
 

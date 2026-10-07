@@ -58,6 +58,7 @@ type Panel struct {
 
 	pages *template.Template
 	code  codeCache
+	codex codeCache
 }
 
 // PortProblem is the MCP's port taken by another program: WhatsApp keeps
@@ -142,15 +143,24 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /{$}", p.page(p.conectar))
 	mux.HandleFunc("GET /instalacao", p.page(p.instalacao))
 	mux.HandleFunc("POST /instalacao/avancar", p.form(p.advance))
+	mux.HandleFunc("GET /conectar", p.page(p.connectChoose))
+	mux.HandleFunc("GET /conectar/{tool}", p.page(p.connectTool))
 	mux.HandleFunc("GET /whatsapp", p.page(p.whatsapp))
 	mux.HandleFunc("POST /whatsapp/sair", p.form(p.logout))
-	mux.HandleFunc("GET /estado", p.page(p.estado))
-	mux.HandleFunc("GET /transcricao", p.page(p.transcricao))
+	mux.HandleFunc("GET /status", p.page(p.status))
 	mux.HandleFunc("GET /api/asr", p.api(p.apiASR))
 	mux.HandleFunc("POST /api/asr/install", p.api(p.apiASRInstall))
-	mux.HandleFunc("GET /documentacao", p.page(p.documentacao))
+	mux.HandleFunc("GET /funcoes", p.page(p.funcoes))
 	mux.HandleFunc("GET /receitas", p.page(p.receitas))
+	mux.HandleFunc("GET /ajuda", p.page(p.ajuda))
+	mux.HandleFunc("GET /configuracoes", p.page(p.configuracoes))
+	// The pages' former addresses, still in links and in older answers of
+	// the MCP: transcription is a section of Configurações now.
+	for from, to := range map[string]string{"/estado": "/status", "/documentacao": "/funcoes", "/transcricao": "/configuracoes#transcricao"} {
+		mux.Handle("GET "+from, http.RedirectHandler(to, http.StatusFound))
+	}
 	mux.HandleFunc("POST /conexoes/remover", p.form(p.removeConnection))
+	mux.HandleFunc("POST /conexoes/renomear", p.form(p.renameConnection))
 
 	mux.HandleFunc("GET /api/status", p.api(p.apiStatus))
 	mux.HandleFunc("GET /api/state", p.api(p.apiState))
@@ -562,7 +572,7 @@ func (p *Panel) setupStep(ctx context.Context, s snapshot) int {
 }
 
 func steps(now int) []wizardStep {
-	labels := []string{"WhatsApp", "Claude"}
+	labels := []string{"WhatsApp", "Ferramenta de IA"}
 	out := make([]wizardStep, len(labels))
 	for i, l := range labels {
 		st := "todo"
@@ -605,7 +615,8 @@ func (p *Panel) instalacao(w http.ResponseWriter, r *http.Request) (string, any)
 		Connections  []Connection
 		LiveCount    int
 		Verification string
-	}{l, s, step, steps(step), set, conns, live, verificationPrompt}
+		Tools        []toolChoice
+	}{l, s, step, steps(step), set, conns, live, verificationPrompt, toolChoices(conns)}
 }
 
 func (p *Panel) advance(r *http.Request) (string, error) {
@@ -643,7 +654,154 @@ func (p *Panel) conectar(w http.ResponseWriter, r *http.Request) (string, any) {
 		LiveCount   int
 		LastUse     time.Time
 		Prompts     []string
-	}{p.layout(r, "Conectar", "conectar", s), s, set, conns, live, last, suggestedPrompts}
+		Newcomer    bool
+	}{p.layout(r, "Conectar", "conectar", s), s, set, conns, live, last, suggestedPrompts, p.newcomer(r.Context(), time.Now())}
+}
+
+// newcomerDays is how long the first page keeps its examples, counted from
+// the first time an AI tool used the MCP.
+const newcomerDays = 3
+
+func (p *Panel) newcomer(ctx context.Context, now time.Time) bool {
+	seen, err := p.State.Clients(ctx)
+	if err != nil {
+		return false
+	}
+	var first time.Time
+	for _, c := range seen {
+		if first.IsZero() || c.FirstSeen.Before(first) {
+			first = c.FirstSeen
+		}
+	}
+	return !first.IsZero() && now.Sub(first) < newcomerDays*24*time.Hour
+}
+
+func (p *Panel) ajuda(w http.ResponseWriter, r *http.Request) (string, any) {
+	s := p.snapshot(r.Context())
+	return "ajuda", struct {
+		layout
+		Prompts []string
+	}{p.layout(r, "Ajuda", "ajuda", s), suggestedPrompts}
+}
+
+// guide is an AI tool the connect flow walks through.
+type guide struct {
+	Key  string // its page, and its row in Suas conexões
+	Name string
+	Hint string
+	Mark string // its logo, or an icon for any other tool
+	// Client is how the tool's name starts when it connects; empty for any
+	// other tool.
+	Client    string
+	Title     string // the page's heading
+	Who       string // the tool in a sentence: "o Codex"
+	Connected string // the heading once it is: "Codex conectado"
+}
+
+var guides = []guide{
+	{"claude-desktop", "Claude Desktop", "Chat e Cowork, no app do Claude para computador.", "claude", "claude-ai",
+		"Conectar o Claude Desktop", "o Claude Desktop", "Claude Desktop conectado"},
+	{"claude-code", "Claude Code", "No terminal ou no editor de código.", "claude-code", "claude-code",
+		"Conectar o Claude Code", "o Claude Code", "Claude Code conectado"},
+	{"codex", "ChatGPT / Codex", "O Codex no app do ChatGPT, no app do Codex, no terminal ou no editor.", "openai", codexClient,
+		"Conectar o ChatGPT / Codex", "o Codex", "Codex conectado"},
+	{"cursor", "Cursor", "O editor de código com IA.", "cursor", cursorClient,
+		"Conectar o Cursor", "o Cursor", "Cursor conectado"},
+	{"outra", "Outra ferramenta", "Windsurf e outras que aceitem MCP.", "grid", "",
+		"Conectar outra ferramenta", "a ferramenta", "Ferramenta conectada"},
+}
+
+// toolChoice is a guide with where its tool stands: live, configured or "".
+type toolChoice struct {
+	guide
+	State string
+}
+
+func toolChoices(conns []Connection) []toolChoice {
+	out := make([]toolChoice, len(guides))
+	for i, g := range guides {
+		out[i] = toolChoice{guide: g, State: toolState(g, conns)}
+	}
+	return out
+}
+
+func toolState(g guide, conns []Connection) string {
+	st := ""
+	for _, c := range conns {
+		if c.Key != g.Key && !(g.Key == "outra" && strings.HasPrefix(c.Key, "client:")) {
+			continue
+		}
+		if c.Live {
+			return "live"
+		}
+		if c.Configured {
+			st = "configured"
+		}
+	}
+	return st
+}
+
+// connectChoose is the start of the connect flow: which tool.
+func (p *Panel) connectChoose(w http.ResponseWriter, r *http.Request) (string, any) {
+	s := p.snapshot(r.Context())
+	step := p.setupStep(r.Context(), s)
+	if step == 1 {
+		http.Redirect(w, r, "/instalacao", http.StatusSeeOther)
+		return "", nil
+	}
+	conns := p.connections(r.Context(), p.setup(r.Context()))
+	l := p.layout(r, "Conectar ferramenta de IA", "conectar", s)
+	l.LiveKey = ""
+	return "conectarescolha", struct {
+		layout
+		Tools   []toolChoice
+		InSetup bool
+	}{l, toolChoices(conns), step == 2}
+}
+
+// connectTool is the steps for one tool, which end when it connects.
+func (p *Panel) connectTool(w http.ResponseWriter, r *http.Request) (string, any) {
+	var g guide
+	for _, c := range guides {
+		if c.Key == r.PathValue("tool") {
+			g = c
+		}
+	}
+	s := p.snapshot(r.Context())
+	step := p.setupStep(r.Context(), s)
+	if g.Key == "" || step == 1 {
+		to := "/conectar"
+		if step == 1 {
+			to = "/instalacao"
+		}
+		http.Redirect(w, r, to, http.StatusSeeOther)
+		return "", nil
+	}
+	set := p.setup(r.Context())
+	conns := p.connections(r.Context(), set)
+	// Any other tool is one that was not here when the page was made.
+	var known []string
+	if seen, err := p.State.Clients(r.Context()); err == nil {
+		for _, c := range seen {
+			known = append(known, c.Name)
+		}
+	}
+	l := p.layout(r, g.Title, "conectar", s)
+	l.LiveKey = ""
+	live := toolState(g, conns) == "live"
+	return "conectarferramenta", struct {
+		layout
+		Tool  guide
+		Setup setup
+		Live  bool
+		// Done is the page coming back once the tool connected: only the
+		// good news then, and the way back.
+		Done         bool
+		InSetup      bool
+		Known        string
+		Since        int64
+		Verification string
+	}{l, g, set, live, live && r.URL.Query().Get("conectado") == "1", step == 2, strings.Join(known, " "), time.Now().Unix(), verificationPrompt}
 }
 
 func (p *Panel) whatsapp(w http.ResponseWriter, r *http.Request) (string, any) {
@@ -658,27 +816,32 @@ func (p *Panel) whatsapp(w http.ResponseWriter, r *http.Request) (string, any) {
 	}{p.layout(r, "WhatsApp", "whatsapp", s), s}
 }
 
-func (p *Panel) estado(w http.ResponseWriter, r *http.Request) (string, any) {
+func (p *Panel) status(w http.ResponseWriter, r *http.Request) (string, any) {
 	s := p.snapshot(r.Context())
-	return "estado", struct {
+	return "status", struct {
 		layout
 		snapshot
-	}{p.layout(r, "Estado", "estado", s), s}
+	}{p.layout(r, "Status", "status", s), s}
 }
 
-func (p *Panel) transcricao(w http.ResponseWriter, r *http.Request) (string, any) {
+// configuracoes is the settings page. Appearance and audio transcription are
+// there everywhere; the rest only in the desktop app.
+func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, any) {
 	s := p.snapshot(r.Context())
 	var local localasr.Status
 	if asr := p.Server.ASR(); asr != nil {
 		local = asr.Status()
 	}
 	total, corrected, _ := p.State.TranscriptCount(r.Context())
-	return "transcricao", struct {
+	return "configuracoes", struct {
 		layout
-		Local     localasr.Status
-		Total     int
-		Corrected int
-	}{p.layout(r, "Transcrição de áudios", "transcricao", s), local, total, corrected}
+		Setup       setup
+		Port        int
+		PortChanged bool
+		Local       localasr.Status
+		Total       int
+		Corrected   int
+	}{p.layout(r, "Configurações", "configuracoes", s), p.setup(r.Context()), portOf(p.endpoint()), r.URL.Query().Get("porta") == "1", local, total, corrected}
 }
 
 func (p *Panel) apiASR(r *http.Request) (any, error) {
@@ -700,14 +863,14 @@ func (p *Panel) apiASRInstall(r *http.Request) (any, error) {
 	return asr.Status(), nil
 }
 
-func (p *Panel) documentacao(w http.ResponseWriter, r *http.Request) (string, any) {
+func (p *Panel) funcoes(w http.ResponseWriter, r *http.Request) (string, any) {
 	s := p.snapshot(r.Context())
 	tools := mcp.Catalogue()
-	return "documentacao", struct {
+	return "funcoes", struct {
 		layout
 		Tools []mcp.Tool
 		Count int
-	}{p.layout(r, "Documentação", "documentacao", s), tools, len(tools)}
+	}{p.layout(r, "Funções", "funcoes", s), tools, len(tools)}
 }
 
 func (p *Panel) receitas(w http.ResponseWriter, r *http.Request) (string, any) {
@@ -728,6 +891,23 @@ func (p *Panel) logout(r *http.Request) (string, error) {
 	return "/instalacao", nil
 }
 
+// renameConnection names another tool's connection as the person calls it;
+// an empty name brings back the one the tool gave.
+func (p *Panel) renameConnection(r *http.Request) (string, error) {
+	name, ok := strings.CutPrefix(r.FormValue("client"), "client:")
+	if !ok || name == "" {
+		return "/", userError{"só dá para renomear a conexão de outra ferramenta"}
+	}
+	label := strings.Join(strings.Fields(r.FormValue("name")), " ")
+	if runes := []rune(label); len(runes) > 40 {
+		label = string(runes[:40])
+	}
+	if label == toolName(name) {
+		label = ""
+	}
+	return "/", p.State.SetSetting(r.Context(), clientLabel+name, label)
+}
+
 func (p *Panel) removeConnection(r *http.Request) (string, error) {
 	key := r.FormValue("client")
 	var err error
@@ -738,8 +918,24 @@ func (p *Panel) removeConnection(r *http.Request) (string, error) {
 	case key == "claude-code":
 		err = p.removeClaudeCode(r.Context())
 		_ = p.State.ForgetClient(r.Context(), "claude-code")
+	case key == "codex" || key == "cursor":
+		prefix := codexClient
+		if key == "codex" {
+			err = p.removeCodex(r.Context())
+		} else {
+			err, prefix = p.removeCursor(), cursorClient
+		}
+		if seen, e := p.State.Clients(r.Context()); e == nil {
+			for _, c := range seen {
+				if strings.HasPrefix(c.Name, prefix) {
+					_ = p.State.ForgetClient(r.Context(), c.Name)
+				}
+			}
+		}
 	case strings.HasPrefix(key, "client:"):
-		err = p.State.ForgetClient(r.Context(), strings.TrimPrefix(key, "client:"))
+		name := strings.TrimPrefix(key, "client:")
+		err = p.State.ForgetClient(r.Context(), name)
+		_ = p.State.SetSetting(r.Context(), clientLabel+name, "")
 	}
 	if err != nil {
 		return "/", err
@@ -751,12 +947,16 @@ func (p *Panel) removeConnection(r *http.Request) (string, error) {
 
 func (p *Panel) apiState(r *http.Request) (any, error) {
 	s := p.snapshot(r.Context())
-	set := setup{Desktop: p.desktopInfo(), Code: p.code.info}
+	set := setup{Desktop: p.desktopInfo(), Code: p.code.info, Codex: p.codex.info, Cursor: p.cursorInfo()}
 	live := 0
 	for _, c := range p.connections(r.Context(), set) {
 		if c.Live {
 			live++
 		}
+	}
+	clients, _ := p.State.Clients(r.Context())
+	if clients == nil {
+		clients = []state.Client{}
 	}
 	sync := s.Sync
 	sync.Recent = nil
@@ -764,12 +964,12 @@ func (p *Panel) apiState(r *http.Request) (any, error) {
 		"arriving": s.Arriving, "arriving_count": s.ArrivingCount,
 		"account": s.Account, "name": s.Name, "phone": s.Phone,
 		"sync": sync, "pairing": s.Pairing, "health": s.Health,
-		"history": s.History, "clients_live": live, "endpoint": p.endpoint(), "version": mcp.Version,
+		"history": s.History, "clients_live": live, "clients": clients, "endpoint": p.endpoint(), "version": mcp.Version,
 	}, nil
 }
 
 // apiPulse is what every page asks, over and over, to follow the connection
-// and the Estado tab's alert: far less than the whole state.
+// and the Status tab's alert: far less than the whole state.
 func (p *Panel) apiPulse(r *http.Request) (any, error) {
 	sync := p.Supervisor.Status()
 	h := p.Server.Health(r.Context(), 0)
@@ -877,6 +1077,10 @@ func (p *Panel) apiAddClient(r *http.Request) (any, error) {
 		err = p.addClaudeCode(r.Context(), body.Replace)
 	case "claude-desktop":
 		err = p.addClaudeDesktop(body.Replace)
+	case "codex":
+		err = p.addCodex(r.Context(), body.Replace)
+	case "cursor":
+		err = p.addCursor(body.Replace)
 	default:
 		return nil, userError{"cliente desconhecido"}
 	}
@@ -916,6 +1120,8 @@ func (p *Panel) qr(w http.ResponseWriter, r *http.Request) {
 func funcs() template.FuncMap {
 	return template.FuncMap{
 		"css":           func() template.CSS { return template.CSS(stylesheet) },
+		"icon":          icon,
+		"toolmark":      toolmark,
 		"logo":          brand.LogoSVG,
 		"repositoryURL": func() string { return brand.RepositoryURL },
 		"supportURL":    func() string { return brand.SupportURL },

@@ -282,7 +282,8 @@ func TestEveryPageRendersInTheApp(t *testing.T) {
 	defer d.Stop()
 	waitSync(t, d, "connected")
 	h := d.AppHandler()
-	for _, path := range []string{"/", "/instalacao", "/whatsapp", "/estado", "/transcricao", "/documentacao", "/receitas", "/configuracoes", "/configuracoes?porta=1"} {
+	for _, path := range []string{"/", "/instalacao", "/whatsapp", "/status", "/funcoes", "/receitas", "/configuracoes", "/configuracoes?porta=1", "/estado", "/transcricao", "/documentacao",
+		"/conectar", "/conectar/claude-desktop", "/conectar/claude-code", "/conectar/codex", "/conectar/cursor", "/conectar/codex?conectado=1", "/conectar/outra", "/conectar/nada", "/ajuda"} {
 		rec := httptest.NewRecorder()
 		h.ServeHTTP(rec, httptest.NewRequest("GET", "wails://localhost"+path, nil))
 		body := rec.Body.String()

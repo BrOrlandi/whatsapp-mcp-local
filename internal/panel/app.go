@@ -30,7 +30,7 @@ type Host interface {
 	EraseEverything() error
 }
 
-// HostSettings is what the Configurações page shows.
+// HostSettings is what the Configurações page shows of the app.
 type HostSettings struct {
 	Autostart   bool
 	CloseToTray bool
@@ -57,7 +57,6 @@ type UpdateState struct {
 }
 
 func (p *Panel) registerApp(mux *http.ServeMux) {
-	mux.HandleFunc("GET /configuracoes", p.page(p.configuracoes))
 	mux.HandleFunc("POST /configuracoes/porta", p.form(p.savePort))
 	mux.HandleFunc("POST /configuracoes/encerrar", p.quit)
 	mux.HandleFunc("POST /configuracoes/apagar", p.erase)
@@ -73,17 +72,6 @@ func (p *Panel) registerApp(mux *http.ServeMux) {
 		}
 		return p.Host.Update(), nil
 	}))
-}
-
-func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, any) {
-	s := p.snapshot(r.Context())
-	set := p.setup(r.Context())
-	return "configuracoes", struct {
-		layout
-		Setup       setup
-		Port        int
-		PortChanged bool
-	}{p.layout(r, "Configurações", "configuracoes", s), set, portOf(p.endpoint()), r.URL.Query().Get("porta") == "1"}
 }
 
 func portOf(endpoint string) int {

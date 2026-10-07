@@ -1,12 +1,16 @@
 package panel
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
 
@@ -121,16 +125,16 @@ func TestToneLeavesOutSettling(t *testing.T) {
 }
 
 // Right after the app opens, WhatsApp is connected and receiving while
-// sending gets ready: Estado says so, with no alert and no warning box.
-func TestEstadoWhileSendingGetsReady(t *testing.T) {
+// sending gets ready: Status says so, with no alert and no warning box.
+func TestStatusWhileSendingGetsReady(t *testing.T) {
 	s := snapshot{Sync: wacli.Status{State: "connected"}, Health: mcp.Health{Status: "warn", Checks: []mcp.Check{
 		{Name: "sync", Status: "warn"}, {Name: "receiving", Status: "ok"},
 	}}}
 	s.SyncTone, s.SyncLabel = syncLabel(s.Sync)
 	s.readChecks()
 	var b strings.Builder
-	l := layout{Title: "Estado", Active: "estado", HealthTone: s.Tone, LiveKey: syncKey(s.Sync), LiveBusy: settling(s.Sync)}
-	if err := parseTemplates().ExecuteTemplate(&b, "estado", struct {
+	l := layout{Title: "Status", Active: "status", HealthTone: s.Tone, LiveKey: syncKey(s.Sync), LiveBusy: settling(s.Sync)}
+	if err := parseTemplates().ExecuteTemplate(&b, "status", struct {
 		layout
 		snapshot
 	}{l, s}); err != nil {
@@ -139,12 +143,156 @@ func TestEstadoWhileSendingGetsReady(t *testing.T) {
 	page := b.String()
 	for _, want := range []string{"Nenhum problema detectado", "O envio de mensagens fica pronto em instantes", "pill--busy", `data-live="connected//false"`, "data-live-busy"} {
 		if !strings.Contains(page, want) {
-			t.Errorf("Estado lacks %q", want)
+			t.Errorf("Status lacks %q", want)
 		}
 	}
 	for _, unwanted := range []string{`class="nav__alert`, `class="problems__warn"`} {
 		if strings.Contains(page, unwanted) {
-			t.Errorf("Estado shows %q", unwanted)
+			t.Errorf("Status shows %q", unwanted)
 		}
+	}
+}
+
+// On the command line there is no app around the panel: Configurações keeps
+// the appearance and audio transcription, and none of the app's settings.
+func TestSettingsOnTheCommandLine(t *testing.T) {
+	var b strings.Builder
+	if err := parseTemplates().ExecuteTemplate(&b, "configuracoes", struct {
+		layout
+		Setup       setup
+		Port        int
+		PortChanged bool
+		Local       localasr.Status
+		Total       int
+		Corrected   int
+	}{layout: layout{Title: "Configurações", Active: "configuracoes"}, PortChanged: true}); err != nil {
+		t.Fatal(err)
+	}
+	page := b.String()
+	for _, want := range []string{"Aparência", `data-theme-choice`, `id="transcricao"`, "Transcrição de áudio", `class="gear" href="/configuracoes" aria-label="Configurações" title="Configurações" aria-current="page"`} {
+		if !strings.Contains(page, want) {
+			t.Errorf("Configurações lacks %q", want)
+		}
+	}
+	for _, unwanted := range []string{"Porta do MCP", "Ao ligar e ao fechar", "Versão e atualizações", "Apagar tudo", "Avise as suas ferramentas"} {
+		if strings.Contains(page, unwanted) {
+			t.Errorf("Configurações on the command line shows %q", unwanted)
+		}
+	}
+}
+
+// Each tool in the connect flow shows where it stands, from Suas conexões.
+func TestToolState(t *testing.T) {
+	conns := []Connection{
+		{Key: "claude-code", Configured: true, Live: true},
+		{Key: "codex", Configured: true},
+		{Key: "client:windsurf", Live: true},
+	}
+	want := map[string]string{"claude-desktop": "", "claude-code": "live", "codex": "configured", "cursor": "", "outra": "live"}
+	for _, c := range toolChoices(conns) {
+		if c.State != want[c.Key] {
+			t.Errorf("%s is %q, want %q", c.Key, c.State, want[c.Key])
+		}
+	}
+}
+
+func TestParseCodexGet(t *testing.T) {
+	for out, want := range map[string]string{
+		`{"name":"whatsapp","transport":{"type":"streamable_http","url":"http://127.0.0.1:47821/mcp"}}`: "http://127.0.0.1:47821/mcp",
+		`{"name":"whatsapp","transport":{"type":"stdio","command":"npx","args":["-y","whatsapp-mcp"]}}`: "npx -y whatsapp-mcp",
+		`not json`: "",
+	} {
+		if got := parseCodexGet([]byte(out)); got != want {
+			t.Errorf("parseCodexGet(%s) = %q, want %q", out, got, want)
+		}
+	}
+}
+
+// The first page shows its examples for the first three days of use, counted
+// from the first AI tool that connected.
+func TestNewcomer(t *testing.T) {
+	st, err := state.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	p := &Panel{State: st}
+	ctx := context.Background()
+	now := time.Now()
+	if p.newcomer(ctx, now) {
+		t.Error("a newcomer before any tool connected")
+	}
+	if err := st.SeeClient(ctx, "claude-ai", "1", now.Add(-50*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if !p.newcomer(ctx, now) {
+		t.Error("not a newcomer two days in")
+	}
+	if p.newcomer(ctx, now.Add(30*time.Hour)) {
+		t.Error("still a newcomer after three days")
+	}
+}
+
+// A tool is matched by how its name starts: Cursor adds the editor's.
+func TestConnectionsByPrefix(t *testing.T) {
+	st, err := state.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	_ = st.SeeClient(ctx, "cursor-vscode", "1.0", time.Now())
+	_ = st.SeeClient(ctx, "codex-mcp-client", "0.160.0", time.Now())
+	_ = st.SeeClient(ctx, "windsurf", "2", time.Now())
+	p := &Panel{State: st}
+	keys := map[string]bool{}
+	for _, c := range p.connections(ctx, setup{}) {
+		keys[c.Key] = c.Live
+	}
+	for _, k := range []string{"cursor", "codex", "client:windsurf"} {
+		if !keys[k] {
+			t.Errorf("%s is not a live connection: %v", k, keys)
+		}
+	}
+}
+
+// Another tool's connection takes the name the person gives it, and an empty
+// name brings back the tool's own. The known tools show their logo instead.
+func TestRenameConnection(t *testing.T) {
+	st, err := state.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	_ = st.SeeClient(ctx, "windsurf", "2", time.Now())
+	_ = st.SeeClient(ctx, "claude-code", "2.1", time.Now())
+	p := &Panel{State: st}
+	rename := func(client, name string) {
+		t.Helper()
+		r := httptest.NewRequest("POST", "/conexoes/renomear", strings.NewReader("client="+client+"&name="+name))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		if _, err := p.renameConnection(r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tools := func() map[string]Connection {
+		out := map[string]Connection{}
+		for _, c := range p.connections(ctx, setup{}) {
+			out[c.Key] = c
+		}
+		return out
+	}
+	rename("client:windsurf", "Meu+editor")
+	got := tools()
+	if got["client:windsurf"].Tool != "Meu editor" || got["client:windsurf"].Mark != "" {
+		t.Errorf("renamed: %+v", got["client:windsurf"])
+	}
+	if got["claude-code"].Mark != "claude-code" {
+		t.Errorf("Claude Code has no logo: %+v", got["claude-code"])
+	}
+	rename("client:windsurf", "")
+	if tool := tools()["client:windsurf"].Tool; tool != "Windsurf" {
+		t.Errorf("the name did not come back: %q", tool)
 	}
 }

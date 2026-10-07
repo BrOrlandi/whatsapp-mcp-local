@@ -25,32 +25,27 @@ const pageSource = `
 {{define "updatebanner"}}<aside class="update-banner" data-update-banner aria-live="polite"{{if not (eq .Update.State "available" "downloading" "ready" "manual")}} hidden{{end}}>
 <button class="update-banner__close" type="button" aria-label="Agora não" data-update-banner-close>&times;</button>
 <p class="update-banner__title">Nova versão disponível</p>
-<p class="update-banner__text" data-update-banner-text>O WhatsApp MCP {{.Update.Latest}} está pronto para instalar. O MCP fica fora do ar por alguns segundos enquanto o app reinicia.</p>
+<p class="update-banner__text" data-update-banner-text>O WhatsApp MCP {{.Update.Latest}} está disponível. O aplicativo será reiniciado após a instalação.</p>
 <div class="actions"><button class="btn btn--small" type="button" data-update-banner-install>Atualizar agora</button><a class="btn btn--ghost btn--small" data-update-banner-page href="{{.Update.Page}}" target="_blank" rel="noopener" hidden>Baixar a versão nova</a></div>
 </aside>{{end}}
 
 {{define "githubmark"}}<svg class="colophon__icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>{{end}}
 
-{{define "themeswitch"}}<span class="theme" hidden data-theme-switch>
-<select class="theme__select" aria-label="Tema da interface" data-theme-select>
-<option value="system" title="Seguir o sistema">◐</option>
-<option value="light" title="Tema claro">☀</option>
-<option value="dark" title="Tema escuro">☾</option>
-</select></span>{{end}}
+{{/* The way into Configurações, in the top right corner of every page. */}}
+{{define "settingslink"}}<a class="gear" href="/configuracoes" aria-label="Configurações" title="Configurações"{{if eq .Active "configuracoes"}} aria-current="page"{{end}}>{{icon "gear"}}</a>{{end}}
 
 {{define "brandmark"}}<span class="brand__mark">{{logo}}</span><span class="brand__name">WhatsApp MCP</span>{{end}}
 
 {{define "nav"}}
 <header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
-<div class="masthead__tools">{{template "themeswitch"}}</div></header>
+<div class="masthead__tools">{{template "settingslink" .}}</div></header>
 <nav class="nav" aria-label="Seções"{{if .LiveKey}} data-live="{{.LiveKey}}" data-live-tone="{{.HealthTone}}"{{if .LiveBusy}} data-live-busy{{end}}{{end}}>
-<a href="/"{{if eq .Active "conectar"}} aria-current="page"{{end}}>Conectar</a>
-<a href="/whatsapp"{{if eq .Active "whatsapp"}} aria-current="page"{{end}}>WhatsApp</a>
-<a href="/estado"{{if eq .Active "estado"}} aria-current="page"{{end}}>{{if and (ne .HealthTone "ok") (ne .HealthTone "")}}<span class="nav__alert{{if eq .HealthTone "warn"}} nav__alert--warn{{end}}" aria-hidden="true">!</span><span class="sr-only">Atenção: </span>{{end}}Estado</a>
-<a href="/transcricao"{{if eq .Active "transcricao"}} aria-current="page"{{end}}>Transcrição</a>
-<a href="/documentacao"{{if eq .Active "documentacao"}} aria-current="page"{{end}}>Documentação</a>
-<a href="/receitas"{{if eq .Active "receitas"}} aria-current="page"{{end}}>Receitas</a>
-{{if .App}}<a href="/configuracoes"{{if eq .Active "configuracoes"}} aria-current="page"{{end}}>Configurações</a>{{end}}
+<a href="/"{{if eq .Active "conectar"}} aria-current="page"{{end}}>{{icon "plug"}}<span>Conectar MCP</span></a>
+<a href="/whatsapp"{{if eq .Active "whatsapp"}} aria-current="page"{{end}}>{{icon "chat"}}<span>WhatsApp</span></a>
+<a href="/status" data-nav-status{{if eq .Active "status"}} aria-current="page"{{end}}>{{icon "activity"}}{{if and (ne .HealthTone "ok") (ne .HealthTone "")}}<span class="sr-only">Atenção: </span>{{end}}<span class="nav__label">Status</span>{{if and (ne .HealthTone "ok") (ne .HealthTone "")}}<span class="nav__alert{{if eq .HealthTone "warn"}} nav__alert--warn{{end}}" aria-hidden="true">!</span>{{end}}</a>
+<a href="/funcoes"{{if eq .Active "funcoes"}} aria-current="page"{{end}}>{{icon "list"}}<span>Funções</span></a>
+<a href="/receitas"{{if eq .Active "receitas"}} aria-current="page"{{end}}>{{icon "book"}}<span>Receitas</span></a>
+<a href="/ajuda"{{if eq .Active "ajuda"}} aria-current="page"{{end}}>{{icon "help"}}<span>Ajuda</span></a>
 </nav>
 {{template "portbanner" .}}
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
@@ -70,66 +65,113 @@ refreshes when it has passed. */}}
 {{define "autostartcheck"}}{{if .App}}<div class="wizard__escape"><label class="check check--inline"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span>Abrir o WhatsApp MCP quando o computador ligar</span></label></div>
 <p class="busy" data-setting-note role="status" hidden></p>{{end}}{{end}}
 
-{{/* The three routes out of this panel, in the order to try them: the app
-that needs no terminal, the terminal, and the "whatever you use" escape hatch.
-Each has the one-click way first and the by-hand way beneath it. */}}
-{{define "clientTabs"}}
-<div class="tabs">
-<input class="tabs__radio" type="radio" name="aba" id="tab-desktop" checked>
-<input class="tabs__radio" type="radio" name="aba" id="tab-code">
-<input class="tabs__radio" type="radio" name="aba" id="tab-outros">
-<div class="tabs__bar" role="tablist">
-<label class="tabs__tab" for="tab-desktop">Claude Desktop</label>
-<label class="tabs__tab" for="tab-code">Claude Code</label>
-<label class="tabs__tab" for="tab-outros">Outra ferramenta</label>
-</div>
+{{/* Connecting an AI tool is a flow of its own: the tool first, then the
+steps for that one, which end when it connects. No tabs on the way. */}}
+{{define "flowhead"}}
+<header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
+<div class="masthead__tools">{{template "settingslink" .}}</div></header>
+<div class="flow">
+{{template "portbanner" .}}
+{{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
+{{end}}
 
-<div class="tabs__panel tabs__panel--desktop">
-{{if .Desktop.Configured}}<p class="alert alert--ok">O Claude Desktop já está configurado. Se ele ainda não aparece conectado, feche e abra o Claude Desktop.</p>{{end}}
-<p class="muted">O aplicativo do Claude no computador. Serve para o chat e para o Cowork.</p>
-<div class="actions"><button class="btn" type="button" data-add-client="claude-desktop">{{if .Desktop.Configured}}Configurar de novo{{else}}Adicionar ao Claude Desktop{{end}}</button></div>
+{{define "toolpicks"}}<ul class="toolpicks">
+{{range .}}<li><a class="toolpick" href="/conectar/{{.Key}}"><span class="toolpick__icon">{{toolmark .Mark}}</span>
+<span class="toolpick__text"><span class="toolpick__name">{{.Name}}</span><span class="toolpick__hint">{{.Hint}}</span></span>
+{{if eq .State "live"}}<span class="pill pill--ok">Conectado</span>{{else if eq .State "configured"}}<span class="pill pill--warn">Aguardando</span>{{end}}
+<span class="toolpick__go" aria-hidden="true">{{icon "chevron"}}</span></a></li>
+{{end}}</ul>{{end}}
+
+{{define "conectarescolha"}}{{template "head" .}}{{template "flowhead" .}}
+<a class="flow__back" href="{{if .InSetup}}/instalacao{{else}}/{{end}}">{{icon "back"}}Voltar</a>
+<h1>Conectar ferramenta de IA ao MCP</h1>
+<p class="lead">Onde você vai usar o seu WhatsApp?</p>
+{{template "toolpicks" .Tools}}
+<p class="muted flow__note">Não funciona no Claude pelo navegador ou pelo celular, nem no ChatGPT na web: só em programas instalados neste computador.</p>
+</div>
+{{template "foot" .}}{{end}}
+
+{{define "conectarferramenta"}}{{template "head" .}}{{template "flowhead" .}}
+{{if not .Done}}<a class="flow__back" href="/conectar">{{icon "back"}}Escolher outra ferramenta</a>{{end}}
+<div class="flow__title"><span class="toolpick__icon">{{toolmark .Tool.Mark}}</span><h1>{{.Tool.Title}}</h1></div>
+
+{{if .Done}}
+<section class="card card--accent">
+<div class="card__head"><h2>{{.Tool.Connected}}</h2><span class="pill pill--ok">Conectado</span></div>
+<div class="card__body stack">
+<p class="muted">Já pode pedir coisas do seu WhatsApp para a sua IA. Para testar, mande isto no chat:</p>
+<div class="snippet"><pre class="plain" data-copy><code>{{.Verification}}</code></pre></div>
+{{if .InSetup}}<form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done"><div class="actions"><button class="btn" type="submit">Ir para o painel</button></div></form>
+{{else}}<div class="actions"><a class="btn" href="/">Voltar ao painel</a></div>{{end}}
+</div></section>
+{{else}}
+{{if .Live}}<p class="alert alert--ok">{{.Tool.Connected}}. Siga os passos abaixo só se quiser configurar de novo.</p>{{end}}
+<section class="card">
+<div class="card__body">
+<ol class="flowsteps">
+{{if eq .Tool.Key "claude-desktop"}}
+<li class="flowstep"><h2 class="flowstep__title">Adicione o WhatsApp ao Claude Desktop</h2>
+{{if not .Setup.Desktop.Found}}<p class="note">O Claude Desktop não parece estar instalado neste computador. <a href="https://claude.ai/download" target="_blank" rel="noopener">Baixar o Claude Desktop</a></p>{{end}}
+<div class="actions"><button class="btn" type="button" data-add-client="claude-desktop">{{if .Setup.Desktop.Configured}}Configurar de novo{{else}}Adicionar ao Claude Desktop{{end}}</button></div>
 <p class="busy" data-client-note="claude-desktop" role="status" hidden></p>
-<ol class="guide" style="margin-top:14px">
-<li>Clique no botão acima: o painel escreve a configuração do Claude Desktop por você, guardando uma cópia do arquivo anterior.</li>
-<li><strong>Feche o Claude Desktop e abra de novo.</strong> Só assim ele lê a configuração nova.</li>
-<li>Pronto: esta tela avisa sozinha quando ele se conectar.</li>
-</ol>
 <details class="resend"><summary>Prefiro fazer à mão</summary>
 <p class="muted">No Claude Desktop, vá em <strong>Configurações → Desenvolvedor → Editar configuração</strong>, cole o texto abaixo e reinicie o app. Se já houver outros servidores no arquivo, acrescente só o trecho <code>"{{serverName}}"</code> dentro de <code>mcpServers</code>, sem apagar o resto.</p>
-<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{.DesktopPath}}</span></div>
-<pre data-copy><code>{{.JSON}}</code></pre></div>
-</details>
-</div>
-
-<div class="tabs__panel tabs__panel--code">
-{{if .Code.Configured}}<p class="alert alert--ok">O Claude Code já está configurado. Abra uma sessão nova do Claude Code para ele carregar o WhatsApp.</p>{{end}}
-<p class="muted">O Claude que roda no terminal. Ele conecta direto em <code>{{.Endpoint}}</code>.</p>
-<div class="actions"><button class="btn" type="button" data-add-client="claude-code"{{if not .Code.Found}} disabled title="O comando claude não foi encontrado neste computador"{{end}}>{{if .Code.Configured}}Configurar de novo{{else}}Adicionar ao Claude Code{{end}}</button></div>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{.Setup.DesktopPath}}</span></div>
+<pre data-copy><code>{{.Setup.JSON}}</code></pre></div>
+</details></li>
+<li class="flowstep"><h2 class="flowstep__title">Feche o Claude Desktop e abra de novo</h2>
+<p class="muted">Só assim ele carrega o WhatsApp.</p></li>
+{{else if eq .Tool.Key "claude-code"}}
+<li class="flowstep"><h2 class="flowstep__title">Adicione o WhatsApp ao Claude Code</h2>
+<div class="actions"><button class="btn" type="button" data-add-client="claude-code"{{if not .Setup.Code.Found}} disabled title="O comando claude não foi encontrado neste computador"{{end}}>{{if .Setup.Code.Configured}}Configurar de novo{{else}}Adicionar ao Claude Code{{end}}</button></div>
 <p class="busy" data-client-note="claude-code" role="status" hidden></p>
-{{if not .Code.Found}}<p class="muted">O comando <code>claude</code> não foi encontrado. Instale o Claude Code ou rode o comando abaixo onde ele estiver.</p>{{end}}
-<details class="resend"{{if not .Code.Found}} open{{end}}><summary>Prefiro rodar o comando</summary>
+{{if not .Setup.Code.Found}}<p class="muted">O comando <code>claude</code> não foi encontrado. Instale o Claude Code ou rode o comando abaixo onde ele estiver.</p>{{end}}
+<details class="resend"{{if not .Setup.Code.Found}} open{{end}}><summary>Prefiro rodar o comando</summary>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">Comando</span></div>
-<pre data-copy><code>{{.Command}}</code></pre></div>
-<p class="muted">Confira depois com <code>claude mcp list</code>.</p>
-</details>
-</div>
-
-<div class="tabs__panel tabs__panel--outros">
-<p class="muted">Serve para Cursor, Windsurf, Codex e qualquer outro assistente que aceite MCP e rode neste computador. Em vez de você configurar, peça para ele: copie o texto abaixo e mande no chat da ferramenta.</p>
-<div class="snippet"><div class="snippet__head"><span class="snippet__title">Copie e mande para o seu assistente</span></div>
-<pre class="plain" data-copy><code>{{.AgentPrompt}}</code></pre></div>
-<p class="muted">O claude.ai no navegador, o app do celular e o ChatGPT na web não alcançam este computador: quem conecta, neles, é a nuvem da empresa, e ela não chega a um servidor local.</p>
-</div>
-</div>
+<pre data-copy><code>{{.Setup.Command}}</code></pre></div>
+</details></li>
+<li class="flowstep"><h2 class="flowstep__title">Abra uma sessão nova do Claude Code</h2>
+<p class="muted">Uma sessão que já estava aberta não vê o WhatsApp.</p></li>
+{{else if eq .Tool.Key "codex"}}
+<li class="flowstep"><h2 class="flowstep__title">Adicione o WhatsApp ao Codex</h2>
+<div class="actions"><button class="btn" type="button" data-add-client="codex"{{if not .Setup.Codex.Found}} disabled title="O comando codex não foi encontrado neste computador"{{end}}>{{if .Setup.Codex.Configured}}Configurar de novo{{else}}Adicionar ao Codex{{end}}</button></div>
+<p class="busy" data-client-note="codex" role="status" hidden></p>
+{{if not .Setup.Codex.Found}}<p class="muted">O comando <code>codex</code> não foi encontrado. Configure à mão, logo abaixo.</p>{{end}}
+<details class="resend"{{if not .Setup.Codex.Found}} open{{end}}><summary>Prefiro fazer à mão</summary>
+<p class="muted">Acrescente este trecho ao arquivo de configuração do Codex, que vale para o app do ChatGPT, o app do Codex, o terminal e o editor de código.</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{.Setup.CodexPath}}</span></div>
+<pre data-copy><code>{{.Setup.CodexTOML}}</code></pre></div>
+<p class="muted">Ou rode este comando:</p>
+<div class="snippet"><pre data-copy><code>{{.Setup.CodexCommand}}</code></pre></div>
+</details></li>
+<li class="flowstep"><h2 class="flowstep__title">Abra uma conversa nova no Codex</h2>
+<p class="muted">Pode ser no app do ChatGPT, no app do Codex, no terminal ou no editor. Se o app estiver aberto, feche e abra de novo.</p></li>
+{{else if eq .Tool.Key "cursor"}}
+<li class="flowstep"><h2 class="flowstep__title">Adicione o WhatsApp ao Cursor</h2>
+{{if not .Setup.Cursor.Found}}<p class="note">O Cursor não parece estar instalado neste computador. <a href="https://cursor.com/download" target="_blank" rel="noopener">Baixar o Cursor</a></p>{{end}}
+<div class="actions"><button class="btn" type="button" data-add-client="cursor">{{if .Setup.Cursor.Configured}}Configurar de novo{{else}}Adicionar ao Cursor{{end}}</button></div>
+<p class="busy" data-client-note="cursor" role="status" hidden></p>
+<details class="resend"><summary>Prefiro fazer à mão</summary>
+<p class="muted">Abra o arquivo abaixo, que o Cursor também abre pelas configurações de MCP dele, e cole o texto. Se já houver outros servidores no arquivo, acrescente só o trecho <code>"{{serverName}}"</code> dentro de <code>mcpServers</code>, sem apagar o resto.</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{.Setup.CursorPath}}</span></div>
+<pre data-copy><code>{{.Setup.CursorJSON}}</code></pre></div>
+</details></li>
+<li class="flowstep"><h2 class="flowstep__title">Feche o Cursor e abra de novo</h2>
+<p class="muted">Depois, peça ao agente do Cursor o que quiser do seu WhatsApp.</p></li>
+{{else}}
+<li class="flowstep"><h2 class="flowstep__title">Peça para a sua ferramenta se configurar</h2>
+<p class="muted">Serve para o Windsurf e qualquer outra que aceite MCP. Copie o texto abaixo e mande no chat dela.</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">Copie e mande para a sua ferramenta</span></div>
+<pre class="plain" data-copy><code>{{.Setup.AgentPrompt}}</code></pre></div></li>
+<li class="flowstep"><h2 class="flowstep__title">Reinicie a ferramenta</h2>
+<p class="muted">Quando ela terminar a configuração, feche e abra de novo, ou comece uma conversa nova.</p></li>
 {{end}}
-
-{{define "overlays"}}
-<div class="overlay" id="nova-conexao" role="dialog" aria-modal="true" aria-labelledby="nova-conexao-titulo">
-<div class="dialog dialog--wide">
-<div class="dialog__head"><h2 id="nova-conexao-titulo">Conectar ferramenta de IA ao MCP</h2><a class="dialog__close" href="#" aria-label="Fechar">&times;</a></div>
-<div class="dialog__body">{{template "clientTabs" .Setup}}</div>
-</div></div>
+<li class="flowstep"><h2 class="flowstep__title">Espere a conexão</h2><p class="busy" role="status" data-wait-tool="{{.Tool.Client}}" data-wait-known="{{.Known}}" data-wait-since="{{.Since}}"><span class="spinner" aria-hidden="true"></span>Esta tela avisa quando {{.Tool.Who}} se conectar.</p></li>
+</ol>
+</div></section>
 {{end}}
+</div>
+{{template "foot" .}}{{end}}
 
 {{define "chatpreview"}}
 <section class="card" data-chats>
@@ -153,7 +195,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <section class="card">
 <div class="card__head"><h2>Histórico</h2>{{with .History}}{{if .FinishedAt}}<span class="pill pill--ok">Último pedido concluído</span>{{else}}<span class="pill pill--warn">Buscando…</span>{{end}}{{end}}</div>
 <div class="card__body stack">
-<p class="muted">Este computador guarda o que chegou desde que o WhatsApp foi conectado, mais o histórico que o celular mandou no começo. Para ir mais para trás, o painel pede ao celular as mensagens anteriores às que já estão aqui. O celular precisa estar com internet, e cada pedido recua mais um trecho.</p>
+<p class="muted">Cada pedido pode trazer mais histórico do WhatsApp para este computador, e ele fica disponível para a sua ferramenta de IA consultar pelo MCP. O celular precisa estar com internet.</p>
 {{with .History}}<p class="muted">{{if .FinishedAt}}Último pedido: {{count .Added}} mensagens novas em {{len .Chats}} conversas.{{else}}Buscando: {{.Done}} de {{len .Chats}} conversas, {{count .Added}} mensagens novas até agora.{{end}}</p>{{end}}
 <div class="actions"><button class="btn btn--ghost btn--small" type="button" data-history-all>Buscar mensagens mais antigas das conversas recentes</button></div>
 <p class="busy" data-history-all-note role="status" hidden></p>
@@ -196,18 +238,19 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 {{end}}
 </section>
 
-<div class="hero"><a class="btn btn--big" href="#nova-conexao">Conectar ferramenta de IA ao MCP</a></div>
+<div class="hero"><a class="btn btn--big" href="/conectar">Conectar ferramenta de IA ao MCP</a></div>
 
 <section class="card">
-<div class="card__head"><h2>Suas conexões</h2>{{if .Connections}}<a class="btn btn--ghost btn--small" href="#nova-conexao">Nova conexão</a>{{end}}</div>
+<div class="card__head"><h2>Suas conexões</h2>{{if .Connections}}<a class="btn btn--ghost btn--small" href="/conectar">Nova conexão</a>{{end}}</div>
 <div class="card__body">
 {{if .Connections}}
 <ul class="rows">
 {{range $i, $c := .Connections}}<li class="row{{if not .Live}} row--waiting{{end}}">
-<span class="tool-mark" aria-hidden="true">{{initial .Tool}}</span>
+{{if .Mark}}<span class="tool-mark tool-mark--logo" aria-hidden="true">{{toolmark .Mark}}</span>{{else}}<span class="tool-mark" aria-hidden="true">{{initial .Tool}}</span>{{end}}
 <span class="row__main"><span class="row__title">{{.Tool}}</span>
-<span class="row__meta">{{if .Live}}Funcionando &middot; usada {{relativeSince .LastUsed}}{{else if .Configured}}Configurada &middot; ainda não se conectou; reinicie a ferramenta{{else}}Usada {{relativeSince .LastUsed}}{{end}}{{with .Version}} &middot; <span class="mono">{{.}}</span>{{end}}</span></span>
+<span class="row__meta">{{if .Live}}Funcionando &middot; usada {{relativeSince .LastUsed}}{{else if .Configured}}Configurada &middot; ainda não se conectou; reinicie a ferramenta{{else}}Usada {{relativeSince .LastUsed}}{{end}}{{with .Version}} <span class="tip tip--quiet" tabindex="0" aria-describedby="tip-versao-{{$i}}"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-versao-{{$i}}">{{$c.Tool}} {{.}}</span></span>{{end}}</span></span>
 {{if .Live}}<span class="pill pill--ok">Conectada</span>{{else}}<span class="pill pill--warn">Aguardando</span>{{end}}
+{{if not .Mark}}<a class="btn btn--quiet btn--small" href="#renomear-{{$i}}">Renomear</a>{{end}}
 <a class="btn btn--danger btn--small" href="#desconectar-{{$i}}">Desconectar</a>
 </li>{{end}}
 </ul>
@@ -218,7 +261,8 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 {{end}}
 </div></section>
 
-{{if .LiveCount}}
+{{/* The first days only: after that the examples live in Ajuda. */}}
+{{if and .LiveCount .Newcomer}}
 <section class="card">
 <div class="card__head"><h2>Experimente pedir</h2></div>
 <div class="card__body">
@@ -226,21 +270,21 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <ul class="prompts">
 {{range .Prompts}}<li class="prompt"><div class="snippet"><pre data-copy><code>{{.}}</code></pre></div></li>{{end}}
 </ul>
+<p class="muted" style="margin-bottom:0">Mais exemplos e respostas para dúvidas na <a href="/ajuda">Ajuda</a>.</p>
 </div></section>
 {{end}}
 
-<section class="card">
-<div class="card__head"><h2>Ver o passo a passo de novo</h2></div>
-<div class="card__body">
-<details class="disclose">
-<summary>Mostrar como configurar uma ferramenta de IA</summary>
-{{template "clientTabs" .Setup}}
-<p class="muted">O endereço deste MCP é <code>{{.Endpoint}}</code>. Ele só responde a programas deste computador.</p>
-</details>
-</div></section>
-
-{{template "overlays" .}}
 {{range $i, $c := .Connections}}
+{{if not .Mark}}<div class="overlay" id="renomear-{{$i}}" role="dialog" aria-modal="true" aria-labelledby="renomear-{{$i}}-titulo">
+<div class="dialog">
+<div class="dialog__head"><h2 id="renomear-{{$i}}-titulo">Renomear esta conexão</h2><a class="dialog__close" href="#" aria-label="Fechar">&times;</a></div>
+<div class="dialog__body">
+<form method="post" action="/conexoes/renomear"><input type="hidden" name="client" value="{{.Key}}">
+<label class="field" for="nome-{{$i}}"><span class="field__label">Nome</span><span class="field__hint">Como esta ferramenta aparece aqui. Deixe em branco para voltar ao nome original.</span></label>
+<input id="nome-{{$i}}" type="text" name="name" value="{{.Tool}}" maxlength="40" autocomplete="off" spellcheck="false">
+<div class="actions actions--end" style="margin-top:14px"><a class="btn btn--quiet" href="#">Cancelar</a><button class="btn" type="submit">Salvar</button></div>
+</form>
+</div></div></div>{{end}}
 <div class="overlay" id="desconectar-{{$i}}" role="dialog" aria-modal="true" aria-labelledby="desconectar-{{$i}}-titulo">
 <div class="dialog">
 <div class="dialog__head"><h2 id="desconectar-{{$i}}-titulo">Desconectar esta ferramenta?</h2><a class="dialog__close" href="#" aria-label="Fechar">&times;</a></div>
@@ -292,8 +336,8 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </div></div></div>
 {{template "foot" .}}{{end}}
 
-{{define "estado"}}{{template "head" .}}{{template "nav" .}}
-<h1>Estado</h1>
+{{define "status"}}{{template "head" .}}{{template "nav" .}}
+<h1>Status</h1>
 <p class="lead">Se o seu WhatsApp está conectado e recebendo mensagens neste computador.</p>
 
 <section class="card">
@@ -335,7 +379,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 
 {{define "instalacao"}}{{template "head" .}}
 <header class="masthead"><a class="brand" href="/instalacao">{{template "brandmark"}}</a>
-<div class="masthead__tools">{{template "themeswitch"}}</div></header>
+<div class="masthead__tools">{{template "settingslink" .}}</div></header>
 <div class="wizard-shell"{{if eq .Step 2}} style="max-width:620px"{{end}}>
 {{template "portbanner" .}}
 <ol class="wizard" aria-label="Etapas da instalação" style="max-width:520px;margin-left:auto;margin-right:auto">
@@ -411,11 +455,10 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </div></section>
 {{else}}
 <section class="card" data-wait-client="true">
-<div class="card__head"><h2>Conecte ao Claude</h2></div>
+<div class="card__head"><h2>Conecte a sua ferramenta de IA</h2></div>
 <div class="card__body">
 <p class="muted">Onde você vai usar o seu WhatsApp? Escolha e siga o passo a passo.</p>
-{{template "clientTabs" .Setup}}
-<p class="busy" role="status"><span class="spinner" aria-hidden="true"></span>Esperando a ferramenta se conectar. Esta tela avisa sozinha.</p>
+{{template "toolpicks" .Tools}}
 </div></section>
 <form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done">
 <div class="wizard__escape"><button class="btn btn--quiet" type="submit">Pular por enquanto</button></div></form>
@@ -425,44 +468,9 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </div>
 {{template "foot" .}}{{end}}
 
-{{define "transcricao"}}{{template "head" .}}{{template "nav" .}}
-<h1>Transcrição de áudios</h1>
-<p class="lead">A sua ferramenta de IA lê os áudios que você recebe no WhatsApp como texto.</p>
-{{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
-
-<section class="card card--accent" data-asr>
-<div class="card__head"><h2>Transcrição neste computador</h2>{{if .Local.Ready}}<span class="pill pill--ok">Ativa</span>{{else}}<span class="pill pill--off">Não instalada</span>{{end}}</div>
-<div class="card__body stack">
-{{if .Local.Ready}}
-<p class="muted">Quando você pede à sua ferramenta de IA para ler um áudio, ele é transcrito aqui mesmo, com o Whisper (large-v3-turbo) rodando {{accel .Local.Accel}}: grátis, e o áudio não sai do computador. Nada é transcrito sem você pedir. O nome da conversa, as pessoas e as últimas mensagens entram como contexto, e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho.</p>
-<dl class="facts">
-<div class="fact"><dt>Áudios transcritos</dt><dd>{{.Total}}</dd></div>
-<div class="fact"><dt>Corrigidos pelo contexto</dt><dd>{{.Corrected}}</dd></div>
-</dl>
-{{else if .Local.Supported}}
-<p class="muted">Transcreva os áudios aqui mesmo, de graça e sem o áudio sair do computador, com o Whisper (large-v3-turbo) rodando {{accel .Local.Accel}}. A instalação baixa cerca de 600 MB, uma vez só.</p>
-<div class="actions"><button class="btn" type="button" data-asr-install>Instalar a transcrição local</button></div>
-<p class="busy" data-asr-progress role="status"{{if ne .Local.Install.State "running"}} hidden{{end}}><span class="spinner" aria-hidden="true"></span><span data-asr-step>{{.Local.Install.Step}}</span></p>
-{{if eq .Local.Install.State "error"}}<p class="alert" role="alert">{{.Local.Install.Error}}</p>{{end}}
-{{else}}
-<p class="muted">A transcrição neste computador ainda não está disponível para este sistema. Enquanto isso, a sua ferramenta de IA pode baixar o áudio e transcrevê-lo do jeito que preferir.</p>
-{{end}}
-{{if and .Local.Supported (eq .Local.Accel "cpu")}}<p class="note">Este computador não tem uma placa de vídeo que o Whisper aproveite, então ele roda no processador: cada áudio leva mais ou menos o próprio tempo para ser transcrito. Funciona, só é mais lento.</p>{{end}}
-</div></section>
-
-<section class="card">
-<div class="card__head"><h2>Como usar</h2></div>
-<div class="card__body">
-<p class="muted">Peça à sua ferramenta de IA algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve na hora, confere com a conversa e guarda a versão corrigida.</p>
-<div class="snippet"><div class="snippet__head"><span class="snippet__title">Exemplo</span></div>
-<pre class="plain" data-copy><code>Transcreva os áudios que recebi hoje no WhatsApp.</code></pre></div>
-<p class="muted">Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado.</p>
-</div></section>
-{{template "foot" .}}{{end}}
-
-{{define "documentacao"}}{{template "head" .}}{{template "nav" .}}
+{{define "funcoes"}}{{template "head" .}}{{template "nav" .}}
 <h1>O que o MCP sabe fazer</h1>
-<p class="lead">{{.Count}} ferramentas, lidas do próprio servidor. Esta página não é uma cópia mantida à mão: ela descreve exatamente a superfície que o MCP publica, então só fica errada se o servidor estiver.</p>
+<p class="lead">As {{.Count}} funções que a sua ferramenta de IA pode usar no seu WhatsApp.</p>
 <div class="tools">
 {{range .Tools}}
 <article class="tool">
@@ -476,9 +484,53 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </div>
 {{template "foot" .}}{{end}}
 
+{{define "ajuda"}}{{template "head" .}}{{template "nav" .}}
+<h1>Ajuda</h1>
+<p class="lead">Respostas para as dúvidas mais comuns e exemplos para começar.</p>
+
+<section class="card" id="perguntas">
+<div class="card__head"><h2 class="card__title">{{icon "help"}}Perguntas frequentes</h2></div>
+<div class="card__body">
+<div class="faq">
+<details class="faq__item"><summary>Funciona no Claude pelo navegador ou pelo celular?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>Não. O WhatsApp MCP fica neste computador, e só programas instalados nele conseguem usá-lo, como o Claude Desktop, o Claude Code, o Codex e o Cursor. O Claude no navegador, o app do celular e o ChatGPT na web rodam na nuvem e não alcançam o seu computador.</p></div></details>
+<details class="faq__item"><summary>A IA pode mandar mensagens sem eu pedir?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>Não. Ler e procurar é seguro: mandar, reagir, editar ou apagar uma mensagem só acontece quando você pede.</p></div></details>
+<details class="faq__item"><summary>As minhas mensagens saem deste computador?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>O WhatsApp MCP guarda as mensagens só aqui e não manda nada para servidores de terceiros. Quando você pede algo à sua ferramenta de IA, ela lê as mensagens de que precisa para responder, e o que ela faz com elas segue as regras de privacidade dela.</p></div></details>
+<details class="faq__item"><summary>O computador precisa ficar ligado?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>Sim, para receber as mensagens. Se ele ficar desligado ou dormindo por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele volta. Se ainda faltar alguma coisa, peça o histórico ao celular na aba <a href="/whatsapp">WhatsApp</a>.</p></div></details>
+<details class="faq__item"><summary>Como trazer mensagens mais antigas?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>Na aba <a href="/whatsapp">WhatsApp</a>, use "Buscar mensagens mais antigas", para uma conversa ou para todas as recentes. Cada pedido traz mais histórico do celular para este computador, e ele fica disponível para a sua ferramenta de IA consultar. O celular precisa estar com internet.</p></div></details>
+<details class="faq__item"><summary>A IA consegue ouvir os meus áudios?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>Sim, depois de instalar a <a href="/configuracoes#transcricao">Transcrição de áudio</a> nas Configurações. Quando você pede, o áudio vira texto aqui mesmo, sem sair do computador. O nome da conversa e as últimas mensagens ajudam a acertar nomes e termos, e cada áudio é transcrito uma vez só.</p></div></details>
+<details class="faq__item"><summary>Posso conectar mais de uma ferramenta de IA?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>Pode. Todas usam o mesmo WhatsApp deste computador, e desconectar uma não mexe nas outras. Para adicionar outra, use <a href="/conectar">Conectar ferramenta de IA ao MCP</a>.</p></div></details>
+<details class="faq__item"><summary>A minha ferramenta não aparece conectada. E agora?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>Feche a ferramenta e abra de novo, ou comece uma conversa nova: ela só carrega o WhatsApp ao iniciar. Se continuar assim, refaça o passo a passo em <a href="/conectar">Conectar ferramenta de IA ao MCP</a> e confira a aba <a href="/status">Status</a>.</p></div></details>
+<details class="faq__item"><summary>O que a IA consegue fazer no meu WhatsApp?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>Ler, procurar e resumir conversas, transcrever áudios, mandar mensagens, fotos, enquetes e localização, reagir, editar e apagar mensagens e organizar conversas. A lista completa está em <a href="/funcoes">Funções</a>.</p></div></details>
+<details class="faq__item"><summary>Como desconectar este computador do WhatsApp?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>Na aba <a href="/whatsapp">WhatsApp</a>, em Zona de risco. O computador sai dos dispositivos conectados do seu celular, e as mensagens já guardadas continuam aqui.</p></div></details>
+{{if .App}}<details class="faq__item"><summary>Onde ficam os meus dados?{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>Numa pasta deste computador, que aparece em <a href="/configuracoes#dados">Configurações › Dados</a>. Lá também dá para abrir a pasta ou apagar tudo.</p></div></details>{{end}}
+</div>
+</div></section>
+
+<section class="card" id="como-usar">
+<div class="card__head"><h2 class="card__title">{{icon "chat"}}Como usar</h2></div>
+<div class="card__body stack">
+<p class="muted">Escreva isso no chat da sua ferramenta de IA. Ler e procurar é seguro: mandar mensagem só acontece quando você pede.</p>
+<ul class="prompts">
+{{range .Prompts}}<li class="prompt"><div class="snippet"><pre data-copy><code>{{.}}</code></pre></div></li>{{end}}
+</ul>
+<div class="note"><p style="margin:0">Quer ir além? As <a href="/receitas">Receitas</a> trazem pedidos prontos para agendar mensagens, vigiar assuntos, resumir grupos e mais.</p></div>
+</div></section>
+{{template "foot" .}}{{end}}
+
 {{define "receitas"}}{{template "head" .}}{{template "nav" .}}
 <h1>Receitas</h1>
-<p class="lead">Nenhuma destas precisa de código novo. O WhatsApp MCP só responde pelo WhatsApp quando perguntado: esperar a hora, vigiar um termo e montar o relatório são trabalho da sua ferramenta de IA, escrito como instrução. Cada receita é um texto para colar.</p>
+<p class="lead">O WhatsApp MCP só responde pelo WhatsApp quando perguntado: esperar a hora, vigiar um termo e montar o relatório são trabalho da sua ferramenta de IA, escrito como instrução. Cada receita é um texto para colar.</p>
 <div class="recipes">
 {{range .Recipes}}
 <article class="recipe">
@@ -505,25 +557,32 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <p class="lead">Como o WhatsApp MCP roda neste computador.</p>
 {{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
 
-{{if .PortChanged}}
+{{if and .App .PortChanged}}
 <section class="card card--accent">
-<div class="card__head"><h2>Avise as suas ferramentas de IA</h2></div>
+<div class="card__head"><h2 class="card__title">{{icon "bell"}}Avise as suas ferramentas de IA</h2></div>
 <div class="card__body stack">
 <ul class="rows">
 <li class="row"><span class="row__main"><span class="row__title">Claude Desktop e Cowork</span><span class="row__meta">Nada a fazer: ele encontra a porta nova sozinho. Uma conversa já aberta reconecta no próximo uso.</span></span><span class="pill pill--ok">Automático</span></li>
 <li class="row"><span class="row__main"><span class="row__title">Claude Code</span><span class="row__meta">{{if .Setup.Code.Configured}}Já usa o endereço novo.{{else if .Setup.Code.Found}}Ele guarda o endereço com a porta: atualize com um clique.{{else}}O comando claude não foi encontrado neste computador.{{end}}</span></span>
 {{if and .Setup.Code.Found (not .Setup.Code.Configured)}}<button class="btn btn--small" type="button" data-add-client="claude-code">Atualizar o Claude Code agora</button>{{end}}</li>
+{{if or .Setup.Codex.Configured .Setup.Codex.Stale}}<li class="row"><span class="row__main"><span class="row__title">Codex</span><span class="row__meta">{{if .Setup.Codex.Configured}}Já usa o endereço novo.{{else}}Ele guarda o endereço com a porta: atualize com um clique.{{end}}</span></span>
+{{if not .Setup.Codex.Configured}}<button class="btn btn--small" type="button" data-add-client="codex">Atualizar o Codex agora</button>{{end}}</li>{{end}}
 </ul>
 <p class="busy" data-client-note="claude-code" role="status" hidden></p>
-<p class="muted">Outras ferramentas (Cursor, Windsurf, Codex…) guardam o endereço antigo e precisam ser configuradas de novo. Mande isto no chat delas:</p>
+<p class="busy" data-client-note="codex" role="status" hidden></p>
+{{if or .Setup.Cursor.Configured .Setup.Cursor.Stale}}<ul class="rows" style="margin-top:12px"><li class="row"><span class="row__main"><span class="row__title">Cursor</span><span class="row__meta">{{if .Setup.Cursor.Configured}}Já usa o endereço novo.{{else}}Ele guarda o endereço com a porta: atualize com um clique.{{end}}</span></span>
+{{if not .Setup.Cursor.Configured}}<button class="btn btn--small" type="button" data-add-client="cursor">Atualizar o Cursor agora</button>{{end}}</li></ul>
+<p class="busy" data-client-note="cursor" role="status" hidden></p>{{end}}
+<p class="muted">Outras ferramentas (Windsurf e outras) guardam o endereço antigo e precisam ser configuradas de novo. Mande isto no chat delas:</p>
 <div class="snippet"><pre class="plain" data-copy><code>{{.Setup.AgentPrompt}}</code></pre></div>
 </div></section>
 {{end}}
 
+{{if .App}}
 <section class="card" id="porta">
-<div class="card__head"><h2>Porta do MCP</h2></div>
+<div class="card__head"><h2 class="card__title">{{icon "port"}}Porta do MCP</h2></div>
 <div class="card__body stack">
-<p class="muted">As ferramentas de IA falam com o WhatsApp MCP por este endereço, que só responde a programas deste computador. Troque a porta se outro programa já usa esta, ou se você quiser uma porta específica.</p>
+<p class="muted">As ferramentas de IA falam com o WhatsApp MCP por este endereço, que só responde a programas instalados e rodando neste computador. Troque a porta se outro programa já usa esta, ou se você quiser uma porta específica.</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">Endereço</span></div><pre data-copy><code>{{.Setup.Endpoint}}</code></pre></div>
 {{if .Settings.PortLocked}}<p class="note">A porta está definida pela variável de ambiente <code>WHATSAPP_MCP_PORT</code> e não pode ser trocada aqui.</p>
 {{else}}<form method="post" action="/configuracoes/porta" data-busy="Trocando…">
@@ -533,7 +592,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 </div></section>
 
 <section class="card">
-<div class="card__head"><h2>Ao ligar e ao fechar</h2></div>
+<div class="card__head"><h2 class="card__title">{{icon "power"}}Ao ligar e ao fechar</h2></div>
 <div class="card__body stack">
 <label class="check"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span><strong>Abrir o WhatsApp MCP quando o computador ligar</strong><span class="check__hint">Ele abre só na {{tray}}, sem janela, e as ferramentas de IA já encontram o WhatsApp.</span></span></label>
 {{if .Settings.CanHide}}<label class="check"><input type="checkbox" data-setting="close_to_tray"{{if .Settings.CloseToTray}} checked{{end}}><span><strong>Fechar a janela mantém o app na {{tray}}</strong><span class="check__hint">{{if mac}}Vale também para o ⌘Q. {{end}}Desmarcado, fechar a janela encerra o WhatsApp MCP, e as ferramentas de IA perdem o acesso até ele ser aberto de novo.</span></span></label>
@@ -552,16 +611,57 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <form method="post" action="/configuracoes/encerrar" data-busy="Encerrando…"><div class="actions actions--end"><a class="btn btn--quiet" href="#">Cancelar</a><button class="btn btn--danger" type="submit">Encerrar</button></div></form>
 </div></div></div>
 
+{{end}}
+
+<section class="card" id="transcricao" data-asr>
+<div class="card__head"><h2 class="card__title">{{icon "mic"}}Transcrição de áudio</h2>{{if .Local.Ready}}<span class="pill pill--ok">Ativa</span>{{else}}<span class="pill pill--off">Não instalada</span>{{end}}</div>
+<div class="card__body stack">
+{{if .Local.Ready}}
+<p class="muted">Quando você pede à sua ferramenta de IA para ler um áudio, ele é transcrito aqui mesmo, com o Whisper (large-v3-turbo) rodando {{accel .Local.Accel}}: grátis, e o áudio não sai do computador. Nada é transcrito sem você pedir. O nome da conversa, as pessoas e as últimas mensagens entram como contexto, e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho.</p>
+<dl class="facts">
+<div class="fact"><dt>Áudios transcritos</dt><dd>{{.Total}}</dd></div>
+<div class="fact"><dt>Corrigidos pelo contexto</dt><dd>{{.Corrected}}</dd></div>
+</dl>
+{{else if .Local.Supported}}
+<p class="muted">Transcreva os áudios aqui mesmo, de graça e sem o áudio sair do computador, com o Whisper (large-v3-turbo) rodando {{accel .Local.Accel}}. A instalação baixa cerca de 600 MB, uma vez só.</p>
+<div class="actions"><button class="btn" type="button" data-asr-install>Instalar a transcrição local</button></div>
+<p class="busy" data-asr-progress role="status"{{if ne .Local.Install.State "running"}} hidden{{end}}><span class="spinner" aria-hidden="true"></span><span data-asr-step>{{.Local.Install.Step}}</span></p>
+{{if eq .Local.Install.State "error"}}<p class="alert" role="alert">{{.Local.Install.Error}}</p>{{end}}
+{{else}}
+<p class="muted">A transcrição neste computador ainda não está disponível para este sistema. Enquanto isso, a sua ferramenta de IA pode baixar o áudio e transcrevê-lo do jeito que preferir.</p>
+{{end}}
+{{if and .Local.Supported (eq .Local.Accel "cpu")}}<p class="note">Este computador não tem uma placa de vídeo que o Whisper aproveite, então ele roda no processador: cada áudio leva mais ou menos o próprio tempo para ser transcrito. Funciona, só é mais lento.</p>{{end}}
+<h3 class="card__sub">Como usar</h3>
+<p class="muted">Peça à sua ferramenta de IA algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve na hora, confere com a conversa e guarda a versão corrigida.</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">Exemplo</span></div>
+<pre class="plain" data-copy><code>Transcreva os áudios que recebi hoje no WhatsApp.</code></pre></div>
+<p class="muted">Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado.</p>
+</div></section>
+
+{{if .App}}
 <section class="card" id="atualizacoes" data-update>
-<div class="card__head"><h2>Versão e atualizações</h2></div>
+<div class="card__head"><h2 class="card__title">{{icon "refresh"}}Versão e atualizações</h2></div>
 <div class="card__body stack">
 <dl class="facts"><div class="fact"><dt>Versão instalada</dt><dd>{{.Settings.Version}}</dd></div><div class="fact"><dt>Mais recente</dt><dd data-update-latest>{{with .Update.Latest}}{{.}}{{else}}—{{end}}</dd></div></dl>
-<p class="muted" data-update-text>O app procura uma versão nova duas vezes por dia.</p>
+<p class="muted" data-update-text hidden></p>
 <div class="actions"><button class="btn btn--ghost btn--small" type="button" data-update-check>Procurar atualização</button><button class="btn btn--small" type="button" data-update-install hidden>Instalar e reiniciar</button><a class="btn btn--ghost btn--small" data-update-page href="#" target="_blank" rel="noopener" hidden>Baixar a versão nova</a></div>
 </div></section>
 
-<section class="card">
-<div class="card__head"><h2>Dados</h2></div>
+{{end}}
+
+<section class="card" id="aparencia" hidden data-theme-switch>
+<div class="card__head"><h2 class="card__title">{{icon "palette"}}Aparência</h2></div>
+<div class="card__body">
+<fieldset class="themes"><legend class="sr-only">Tema</legend>
+<label class="theme-pick"><input type="radio" name="tema" value="light" data-theme-choice><span class="theme-pick__preview" aria-hidden="true"><span class="mini mini--light"><i></i><i></i><i></i></span></span><span class="theme-pick__label">{{icon "sun"}}Claro</span></label>
+<label class="theme-pick"><input type="radio" name="tema" value="dark" data-theme-choice><span class="theme-pick__preview" aria-hidden="true"><span class="mini mini--dark"><i></i><i></i><i></i></span></span><span class="theme-pick__label">{{icon "moon"}}Escuro</span></label>
+<label class="theme-pick"><input type="radio" name="tema" value="system" data-theme-choice><span class="theme-pick__preview" aria-hidden="true"><span class="mini mini--light"><i></i><i></i><i></i></span><span class="mini mini--dark mini--half"><i></i><i></i><i></i></span></span><span class="theme-pick__label">{{icon "monitor"}}Sistema</span></label>
+</fieldset>
+</div></section>
+
+{{if .App}}
+<section class="card" id="dados">
+<div class="card__head"><h2 class="card__title">{{icon "folder"}}Dados</h2></div>
 <div class="card__body stack">
 <p class="muted">As mensagens, a sessão do WhatsApp, as transcrições, o modelo de transcrição e as mídias baixadas ficam nesta pasta. Desinstalar o app não a apaga.</p>
 <div class="snippet"><pre data-copy><code>{{.Settings.DataDir}}</code></pre></div>
@@ -580,6 +680,7 @@ Each has the one-click way first and the by-hand way beneath it. */}}
 <div class="actions actions--end" style="margin-top:14px"><a class="btn btn--quiet" href="#">Cancelar</a><button class="btn btn--danger" type="submit">Apagar tudo</button></div>
 </form>
 </div></div></div>
+{{end}}
 {{template "foot" .}}{{end}}
 
 {{define "encerrado"}}{{template "head" .}}

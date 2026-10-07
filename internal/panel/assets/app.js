@@ -89,7 +89,7 @@
           // hosted v1. It is the person's to replace, not the page's.
           var yes = window.confirm("O " + result.client + " já tem um servidor chamado \"whatsapp\", que aponta para:\n\n" +
             result.conflict + "\n\nSubstituir por este WhatsApp local?" +
-            (client === "claude-desktop" ? " Uma cópia da configuração atual fica guardada." : " A configuração antiga é removida do Claude Code."));
+            (client === "claude-desktop" ? " Uma cópia da configuração atual fica guardada." : " A configuração antiga é removida do " + result.client + "."));
           if (!yes) throw new Error("Nada foi alterado: o servidor que já estava configurado continua lá.");
           return add(true);
         });
@@ -98,9 +98,12 @@
         button.textContent = "Configurado ✓";
         if (note) {
           note.hidden = false;
-          note.textContent = client === "claude-desktop"
-            ? "Pronto. Agora feche o Claude Desktop e abra de novo; esta tela avisa quando ele se conectar."
-            : "Pronto. Abra uma sessão nova do Claude Code; esta tela avisa quando ele se conectar.";
+          note.textContent = {
+            "claude-desktop": "Pronto. Agora feche o Claude Desktop e abra de novo.",
+            "claude-code": "Pronto. Agora abra uma sessão nova do Claude Code.",
+            "codex": "Pronto. Agora abra uma conversa nova no Codex.",
+            "cursor": "Pronto. Agora feche o Cursor e abra de novo."
+          }[client];
         }
       }).catch(function (error) {
         button.disabled = false;
@@ -120,6 +123,31 @@
       if (++polls > 150) { window.clearInterval(watch); return; }
       api("/api/state").then(function (state) {
         if (state.clients_live > 0) { window.clearInterval(watch); window.location.reload(); }
+      }).catch(function () {});
+    }, 4000);
+  }
+
+  // ---- waiting for one tool ----
+  // The connect flow's last step: the page turns into "connected" once the
+  // tool it is about connects after the page was opened, or, for any other
+  // tool, once one that was not here before does.
+  var waitTool = document.querySelector("[data-wait-tool]");
+  if (waitTool) {
+    var toolClient = waitTool.getAttribute("data-wait-tool");
+    var knownClients = (waitTool.getAttribute("data-wait-known") || "").split(" ").filter(Boolean);
+    var waitSince = Number(waitTool.getAttribute("data-wait-since") || 0) * 1000;
+    var toolPolls = 0;
+    var toolWatch = window.setInterval(function () {
+      if (++toolPolls > 150) { window.clearInterval(toolWatch); return; }
+      api("/api/state").then(function (state) {
+        var hit = (state.clients || []).some(function (c) {
+          if (!toolClient) return knownClients.indexOf(c.name) < 0;
+          return c.name.indexOf(toolClient) === 0 && Date.parse(c.last_seen) >= waitSince;
+        });
+        if (hit) {
+          window.clearInterval(toolWatch);
+          window.location.replace(window.location.pathname + "?conectado=1");
+        }
       }).catch(function () {});
     }, 4000);
   }
@@ -421,7 +449,7 @@
   }
 
   // The connection, followed in the background: every two seconds while it
-  // is on its way, every ten otherwise. The Estado tab's alert changes in
+  // is on its way, every ten otherwise. The Status tab's alert changes in
   // place; a page that shows the connection refreshes when it moves on,
   // unless the person is in the middle of something there.
   var live = document.querySelector("[data-live]");
@@ -433,7 +461,7 @@
     var reloading = false;
 
     var showTone = function (tone) {
-      var tab = live.querySelector('a[href="/estado"]');
+      var tab = live.querySelector("[data-nav-status]");
       if (!tab) return;
       var mark = tab.querySelector(".nav__alert");
       var said = tab.querySelector(".sr-only");
@@ -446,8 +474,8 @@
         said = el("span", "sr-only", "Atenção: ");
         mark = el("span", "nav__alert", "!");
         mark.setAttribute("aria-hidden", "true");
-        tab.insertBefore(said, tab.firstChild);
-        tab.insertBefore(mark, said);
+        tab.insertBefore(said, tab.querySelector(".nav__label"));
+        tab.appendChild(mark);
       }
       mark.classList.toggle("nav__alert--warn", tone === "warn");
     };
@@ -593,15 +621,15 @@
   function describe(u) {
     switch (u.state) {
       case "checking": return "Procurando uma versão nova…";
-      case "current": return "Você já tem a versão mais recente (" + u.current + ").";
-      case "available": return "A versão " + u.latest + " está disponível. Atualizar baixa a versão nova, confere que ela chegou inteira e reinicia o app; o MCP fica fora do ar por alguns segundos.";
+      case "current": return "Você já tem a versão mais recente.";
+      case "available": return "A versão " + u.latest + " está disponível. O aplicativo será reiniciado após a instalação.";
       case "downloading": return "Baixando a versão " + u.latest + "… " + (u.progress || 0) + "%";
       case "ready": return "Versão " + u.latest + " pronta. O app está reiniciando.";
       case "manual": return "A versão " + u.latest + " está disponível. Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez.";
       case "unsupported": return "Esta é uma versão de desenvolvimento (" + u.current + "), que não se atualiza sozinha.";
       case "error": return "Não foi possível atualizar agora: " + u.error;
     }
-    return "O app procura uma versão nova duas vezes por dia.";
+    return "";
   }
 
   function renderCard(u) {
@@ -611,7 +639,9 @@
     var page = card.querySelector("[data-update-page]");
     if (u.latest) latest.textContent = u.latest;
     else if (u.state === "current") latest.textContent = u.current;
-    card.querySelector("[data-update-text]").textContent = describe(u);
+    var text = card.querySelector("[data-update-text]");
+    text.textContent = describe(u);
+    text.hidden = !text.textContent;
     install.hidden = u.state !== "available";
     install.disabled = false;
     page.hidden = !(u.state === "manual" && u.page);
@@ -630,7 +660,7 @@
     page.hidden = u.state !== "manual";
     if (u.page) page.href = u.page;
     if (u.state === "available") {
-      text.textContent = "O WhatsApp MCP " + u.latest + " está pronto para instalar. O MCP fica fora do ar por alguns segundos enquanto o app reinicia.";
+      text.textContent = "O WhatsApp MCP " + u.latest + " está disponível. O aplicativo será reiniciado após a instalação.";
       install.disabled = false;
       install.textContent = "Atualizar agora";
     } else if (u.state === "manual") {
@@ -667,7 +697,7 @@
       button.disabled = false;
       button.textContent = "Tentar de novo";
       var text = (banner && !banner.hidden) ? banner.querySelector("[data-update-banner-text]") : card && card.querySelector("[data-update-text]");
-      if (text) text.textContent = e.message;
+      if (text) { text.textContent = e.message; text.hidden = false; }
     });
   }
 
@@ -678,7 +708,9 @@
       // The answer comes back once GitHub has replied: a new version, or
       // none, or why it could not be asked.
       post("/api/atualizacao/verificar").then(render).catch(function (e) {
-        card.querySelector("[data-update-text]").textContent = "Não foi possível procurar agora: " + e.message;
+        var text = card.querySelector("[data-update-text]");
+        text.textContent = "Não foi possível procurar agora: " + e.message;
+        text.hidden = false;
       }).then(function () {
         check.disabled = false;
         check.textContent = "Procurar atualização";

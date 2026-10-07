@@ -55,10 +55,10 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .shell{max-width:1000px;margin:0 auto;padding:0 clamp(16px,4vw,24px) 72px}
 .masthead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:20px 0 14px}
 .masthead__tools{display:flex;align-items:center;gap:8px}
-.theme{display:inline-flex}
-.theme[hidden]{display:none}
-.theme__select{appearance:none;-webkit-appearance:none;font:inherit;font-size:1rem;line-height:1;width:38px;height:38px;padding:0;text-align:center;text-align-last:center;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text);cursor:pointer}
-.theme__select:hover{background:var(--surface-soft)}
+.gear{display:inline-grid;place-items:center;width:38px;height:38px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--muted)}
+.gear:hover{background:var(--surface-soft);color:var(--text)}
+.gear[aria-current=page]{background:var(--brand-soft);border-color:var(--brand);color:var(--brand)}
+.gear .icon{width:20px;height:20px}
 .brand{display:flex;align-items:center;gap:12px;min-width:0;text-decoration:none;color:inherit}
 .brand__mark{width:38px;height:38px;flex:none}
 .brand__mark svg{width:100%;height:100%;display:block}
@@ -100,6 +100,9 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .nav__alert{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;flex:none;border-radius:50%;background:var(--danger-bg);color:var(--danger);border:1px solid var(--danger-border);font-size:.68rem;font-weight:800;line-height:1}
 .nav__alert--warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
 .nav__spacer{flex:1}
+.nav .icon{width:17px;height:17px;flex:none}
+/* Six tabs fit one row down to the window's narrowest. */
+@media (max-width:820px){.nav{gap:2px}.nav a{padding:10px 9px;gap:6px;font-size:.9rem}}
 
 /* ---- cards ---- */
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);margin:0 0 18px;overflow:hidden}
@@ -232,6 +235,8 @@ input+.actions,.reveal+.actions,input+.muted,.reveal+.muted{margin-top:16px}
 /* ---- connections ---- */
 .tool-mark{width:36px;height:36px;flex:none;border-radius:10px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand);border:1px solid var(--border);font-weight:800;font-size:1rem;text-transform:uppercase}
 .row--waiting .tool-mark{background:var(--warn-bg);color:var(--warn)}
+.tool-mark--logo,.row--waiting .tool-mark--logo{background:var(--surface-soft);color:var(--text)}
+.tool-mark .icon{width:22px;height:22px}
 /* The primary action is a button, not a banner: stretched across the column
    it read as a section header. It stays the width of its own label. */
 .hero{display:flex;justify-content:center;margin:0 0 22px}
@@ -282,14 +287,6 @@ input+.actions,.reveal+.actions,input+.muted,.reveal+.muted{margin-top:16px}
 .dialog__close{text-decoration:none;color:var(--muted);font-size:1.5rem;line-height:1;padding:0 4px}
 .dialog__close:hover{color:var(--text)}
 
-.tabs__radio{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-.tabs__bar{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:16px}
-.tabs__tab{padding:8px 14px;font-weight:600;font-size:.92rem;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;border-radius:var(--radius-sm) var(--radius-sm) 0 0}
-.tabs__tab:hover{color:var(--text);background:var(--surface-soft)}
-.tabs__panel{display:none}
-#tab-code:checked~.tabs__panel--code,#tab-desktop:checked~.tabs__panel--desktop,#tab-outros:checked~.tabs__panel--outros{display:block}
-#tab-code:checked~.tabs__bar label[for=tab-code],#tab-desktop:checked~.tabs__bar label[for=tab-desktop],#tab-outros:checked~.tabs__bar label[for=tab-outros]{color:var(--brand);border-bottom-color:var(--brand)}
-.tabs__radio:focus-visible~.tabs__bar label{outline:3px solid var(--ring);outline-offset:2px}
 .prompts{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
 .prompt .snippet{margin:0}
 .prompt pre{background:var(--surface-sunken);color:var(--text);border:1px solid var(--border);padding:10px 12px;font-size:.92rem;white-space:pre-wrap}
@@ -305,7 +302,7 @@ pre.plain,pre.plain code{font-family:inherit}
 .qrcode{display:block;margin:0 auto;width:250px;height:250px;max-width:100%;background:#fff;padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border)}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .muted{color:var(--text-soft);font-size:.9rem;line-height:1.65}
-.stack>*+*{margin-top:16px}
+.stack>*+*,.stack>*+.note{margin-top:16px}
 @media (max-width:520px){.row{align-items:flex-start}.row form,.row .btn{width:100%}}
 /* ---- installation wizard ---- */
 /* The first run is one column, one card and one question at a time: the panel
@@ -358,6 +355,73 @@ pre.plain,pre.plain code{font-family:inherit}
 
 const extraCSS = `
 [hidden]{display:none!important}
+.icon{display:block;flex:none}
+/* ---- help ---- */
+.faq{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.faq__item+.faq__item{border-top:1px solid var(--border)}
+.faq__item summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;cursor:pointer;font-weight:600;list-style:none;background:var(--surface)}
+.faq__item summary::-webkit-details-marker{display:none}
+.faq__item summary:hover{background:var(--surface-soft)}
+.faq__item summary .icon{width:16px;height:16px;color:var(--muted);transition:transform .15s}
+.faq__item[open] summary .icon{transform:rotate(90deg)}
+@media (prefers-reduced-motion:reduce){.faq__item summary .icon{transition:none}}
+.faq__answer{padding:0 16px 16px;color:var(--text-soft);font-size:.93rem;line-height:1.7;max-width:72ch}
+.faq__answer p{margin:0}
+/* ---- connect flow ---- */
+/* One column, the tool first and then its steps, like the first run. */
+.flow{max-width:640px;margin:0 auto}
+.flow__back{display:inline-flex;align-items:center;gap:6px;margin:4px 0 14px;color:var(--muted);font-size:.9rem;font-weight:600;text-decoration:none}
+.flow__back:hover{color:var(--brand-strong)}
+.flow__back .icon{width:16px;height:16px}
+.flow__title{display:flex;align-items:center;gap:12px;margin:0 0 20px}
+.flow__note{margin-top:18px}
+.toolpicks{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:10px}
+.toolpick{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);color:inherit;text-decoration:none}
+.toolpick:hover{border-color:var(--brand-strong);background:var(--surface-soft)}
+.toolpick__icon{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:11px;background:var(--brand-soft);color:var(--brand)}
+.toolpick__icon .icon{width:22px;height:22px}
+/* A logo keeps its own colours; the tile behind it stays neutral. */
+.toolpick__icon:has(.icon--logo){background:var(--surface-soft);border:1px solid var(--border);color:var(--text)}
+.toolpick__text{flex:1;min-width:0;display:flex;flex-direction:column}
+.toolpick__name{font-weight:700}
+.toolpick__hint{color:var(--text-soft);font-size:.88rem;line-height:1.45}
+.toolpick__go{color:var(--muted)}
+.toolpick:hover .toolpick__go{color:var(--brand-strong)}
+.flowsteps{list-style:none;counter-reset:flowstep;margin:0;padding:0;display:grid;gap:22px}
+.flowstep{position:relative;counter-increment:flowstep;padding-left:44px}
+.flowstep::before{content:counter(flowstep);position:absolute;left:0;top:-2px;width:30px;height:30px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:700;font-size:.9rem}
+.flowstep+.flowstep{padding-top:22px;border-top:1px solid var(--border)}
+.flowstep+.flowstep::before{top:20px}
+.flowstep__title{font-size:1.02rem;margin:2px 0 10px}
+.flowstep>.muted:last-child,.flowstep>.busy:last-child{margin-bottom:0}
+.flowstep .busy{margin-top:0}
+.flowstep .resend{margin-top:16px}
+@media (max-width:460px){.flowstep{padding-left:0}.flowstep::before{position:static;margin-bottom:8px}}
+/* ---- settings sections ---- */
+.card__title{display:flex;align-items:center;gap:10px}
+.card__title .icon{box-sizing:content-box;width:18px;height:18px;padding:6px;border-radius:8px;background:var(--brand-soft);color:var(--brand)}
+.card--accent .card__title .icon{background:var(--surface)}
+.card__sub{padding-top:16px;border-top:1px solid var(--border)}
+/* Appearance: each theme drawn as a small window, the system one half and half. */
+.themes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:540px;margin:0;padding:0;border:0;min-width:0}
+.theme-pick{position:relative;display:grid;gap:9px;padding:9px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);cursor:pointer}
+.theme-pick:hover{border-color:var(--brand-strong)}
+.theme-pick input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.theme-pick:has(input:checked){border-color:var(--brand);box-shadow:0 0 0 1px var(--brand);background:var(--brand-soft)}
+.theme-pick:has(input:focus-visible){outline:3px solid var(--ring);outline-offset:2px}
+.theme-pick__preview{position:relative;display:block;aspect-ratio:16/10;border-radius:7px;overflow:hidden;border:1px solid var(--border)}
+.theme-pick__label{display:flex;align-items:center;justify-content:center;gap:7px;font-weight:600;font-size:.92rem}
+.theme-pick:has(input:checked) .theme-pick__label{color:var(--brand)}
+.theme-pick__label .icon{width:16px;height:16px}
+.mini{position:absolute;inset:0;display:flex;flex-direction:column;gap:5px;padding:9px 10px;background:var(--mini-bg)}
+.mini--light{--mini-bg:#eef3f1;--mini-surface:#fff;--mini-line:#dbe6e1;--mini-brand:#0b6b5d}
+.mini--dark{--mini-bg:#0a1513;--mini-surface:#11211d;--mini-line:#23413a;--mini-brand:#2fc9a0}
+.mini--half{clip-path:polygon(100% 0,100% 100%,0 100%)}
+.mini i{display:block;border-radius:3px;background:var(--mini-surface);border:1px solid var(--mini-line)}
+.mini i:nth-child(1){flex:none;width:42%;height:6px;background:var(--mini-brand);border:0}
+.mini i:nth-child(2){flex:2}
+.mini i:nth-child(3){flex:1}
+@media (max-width:460px){.themes{gap:8px}.theme-pick{padding:7px}.theme-pick__label{font-size:.85rem}}
 /* ---- WhatsApp-style previews ---- */
 /* Drawn to resemble the phone's own chat list, so checking "is this synced?"
    is a glance from one screen to the other, not a reading exercise. */
@@ -399,7 +463,6 @@ const extraCSS = `
 .pane__meta{font-size:.8rem;color:var(--muted)}
 .pane .thread{max-height:520px;min-height:260px}
 @media (max-width:760px){.preview-grid{grid-template-columns:1fr}}
-.dialog--wide{width:min(620px,100%)}
 .skeleton{height:62px;border-radius:var(--radius-sm);background:linear-gradient(90deg,var(--surface-soft),var(--surface-sunken),var(--surface-soft));background-size:200% 100%;animation:shimmer 1.4s linear infinite}
 @keyframes shimmer{to{background-position:-200% 0}}
 @media (prefers-reduced-motion:reduce){.skeleton{animation:none}}
@@ -429,6 +492,11 @@ input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:v
 .tip:hover,.tip:focus-visible{color:var(--brand-strong);border-color:var(--brand-strong);outline:none}
 .tip__body{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;padding:9px 11px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border-strong);box-shadow:var(--shadow-lift);color:var(--text);font-size:.84rem;font-weight:400;line-height:1.5;text-align:left;visibility:hidden;opacity:0;transition:opacity .12s;z-index:20;pointer-events:none}
 .tip:hover .tip__body,.tip:focus-visible .tip__body{visibility:visible;opacity:1}
+/* A detail almost nobody needs: faint, and opening to the side so a list's
+   edge does not cut it. */
+.tip--quiet{width:15px;height:15px;font-size:.66rem;border-color:var(--border);color:var(--muted);opacity:.7}
+.tip--quiet:hover,.tip--quiet:focus-visible{opacity:1}
+.tip--quiet .tip__body{left:calc(100% + 8px);bottom:auto;top:50%;transform:translateY(-50%);white-space:nowrap}
 .pill--busy::before{display:none}
 .pill .spinner{width:11px;height:11px}
 .update-banner{position:fixed;left:16px;bottom:16px;z-index:40;width:min(340px,calc(100vw - 32px));padding:14px 16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border-strong);box-shadow:var(--shadow-lift)}

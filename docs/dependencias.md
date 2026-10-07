@@ -46,7 +46,7 @@ No app, o wacli é fixado: cada versão do app traz uma versão testada, baixada
 dos releases oficiais e conferida pelo sha256 que eles publicam, e ele só muda
 com uma versão nova do app. A documentação do wacli avisa que o esquema do banco
 pode mudar entre versões; antes de trocar a versão em `build/wacli.env`, vale
-rodar os testes e conferir a aba Estado e a prévia de conversas. A linha de
+rodar os testes e conferir a aba Status e a prévia de conversas. A linha de
 comando usa o wacli instalado ao lado dela (pelo `install.sh`) ou o do
 Homebrew.
 

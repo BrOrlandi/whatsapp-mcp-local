@@ -60,7 +60,7 @@ func (s *Server) transcribeAudio(ctx context.Context, a arguments) map[string]an
 	switch {
 	case errors.Is(err, ErrNoEngine):
 		return textResult(map[string]any{"error": "transcription is not installed on this computer", "setup": []string{
-			"In the WhatsApp MCP app (or its panel at " + s.base() + "/transcricao), open Transcrição and click the install button: it downloads about 600 MB once, and audio never leaves the computer. On the command line: `whatsapp-mcp transcription install`.",
+			"In the WhatsApp MCP app, open Configurações (the gear in the top right corner) and, under Transcrição de áudio, click the install button (in a browser: " + s.base() + "/configuracoes#transcricao): it downloads about 600 MB once, and audio never leaves the computer. On the command line: `whatsapp-mcp transcription install`.",
 			"Meanwhile, download_media gives this audio as a file, to transcribe it another way.",
 		}}, true)
 	case err != nil:

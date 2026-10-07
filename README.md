@@ -162,7 +162,7 @@ Ela se instala como serviço do sistema e abre o mesmo painel no navegador, em
 ## Bom saber
 
 - **Áudios viram texto no próprio computador, quando você pede.** Ative em
-  *Transcrição*: o app baixa o Whisper (cerca de 600 MB, uma vez) e transcreve
+  *Configurações › Transcrição de áudio*: o app baixa o Whisper (cerca de 600 MB, uma vez) e transcreve
   sem o áudio sair da máquina, usando a conversa como contexto para acertar
   nomes e termos. Com a GPU do Mac ou uma placa NVIDIA leva segundos; só com o
   processador, mais ou menos a duração do áudio.
