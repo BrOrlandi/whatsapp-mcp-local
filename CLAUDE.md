@@ -61,3 +61,10 @@ Structured convention: `.claude/release.json` (read by the `release` skill). Pro
   update the links and `data-asset` patterns in `site/download/index.html` and redeploy the site.
 - Bump from conventional commits (breaking → major, `feat` → minor, otherwise patch), confirmed
   with the user; while the version is 0.x, minor marks a release with new features.
+
+## Git workflow
+
+<!-- claude-skill:commit default-branch-policy=direct -->
+
+Work lands directly on the default branch. Commit to it without asking for confirmation, and do not
+propose creating a feature branch first.
