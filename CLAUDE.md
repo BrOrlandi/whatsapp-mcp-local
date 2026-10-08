@@ -16,12 +16,14 @@ Other branches get preview deployments. A manual deploy runs from the repository
 this repository's latest release by the fixed asset names, and `/servidor` is a separate page
 for the server project, whose links all point at `BrOrlandi/whatsapp-mcp`.
 
-The "Veja como funciona" video on the home page (autoplays muted, with a button for the sound) is
-a Remotion project in `video/`, the one-minute cut `curto`, narrated with Gemini TTS in the voice
-recorded in `video/README.md#a-voz`, subtitles burned in; `npm run render -- curto --site` there
-puts it on the page, in `site/assets/video/`.
-It shows the app's screens and names its features, so a change to the setup flow or the tools
-may call for a new cut (`video/README.md`).
+The "Veja como funciona" video on the home page (autoplays muted, with a button for the sound)
+lives in `site/assets/video/`. Its source, a Remotion project, is kept out of the repository, in
+the ignored `video/` folder on Bruno's Mac (`video/README.md` explains it; `npm run render --
+curto --site` there puts a new cut on the page). It shows the app's screens and names its
+features, so a change to the setup flow or the tools may call for a new cut. The voice, for any
+video of the project: Gemini TTS, model `gemini-3.1-flash-tts-preview`, voice `Achernar`, each
+line prefixed with "Say in a soft, calm and warm voice, as a Brazilian Portuguese video narrator,
+at a natural pace:", sped up 1.4x with ffmpeg's `atempo`.
 
 ## wacli version
 
