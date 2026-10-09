@@ -58,7 +58,8 @@ var toolCategories = map[string]string{
 	"get_group_invite_link":     CategoryGroups,
 	"leave_group":               CategoryGroups,
 
-	"organise_chat": CategoryOrganise,
+	"organise_chat":    CategoryOrganise,
+	"mark_chat_unread": CategoryOrganise, // only how this account shows the chat; nothing is sent
 }
 
 // ToolCategory is the category of a tool, empty for an unknown one.

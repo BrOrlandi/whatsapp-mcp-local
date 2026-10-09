@@ -40,6 +40,13 @@ func TestToolsAreComplete(t *testing.T) {
 	}
 }
 
+// Marking unread is a change of display, so it is not filed with the sends.
+func TestMarkChatUnreadIsOrganise(t *testing.T) {
+	if got := ToolCategory("mark_chat_unread"); got != CategoryOrganise {
+		t.Errorf("mark_chat_unread is %q, want %q", got, CategoryOrganise)
+	}
+}
+
 // An assistant learns at initialize that webhooks exist, and where.
 func TestInstructionsMentionWebhooks(t *testing.T) {
 	s := &Server{baseURL: "http://127.0.0.1:47821", clients: map[string]string{}, touched: map[string]time.Time{}}
