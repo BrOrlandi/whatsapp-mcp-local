@@ -801,8 +801,15 @@ func (s *Server) react(ctx context.Context, a arguments) map[string]any {
 		emoji = *a.Emoji
 	}
 	args := []string{"send", "react", "--to", m.ChatJID, "--id", m.ID, "--reaction", emoji}
-	if strings.HasSuffix(m.ChatJID, "@g.us") && m.SenderJID != "" {
-		args = append(args, "--sender", m.SenderJID)
+	// Without a sender, whatsmeow keys the reaction as if the target were the
+	// account's own message: in a DM a reaction to a received message then
+	// points at nothing, and WhatsApp accepts it without showing it.
+	sender := m.SenderJID
+	if sender == "" && !m.FromMe && !strings.HasSuffix(m.ChatJID, "@g.us") {
+		sender = m.ChatJID
+	}
+	if sender != "" && (!m.FromMe || strings.HasSuffix(m.ChatJID, "@g.us")) {
+		args = append(args, "--sender", sender)
 	}
 	return sendResult(s.delegated(ctx, args...))
 }

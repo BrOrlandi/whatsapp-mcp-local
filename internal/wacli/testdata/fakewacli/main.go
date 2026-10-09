@@ -39,7 +39,7 @@ func main() {
 	switch args[0] + " " + args[1] {
 	case "sync --help":
 		fmt.Println("Flags:\n      --webhook string\n      --webhook-events string")
-	case "chats mark-read", "chats pin", "presence typing", "presence paused", "send file", "send sticker":
+	case "chats mark-read", "chats pin", "presence typing", "presence paused", "send file", "send sticker", "send react":
 		// What a running sync accepts over its socket, like send text.
 		if locked() && !exists(".send.sock") {
 			fail("store is locked")

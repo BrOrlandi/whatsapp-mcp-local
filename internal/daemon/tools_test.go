@@ -204,6 +204,20 @@ func TestNewToolsReachWacliTheRightWay(t *testing.T) {
 		t.Errorf("forward or delete for me missing:\n%s", log)
 	}
 
+	// A reaction to a received DM message names its sender, or WhatsApp
+	// takes it for a reaction to one of the account's own messages; a
+	// reaction to an own message names none.
+	if res, isErr := callTool(t, port, "react_to_message", map[string]any{"message_id": "M1", "emoji": "🧡"}); isErr {
+		t.Fatalf("react: %v", res)
+	}
+	if res, isErr := callTool(t, port, "react_to_message", map[string]any{"message_id": "L1", "emoji": "👍"}); isErr {
+		t.Fatalf("react to own: %v", res)
+	}
+	if log := argsLog(); !strings.Contains(log, "send react --to "+testMae+" --id M1 --reaction 🧡 --sender "+testMae) ||
+		!strings.Contains(log, "send react --to "+testLucas+" --id L1 --reaction 👍\n") {
+		t.Errorf("reaction sender wrong:\n%s", log)
+	}
+
 	// Chat state goes through sync; a wacli whose sync refuses it (the fake
 	// still treats archive as needing the store) falls back to a pause.
 	if res, isErr := callTool(t, port, "mark_chat_read", map[string]any{"chat_jid": testMae}); isErr {
