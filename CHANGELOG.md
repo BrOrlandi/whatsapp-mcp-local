@@ -4,6 +4,18 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.3.1] - 2026-10-09
+
+### Corrigido
+
+- **Reações chegam a quem recebe.** Numa conversa individual, a reação da IA a
+  uma mensagem que você recebeu era aceita pelo WhatsApp mas não aparecia para
+  ninguém. Num grupo, reagir a uma mensagem sua dava erro ou também não
+  aparecia. Agora a reação aparece nos dois casos, como quando você reage pelo
+  celular.
+
+Inclui o wacli 0.20.0.
+
 ## [1.3.0] - 2026-10-07
 
 ### Adicionado
@@ -199,6 +211,8 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.3.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.3.1
+[1.3.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.3.0
 [1.2.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.2.0
 [1.1.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.1.1
 [1.1.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.1.0
