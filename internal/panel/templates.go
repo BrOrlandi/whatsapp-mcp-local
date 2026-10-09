@@ -677,9 +677,10 @@ steps for that one, which end when it connects. No tabs on the way. */}}
 <section class="card" id="atualizacoes" data-update>
 <div class="card__head"><h2 class="card__title">{{icon "refresh"}}Versão e atualizações</h2></div>
 <div class="card__body stack">
-<dl class="facts"><div class="fact"><dt>Versão instalada</dt><dd>{{.Settings.Version}}</dd></div><div class="fact"><dt>Mais recente</dt><dd data-update-latest>{{with .Update.Latest}}{{.}}{{else}}—{{end}}</dd></div></dl>
-<p class="muted" data-update-text hidden></p>
-<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-update-check>Procurar atualização</button><button class="btn btn--small" type="button" data-update-install hidden>Instalar e reiniciar</button><a class="btn btn--ghost btn--small" data-update-page href="#" target="_blank" rel="noopener" hidden>Baixar a versão nova</a></div>
+<div class="version"><span class="version__label">Versão instalada</span>
+<div class="version__row"><span class="version__number">{{.Settings.Version}}</span><span class="pill" data-update-badge hidden></span></div></div>
+<p class="muted version__note" data-update-text hidden></p>
+<div class="actions"><button class="btn btn--small" type="button" data-update-install hidden>Instalar e reiniciar</button><button class="btn btn--ghost btn--small" type="button" data-update-check>Procurar atualização</button><a class="btn btn--ghost btn--small" data-update-page href="#" target="_blank" rel="noopener" hidden>Baixar a versão nova</a></div>
 </div></section>
 
 {{end}}

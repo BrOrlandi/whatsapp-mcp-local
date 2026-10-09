@@ -499,6 +499,19 @@ input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:v
 .tip--quiet .tip__body{left:calc(100% + 8px);bottom:auto;top:50%;transform:translateY(-50%);white-space:nowrap}
 .pill--busy::before{display:none}
 .pill .spinner{width:11px;height:11px}
+/* The version card: the installed version, with a badge for where it stands
+   beside it; a new version gets the loud one. */
+.version{display:flex;flex-direction:column;gap:4px}
+.version__label{font-size:.78rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.version__row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
+.version__number{font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
+.version__note{margin:0}
+.pill[hidden]{display:none}
+.pill--new{background:var(--brand-strong);color:var(--brand-ink);border-color:var(--brand-strong);box-shadow:0 0 0 3px var(--brand-soft)}
+.pill--new::before{display:none}
+.pill--new:not(.pill--busy)::after{content:"";order:-1;width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.pill--new::after{animation:none}}
 .update-banner{position:fixed;left:16px;bottom:16px;z-index:40;width:min(340px,calc(100vw - 32px));padding:14px 16px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--border-strong);box-shadow:var(--shadow-lift)}
 .update-banner[hidden]{display:none}
 .update-banner__title{margin:0 24px 4px 0;font-weight:700}

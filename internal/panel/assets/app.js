@@ -632,15 +632,48 @@
     return "";
   }
 
+  // The card shows the installed version only; a badge beside it says
+  // whether it is the latest, and a new version gets the loud one.
+  function badge(u) {
+    switch (u.state) {
+      case "current": return { tone: "pill--ok", text: "Mais recente" };
+      case "available": case "manual": return { tone: "pill--new", text: "Nova versão " + u.latest };
+      case "checking": return { tone: "pill--off pill--busy", text: "Procurando…", spin: true };
+      case "downloading": return { tone: "pill--new pill--busy", text: "Baixando " + u.latest + "… " + (u.progress || 0) + "%", spin: true };
+      case "ready": return { tone: "pill--new pill--busy", text: "Reiniciando…", spin: true };
+      case "unsupported": return { tone: "pill--off", text: "Versão de desenvolvimento" };
+    }
+    return null;
+  }
+
+  function note(u) {
+    switch (u.state) {
+      case "available": case "downloading": return "O aplicativo será reiniciado após a instalação.";
+      case "manual": return "Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez.";
+      case "unsupported": return "Ela não se atualiza sozinha.";
+      case "error": return "Não foi possível atualizar agora: " + u.error;
+    }
+    return "";
+  }
+
   function renderCard(u) {
     if (!card) return;
-    var latest = card.querySelector("[data-update-latest]");
     var install = card.querySelector("[data-update-install]");
     var page = card.querySelector("[data-update-page]");
-    if (u.latest) latest.textContent = u.latest;
-    else if (u.state === "current") latest.textContent = u.current;
+    var pill = card.querySelector("[data-update-badge]");
+    var b = badge(u);
+    pill.hidden = !b;
+    if (b) {
+      pill.className = "pill " + b.tone;
+      pill.textContent = b.text;
+      if (b.spin) {
+        var spin = el("span", "spinner");
+        spin.setAttribute("aria-hidden", "true");
+        pill.insertBefore(spin, pill.firstChild);
+      }
+    }
     var text = card.querySelector("[data-update-text]");
-    text.textContent = describe(u);
+    text.textContent = note(u);
     text.hidden = !text.textContent;
     install.hidden = u.state !== "available";
     install.disabled = false;
