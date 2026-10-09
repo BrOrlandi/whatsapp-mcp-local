@@ -289,6 +289,13 @@ func definitions() []any {
 			}, "required": []string{"chat_jid"}},
 		},
 		map[string]any{
+			"name":        "mark_chat_unread",
+			"description": "Mark a conversation as unread on all of this account's devices, as \"Mark as unread\" does on the phone. Only how this account displays the chat changes: nothing is sent and the other side sees nothing. mark_chat_read undoes it. WhatsApp shows only the unread marker; it does not produce a push notification.",
+			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
+				"chat_jid": stringSchema("JID of the conversation."),
+			}, "required": []string{"chat_jid"}},
+		},
+		map[string]any{
 			"name":        "send_typing",
 			"description": "Show \"typing…\" (or \"recording audio…\") in a conversation, for example while a reply is being prepared, or stop showing it. WhatsApp clears it by itself after a few seconds and when a message is sent.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
