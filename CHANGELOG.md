@@ -14,6 +14,12 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
   aparecia. Agora a reação aparece nos dois casos, como quando você reage pelo
   celular.
 
+### Mudou
+
+- **Versão e atualizações, em Configurações, ficou mais direta.** Mostra só a
+  versão instalada, com um selo ao lado: "Mais recente" quando você já está em
+  dia, ou "Nova versão" em destaque quando há uma para instalar.
+
 Inclui o wacli 0.20.0.
 
 ## [1.3.0] - 2026-10-07
