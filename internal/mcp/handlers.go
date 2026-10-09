@@ -801,17 +801,43 @@ func (s *Server) react(ctx context.Context, a arguments) map[string]any {
 		emoji = *a.Emoji
 	}
 	args := []string{"send", "react", "--to", m.ChatJID, "--id", m.ID, "--reaction", emoji}
-	// Without a sender, whatsmeow keys the reaction as if the target were the
-	// account's own message: in a DM a reaction to a received message then
-	// points at nothing, and WhatsApp accepts it without showing it.
-	sender := m.SenderJID
-	if sender == "" && !m.FromMe && !strings.HasSuffix(m.ChatJID, "@g.us") {
-		sender = m.ChatJID
+	sender, err := s.reactionSender(ctx, m)
+	if err != nil {
+		return toolError("%v", err)
 	}
-	if sender != "" && (!m.FromMe || strings.HasSuffix(m.ChatJID, "@g.us")) {
+	if sender != "" {
 		args = append(args, "--sender", sender)
 	}
 	return sendResult(s.delegated(ctx, args...))
+}
+
+// reactionSender is who wrote the message a reaction points at, as whatsmeow
+// needs it to key the reaction. Without one it keys it as the account's own
+// message, which is right only for an own message in a DM: a reaction keyed
+// to the wrong author is accepted by WhatsApp and shown to no one. In a group
+// the index records the account's own messages without a sender, or with the
+// group's JID, so the account's number is asked for instead.
+func (s *Server) reactionSender(ctx context.Context, m index.Message) (string, error) {
+	group := strings.HasSuffix(m.ChatJID, "@g.us")
+	switch {
+	case m.FromMe && !group:
+		return "", nil
+	case m.FromMe:
+		acc, err := s.supervisor.Account(ctx)
+		if err != nil || (acc.Phone == "" && acc.JID == "") {
+			return "", fmt.Errorf("could not tell which account sent the message: %v", err)
+		}
+		if acc.Phone != "" {
+			return acc.Phone + "@s.whatsapp.net", nil
+		}
+		return acc.JID, nil
+	case !group && m.SenderJID == "":
+		return m.ChatJID, nil
+	case !group || m.SenderJID != m.ChatJID && m.SenderJID != "":
+		return m.SenderJID, nil
+	default:
+		return "", errors.New("the index does not say who sent this group message, so the reaction cannot be addressed to it")
+	}
 }
 
 func (s *Server) deleteMessage(ctx context.Context, a arguments) map[string]any {

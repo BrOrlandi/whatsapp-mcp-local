@@ -23,6 +23,7 @@ import (
 const (
 	testMae   = "5511900000001@s.whatsapp.net"
 	testLucas = "5511900000002@s.whatsapp.net"
+	testGroup = "120363000000000001@g.us"
 )
 
 // seedStore writes the part of wacli's store the tools read: two chats, Mãe
@@ -55,6 +56,8 @@ func seedStore(t *testing.T, store string) {
 		fmt.Sprintf(`INSERT INTO messages (chat_jid, msg_id, sender_jid, ts, from_me, text, media_type, mime_type, filename) VALUES
 			('%s', 'P1', '%s', %d, 0, '', 'image', 'image/png', 'foto.png'),
 			('%s', 'D1', '%s', %d, 0, '', 'document', 'text/plain', 'lista.txt')`, testMae, testMae, now-120, testMae, testMae, now-110),
+		fmt.Sprintf(`INSERT INTO messages (chat_jid, msg_id, sender_jid, ts, from_me, text) VALUES ('%s', 'G1', '%s', %d, 1, 'epa')`,
+			testGroup, testGroup, now-7200),
 	} {
 		if _, err := db.Exec(q); err != nil {
 			t.Fatalf("%s: %v", q, err)
@@ -218,6 +221,15 @@ func TestNewToolsReachWacliTheRightWay(t *testing.T) {
 		t.Errorf("reaction sender wrong:\n%s", log)
 	}
 
+	// In a group, a reaction to an own message names the account, which the
+	// index leaves out or records as the group itself.
+	if res, isErr := callTool(t, port, "react_to_message", map[string]any{"message_id": "G1", "emoji": "🧡"}); isErr {
+		t.Fatalf("react in group: %v", res)
+	}
+	if !strings.Contains(argsLog(), "send react --to "+testGroup+" --id G1 --reaction 🧡 --sender 5511912345678@s.whatsapp.net") {
+		t.Errorf("own group message reacted without the account:\n%s", argsLog())
+	}
+
 	// Chat state goes through sync; a wacli whose sync refuses it (the fake
 	// still treats archive as needing the store) falls back to a pause.
 	if res, isErr := callTool(t, port, "mark_chat_read", map[string]any{"chat_jid": testMae}); isErr {
@@ -242,14 +254,14 @@ func TestNewToolsReachWacliTheRightWay(t *testing.T) {
 	if res, _ := callTool(t, port, "list_unanswered", nil); len(res["chats"].([]any)) != 0 {
 		t.Errorf("a handled chat should leave the list: %v", res)
 	}
-	if res, _ := callTool(t, port, "message_stats", map[string]any{"group_by": "chat"}); res["total"] != float64(4) {
+	if res, _ := callTool(t, port, "message_stats", map[string]any{"group_by": "chat"}); res["total"] != float64(5) {
 		t.Errorf("stats: %v", res)
 	}
 	res, isErr = callTool(t, port, "export_messages", nil)
-	if isErr || res["count"] != float64(4) {
+	if isErr || res["count"] != float64(5) {
 		t.Fatalf("export: %v", res)
 	}
-	if b, err := os.ReadFile(res["path"].(string)); err != nil || strings.Count(string(b), "\n") != 4 {
+	if b, err := os.ReadFile(res["path"].(string)); err != nil || strings.Count(string(b), "\n") != 5 {
 		t.Errorf("export file: %q %v", b, err)
 	}
 
