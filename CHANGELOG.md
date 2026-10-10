@@ -4,6 +4,26 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.4.0] - 2026-10-10
+
+### Adicionado
+
+- **Um nome para o seu número.** Na aba WhatsApp, dê ao número conectado um
+  nome curto, como Pessoal ou Trabalho. A sua ferramenta de IA vê esse nome ao
+  usar o WhatsApp (a conexão aparece como "WhatsApp Trabalho" onde a ferramenta
+  mostra o título), e ele vem junto quando ela pergunta pelo status.
+- **Webhooks dizem de qual número veio o aviso.** Todo aviso traz `account`,
+  com o nome que você deu ao número e o telefone dele.
+
+### Mudou
+
+- Por dentro, o app passou a tratar o número conectado como uma unidade
+  completa, preparando o caminho para mais de um número no mesmo app. Para
+  quem usa um número, nada muda: as mesmas pastas, o mesmo endereço do MCP e a
+  mesma conexão nas ferramentas de IA.
+
+Inclui o wacli 0.20.0.
+
 ## [1.3.1] - 2026-10-09
 
 ### Corrigido
