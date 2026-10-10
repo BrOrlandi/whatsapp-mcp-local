@@ -33,8 +33,8 @@ for arch in $ARCHS; do
   cc_arch="$arch"; [ "$arch" = amd64 ] && cc_arch=x86_64
   echo "==> building for $arch"
   CGO_ENABLED=1 GOOS=darwin GOARCH="$arch" CC="clang -arch $cc_arch" \
-    go build -trimpath -ldflags "$ldflags" -o "$work/app-$arch" ./cmd/app 2> >(grep -v "ld: warning" >&2)
-  CGO_ENABLED=0 GOOS=darwin GOARCH="$arch" go build -trimpath -ldflags "$ldflags" -o "$work/bridge-$arch" ./cmd/whatsapp-mcp-bridge
+    go build -tags "${TAGS:-}" -trimpath -ldflags "$ldflags" -o "$work/app-$arch" ./cmd/app 2> >(grep -v "ld: warning" >&2)
+  CGO_ENABLED=0 GOOS=darwin GOARCH="$arch" go build -tags "${TAGS:-}" -trimpath -ldflags "$ldflags" -o "$work/bridge-$arch" ./cmd/whatsapp-mcp-bridge
   apps+=("$work/app-$arch"); bridges+=("$work/bridge-$arch")
 done
 

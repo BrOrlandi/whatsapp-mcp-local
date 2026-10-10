@@ -25,8 +25,8 @@ ldflags="-s -w -X main.version=$VERSION"
 echo "==> building $VERSION for linux/$arch"
 # GTK 3 and WebKitGTK 4.1 are in every supported Ubuntu (22.04 and later)
 # and Debian 12; Wails defaults to GTK 4, which 22.04 lacks.
-CGO_ENABLED=1 go build -tags gtk3 -trimpath -ldflags "$ldflags" -o "$work/whatsapp-mcp-app" ./cmd/app
-CGO_ENABLED=0 go build -trimpath -ldflags "$ldflags" -o "$work/whatsapp-mcp-bridge" ./cmd/whatsapp-mcp-bridge
+CGO_ENABLED=1 go build -tags "gtk3${TAGS:+,$TAGS}" -trimpath -ldflags "$ldflags" -o "$work/whatsapp-mcp-app" ./cmd/app
+CGO_ENABLED=0 go build -tags "${TAGS:-}" -trimpath -ldflags "$ldflags" -o "$work/whatsapp-mcp-bridge" ./cmd/whatsapp-mcp-bridge
 scripts/fetch-wacli.sh linux "$arch" "$work" >/dev/null
 scripts/notices.sh "$work/wacli-LICENSE.txt" > "$work/THIRD-PARTY-NOTICES.txt"
 

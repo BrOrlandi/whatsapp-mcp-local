@@ -27,8 +27,8 @@ winres() {
 echo "==> building $VERSION ($VERSION4)"
 (cd build/windows && winres ../../cmd/app && winres ../../cmd/whatsapp-mcp-bridge)
 ldflags="-s -w -X main.version=$VERSION"
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$ldflags -H windowsgui" -o "$stage/WhatsApp MCP.exe" ./cmd/app
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "$ldflags" -o "$stage/whatsapp-mcp-bridge.exe" ./cmd/whatsapp-mcp-bridge
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags "${TAGS:-}" -trimpath -ldflags "$ldflags -H windowsgui" -o "$stage/WhatsApp MCP.exe" ./cmd/app
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags "${TAGS:-}" -trimpath -ldflags "$ldflags" -o "$stage/whatsapp-mcp-bridge.exe" ./cmd/whatsapp-mcp-bridge
 scripts/fetch-wacli.sh windows amd64 "$stage/bin" >/dev/null
 scripts/notices.sh "$stage/bin/wacli-LICENSE.txt" > "$stage/THIRD-PARTY-NOTICES.txt"
 rm -f "$stage/bin/wacli-LICENSE.txt"

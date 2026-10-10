@@ -31,19 +31,30 @@ git clone -q --branch "$TAG" "$PWD" "$src"
 trap 'rm -rf "$src"' EXIT
 cd "$src"
 
+# The official builds carry the paid part (several numbers, the subscription),
+# kept in a private repository: with PRO_DIR pointing at its checkout, its
+# files are laid over this clone and every build script adds the pro tag.
+TAGS=""
+if [ -n "${PRO_DIR:-}" ]; then
+  echo "==> pro, from $PRO_DIR"
+  "$PRO_DIR/scripts/overlay.sh" "$src"
+  TAGS=pro
+fi
+export TAGS
+
 echo "==> macOS"
 VERSION="$VERSION" scripts/build-macos.sh
 xcrun stapler validate -q build/bin/WhatsApp-MCP.dmg
 cp build/bin/WhatsApp-MCP.dmg "$OUT/"
 
 echo "==> Windows"
-docker run --rm -v "$src:/src" -w /src -e VERSION="$VERSION" golang:1.26 bash -c \
+docker run --rm -v "$src:/src" -w /src -e VERSION="$VERSION" -e TAGS golang:1.26 bash -c \
   'git config --global --add safe.directory "*" && apt-get update -qq && apt-get install -y -qq nsis unzip >/dev/null && scripts/build-windows.sh'
 
 for arch in arm64 amd64; do
   echo "==> Linux $arch"
   docker build -q --platform "linux/$arch" -t "wamcp-linux-build:$arch" build/linux >/dev/null
-  docker run --rm --privileged --platform "linux/$arch" -v "$src:/src" -w /src -e VERSION="$VERSION" \
+  docker run --rm --privileged --platform "linux/$arch" -v "$src:/src" -w /src -e VERSION="$VERSION" -e TAGS \
     "wamcp-linux-build:$arch" bash -c 'git config --global --add safe.directory "*" && scripts/build-linux.sh'
 done
 cp build/bin/WhatsApp-MCP-Setup.exe build/bin/WhatsApp-MCP-*.AppImage build/bin/whatsapp-mcp_"$VERSION"_*.deb "$OUT/"
@@ -53,7 +64,7 @@ for target in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64 windows/amd64; d
   os="${target%/*}" arch="${target#*/}"
   bin=whatsapp-mcp; [ "$os" = windows ] && bin=whatsapp-mcp.exe
   rm -rf cli && mkdir cli
-  CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -trimpath -ldflags "-s -w -X main.version=$TAG" -o "cli/$bin" ./cmd/whatsapp-mcp
+  CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -tags "$TAGS" -trimpath -ldflags "-s -w -X main.version=$TAG" -o "cli/$bin" ./cmd/whatsapp-mcp
   if [ "$os" = windows ]; then
     (cd cli && zip -q "$OUT/whatsapp-mcp_${os}_${arch}.zip" "$bin")
   else

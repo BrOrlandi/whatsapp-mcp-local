@@ -1,6 +1,7 @@
 # Plano: vários números de WhatsApp
 
-> Status: decidido, nada implementado. Nasceu de pedidos de usuários em outubro
+> Status: fase 1 implementada (o número como unidade e o nome do número);
+> fase 2 em preparação. Nasceu de pedidos de usuários em outubro
 > de 2026 e foi fechado numa conversa com o Bruno em 2026-10-10. É um recurso
 > **pago**: cada número além do primeiro tem mensalidade. O código que gerencia
 > mais de um número fica num repositório privado.
@@ -79,20 +80,31 @@ agente chama as duas conexões.
   de uma conta (adicionar número, as rotas `/mcp/<slug>`, escrever as
   conexões `whatsapp-<slug>` nos clientes), a licença, as telas de assinatura
   e o código do Worker de assinaturas.
-- **Build:** `scripts/release.sh` usa um `go.work` local que aponta para o
-  checkout do repositório privado e compila com `-tags pro` todos os sistemas
-  (`.dmg`, instalador do Windows, AppImage, `.deb`, linha de comando). O CI
-  público compila e testa sem a tag. Sem a tag, um stub mostra "disponível na
-  versão oficial". Os nomes dos arquivos da release não mudam.
+- **Build:** o código privado é **sobreposto** à cópia do código público que
+  o `scripts/release.sh` clona, e tudo compila com `-tags pro` (`.dmg`,
+  instalador do Windows, AppImage, `.deb`, linha de comando). Não dá para usar
+  um `go.work` com um módulo separado: o Go não deixa outro módulo importar os
+  pacotes `internal/` deste, e é neles que está tudo. A sobreposição põe
+  `internal/pro/` e um arquivo `cmd/app/zz_pro.go` (com `//go:build pro`) na
+  árvore clonada; os dois caminhos ficam no `.gitignore` do público, para o
+  desenvolvimento local com o privado ao lado. O público não cita o privado: o
+  privado se registra num pacote de ganchos (`internal/extend`). O CI público
+  compila e testa sem nada disso; sem o privado, a aba WhatsApp mostra
+  "disponível na versão oficial". Os nomes dos arquivos da release não mudam.
 - A trava é razoável, não absoluta: alguém determinado reescreve o
   gerenciador. O que não pode é a verificação morar no código público, onde
   bastaria apagá-la.
 
 ## 5. Assinatura
 
-- **Worker de assinaturas na Cloudflare** (nome proposto
-  `whatsapp-mcp-assinaturas`, para não confundir com o
+- **Worker de assinaturas na Cloudflare**, `whatsapp-mcp-assinaturas`, em
+  `assinatura.whatsapp-mcp.brorlandi.xyz` (o nome evita confusão com o
   `whatsapp-mcp-license-worker`, que ativa o Evolution Go da versão servidor).
+  Tem o **seu próprio painel de administração** em `/admin` (lista de
+  clientes, conceder, mudar e tirar números extras, histórico), atrás de um
+  token e do Cloudflare Access. Conceder pelo painel é o que permite
+  desenvolver e testar tudo antes do gateway de pagamento, e depois serve para
+  cortesias e suporte. O código de entrar chega pelo Resend.
   Ele guarda as chaves dos provedores e recebe os webhooks deles; o app nunca
   fala com o provedor, porque teria de levar a chave secreta no binário.
 - **Token assinado.** O Worker responde com um token Ed25519 ("este e-mail tem
@@ -137,6 +149,50 @@ agente chama as duas conexões.
 2. **Paga:** vários números, Worker com Asaas, telas de assinatura, páginas do
    site.
 3. **Pix:** Woovi no Worker.
+
+## 7a. Fase 2, passo a passo
+
+Feito na fase 1: `daemon.Account` (store, sync, índice, `state.db`, servidor
+MCP e webhooks de um número), `account.Info` (rótulo, telefone, nome), o nome
+na aba WhatsApp, `account` no `whatsapp_status`, nos webhooks e no
+`/api/status`, o título da conexão e a frase nas instructions com dois números
+ou mais.
+
+No público (ganchos, sem lógica paga):
+1. `internal/extend`: ganchos que o privado preenche no `init` (ao subir o
+   daemon, rotas extras, seção da aba WhatsApp, comandos da linha de comando,
+   itens da bandeja).
+2. `Daemon.AddAccount(spec)` e `RemoveAccount(slug)`, e um handler
+   `/mcp/{slug}` que procura o número na hora; o `Stop` e o `SetPort` já
+   percorrem todos.
+3. A bandeja e o `daemon.Status` com o pior estado entre os números e uma
+   linha por número.
+4. `scripts/release.sh`: com `PRO_DIR`, sobrepõe o privado e compila com
+   `GOFLAGS=-tags=pro` (também nos builds em Docker); `.gitignore` com
+   `internal/pro/` e `cmd/*/zz_pro.go`.
+
+No privado (`BrOrlandi/whatsapp-mcp-pro`):
+5. A lista de números extras (`<DataDir>/numeros.json`), subir cada um ao
+   abrir o app, adicionar (pareamento por QR ou código), remover (deslogar e
+   apagar a pasta), o slug a partir do rótulo e o limite de 10.
+6. Escrever as conexões `whatsapp-<slug>` no Claude Code, Claude Desktop,
+   Codex e Cursor, e "Claude Code · WhatsApp Trabalho" na lista do painel.
+7. A licença: entrar por e-mail com código, guardar o token, conferir a
+   assinatura Ed25519 com a chave pública embutida, renovar uma vez por dia,
+   14 dias sem internet, pausar os extras quando vence.
+8. As telas na aba WhatsApp: lista de números, adicionar, assinatura
+   (quantidade, valor, trocar cartão e cancelar, estes dois ligados ao gateway
+   depois) e o aviso do limite com o e-mail de contato.
+9. Linha de comando: `entrar`, `numero adicionar|listar|remover`,
+   `config --numero`.
+10. O Worker (`worker/`): login por código, direitos de uso no D1, token
+    assinado, painel `/admin`, tabela de preços; webhooks e checkout do Asaas
+    ficam como stubs.
+11. Site: `/precos`, `/termos`, `/privacidade`, `/assinatura`, com o botão de
+    assinar desligado até o gateway.
+
+Fica para o gateway: checkout do Asaas, webhooks de pagamento, mudança de
+valor e cancelamento; depois, Pix pela Woovi.
 
 ## 8. O que o código assume hoje (pontos de mudança)
 
