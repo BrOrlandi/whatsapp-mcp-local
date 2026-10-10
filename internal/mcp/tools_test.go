@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 )
 
 // Every tool listed has a handler and a category, and every handler is listed.
@@ -48,5 +50,37 @@ func TestInstructionsMentionWebhooks(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Errorf("initialize lacks %q", want)
 		}
+	}
+}
+
+// The number's label becomes the connection's title; the instructions name
+// the number only when the app has more than one.
+func TestInitializeNamesTheNumber(t *testing.T) {
+	count := 1
+	s := &Server{baseURL: "http://127.0.0.1:47821", clients: map[string]string{}, touched: map[string]time.Time{},
+		account: func(context.Context) account.Info {
+			return account.Info{Label: "Trabalho", Phone: "+55 (11) 98765-4321"}
+		},
+		accounts: func() int { return count }}
+	initialize := func() string {
+		return string(s.Handle(context.Background(), []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`)))
+	}
+	one := initialize()
+	if !strings.Contains(one, `"title":"WhatsApp Trabalho"`) {
+		t.Errorf("no title from the label: %s", one)
+	}
+	if strings.Contains(one, "This connection is the WhatsApp number") {
+		t.Errorf("one number, yet the instructions name it: %s", one)
+	}
+	count = 2
+	if two := initialize(); !strings.Contains(two, `This connection is the WhatsApp number \"Trabalho\" (+55 (11) 98765-4321)`) {
+		t.Errorf("two numbers, and the instructions do not say which: %s", two)
+	}
+}
+
+func TestInitializeWithoutAnAccount(t *testing.T) {
+	s := &Server{baseURL: "http://127.0.0.1:47821", clients: map[string]string{}, touched: map[string]time.Time{}}
+	if out := string(s.Handle(context.Background(), []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`))); !strings.Contains(out, `"title":"WhatsApp"`) {
+		t.Errorf("title without a label: %s", out)
 	}
 }

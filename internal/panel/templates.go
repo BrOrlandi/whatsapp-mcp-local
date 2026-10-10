@@ -307,7 +307,8 @@ steps for that one, which end when it connects. No tabs on the way. */}}
 <section class="card">
 <div class="card__head"><h2>Conta</h2>{{template "syncpill" .}}</div>
 <div class="card__body stack">
-<div class="hello"><span class="avatar" style="background:#128c7e">{{initial .Name}}</span><div><p class="hello__name">{{with .Name}}{{.}}{{else}}Sua conta{{end}}</p><p class="hello__phone">{{.Phone}}</p></div></div>
+<div class="hello"><span class="avatar" style="background:#128c7e">{{initial .Name}}</span><div class="hello__who"><p class="hello__name">{{with .Name}}{{.}}{{else}}Sua conta{{end}}{{with .Label}} <span class="pill pill--plain pill--label">{{.}}</span>{{end}}</p><p class="hello__phone">{{.Phone}}</p></div>
+<span class="hello__action"><a class="btn btn--quiet btn--small" href="#nome-numero">{{if .Label}}Mudar o nome{{else}}Dar um nome{{end}}</a> <span class="tip" tabindex="0" aria-describedby="tip-nome-numero"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-nome-numero">Um nome curto para este número, como Pessoal ou Trabalho. A sua ferramenta de IA vê esse nome ao usar o WhatsApp, e ele vai junto em cada aviso dos webhooks.</span></span></span></div>
 <dl class="facts">
 <div class="fact"><dt>Última mensagem recebida</dt><dd>{{relativeSince .Activity.NewestIncoming}}<span class="fact__detail">{{moment .Activity.NewestIncoming}}</span></dd></div>
 <div class="fact"><dt>Mensagens guardadas</dt><dd>{{count .Coverage.Messages}}</dd></div>
@@ -325,6 +326,17 @@ steps for that one, which end when it connects. No tabs on the way. */}}
 <div class="actions"><a class="btn btn--danger btn--small" href="#encerrar-sessao">Desconectar este computador do WhatsApp</a></div>
 <p class="muted">O computador sai da lista de dispositivos conectados do seu celular. As mensagens já guardadas continuam aqui.</p>
 </div></section>
+
+<div class="overlay" id="nome-numero" role="dialog" aria-modal="true" aria-labelledby="nome-numero-titulo">
+<div class="dialog">
+<div class="dialog__head"><h2 id="nome-numero-titulo">Nome deste número</h2><a class="dialog__close" href="#" aria-label="Fechar">&times;</a></div>
+<div class="dialog__body">
+<form method="post" action="/whatsapp/nome">
+<label class="field" for="nome-numero-campo"><span class="field__label">Nome</span><span class="field__hint">Por exemplo Pessoal ou Trabalho. Deixe em branco para tirar o nome.</span></label>
+<input id="nome-numero-campo" type="text" name="label" value="{{.Label}}" maxlength="30" autocomplete="off" placeholder="Pessoal, Trabalho…">
+<div class="actions actions--end" style="margin-top:14px"><a class="btn btn--quiet" href="#">Cancelar</a><button class="btn" type="submit">Salvar</button></div>
+</form>
+</div></div></div>
 
 <div class="overlay" id="encerrar-sessao" role="dialog" aria-modal="true" aria-labelledby="encerrar-titulo">
 <div class="dialog">

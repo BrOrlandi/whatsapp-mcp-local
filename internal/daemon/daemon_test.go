@@ -300,3 +300,35 @@ func TestEveryPageRendersInTheApp(t *testing.T) {
 		t.Error("the settings page does not show the update")
 	}
 }
+
+// The name the person gives the number on the WhatsApp page reaches the
+// status tool, and the page shows it back.
+func TestTheNumbersNameReachesTheStatus(t *testing.T) {
+	port := freePort(t)
+	d, _ := startDaemon(t, port, true)
+	defer d.Stop()
+	waitSync(t, d, "connected")
+	if n := len(d.Accounts()); n != 1 || d.Accounts()[0] != d.Primary() || d.Primary().Slug != "" {
+		t.Fatalf("one main number expected, got %d", n)
+	}
+
+	h := d.AppHandler()
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "wails://localhost/whatsapp/nome", strings.NewReader("label=++Trabalho++"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	h.ServeHTTP(rec, req)
+	if rec.Code >= 400 {
+		t.Fatalf("naming the number answered %d: %s", rec.Code, rec.Body.String())
+	}
+
+	status, isErr := callTool(t, port, "whatsapp_status", nil)
+	acct, _ := status["account"].(map[string]any)
+	if isErr || acct["label"] != "Trabalho" {
+		t.Fatalf("whatsapp_status account = %v (error %v)", status["account"], isErr)
+	}
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest("GET", "wails://localhost/whatsapp", nil))
+	if !strings.Contains(rec.Body.String(), `value="Trabalho"`) {
+		t.Error("the WhatsApp page does not show the name")
+	}
+}

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
@@ -38,6 +39,11 @@ type Server struct {
 	history   *HistoryJob
 
 	asr *localasr.Engine
+
+	// account says which number this server is; accounts counts the numbers
+	// the app has, each behind its own server.
+	account  func(context.Context) account.Info
+	accounts func() int
 
 	started time.Time
 
@@ -120,6 +126,11 @@ type Config struct {
 	MediaDir   string
 	ExportDir  string
 	ASR        *localasr.Engine
+	// Account says which number this server is. Accounts is how many
+	// numbers the app has; with more than one, the instructions name this
+	// one.
+	Account  func(context.Context) account.Info
+	Accounts func() int
 }
 
 func New(c Config) *Server {
@@ -128,8 +139,18 @@ func New(c Config) *Server {
 	}
 	return &Server{cli: c.CLI, supervisor: c.Supervisor, index: c.Index, state: c.State, logger: c.Logger,
 		baseURL: c.BaseURL, mediaDir: c.MediaDir, exportDir: c.ExportDir, links: newMediaLinks(), started: time.Now(), asr: c.ASR,
-		clients: map[string]string{}, touched: map[string]time.Time{}}
+		clients: map[string]string{}, touched: map[string]time.Time{}, account: c.Account, accounts: c.Accounts}
 }
+
+// Account is the number this server answers for.
+func (s *Server) Account(ctx context.Context) account.Info {
+	if s.account == nil {
+		return account.Info{}
+	}
+	return s.account(ctx)
+}
+
+func (s *Server) multiAccount() bool { return s.accounts != nil && s.accounts() > 1 }
 
 // SetBaseURL changes the address the server gives out for itself, after its
 // port has changed.
@@ -187,11 +208,12 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 		if supportedVersions[p.ProtocolVersion] {
 			version = p.ProtocolVersion
 		}
+		acct := s.Account(ctx)
 		return encode(req.ID, map[string]any{
 			"protocolVersion": version,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
-			"serverInfo":      map[string]any{"name": "whatsapp-mcp-local", "version": Version},
-			"instructions":    s.instructions(),
+			"serverInfo":      map[string]any{"name": "whatsapp-mcp-local", "title": acct.Title(), "version": Version},
+			"instructions":    s.instructions(acct),
 		}, nil)
 	case "ping":
 		return encode(req.ID, map[string]any{}, nil)
@@ -218,9 +240,34 @@ const instructions = "WhatsApp over a local wacli store. Reading tools answer fr
 // these tools only answer when asked, and that something which must happen as
 // a message arrives is the job of the app's webhooks: an assistant asked to
 // "let me know when X writes" should point there rather than promise to watch.
-func (s *Server) instructions() string {
+// When the app has more than one number, they also say which one this is.
+func (s *Server) instructions(acct account.Info) string {
 	base := s.base()
-	return instructions + " These tools answer when asked and cannot watch for messages on their own. When the user wants something to happen as soon as a message arrives (a notification, an automatic reply, a log), tell them about the app's webhooks: it posts every new message to a script of theirs, set up in the app under Configurações › Webhooks (" + base + "/configuracoes#webhooks), with the format documented at " + base + "/webhooks/documentacao. Setting one up is the user's own step in the app, not something these tools do."
+	which := ""
+	if s.multiAccount() {
+		which = " " + whichNumber(acct)
+	}
+	return instructions + which + " These tools answer when asked and cannot watch for messages on their own. When the user wants something to happen as soon as a message arrives (a notification, an automatic reply, a log), tell them about the app's webhooks: it posts every new message to a script of theirs, set up in the app under Configurações › Webhooks (" + base + "/configuracoes#webhooks), with the format documented at " + base + "/webhooks/documentacao. Setting one up is the user's own step in the app, not something these tools do."
+}
+
+// whichNumber is the sentence that tells one number's connection from the
+// others'.
+func whichNumber(a account.Info) string {
+	name := a.Label
+	if name == "" {
+		name = a.Name
+	}
+	switch {
+	case name != "" && a.Phone != "":
+		name = fmt.Sprintf("%q (%s)", name, a.Phone)
+	case name != "":
+		name = fmt.Sprintf("%q", name)
+	case a.Phone != "":
+		name = a.Phone
+	default:
+		name = "the main one"
+	}
+	return "This connection is the WhatsApp number " + name + "; the app has other numbers, each in its own connection, so read from and send through the one the user means."
 }
 
 func textResult(value any, isError bool) map[string]any {

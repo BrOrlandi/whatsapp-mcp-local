@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/webhook"
 )
 
@@ -48,8 +49,10 @@ func webhookExamples() []webhookExampleGroup {
 	inGroup := func(id, text string) *webhook.Message {
 		return &webhook.Message{ID: id, ChatJID: familia, ChatName: "Família", Group: true, Timestamp: at, SenderJID: joao, SenderName: "João", Text: text}
 	}
+	// Every delivery names the number it happened on.
+	number := &account.Info{Label: "Pessoal", Phone: "+55 (11) 99876-5432"}
 	event := func(kind, delivery string, m *webhook.Message) string {
-		return exampleJSON(webhook.Event{Kind: kind, ID: delivery, At: sent, Message: m})
+		return exampleJSON(webhook.Event{Kind: kind, ID: delivery, At: sent, Message: m, Account: number})
 	}
 
 	reply := inGroup("3EB0B2C4D6E8F0A1B3C5", "Pode deixar, eu levo o bolo")
@@ -77,7 +80,7 @@ func webhookExamples() []webhookExampleGroup {
 	forwarded.Forwarded = true
 
 	return []webhookExampleGroup{
-		{ID: "message", Title: "Mensagens (message)", Intro: "Cada mensagem nova, de uma conversa ou de um grupo. Os campos que não se aplicam ficam de fora do JSON.", Examples: []webhookExample{
+		{ID: "message", Title: "Mensagens (message)", Intro: "Cada mensagem nova, de uma conversa ou de um grupo. Os campos que não se aplicam ficam de fora do JSON. Todo aviso traz account: o seu número em que aconteceu, com o nome que você deu a ele na aba WhatsApp.", Examples: []webhookExample{
 			{ID: "texto", Title: "Texto numa conversa", JSON: event("message", "9f2c41d07a3b8e65", direct("3EB0C767D26A1D8B1E00", "Oi! Você vem amanhã?"))},
 			{ID: "grupo", Title: "Resposta num grupo", Note: "group é true, e reply_to diz qual mensagem foi citada. sender_jid é quem escreveu; chat_jid, o grupo.", JSON: event("message", "1b7e93c2a4f05d68", reply)},
 			{ID: "foto", Title: "Foto com legenda", Note: "A mídia vem descrita, sem o arquivo; a legenda vem em text e em media.caption. Para o arquivo, a sua ferramenta de IA usa download_media com o id.", JSON: event("message", "2c8f04d3b5a16e79", photo)},
@@ -96,11 +99,11 @@ func webhookExamples() []webhookExampleGroup {
 		}},
 		{ID: "receipt", Title: "Entregas e leituras (receipt)", Intro: "Uma mensagem sua foi entregue, lida ou ouvida. Vários ids podem vir num aviso só.", Examples: []webhookExample{
 			{ID: "lida", Title: "Lida", Note: "type é delivered (entregue), read (lida) ou played (áudio ouvido). Num grupo, sender_jid é quem leu.",
-				JSON: exampleJSON(webhook.Event{Kind: "receipt", ID: "d73abf8e065c1924", At: sent, Receipt: &webhook.Receipt{ChatJID: maria, SenderJID: maria,
+				JSON: exampleJSON(webhook.Event{Kind: "receipt", ID: "d73abf8e065c1924", At: sent, Account: number, Receipt: &webhook.Receipt{ChatJID: maria, SenderJID: maria,
 					MessageIDs: []string{"3EB0B1C2D3E4F5A6B7C8", "3EB0B1C2D3E4F5A6B7C9"}, Type: "read", Timestamp: at}})},
 		}},
 		{ID: "test", Title: "Aviso de teste", Intro: "O que o botão Testar manda. Tem test true; não conta para o desligamento automático.", Examples: []webhookExample{
-			{ID: "teste", Title: "Teste", JSON: exampleJSON(webhook.Event{Kind: "message", ID: "e84bc09f176d2a35", At: sent, Test: true,
+			{ID: "teste", Title: "Teste", JSON: exampleJSON(webhook.Event{Kind: "message", ID: "e84bc09f176d2a35", At: sent, Test: true, Account: number,
 				Message: &webhook.Message{ID: "TEST", ChatJID: "5511900000000@s.whatsapp.net", ChatName: "Teste", Timestamp: at,
 					SenderJID: "5511900000000@s.whatsapp.net", SenderName: "Teste", Text: "Mensagem de teste do WhatsApp MCP"}})},
 		}},

@@ -62,7 +62,7 @@ func definitions() []any {
 		},
 		map[string]any{
 			"name":        "whatsapp_status",
-			"description": "Report the WhatsApp session state, which account is paired, whether the sync process is running, how far back the local message index reaches, windows the index may be missing, any problem that needs attention, and the webhooks that deliver new messages to the user's scripts. Always answers.",
+			"description": "Report the WhatsApp session state, which number this connection is (its phone, profile name and the label the user gave it, such as Personal or Work), whether the sync process is running, how far back the local message index reaches, windows the index may be missing, any problem that needs attention, and the webhooks that deliver new messages to the user's scripts. Always answers.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{}},
 		},
 		map[string]any{

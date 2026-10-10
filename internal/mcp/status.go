@@ -9,6 +9,8 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	report := map[string]any{"gateway": map[string]any{"version": Version, "endpoint": s.base() + "/mcp"}}
+	// The number this connection is, with the label the person gave it.
+	report["account"] = s.Account(ctx)
 
 	var problems []string
 	sync := s.supervisor.Status()

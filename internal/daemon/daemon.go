@@ -14,20 +14,16 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
-	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
-	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
-	"github.com/BrOrlandi/whatsapp-mcp-local/internal/webhook"
 )
 
 type Config struct {
@@ -56,22 +52,16 @@ type Daemon struct {
 	logger *slog.Logger
 	cancel context.CancelFunc
 
-	cli    *wacli.CLI
-	idx    *index.Index
-	st     *state.State
-	sup    *wacli.Supervisor
-	server *mcp.Server
-	panel  *panel.Panel
-	routes *http.ServeMux
+	// primary is the main number, the one the panel and the tray show.
+	// accounts holds it first, then any further numbers.
+	primary *Account
+	panel   *panel.Panel
+	routes  *http.ServeMux
 
-	hooks      *webhook.Manager
-	relay      *webhook.Relay
-	webhooksOn bool
-
-	syncDone  chan struct{}
 	watchDone chan struct{}
 
 	mu        sync.Mutex
+	accounts  []*Account
 	port      int
 	srv       *http.Server
 	listenErr *PortProblem
@@ -101,10 +91,8 @@ func Start(cfg Config) (*Daemon, error) {
 			return nil, fmt.Errorf("%w (%s)", ErrWacliMissing, cfg.WacliBin)
 		}
 	}
-	for _, dir := range []string{cfg.StoreDir, cfg.DataDir} {
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return nil, fmt.Errorf("cannot create %s: %w", dir, err)
-		}
+	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
+		return nil, fmt.Errorf("cannot create %s: %w", cfg.DataDir, err)
 	}
 
 	// Claim the port before starting sync, so the command line fails here
@@ -119,41 +107,30 @@ func Start(cfg Config) (*Daemon, error) {
 		logger.Warn("the MCP port is taken; WhatsApp runs, the MCP waits for another port", "port", cfg.Port, "error", err)
 	}
 
-	d := &Daemon{cfg: cfg, logger: logger, port: cfg.Port, listenErr: problem,
-		syncDone: make(chan struct{}), watchDone: make(chan struct{})}
-	d.cli = &wacli.CLI{Bin: cfg.WacliBin, StoreDir: cfg.StoreDir}
-	if d.idx, err = index.Open(filepath.Join(cfg.StoreDir, "wacli.db")); err != nil {
-		closeQuietly(ln)
-		return nil, err
-	}
-	if d.st, err = state.Open(cfg.DataDir); err != nil {
-		d.idx.Close()
-		closeQuietly(ln)
-		return nil, err
-	}
-
+	d := &Daemon{cfg: cfg, logger: logger, port: cfg.Port, listenErr: problem, watchDone: make(chan struct{})}
 	ctx, cancel := context.WithCancel(context.Background())
 	d.cancel = cancel
-	d.sup = wacli.NewSupervisor(d.cli, logger)
-	d.startWebhooks(ctx)
-	go func() {
-		d.sup.Run(ctx)
-		close(d.syncDone)
-	}()
 
+	// Transcription models and programs are shared by every number.
 	asr := localasr.New(cfg.DataDir)
-	d.server = mcp.New(mcp.Config{CLI: d.cli, Supervisor: d.sup, Index: d.idx, State: d.st, Logger: logger,
-		BaseURL: baseURL(cfg.Port), MediaDir: filepath.Join(cfg.DataDir, "media"), ExportDir: filepath.Join(cfg.DataDir, "exports"), ASR: asr})
-	d.panel = &panel.Panel{Server: d.server, Supervisor: d.sup, Index: d.idx, State: d.st, Token: cfg.Token,
+	primary, err := d.startAccount(ctx, AccountSpec{StoreDir: cfg.StoreDir, DataDir: cfg.DataDir}, asr)
+	if err != nil {
+		cancel()
+		closeQuietly(ln)
+		return nil, err
+	}
+	d.primary, d.accounts = primary, []*Account{primary}
+
+	d.panel = &panel.Panel{Server: primary.server, Supervisor: primary.sup, Index: primary.idx, State: primary.st, Token: cfg.Token,
 		Endpoint: d.MCPURL, Desktop: cfg.Desktop, LogPath: cfg.LogPath, MCPProblem: d.PortProblem}
 	if cfg.Panel != nil {
 		cfg.Panel(d.panel)
 	}
 	register := func(mux *http.ServeMux) {
 		d.panel.Register(mux)
-		d.panel.RegisterWebhooks(mux, d.hooks, d.webhooksOn)
+		d.panel.RegisterWebhooks(mux, primary.hooks, primary.webhooksOn)
 	}
-	d.routes = httpserver.Routes(d.server, httpserver.Options{Token: cfg.Token, Logger: logger, Register: register})
+	d.routes = httpserver.Routes(primary.server, httpserver.Options{Token: cfg.Token, Logger: logger, Register: register})
 
 	if ln != nil {
 		d.serve(ln)
@@ -191,7 +168,17 @@ func (d *Daemon) serve(ln net.Listener) {
 // answering, and the databases are closed.
 func (d *Daemon) Stop() {
 	d.cancel()
-	<-d.syncDone
+	accounts := d.Accounts()
+	var wg sync.WaitGroup
+	for _, a := range accounts {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			a.cancel()
+			<-a.syncDone
+		}()
+	}
+	wg.Wait()
 	<-d.watchDone
 	d.mu.Lock()
 	srv := d.srv
@@ -200,11 +187,25 @@ func (d *Daemon) Stop() {
 	if srv != nil {
 		httpserver.Shutdown(srv)
 	}
-	if d.relay != nil {
-		_ = d.relay.Close()
+	for _, a := range accounts {
+		a.stop()
 	}
-	d.st.Close()
-	d.idx.Close()
+}
+
+// Accounts are the numbers the daemon runs, the main one first.
+func (d *Daemon) Accounts() []*Account {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return append([]*Account(nil), d.accounts...)
+}
+
+// Primary is the main number.
+func (d *Daemon) Primary() *Account { return d.primary }
+
+func (d *Daemon) accountCount() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return len(d.accounts)
 }
 
 // Port is the port the MCP is configured for.
@@ -231,8 +232,9 @@ func (d *Daemon) HTTPHandler() http.Handler { return httpserver.Guard(d.routes, 
 // trusted as the panel's own page.
 func (d *Daemon) AppHandler() http.Handler { return panel.Internal(d.routes) }
 
-// Supervisor is wacli's supervisor, for the app's own lifecycle.
-func (d *Daemon) Supervisor() *wacli.Supervisor { return d.sup }
+// Supervisor is the main number's wacli supervisor, for the app's own
+// lifecycle.
+func (d *Daemon) Supervisor() *wacli.Supervisor { return d.primary.sup }
 
 // Panel is the control panel.
 func (d *Daemon) Panel() *panel.Panel { return d.panel }
@@ -265,7 +267,9 @@ func (d *Daemon) SetPort(port int) error {
 	old := d.srv
 	d.port, d.srv, d.listenErr = port, nil, nil
 	d.mu.Unlock()
-	d.server.SetBaseURL(baseURL(port))
+	for _, a := range d.Accounts() {
+		a.server.SetBaseURL(baseURL(port))
+	}
 	d.serve(ln)
 	if old != nil {
 		go httpserver.Shutdown(old)
@@ -298,28 +302,4 @@ func describePortProblem(port int) *PortProblem {
 		p.OtherGateway = resp.StatusCode == http.StatusOK && strings.TrimSpace(string(body)) == "ok"
 	}
 	return p
-}
-
-// startWebhooks opens the relay sync posts new messages to and starts
-// delivering them to the configured webhooks. A wacli too old to post
-// messages leaves webhooks off rather than failing sync on an unknown flag.
-func (d *Daemon) startWebhooks(ctx context.Context) {
-	d.hooks = webhook.New(d.st, d.logger, mcp.Version, d.idx.Names.Same)
-	relay, err := webhook.NewRelay(d.hooks, d.idx.Names)
-	if err != nil {
-		d.logger.Warn("webhooks are off: no loopback port for the relay", "error", err)
-		return
-	}
-	cctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	if !d.cli.Supports(cctx, "--webhook-events", "sync") {
-		d.logger.Warn("webhooks are off: this wacli cannot post new messages", "wacli", d.cfg.WacliBin)
-		_ = relay.Close()
-		return
-	}
-	d.relay, d.webhooksOn = relay, true
-	d.sup.SetWebhook(relay.URL(), relay.Secret())
-	if err := d.hooks.Start(ctx); err != nil {
-		d.logger.Warn("could not load the webhooks", "error", err)
-	}
 }

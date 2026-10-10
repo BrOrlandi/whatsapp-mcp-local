@@ -27,6 +27,7 @@ import (
 
 	qrcode "github.com/skip2/go-qrcode"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/brand"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
@@ -147,6 +148,7 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /conectar/{tool}", p.page(p.connectTool))
 	mux.HandleFunc("GET /whatsapp", p.page(p.whatsapp))
 	mux.HandleFunc("POST /whatsapp/sair", p.form(p.logout))
+	mux.HandleFunc("POST /whatsapp/nome", p.form(p.nameNumber))
 	mux.HandleFunc("GET /status", p.page(p.status))
 	mux.HandleFunc("GET /api/asr", p.api(p.apiASR))
 	mux.HandleFunc("POST /api/asr/install", p.api(p.apiASRInstall))
@@ -317,9 +319,11 @@ type layout struct {
 
 // snapshot is what most pages need about the account, gathered once.
 type snapshot struct {
-	Account   wacli.Account
-	Name      string
-	Phone     string
+	Account wacli.Account
+	Name    string
+	Phone   string
+	// Label is the name the person gave this number, such as Trabalho.
+	Label     string
 	Sync      wacli.Status
 	SyncTone  string
 	SyncLabel string
@@ -357,6 +361,7 @@ func (p *Panel) snapshot(ctx context.Context) snapshot {
 	defer cancel()
 	s := snapshot{Endpoint: p.endpoint(), LogPath: p.LogPath, InApp: p.Host != nil, Pairing: p.Supervisor.Pairing(), History: p.Server.HistoryStatus()}
 	s.Account, _ = p.Supervisor.Account(ctx)
+	s.Label, _ = p.State.Setting(ctx, account.LabelSetting)
 	s.Sync = p.Supervisor.Status()
 	s.Health = p.Server.Health(ctx, 0)
 	s.Activity = s.Health.Activity
@@ -364,7 +369,7 @@ func (p *Panel) snapshot(ctx context.Context) snapshot {
 	s.Gaps, _ = p.Index.Gaps(ctx, 10*time.Hour, 7*24*time.Hour, 20)
 	if s.Account.Authenticated {
 		s.Name = p.Index.OwnName(ctx, s.Account.JID)
-		s.Phone = formatPhone(s.Account.Phone)
+		s.Phone = account.FormatPhone(s.Account.Phone)
 	}
 	s.SyncTone, s.SyncLabel = syncLabel(s.Sync)
 	switch s.Sync.State {
@@ -891,6 +896,20 @@ func (p *Panel) logout(r *http.Request) (string, error) {
 	return "/instalacao", nil
 }
 
+// nameNumber gives the WhatsApp number a short name, such as Pessoal or
+// Trabalho; an empty one clears it.
+func (p *Panel) nameNumber(r *http.Request) (string, error) {
+	label := account.CleanLabel(r.FormValue("label"))
+	if err := p.State.SetSetting(r.Context(), account.LabelSetting, label); err != nil {
+		return "/whatsapp", err
+	}
+	ok := "Nome do número salvo."
+	if label == "" {
+		ok = "Nome do número removido."
+	}
+	return "/whatsapp?ok=" + url.QueryEscape(ok), nil
+}
+
 // renameConnection names another tool's connection as the person calls it;
 // an empty name brings back the one the tool gave.
 func (p *Panel) renameConnection(r *http.Request) (string, error) {
@@ -1235,23 +1254,4 @@ func countFormat(v any) string {
 		out = append(out, s[i])
 	}
 	return string(out)
-}
-
-// formatPhone writes a number the way it is read in Brazil, and leaves others
-// in international form.
-func formatPhone(p string) string {
-	d := strings.Map(func(r rune) rune {
-		if unicode.IsDigit(r) {
-			return r
-		}
-		return -1
-	}, p)
-	if d == "" {
-		return ""
-	}
-	if strings.HasPrefix(d, "55") && (len(d) == 12 || len(d) == 13) {
-		local := d[4:]
-		return fmt.Sprintf("+55 (%s) %s-%s", d[2:4], local[:len(local)-4], local[len(local)-4:])
-	}
-	return "+" + d
 }

@@ -26,8 +26,8 @@ type Status struct {
 func (d *Daemon) Status() Status { return d.status(context.Background()) }
 
 func (d *Daemon) status(ctx context.Context) Status {
-	sync := d.sup.Status()
-	pairing := d.sup.Pairing()
+	sync := d.primary.sup.Status()
+	pairing := d.primary.sup.Pairing()
 	st := Status{Sync: sync.State}
 	switch sync.State {
 	case "connected":
@@ -55,7 +55,7 @@ func (d *Daemon) status(ctx context.Context) Status {
 	case st.Tone == "ok":
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
-		if a, err := d.idx.Activity(ctx, time.Now()); err == nil {
+		if a, err := d.primary.idx.Activity(ctx, time.Now()); err == nil {
 			st.Detail = messagesLastHour(a.LastHour)
 		}
 	}
@@ -103,10 +103,12 @@ func (d *Daemon) watchLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-sweep.C:
-			_, _, _ = d.server.SweepMedia(ctx)
+			for _, a := range d.Accounts() {
+				_, _, _ = a.server.SweepMedia(ctx)
+			}
 			sweep.Reset(6 * time.Hour)
 			continue
-		case <-d.sup.Changes():
+		case <-d.primary.sup.Changes():
 		case <-tick.C:
 		}
 		d.watch.publish(d.status(ctx))

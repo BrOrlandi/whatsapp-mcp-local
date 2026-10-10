@@ -60,6 +60,7 @@ type agentWhatsApp struct {
 	Connected     bool       `json:"connected"`
 	Phone         string     `json:"phone,omitempty"`
 	Name          string     `json:"name,omitempty"`
+	Label         string     `json:"label,omitempty"`
 	LastMessageAt *time.Time `json:"last_message_at,omitempty"`
 }
 
@@ -88,7 +89,7 @@ func (p *Panel) apiStatus(r *http.Request) (any, error) {
 		WhatsApp: agentWhatsApp{
 			State: s.Sync.State, Paired: s.Account.Authenticated,
 			Connected: s.Sync.State == "connected" && s.Sync.Delegate,
-			Phone:     s.Phone, Name: s.Name,
+			Phone:     s.Phone, Name: s.Name, Label: s.Label,
 		},
 		Pairing: agentPairing{State: s.Pairing.State, Code: s.Pairing.Code, Error: s.Pairing.Error},
 		Health:  agentHealth{Status: s.Health.Status, Summary: s.Health.Summary, Checks: s.Health.Checks},

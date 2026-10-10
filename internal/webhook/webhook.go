@@ -32,6 +32,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 )
 
@@ -45,7 +46,10 @@ type Event struct {
 	At      time.Time `json:"sent_at"`
 	Message *Message  `json:"message,omitempty"`
 	Receipt *Receipt  `json:"receipt,omitempty"`
-	Test    bool      `json:"test,omitempty"`
+	// Account is the WhatsApp number the event happened on, so one script
+	// can serve several numbers.
+	Account *account.Info `json:"account,omitempty"`
+	Test    bool          `json:"test,omitempty"`
 
 	// chat and fromMe decide which webhooks want it.
 	chat   string
@@ -122,6 +126,7 @@ type Manager struct {
 	client  *http.Client
 	version string
 	same    Same
+	account func(context.Context) account.Info
 
 	mu      sync.Mutex
 	workers map[string]*worker
@@ -142,6 +147,19 @@ func New(st *state.State, logger *slog.Logger, version string, same Same) *Manag
 	}
 	return &Manager{st: st, logger: logger, version: version, same: same, workers: map[string]*worker{},
 		client: &http.Client{Timeout: attemptTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+}
+
+// SetAccount names the number every event comes from. Call it before Start.
+func (m *Manager) SetAccount(f func(context.Context) account.Info) { m.account = f }
+
+// stamp writes the number on an event.
+func (m *Manager) stamp(ctx context.Context, ev *Event) {
+	if m.account == nil {
+		return
+	}
+	a := m.account(ctx)
+	a.Name = ""
+	ev.Account = &a
 }
 
 // Start begins delivering to the enabled webhooks, until ctx ends.
@@ -195,6 +213,9 @@ func (m *Manager) Dispatch(ctx context.Context, ev Event) {
 		workers = append(workers, w)
 	}
 	m.mu.Unlock()
+	if len(workers) > 0 {
+		m.stamp(ctx, &ev)
+	}
 	for _, w := range workers {
 		if !m.wants(ctx, w.hook, ev) {
 			continue
@@ -514,6 +535,7 @@ func (m *Manager) Test(ctx context.Context, id string) (map[string]any, error) {
 	ev := Event{Kind: "message", ID: randomHex(8), At: time.Now().UTC(), Test: true,
 		Message: &Message{ID: "TEST", ChatJID: "5511900000000@s.whatsapp.net", ChatName: "Teste", Timestamp: time.Now().UTC(),
 			SenderJID: "5511900000000@s.whatsapp.net", SenderName: "Teste", Text: "Mensagem de teste do WhatsApp MCP"}}
+	m.stamp(ctx, &ev)
 	started := time.Now()
 	result, err := m.post(ctx, h, ev)
 	out := map[string]any{"ok": err == nil, "result": result, "ms": time.Since(started).Milliseconds()}

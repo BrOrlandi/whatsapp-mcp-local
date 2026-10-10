@@ -478,6 +478,9 @@ const extraCSS = `
 .hello{display:flex;align-items:center;gap:14px;margin:0 0 16px}
 .hello__name{margin:0;font-weight:700;font-size:1.1rem}
 .hello__phone{margin:0;color:var(--muted);font-variant-numeric:tabular-nums}
+.hello__who{flex:1;min-width:0}
+.hello__action{display:inline-flex;align-items:center;gap:6px;flex-shrink:0}
+.pill--label{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-border);font-size:.75rem;padding:2px 9px;vertical-align:middle;margin-left:4px}
 .linkbtn{background:none;border:0;padding:0;font:inherit;font-size:.9rem;font-weight:600;color:var(--brand-strong);cursor:pointer;text-decoration:underline}
 .pick__action{margin-top:10px}
 

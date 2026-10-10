@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 )
 
 func init() {
@@ -242,5 +244,33 @@ func TestRelay(t *testing.T) {
 	}
 	if evs[2].Kind != "receipt" || evs[2].Receipt.Type != "read" || evs[2].Receipt.MessageIDs[0] != "Y" {
 		t.Errorf("receipt: %+v", evs[2])
+	}
+}
+
+// Every event says which number it came from, so one script can serve
+// several.
+func TestEventsCarryTheNumber(t *testing.T) {
+	m, _ := manager(t)
+	m.SetAccount(func(context.Context) account.Info {
+		return account.Info{Slug: "trabalho", Label: "Trabalho", Phone: "+55 (11) 98765-4321", Name: "Bruno"}
+	})
+	r := newReceiver(t, func(int32) int { return http.StatusNoContent })
+	h, secret, err := m.Create(context.Background(), Settings{URL: ptr(r.srv.URL)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.secret = secret
+	m.Dispatch(context.Background(), message("A", "1@s.whatsapp.net", false))
+	waitFor(t, "the delivery", func() bool { return len(r.events()) == 1 })
+	got := r.events()[0].Account
+	if got == nil || got.Slug != "trabalho" || got.Label != "Trabalho" || got.Phone != "+55 (11) 98765-4321" || got.Name != "" {
+		t.Errorf("account on the event: %+v", got)
+	}
+	if _, err := m.Test(context.Background(), h.ID); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, "the test delivery", func() bool { return len(r.events()) == 2 })
+	if got := r.events()[1].Account; got == nil || got.Label != "Trabalho" {
+		t.Errorf("account on the test event: %+v", got)
 	}
 }

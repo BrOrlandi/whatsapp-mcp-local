@@ -69,6 +69,7 @@ algo a resolver (por exemplo, um WhatsApp já conectado).
     "connected": true,
     "phone": "+55 (11) 91234-5678",
     "name": "Maria Silva",
+    "label": "Pessoal",
     "last_message_at": "2026-10-06T03:15:49Z"
   },
   "pairing": { "state": "idle" },
@@ -137,9 +138,14 @@ entrega é um `POST` com JSON e estes cabeçalhos:
     "sender_name": "Maria Silva",
     "text": "Oi! Você vem amanhã?",
     "reply_to": { "id": "3EB0A1…", "text": "Combinado então" }
-  }
+  },
+  "account": { "label": "Pessoal", "phone": "+55 (11) 91234-5678" }
 }
 ```
+
+`account` é o número em que a mensagem chegou, com o nome que a pessoa deu a
+ele na aba WhatsApp (`label`, ausente quando não tem nome). Serve para um mesmo
+script atender mais de um número.
 
 Uma mensagem com mídia traz `media` (`type`, `mime_type`, `filename`, `bytes`,
 `caption`), sem o arquivo: se precisar dele, o script pede pelo MCP

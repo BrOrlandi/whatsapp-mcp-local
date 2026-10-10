@@ -70,19 +70,6 @@ func TestInternalRedirectsNavigate(t *testing.T) {
 	}
 }
 
-func TestFormatPhone(t *testing.T) {
-	for in, want := range map[string]string{
-		"5511987654321": "+55 (11) 98765-4321",
-		"551132654321":  "+55 (11) 3265-4321",
-		"4915112345678": "+4915112345678",
-		"":              "",
-	} {
-		if got := formatPhone(in); got != want {
-			t.Errorf("formatPhone(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
 func TestTemplatesParse(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
