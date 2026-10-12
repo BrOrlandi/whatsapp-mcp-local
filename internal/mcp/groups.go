@@ -153,6 +153,10 @@ func (s *Server) setGroupPhoto(ctx context.Context, a arguments) map[string]any 
 	}
 	var out map[string]any
 	if err := s.exclusive(ctx, "group photo", &out, args...); err != nil {
+		// A wacli without `groups photo` falls back to `groups` and rejects the flags.
+		if msg := err.Error(); strings.Contains(msg, `unknown command "photo"`) || strings.Contains(msg, "unknown flag: --jid") {
+			return toolError("the wacli inside this app cannot change group pictures yet; it needs a wacli with `groups photo`")
+		}
 		return toolError("%v", err)
 	}
 	return textResult(map[string]any{"done": true, "group_jid": jid, "group": s.index.Names.Name(ctx, jid),
@@ -246,16 +250,19 @@ func (s *Server) createGroup(ctx context.Context, a arguments) map[string]any {
 	defer cancel()
 	var jid string
 	err := s.supervisor.Exclusive(ctx, "create group", func(ctx context.Context) error {
-		var out struct {
-			JID string `json:"JID"`
+		// Exclusive retries the whole callback after a lock error: never create twice.
+		if jid == "" {
+			var out struct {
+				JID string `json:"JID"`
+			}
+			if err := s.cli.Decode(ctx, &out, args...); err != nil {
+				return err
+			}
+			if !strings.HasSuffix(out.JID, "@g.us") {
+				return fmt.Errorf("WhatsApp did not return the new group's JID")
+			}
+			jid = out.JID
 		}
-		if err := s.cli.Decode(ctx, &out, args...); err != nil {
-			return err
-		}
-		if !strings.HasSuffix(out.JID, "@g.us") {
-			return fmt.Errorf("WhatsApp did not return the new group's JID")
-		}
-		jid = out.JID
 		if a.Description != nil && *a.Description != "" {
 			if _, err := s.cli.Run(ctx, "groups", "description", "--jid", jid, "--text", *a.Description); err != nil {
 				return fmt.Errorf("group %s created, but setting its description failed: %w", jid, err)
