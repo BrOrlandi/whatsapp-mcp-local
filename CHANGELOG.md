@@ -9,11 +9,17 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 ### Adicionado
 
 - **Cuidar dos grupos e da comunidade pela IA.** Novas ferramentas para quem
-  administra grupos: `create_group` cria um grupo (dentro de uma comunidade, se
-  quiser) já com descrição; `set_group_photo` põe ou tira a foto de um grupo ou
-  da comunidade (a imagem é cortada em quadrado); `update_group_settings` define
-  se só os administradores mandam mensagens e se só eles editam os dados do
-  grupo; `group_join_requests` lista, aprova ou recusa pedidos de entrada.
+  administra grupos:
+  - `create_group` cria um grupo, dentro de uma comunidade se quiser, já com
+    descrição e com as permissões escolhidas (grupo privado, com aprovação para
+    entrar; só administradores mandam mensagens, editam os dados ou adicionam
+    pessoas);
+  - `set_group_photo` põe ou tira a foto de um grupo ou da comunidade (a imagem
+    é cortada em quadrado);
+  - `update_group_settings` muda essas permissões depois;
+  - `group_join_requests` lista, aprova ou recusa pedidos de entrada;
+  - `community_groups` lista os grupos de uma comunidade, traz um grupo que já
+    existe para dentro dela ou tira um grupo dela.
 - `get_group` com `live` agora traz a descrição do grupo e essas permissões.
 
 Precisa de um wacli com `groups photo` (openclaw/wacli#PR_WACLI).

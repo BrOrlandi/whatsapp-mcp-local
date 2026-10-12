@@ -396,11 +396,15 @@ func definitions() []any {
 		},
 		map[string]any{
 			"name":        "create_group",
-			"description": "Create a group with only the account in it, optionally inside a community the account administers, and optionally with a description. Add people afterwards with manage_group_participants or share the invite link. Briefly pauses sync.",
+			"description": "Create a group with only the account in it, optionally inside a community the account administers, with a description and its permissions set from the start. Add people afterwards with manage_group_participants or share the invite link. Briefly pauses sync.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
 				"name":          stringSchema("Name of the new group."),
 				"community_jid": stringSchema("Optional JID of the community (ending in @g.us) the group joins."),
 				"description":   stringSchema("Optional description."),
+				"join_approval": boolSchema("Private group: people ask to join and wait for an admin (inside a community, members see the group but must request it)."),
+				"announce_only": boolSchema("Only admins can send messages."),
+				"locked":        boolSchema("Only admins can edit the name, description and picture."),
+				"admins_add":    boolSchema("Only admins can add people."),
 			}, "required": []string{"name"}},
 		},
 		map[string]any{
@@ -414,11 +418,13 @@ func definitions() []any {
 		},
 		map[string]any{
 			"name":        "update_group_settings",
-			"description": "Change who may do what in a group or community the account administers: announce_only (only admins send messages) and locked (only admins edit the name, description and picture). Give one or both. Briefly pauses sync.",
+			"description": "Change who may do what in a group or community the account administers. Give one or more: join_approval (private: people ask to join and an admin approves), announce_only (only admins send messages), locked (only admins edit the name, description and picture), admins_add (only admins add people). get_group with live shows the current values. Briefly pauses sync.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
 				"group_jid":     stringSchema("JID of the group or community, ending in @g.us."),
+				"join_approval": boolSchema("true: people ask to join and wait for an admin; false: they join directly."),
 				"announce_only": boolSchema("true: only admins can send messages; false: everyone can."),
 				"locked":        boolSchema("true: only admins can edit the group info; false: everyone can."),
+				"admins_add":    boolSchema("true: only admins can add people; false: every member can."),
 			}, "required": []string{"group_jid"}},
 		},
 		map[string]any{
@@ -429,6 +435,16 @@ func definitions() []any {
 				"action":       map[string]any{"type": "string", "enum": []string{"list", "approve", "reject"}},
 				"participants": listSchema("Phone numbers or JIDs from the list; required to approve or reject."),
 			}, "required": []string{"group_jid", "action"}},
+		},
+		map[string]any{
+			"name":        "community_groups",
+			"description": "List the groups of a community live, move an existing group the account administers into it (link), or take one out (unlink: the group itself stays, its members just leave the community view). unlink is two-step: without confirm it only says what would change. Briefly pauses sync.",
+			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
+				"community_jid": stringSchema("JID of the community, ending in @g.us."),
+				"action":        map[string]any{"type": "string", "enum": []string{"list", "link", "unlink"}},
+				"group_jid":     stringSchema("The group to link or unlink."),
+				"confirm":       boolSchema("Required to unlink."),
+			}, "required": []string{"community_jid", "action"}},
 		},
 		map[string]any{
 			"name":        "get_group_invite_link",

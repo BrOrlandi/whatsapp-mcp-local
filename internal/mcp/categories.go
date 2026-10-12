@@ -59,6 +59,7 @@ var toolCategories = map[string]string{
 	"set_group_photo":           CategoryGroups,
 	"update_group_settings":     CategoryGroups,
 	"group_join_requests":       CategoryGroups,
+	"community_groups":          CategoryGroups,
 	"get_group_invite_link":     CategoryGroups,
 	"leave_group":               CategoryGroups,
 

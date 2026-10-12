@@ -60,6 +60,8 @@ type arguments struct {
 	CommunityJID string `json:"community_jid"`
 	AnnounceOnly *bool  `json:"announce_only"`
 	Locked       *bool  `json:"locked"`
+	JoinApproval *bool  `json:"join_approval"`
+	AdminsAdd    *bool  `json:"admins_add"`
 
 	MaxSilenceHours float64 `json:"max_silence_hours"`
 
@@ -167,6 +169,7 @@ func (s *Server) handlers() map[string]func(context.Context, arguments) map[stri
 		"set_group_photo":           s.setGroupPhoto,
 		"update_group_settings":     s.updateGroupSettings,
 		"group_join_requests":       s.groupJoinRequests,
+		"community_groups":          s.communityGroups,
 		"get_group_invite_link":     s.groupInviteLink,
 		"leave_group":               s.leaveGroup,
 
@@ -509,6 +512,7 @@ func (s *Server) getGroup(ctx context.Context, a arguments) map[string]any {
 		IsAnnounce             bool
 		IsLocked               bool
 		IsJoinApprovalRequired bool
+		MemberAddMode          string
 	}
 	if a.Live {
 		ctx, cancel := context.WithTimeout(ctx, liveTimeout)
@@ -533,7 +537,8 @@ func (s *Server) getGroup(ctx context.Context, a arguments) map[string]any {
 		AnnounceOnly bool   `json:"announce_only"`
 		Locked       bool   `json:"locked"`
 		JoinApproval bool   `json:"join_approval"`
-	}{g, live.Topic, live.IsAnnounce, live.IsLocked, live.IsJoinApprovalRequired}, false)
+		AdminsAdd    bool   `json:"admins_add"`
+	}{g, live.Topic, live.IsAnnounce, live.IsLocked, live.IsJoinApprovalRequired, live.MemberAddMode == "admin_add"}, false)
 }
 
 // ---- resolving a message ----

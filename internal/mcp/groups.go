@@ -168,25 +168,36 @@ func (s *Server) updateGroupSettings(ctx context.Context, a arguments) map[strin
 	if fail != nil {
 		return fail
 	}
-	if a.AnnounceOnly == nil && a.Locked == nil {
-		return toolError("give announce_only, locked, or both")
+	settings := []struct {
+		key, command string
+		value        *bool
+	}{
+		{"join_approval", "join-approval", a.JoinApproval},
+		{"announce_only", "announce-only", a.AnnounceOnly},
+		{"locked", "locked", a.Locked},
+		{"admins_add", "admin-add", a.AdminsAdd},
 	}
-	onOff := func(v bool) string {
-		if v {
-			return "--on"
+	result := map[string]any{"done": true, "group_jid": jid, "group": s.index.Names.Name(ctx, jid)}
+	var todo [][]string
+	for _, st := range settings {
+		if st.value == nil {
+			continue
 		}
-		return "--off"
+		mode := "--off"
+		if *st.value {
+			mode = "--on"
+		}
+		todo = append(todo, []string{"groups", st.command, "--jid", jid, mode})
+		result[st.key] = *st.value
+	}
+	if len(todo) == 0 {
+		return toolError("give at least one of join_approval, announce_only, locked or admins_add")
 	}
 	ctx, cancel := context.WithTimeout(ctx, liveTimeout)
 	defer cancel()
 	err := s.supervisor.Exclusive(ctx, "group settings", func(ctx context.Context) error {
-		if a.AnnounceOnly != nil {
-			if _, err := s.cli.Run(ctx, "groups", "announce-only", "--jid", jid, onOff(*a.AnnounceOnly)); err != nil {
-				return err
-			}
-		}
-		if a.Locked != nil {
-			if _, err := s.cli.Run(ctx, "groups", "locked", "--jid", jid, onOff(*a.Locked)); err != nil {
+		for _, args := range todo {
+			if _, err := s.cli.Run(ctx, args...); err != nil {
 				return err
 			}
 		}
@@ -194,13 +205,6 @@ func (s *Server) updateGroupSettings(ctx context.Context, a arguments) map[strin
 	})
 	if err != nil {
 		return toolError("%v", err)
-	}
-	result := map[string]any{"done": true, "group_jid": jid, "group": s.index.Names.Name(ctx, jid)}
-	if a.AnnounceOnly != nil {
-		result["announce_only"] = *a.AnnounceOnly
-	}
-	if a.Locked != nil {
-		result["locked"] = *a.Locked
 	}
 	return textResult(result, false)
 }
@@ -246,6 +250,11 @@ func (s *Server) createGroup(ctx context.Context, a arguments) map[string]any {
 		}
 		args = append(args, "--linked-parent", community)
 	}
+	for flag, on := range map[string]*bool{"--join-approval": a.JoinApproval, "--announce-only": a.AnnounceOnly, "--locked": a.Locked} {
+		if on != nil && *on {
+			args = append(args, flag)
+		}
+	}
 	ctx, cancel := context.WithTimeout(ctx, liveTimeout)
 	defer cancel()
 	var jid string
@@ -268,6 +277,11 @@ func (s *Server) createGroup(ctx context.Context, a arguments) map[string]any {
 				return fmt.Errorf("group %s created, but setting its description failed: %w", jid, err)
 			}
 		}
+		if a.AdminsAdd != nil && *a.AdminsAdd {
+			if _, err := s.cli.Run(ctx, "groups", "admin-add", "--jid", jid, "--on"); err != nil {
+				return fmt.Errorf("group %s created, but limiting who adds people to admins failed: %w", jid, err)
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -277,5 +291,40 @@ func (s *Server) createGroup(ctx context.Context, a arguments) map[string]any {
 	if a.CommunityJID != "" {
 		result["community_jid"] = strings.TrimSpace(a.CommunityJID)
 	}
+	for key, v := range map[string]*bool{"join_approval": a.JoinApproval, "announce_only": a.AnnounceOnly, "locked": a.Locked, "admins_add": a.AdminsAdd} {
+		if v != nil {
+			result[key] = *v
+		}
+	}
 	return textResult(result, false)
+}
+
+func (s *Server) communityGroups(ctx context.Context, a arguments) map[string]any {
+	community := strings.TrimSpace(a.CommunityJID)
+	if !strings.HasSuffix(community, "@g.us") {
+		return toolError("community_jid must be a community JID ending in @g.us")
+	}
+	if a.Action == "list" {
+		var out any
+		if err := s.exclusive(ctx, "community groups", &out, "groups", "community", "groups", "--community", community); err != nil {
+			return toolError("%v", err)
+		}
+		return textResult(map[string]any{"community_jid": community, "community": s.index.Names.Name(ctx, community), "groups": out}, false)
+	}
+	if a.Action != "link" && a.Action != "unlink" {
+		return toolError("action must be list, link or unlink")
+	}
+	jid, fail := groupJID(a)
+	if fail != nil {
+		return fail
+	}
+	if a.Action == "unlink" && !a.Confirm {
+		return textResult(map[string]any{"preview": true, "community": s.index.Names.Name(ctx, community), "group": s.index.Names.Name(ctx, jid),
+			"next": "call community_groups again with confirm true to take the group out of the community; the group itself stays"}, false)
+	}
+	var out any
+	if err := s.exclusive(ctx, "community "+a.Action, &out, "groups", "community", a.Action, "--community", community, "--jid", jid); err != nil {
+		return toolError("%v", err)
+	}
+	return textResult(map[string]any{"done": true, "action": a.Action, "community_jid": community, "group_jid": jid, "group": s.index.Names.Name(ctx, jid)}, false)
 }
