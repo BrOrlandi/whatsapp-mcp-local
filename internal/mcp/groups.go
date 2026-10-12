@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"fmt"
 	"strings"
 )
 
@@ -130,4 +131,144 @@ func (s *Server) leaveGroup(ctx context.Context, a arguments) map[string]any {
 		return toolError("%v", err)
 	}
 	return textResult(map[string]any{"left": true, "group_jid": jid}, false)
+}
+
+func (s *Server) setGroupPhoto(ctx context.Context, a arguments) map[string]any {
+	jid, fail := groupJID(a)
+	if fail != nil {
+		return fail
+	}
+	source := strings.TrimSpace(a.URL)
+	if a.Remove == (source != "") {
+		return toolError("give either url (the new picture) or remove true")
+	}
+	args := []string{"groups", "photo", "remove", "--jid", jid}
+	if !a.Remove {
+		path, cleanup, err := s.fetchFile(ctx, source, a.Filename)
+		if err != nil {
+			return toolError("%v", err)
+		}
+		defer cleanup()
+		args = []string{"groups", "photo", "set", "--jid", jid, "--file", path}
+	}
+	var out map[string]any
+	if err := s.exclusive(ctx, "group photo", &out, args...); err != nil {
+		return toolError("%v", err)
+	}
+	return textResult(map[string]any{"done": true, "group_jid": jid, "group": s.index.Names.Name(ctx, jid),
+		"removed": a.Remove, "picture_id": out["picture_id"]}, false)
+}
+
+func (s *Server) updateGroupSettings(ctx context.Context, a arguments) map[string]any {
+	jid, fail := groupJID(a)
+	if fail != nil {
+		return fail
+	}
+	if a.AnnounceOnly == nil && a.Locked == nil {
+		return toolError("give announce_only, locked, or both")
+	}
+	onOff := func(v bool) string {
+		if v {
+			return "--on"
+		}
+		return "--off"
+	}
+	ctx, cancel := context.WithTimeout(ctx, liveTimeout)
+	defer cancel()
+	err := s.supervisor.Exclusive(ctx, "group settings", func(ctx context.Context) error {
+		if a.AnnounceOnly != nil {
+			if _, err := s.cli.Run(ctx, "groups", "announce-only", "--jid", jid, onOff(*a.AnnounceOnly)); err != nil {
+				return err
+			}
+		}
+		if a.Locked != nil {
+			if _, err := s.cli.Run(ctx, "groups", "locked", "--jid", jid, onOff(*a.Locked)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return toolError("%v", err)
+	}
+	result := map[string]any{"done": true, "group_jid": jid, "group": s.index.Names.Name(ctx, jid)}
+	if a.AnnounceOnly != nil {
+		result["announce_only"] = *a.AnnounceOnly
+	}
+	if a.Locked != nil {
+		result["locked"] = *a.Locked
+	}
+	return textResult(result, false)
+}
+
+func (s *Server) groupJoinRequests(ctx context.Context, a arguments) map[string]any {
+	jid, fail := groupJID(a)
+	if fail != nil {
+		return fail
+	}
+	switch a.Action {
+	case "list":
+		var out any
+		if err := s.exclusive(ctx, "group join requests", &out, "groups", "requests", "list", "--jid", jid); err != nil {
+			return toolError("%v", err)
+		}
+		return textResult(map[string]any{"group_jid": jid, "group": s.index.Names.Name(ctx, jid), "requests": out}, false)
+	case "approve", "reject":
+		if len(a.Participants) == 0 || len(a.Participants) > 50 {
+			return toolError("participants must list one to fifty phone numbers or JIDs")
+		}
+		args := []string{"groups", "requests", a.Action, "--jid", jid}
+		for _, p := range a.Participants {
+			args = append(args, "--user", strings.TrimSpace(p))
+		}
+		var out any
+		if err := s.exclusive(ctx, "group join requests", &out, args...); err != nil {
+			return toolError("%v", err)
+		}
+		return textResult(map[string]any{"done": true, "action": a.Action, "group_jid": jid, "result": out}, false)
+	}
+	return toolError("action must be list, approve or reject")
+}
+
+func (s *Server) createGroup(ctx context.Context, a arguments) map[string]any {
+	name := strings.TrimSpace(a.Name)
+	if name == "" || len([]rune(name)) > 100 {
+		return toolError("name is required, up to 100 characters")
+	}
+	args := []string{"groups", "create", "--name", name}
+	if community := strings.TrimSpace(a.CommunityJID); community != "" {
+		if !strings.HasSuffix(community, "@g.us") {
+			return toolError("community_jid must be a community JID ending in @g.us")
+		}
+		args = append(args, "--linked-parent", community)
+	}
+	ctx, cancel := context.WithTimeout(ctx, liveTimeout)
+	defer cancel()
+	var jid string
+	err := s.supervisor.Exclusive(ctx, "create group", func(ctx context.Context) error {
+		var out struct {
+			JID string `json:"JID"`
+		}
+		if err := s.cli.Decode(ctx, &out, args...); err != nil {
+			return err
+		}
+		if !strings.HasSuffix(out.JID, "@g.us") {
+			return fmt.Errorf("WhatsApp did not return the new group's JID")
+		}
+		jid = out.JID
+		if a.Description != nil && *a.Description != "" {
+			if _, err := s.cli.Run(ctx, "groups", "description", "--jid", jid, "--text", *a.Description); err != nil {
+				return fmt.Errorf("group %s created, but setting its description failed: %w", jid, err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return toolError("%v", err)
+	}
+	result := map[string]any{"done": true, "group_jid": jid, "name": name}
+	if a.CommunityJID != "" {
+		result["community_jid"] = strings.TrimSpace(a.CommunityJID)
+	}
+	return textResult(result, false)
 }
