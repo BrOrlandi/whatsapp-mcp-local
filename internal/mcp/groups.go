@@ -9,6 +9,21 @@ import (
 // Group changes need the store lock, so each one pauses sync for the seconds
 // it takes. They are rare enough for that to be the right trade.
 
+// needGroupsCommands refuses, before changing anything, when the wacli inside
+// the app is older than the group commands a tool needs.
+func (s *Server) needGroupsCommands(ctx context.Context, names ...string) map[string]any {
+	var missing []string
+	for _, n := range names {
+		if !s.cli.HasGroupsCommand(ctx, n) {
+			missing = append(missing, "groups "+n)
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	return toolError("the wacli inside this app is too old for this (missing %s); nothing was changed", strings.Join(missing, ", "))
+}
+
 func groupJID(a arguments) (string, map[string]any) {
 	jid := strings.TrimSpace(a.GroupJID)
 	if !strings.HasSuffix(jid, "@g.us") {
@@ -142,6 +157,9 @@ func (s *Server) setGroupPhoto(ctx context.Context, a arguments) map[string]any 
 	if a.Remove == (source != "") {
 		return toolError("give either url (the new picture) or remove true")
 	}
+	if fail := s.needGroupsCommands(ctx, "photo"); fail != nil {
+		return fail
+	}
 	args := []string{"groups", "photo", "remove", "--jid", jid}
 	if !a.Remove {
 		path, cleanup, err := s.fetchFile(ctx, source, a.Filename)
@@ -153,10 +171,6 @@ func (s *Server) setGroupPhoto(ctx context.Context, a arguments) map[string]any 
 	}
 	var out map[string]any
 	if err := s.exclusive(ctx, "group photo", &out, args...); err != nil {
-		// A wacli without `groups photo` falls back to `groups` and rejects the flags.
-		if msg := err.Error(); strings.Contains(msg, `unknown command "photo"`) || strings.Contains(msg, "unknown flag: --jid") {
-			return toolError("the wacli inside this app cannot change group pictures yet; it needs a wacli with `groups photo`")
-		}
 		return toolError("%v", err)
 	}
 	return textResult(map[string]any{"done": true, "group_jid": jid, "group": s.index.Names.Name(ctx, jid),
@@ -192,6 +206,11 @@ func (s *Server) updateGroupSettings(ctx context.Context, a arguments) map[strin
 	}
 	if len(todo) == 0 {
 		return toolError("give at least one of join_approval, announce_only, locked or admins_add")
+	}
+	for _, args := range todo {
+		if fail := s.needGroupsCommands(ctx, args[1]); fail != nil {
+			return fail
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, liveTimeout)
 	defer cancel()
@@ -255,6 +274,11 @@ func (s *Server) createGroup(ctx context.Context, a arguments) map[string]any {
 			args = append(args, flag)
 		}
 	}
+	if a.AdminsAdd != nil && *a.AdminsAdd {
+		if fail := s.needGroupsCommands(ctx, "admin-add"); fail != nil {
+			return fail
+		}
+	}
 	ctx, cancel := context.WithTimeout(ctx, liveTimeout)
 	defer cancel()
 	var jid string
@@ -303,6 +327,9 @@ func (s *Server) communityGroups(ctx context.Context, a arguments) map[string]an
 	community := strings.TrimSpace(a.CommunityJID)
 	if !strings.HasSuffix(community, "@g.us") {
 		return toolError("community_jid must be a community JID ending in @g.us")
+	}
+	if fail := s.needGroupsCommands(ctx, "community"); fail != nil {
+		return fail
 	}
 	if a.Action == "list" {
 		var out any

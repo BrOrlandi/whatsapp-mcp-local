@@ -22,7 +22,8 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
     existe para dentro dela ou tira um grupo dela.
 - `get_group` com `live` agora traz a descrição do grupo e essas permissões.
 
-Precisa de um wacli com `groups photo` (openclaw/wacli#PR_WACLI).
+Precisa de um wacli com os comandos de grupo novos (openclaw/wacli#479); com um
+wacli mais antigo, essas ferramentas avisam e não mudam nada.
 
 ## [1.5.0] - 2026-10-14
 
