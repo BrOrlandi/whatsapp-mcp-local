@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 )
 
 // Names turns JIDs into what the WhatsApp app would show: a group's name, the
@@ -186,11 +188,11 @@ func formatJID(jid string) string {
 		}
 		return "+" + user
 	case "g.us":
-		return "Grupo sem nome"
+		return i18n.T("Grupo sem nome")
 	case "newsletter":
-		return "Canal do WhatsApp"
+		return i18n.T("Canal do WhatsApp")
 	case "broadcast":
-		return "Lista de transmissão"
+		return i18n.T("Lista de transmissão")
 	}
 	return user
 }

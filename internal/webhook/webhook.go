@@ -26,13 +26,13 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 )
 
@@ -273,7 +273,7 @@ func (m *Manager) loop(ctx context.Context, w *worker) {
 			if ctx.Err() != nil {
 				return
 			}
-			reason := fmt.Sprintf("%d tentativas seguidas sem sucesso em menos de um minuto (a última: %s)", len(retryWaits)+1, last)
+			reason := i18n.Tf("%d tentativas seguidas sem sucesso em menos de um minuto (a última: %s)", len(retryWaits)+1, last)
 			m.logger.Warn("webhook disabled", "id", w.hook.ID, "error", err)
 			_ = m.st.DisableWebhook(context.WithoutCancel(ctx), w.hook.ID, time.Now(), reason)
 			m.halt(w.hook.ID) // the queue goes with the worker
@@ -328,7 +328,7 @@ func (m *Manager) post(ctx context.Context, h state.Webhook, ev Event) (string, 
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return "respondeu " + resp.Status, fmt.Errorf("answered %s", resp.Status)
+		return i18n.Tf("respondeu %s", resp.Status), fmt.Errorf("answered %s", resp.Status)
 	}
 	return resp.Status, nil
 }
@@ -339,11 +339,11 @@ func describe(err error) string {
 	var ue *url.Error
 	switch {
 	case errors.Is(err, syscall.ECONNREFUSED):
-		return "nenhum programa respondeu nesse endereço"
+		return i18n.T("nenhum programa respondeu nesse endereço")
 	case errors.As(err, &dns):
-		return "o endereço não foi encontrado"
+		return i18n.T("o endereço não foi encontrado")
 	case errors.As(err, &ue) && ue.Timeout():
-		return "não respondeu em " + strconv.Itoa(int(attemptTimeout.Seconds())) + " segundos"
+		return i18n.Tf("não respondeu em %d segundos", int(attemptTimeout.Seconds()))
 	case errors.As(err, &ue):
 		return ue.Err.Error()
 	}
@@ -383,18 +383,18 @@ func (e UserError) Error() string { return e.Msg }
 func validURL(raw string) error {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return UserError{"url precisa ser um endereço http:// ou https:// completo"}
+		return UserError{i18n.T("url precisa ser um endereço http:// ou https:// completo")}
 	}
 	return nil
 }
 
 func validEvents(events []string) error {
 	if len(events) == 0 {
-		return UserError{"events precisa ter ao menos um de: " + strings.Join(Events, ", ")}
+		return UserError{i18n.Tf("events precisa ter ao menos um de: %s", strings.Join(Events, ", "))}
 	}
 	for _, e := range events {
 		if !slices.Contains(Events, e) {
-			return UserError{fmt.Sprintf("evento %q desconhecido; os eventos são %s", e, strings.Join(Events, ", "))}
+			return UserError{i18n.Tf("evento %q desconhecido; os eventos são %s", e, strings.Join(Events, ", "))}
 		}
 	}
 	return nil
@@ -404,7 +404,7 @@ func validEvents(events []string) error {
 // here only: it signs every delivery.
 func (m *Manager) Create(ctx context.Context, s Settings) (state.Webhook, string, error) {
 	if s.URL == nil {
-		return state.Webhook{}, "", UserError{"url é obrigatório"}
+		return state.Webhook{}, "", UserError{i18n.T("url é obrigatório")}
 	}
 	h := state.Webhook{ID: randomHex(6), URL: strings.TrimSpace(*s.URL), Secret: randomHex(24), Events: []string{"message"},
 		Enabled: true, CreatedAt: time.Now().UTC()}

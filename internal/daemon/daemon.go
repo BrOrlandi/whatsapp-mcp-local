@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
@@ -243,7 +244,7 @@ func (d *Daemon) Panel() *panel.Panel { return d.panel }
 type ErrPortInUse struct{ Port int }
 
 func (e ErrPortInUse) Error() string {
-	return fmt.Sprintf("a porta %d já está em uso por outro programa", e.Port)
+	return i18n.Tf("a porta %d já está em uso por outro programa", e.Port)
 }
 
 // SetPort moves the MCP to another port without touching WhatsApp: the new
@@ -251,7 +252,7 @@ func (e ErrPortInUse) Error() string {
 // none, and when the new port is taken the old one keeps answering.
 func (d *Daemon) SetPort(port int) error {
 	if port < 1024 || port > 65535 {
-		return fmt.Errorf("a porta precisa ser um número de 1024 a 65535")
+		return errors.New(i18n.T("a porta precisa ser um número de 1024 a 65535"))
 	}
 	d.mu.Lock()
 	same := port == d.port && d.srv != nil

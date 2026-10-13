@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/brand"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/updater"
@@ -101,5 +102,5 @@ func (u *updates) announce() {
 		return
 	}
 	u.app.tray.offerUpdate(s.Latest)
-	u.app.notify("update-"+s.Latest, "Versão "+s.Latest+" do WhatsApp MCP disponível", "Abra Configurações para instalar.")
+	u.app.notify("update-"+s.Latest, i18n.Tf("Versão %s do WhatsApp MCP disponível", s.Latest), i18n.T("Abra Configurações para instalar."))
 }

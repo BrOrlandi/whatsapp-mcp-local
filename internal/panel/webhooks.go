@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/webhook"
 )
@@ -28,12 +29,12 @@ func (p *Panel) RegisterWebhooks(mux *http.ServeMux, hooks *webhook.Manager, ava
 			list = []webhook.Status{}
 		}
 		return map[string]any{"available": available, "webhooks": list, "events": webhook.Events,
-			"signature": "X-WhatsApp-MCP-Signature: sha256=<HMAC-SHA256 do corpo com o segredo do webhook, em hexadecimal>"}, err
+			"signature": i18n.T("X-WhatsApp-MCP-Signature: sha256=<HMAC-SHA256 do corpo com o segredo do webhook, em hexadecimal>")}, err
 	}))
 	mux.HandleFunc("POST /api/webhooks", p.api(func(r *http.Request) (any, error) {
 		var s webhook.Settings
 		if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
-			return nil, userError{"pedido inválido"}
+			return nil, userError{i18n.T("pedido inválido")}
 		}
 		h, secret, err := hooks.Create(r.Context(), s)
 		if err != nil {
@@ -41,9 +42,9 @@ func (p *Panel) RegisterWebhooks(mux *http.ServeMux, hooks *webhook.Manager, ava
 		}
 		st, _ := hooks.Get(r.Context(), h.ID)
 		out := map[string]any{"webhook": st, "secret": secret,
-			"note": "guarde o segredo: ele não aparece de novo, e assina cada entrega no cabeçalho X-WhatsApp-MCP-Signature"}
+			"note": i18n.T("guarde o segredo: ele não aparece de novo, e assina cada entrega no cabeçalho X-WhatsApp-MCP-Signature")}
 		if !available {
-			out["warning"] = "o wacli em uso não entrega mensagens novas a webhooks; atualize-o para que este webhook receba algo"
+			out["warning"] = i18n.T("o wacli em uso não entrega mensagens novas a webhooks; atualize-o para que este webhook receba algo")
 		}
 		return out, nil
 	}))
@@ -54,7 +55,7 @@ func (p *Panel) RegisterWebhooks(mux *http.ServeMux, hooks *webhook.Manager, ava
 	mux.HandleFunc("PATCH /api/webhooks/{id}", p.api(func(r *http.Request) (any, error) {
 		var s webhook.Settings
 		if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
-			return nil, userError{"pedido inválido"}
+			return nil, userError{i18n.T("pedido inválido")}
 		}
 		if _, err := hooks.Update(r.Context(), r.PathValue("id"), s); err != nil {
 			return nil, webhookError(err)
@@ -81,7 +82,7 @@ func (p *Panel) RegisterWebhooks(mux *http.ServeMux, hooks *webhook.Manager, ava
 			Days *int `json:"days"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Days == nil || *body.Days < 0 {
-			return nil, userError{`mande {"days": N}: os dias que um arquivo baixado fica guardado, ou 0 para guardar sempre`}
+			return nil, userError{i18n.T(`mande {"days": N}: os dias que um arquivo baixado fica guardado, ou 0 para guardar sempre`)}
 		}
 		if err := p.Server.SetRetention(r.Context(), *body.Days); err != nil {
 			return nil, err
@@ -95,7 +96,7 @@ func (p *Panel) RegisterWebhooks(mux *http.ServeMux, hooks *webhook.Manager, ava
 			OlderThanDays int    `json:"older_than_days"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.OlderThanDays < 0 {
-			return nil, userError{`mande {"what": "media"} ou {"what": "exports"}`}
+			return nil, userError{i18n.T(`mande {"what": "media"} ou {"what": "exports"}`)}
 		}
 		var files int
 		var bytes int64
@@ -106,23 +107,23 @@ func (p *Panel) RegisterWebhooks(mux *http.ServeMux, hooks *webhook.Manager, ava
 		case "exports":
 			files, bytes, err = p.Server.PurgeExports()
 		default:
-			return nil, userError{`what precisa ser "media" (os arquivos baixados) ou "exports" (as exportações)`}
+			return nil, userError{i18n.T(`what precisa ser "media" (os arquivos baixados) ou "exports" (as exportações)`)}
 		}
 		return map[string]any{"deleted_files": files, "freed_bytes": bytes}, err
 	}))
 }
 
 // webhookError turns the webhook package's errors into the API's: what the
-// caller can fix is a 409, in Portuguese.
+// caller can fix is a 409, in the person's language.
 func webhookError(err error) error {
 	var ue webhook.UserError
 	switch {
 	case err == nil:
 		return nil
 	case errors.As(err, &ue):
-		return userError{ue.Msg}
+		return userError{i18n.T(ue.Msg)}
 	case errors.Is(err, state.ErrNoWebhook):
-		return userError{"nenhum webhook tem esse id"}
+		return userError{i18n.T("nenhum webhook tem esse id")}
 	}
 	return errors.New(strings.TrimSpace(err.Error()))
 }

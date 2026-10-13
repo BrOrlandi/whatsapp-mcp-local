@@ -13,7 +13,7 @@
     }
     return fetch(path, options).then(function (response) {
       return response.json().catch(function () { return {}; }).then(function (data) {
-        if (!response.ok) throw new Error(data.error || "erro " + response.status);
+        if (!response.ok) throw new Error(data.error || t("erro %d", response.status));
         return data;
       });
     });
@@ -31,7 +31,7 @@
     button.textContent = text;
     if (restoreAfter) {
       window.setTimeout(function () {
-        button.textContent = "Copiar";
+        button.textContent = t("Copiar");
         button.classList.remove("copy--done", "copy--failed");
       }, 2000);
     }
@@ -39,17 +39,17 @@
   function copy(text, button) {
     if (!navigator.clipboard) {
       button.classList.add("copy--failed");
-      label(button, "Selecione e copie", true);
+      label(button, t("Selecione e copie"), true);
       return;
     }
     navigator.clipboard.writeText(text).then(
-      function () { button.classList.add("copy--done"); label(button, "Copiado", true); },
-      function () { button.classList.add("copy--failed"); label(button, "Falhou", true); }
+      function () { button.classList.add("copy--done"); label(button, t("Copiado"), true); },
+      function () { button.classList.add("copy--failed"); label(button, t("Falhou"), true); }
     );
   }
   document.querySelectorAll("[data-copy]").forEach(function (block) {
     var source = block.querySelector("code") || block;
-    var button = el("button", "copy", "Copiar");
+    var button = el("button", "copy", t("Copiar"));
     button.type = "button";
     button.addEventListener("click", function () { copy(source.textContent, button); });
     var snippet = block.closest(".snippet");
@@ -68,7 +68,7 @@
       window.setTimeout(function () {
         if (!button) return;
         button.disabled = true;
-        button.textContent = form.getAttribute("data-busy") || "Aguarde";
+        button.textContent = form.getAttribute("data-busy") || t("Aguarde");
         button.insertBefore(el("span", "spinner"), button.firstChild);
       }, 0);
     });
@@ -81,28 +81,28 @@
       var note = document.querySelector('[data-client-note="' + client + '"]');
       var text = button.textContent;
       button.disabled = true;
-      button.textContent = "Configurando…";
+      button.textContent = t("Configurando…");
       var add = function (replace) {
         return api("/api/clients/" + client, { replace: replace }).then(function (result) {
           if (result.conflict === undefined) return result;
           // Another server already answers to this name, most likely the
           // hosted v1. It is the person's to replace, not the page's.
-          var yes = window.confirm("O " + result.client + " já tem um servidor chamado \"whatsapp\", que aponta para:\n\n" +
-            result.conflict + "\n\nSubstituir por este WhatsApp local?" +
-            (client === "claude-desktop" ? " Uma cópia da configuração atual fica guardada." : " A configuração antiga é removida do " + result.client + "."));
-          if (!yes) throw new Error("Nada foi alterado: o servidor que já estava configurado continua lá.");
+          var yes = window.confirm(t("O %s já tem um servidor chamado \"whatsapp\", que aponta para:", result.client) + "\n\n" +
+            result.conflict + "\n\n" + t("Substituir por este WhatsApp local?") + " " +
+            (client === "claude-desktop" ? t("Uma cópia da configuração atual fica guardada.") : t("A configuração antiga é removida do %s.", result.client)));
+          if (!yes) throw new Error(t("Nada foi alterado: o servidor que já estava configurado continua lá."));
           return add(true);
         });
       };
       add(false).then(function () {
-        button.textContent = "Configurado ✓";
+        button.textContent = t("Configurado ✓");
         if (note) {
           note.hidden = false;
           note.textContent = {
-            "claude-desktop": "Pronto. Agora feche o Claude Desktop e abra de novo.",
-            "claude-code": "Pronto. Agora abra uma sessão nova do Claude Code.",
-            "codex": "Pronto. Agora abra uma conversa nova no Codex.",
-            "cursor": "Pronto. Agora feche o Cursor e abra de novo."
+            "claude-desktop": t("Pronto. Agora feche o Claude Desktop e abra de novo."),
+            "claude-code": t("Pronto. Agora abra uma sessão nova do Claude Code."),
+            "codex": t("Pronto. Agora abra uma conversa nova no Codex."),
+            "cursor": t("Pronto. Agora feche o Cursor e abra de novo.")
           }[client];
         }
       }).catch(function (error) {
@@ -205,7 +205,7 @@
           break;
         case "error":
           showOnly("error");
-          pairing.querySelector("[data-error-text]").textContent = "Não foi possível conectar: " + p.error;
+          pairing.querySelector("[data-error-text]").textContent = t("Não foi possível conectar: %s", p.error);
           break;
         case "done":
           window.location.reload();
@@ -289,14 +289,14 @@
     }
     function when(iso) {
       var d = new Date(iso), now = new Date();
-      if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      if (new Date(now.getTime() - 86400000).toDateString() === d.toDateString()) return "Ontem";
-      if (now - d < 6 * 86400000) return d.toLocaleDateString("pt-BR", { weekday: "long" });
-      return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+      if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString(document.documentElement.lang, { hour: "2-digit", minute: "2-digit" });
+      if (new Date(now.getTime() - 86400000).toDateString() === d.toDateString()) return t("Ontem");
+      if (now - d < 6 * 86400000) return d.toLocaleDateString(document.documentElement.lang, { weekday: "long" });
+      return d.toLocaleDateString(document.documentElement.lang, { day: "2-digit", month: "2-digit", year: "2-digit" });
     }
-    var mediaLabels = { image: "📷 Foto", video: "🎥 Vídeo", audio: "🎤 Áudio", document: "📄 Documento", sticker: "Figurinha", location: "📍 Localização", live_location: "📍 Localização em tempo real", contact: "👤 Contato", poll: "📊 Enquete" };
+    var mediaLabels = { image: "📷 " + t("Foto"), video: "🎥 " + t("Vídeo"), audio: "🎤 " + t("Áudio"), document: "📄 " + t("Documento"), sticker: t("Figurinha"), location: "📍 " + t("Localização"), live_location: "📍 " + t("Localização em tempo real"), contact: "👤 " + t("Contato"), poll: "📊 " + t("Enquete") };
     function mediaText(media, text) {
-      var lbl = mediaLabels[media] || (media ? "Mídia" : "");
+      var lbl = mediaLabels[media] || (media ? t("Mídia") : "");
       if (lbl && text && text.charAt(0) !== "[") return lbl + " · " + text;
       return lbl || text;
     }
@@ -306,9 +306,9 @@
 
     function renderChats() {
       list.textContent = "";
-      countPill.textContent = chats.length ? chats.length + " conversas" : "nenhuma ainda";
+      countPill.textContent = chats.length ? (chats.length === 1 ? t("1 conversa") : t("%d conversas", chats.length)) : t("nenhuma ainda");
       if (!chats.length) {
-        list.appendChild(el("li", "empty", "Nenhuma conversa guardada ainda. Assim que o celular mandar o histórico, elas aparecem aqui."));
+        list.appendChild(el("li", "empty", t("Nenhuma conversa guardada ainda. Assim que o celular mandar o histórico, elas aparecem aqui.")));
         return;
       }
       chats.forEach(function (c) {
@@ -323,7 +323,7 @@
         top.appendChild(el("span", "chat__name", c.name));
         top.appendChild(el("span", "chat__time" + (c.unread ? " chat__time--unread" : ""), when(c.at)));
         var bottom = el("span", "chat__bottom");
-        var prefix = c.last_from_me ? "Você: " : (c.group && c.last_sender ? firstName(c.last_sender) + ": " : "");
+        var prefix = c.last_from_me ? t("Você") + ": " : (c.group && c.last_sender ? firstName(c.last_sender) + ": " : "");
         bottom.appendChild(el("span", "chat__last", prefix + mediaText(c.last_media, c.last_text)));
         if (c.unread) bottom.appendChild(el("span", "chat__badge", String(c.unread)));
         else if (c.pinned) bottom.appendChild(el("span", "chat__pin", "📌"));
@@ -339,14 +339,14 @@
     function bubble(m, showWho) {
       var b = el("div", "bubble" + (m.from_me ? " bubble--me" : ""));
       if (showWho && !m.from_me && m.sender) b.appendChild(el("span", "bubble__who", m.sender));
-      if (m.media) b.appendChild(el("div", "bubble__media", mediaLabels[m.media] || "Mídia"));
+      if (m.media) b.appendChild(el("div", "bubble__media", mediaLabels[m.media] || t("Mídia")));
       if (m.text && m.text.charAt(0) !== "[") b.appendChild(el("div", "bubble__text", m.text));
       if (m.transcript) {
         var tr = el("div", "bubble__transcript", m.transcript);
-        if (m.transcript_corrected) tr.title = "Corrigida pelo contexto da conversa";
+        if (m.transcript_corrected) tr.title = t("Corrigida pelo contexto da conversa");
         b.appendChild(tr);
       }
-      b.appendChild(el("span", "bubble__time", new Date(m.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })));
+      b.appendChild(el("span", "bubble__time", new Date(m.at).toLocaleTimeString(document.documentElement.lang, { hour: "2-digit", minute: "2-digit" })));
       return b;
     }
 
@@ -374,16 +374,16 @@
           thread.textContent = "";
           var lastDay = "";
           data.messages.forEach(function (m) {
-            var day = new Date(m.at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+            var day = new Date(m.at).toLocaleDateString(document.documentElement.lang, { day: "2-digit", month: "long", year: "numeric" });
             if (day !== lastDay) { thread.appendChild(el("div", "thread__day", day)); lastDay = day; }
             thread.appendChild(bubble(m, c.group));
           });
-          if (!data.messages.length) thread.appendChild(el("div", "empty", "Nenhuma mensagem desta conversa ainda."));
+          if (!data.messages.length) thread.appendChild(el("div", "empty", t("Nenhuma mensagem desta conversa ainda.")));
           thread.scrollTop = thread.scrollHeight;
         }
-        threadMeta.textContent = c.messages.toLocaleString("pt-BR") + (c.messages === 1 ? " mensagem guardada" : " mensagens guardadas") +
-          (data.oldest ? ", desde " + new Date(data.oldest).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "") +
-          " · as últimas " + data.messages.length + " aqui";
+        threadMeta.textContent = (c.messages === 1 ? t("1 mensagem guardada") : t("%s mensagens guardadas", c.messages.toLocaleString(document.documentElement.lang))) +
+          (data.oldest ? ", " + t("desde %s", new Date(data.oldest).toLocaleDateString(document.documentElement.lang, { day: "2-digit", month: "short", year: "numeric" })) : "") +
+          " · " + (data.messages.length === 1 ? t("a última aqui") : t("as últimas %d aqui", data.messages.length));
       }).catch(function (error) { thread.textContent = error.message; });
     }
 
@@ -392,8 +392,8 @@
       api("/api/history", chat ? { chat_jid: chat } : {}).then(function (data) {
         note.hidden = false;
         note.textContent = data.started
-          ? "Pedido enviado ao celular. As mensagens mais antigas chegam em até um minuto; a tela se atualiza sozinha."
-          : "Já há um pedido de histórico em andamento. Assim que ele terminar, dá para pedir de novo.";
+          ? t("Pedido enviado ao celular. As mensagens mais antigas chegam em até um minuto; a tela se atualiza sozinha.")
+          : t("Já há um pedido de histórico em andamento. Assim que ele terminar, dá para pedir de novo.");
         watchHistory(button, note);
       }).catch(function (error) {
         button.disabled = false;
@@ -403,22 +403,22 @@
     }
     function watchHistory(button, note) {
       var tries = 0;
-      var t = window.setInterval(function () {
-        if (++tries > 90) { window.clearInterval(t); button.disabled = false; return; }
+      var timer = window.setInterval(function () {
+        if (++tries > 90) { window.clearInterval(timer); button.disabled = false; return; }
         api("/api/chats").then(function (data) {
           var job = data.history;
           if (job && job.finished_at) {
-            window.clearInterval(t);
+            window.clearInterval(timer);
             button.disabled = false;
             var failed = job.failures ? Object.keys(job.failures).length : 0;
             note.textContent = job.messages_added
-              ? "Chegaram " + job.messages_added.toLocaleString("pt-BR") + " mensagens mais antigas."
+              ? (job.messages_added === 1 ? t("Chegou 1 mensagem mais antiga.") : t("Chegaram %s mensagens mais antigas.", job.messages_added.toLocaleString(document.documentElement.lang)))
               : failed
-                ? "O celular não respondeu. Confira se ele está com internet e tente de novo."
-                : "O celular não tinha mensagens mais antigas para mandar.";
+                ? t("O celular não respondeu. Confira se ele está com internet e tente de novo.")
+                : t("O celular não tinha mensagens mais antigas para mandar.");
             refresh();
           } else if (job) {
-            note.textContent = "Buscando… " + job.chats_done + " de " + job.chats.length + " conversas, " + job.messages_added + " mensagens novas até agora.";
+            note.textContent = t("Buscando… %d de %d conversas, %d mensagens novas até agora.", job.chats_done, job.chats.length, job.messages_added);
           }
         }).catch(function () {});
       }, 3000);
@@ -471,7 +471,7 @@
         return;
       }
       if (!mark) {
-        said = el("span", "sr-only", "Atenção: ");
+        said = el("span", "sr-only", t("Atenção:") + " ");
         mark = el("span", "nav__alert", "!");
         mark.setAttribute("aria-hidden", "true");
         tab.insertBefore(said, tab.querySelector(".nav__label"));
@@ -514,10 +514,10 @@
     var syncWatch = window.setInterval(function () {
       api("/api/state").then(function (state) {
         if (state.arriving) {
-          syncing.querySelector("[data-sync-count]").textContent = (state.arriving_count || 0).toLocaleString("pt-BR");
+          syncing.querySelector("[data-sync-count]").textContent = (state.arriving_count || 0).toLocaleString(document.documentElement.lang);
         } else {
           window.clearInterval(syncWatch);
-          syncing.textContent = "Histórico recebido.";
+          syncing.textContent = t("Histórico recebido.");
           syncing.classList.remove("busy");
         }
       }).catch(function () {});
@@ -538,7 +538,7 @@
       if (i.state === "error") { window.location.reload(); return; }
       if (i.state === "running") {
         progress.hidden = false;
-        step.textContent = (i.step || "Preparando") + (i.total ? " · " + Math.floor(100 * i.downloaded / i.total) + "%" : "");
+        step.textContent = (i.step || t("Preparando")) + (i.total ? " · " + Math.floor(100 * i.downloaded / i.total) + "%" : "");
       }
       window.setTimeout(poll, 1500);
     }).catch(function () { window.setTimeout(poll, 3000); });
@@ -546,7 +546,7 @@
   button.addEventListener("click", function () {
     button.disabled = true;
     progress.hidden = false;
-    step.textContent = "Preparando…";
+    step.textContent = t("Preparando…");
     fetch("/api/asr/install", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: "{}" })
       .then(function () { poll(); });
   });
@@ -569,7 +569,7 @@
     return fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body || {}) })
       .then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (data) {
-          if (!r.ok) throw new Error(data.error || "erro " + r.status);
+          if (!r.ok) throw new Error(data.error || t("erro %d", r.status));
           return data;
         });
       });
@@ -601,6 +601,18 @@
     });
   });
 
+  // The language: kept by the app, and the page comes back in it.
+  document.querySelectorAll("[data-language]").forEach(function (input) {
+    input.addEventListener("change", function () {
+      var note = document.querySelector("[data-language-note]");
+      post("/api/configuracoes", { language: input.value }).then(function () {
+        window.location.reload();
+      }).catch(function (error) {
+        if (note) { note.hidden = false; note.textContent = error.message; }
+      });
+    });
+  });
+
   var folder = document.querySelector("[data-open-folder]");
   if (folder) folder.addEventListener("click", function () { post("/api/abrir-pasta").catch(function () {}); });
 
@@ -620,14 +632,14 @@
 
   function describe(u) {
     switch (u.state) {
-      case "checking": return "Procurando uma versão nova…";
-      case "current": return "Você já tem a versão mais recente.";
-      case "available": return "A versão " + u.latest + " está disponível. O aplicativo será reiniciado após a instalação.";
-      case "downloading": return "Baixando a versão " + u.latest + "… " + (u.progress || 0) + "%";
-      case "ready": return "Versão " + u.latest + " pronta. O app está reiniciando.";
-      case "manual": return "A versão " + u.latest + " está disponível. Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez.";
-      case "unsupported": return "Esta é uma versão de desenvolvimento (" + u.current + "), que não se atualiza sozinha.";
-      case "error": return "Não foi possível atualizar agora: " + u.error;
+      case "checking": return t("Procurando uma versão nova…");
+      case "current": return t("Você já tem a versão mais recente.");
+      case "available": return t("A versão %s está disponível. O aplicativo será reiniciado após a instalação.", u.latest);
+      case "downloading": return t("Baixando a versão %s…", u.latest) + " " + (u.progress || 0) + "%";
+      case "ready": return t("Versão %s pronta. O app está reiniciando.", u.latest);
+      case "manual": return t("A versão %s está disponível. Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez.", u.latest);
+      case "unsupported": return t("Esta é uma versão de desenvolvimento (%s), que não se atualiza sozinha.", u.current);
+      case "error": return t("Não foi possível atualizar agora: %s", u.error);
     }
     return "";
   }
@@ -636,22 +648,22 @@
   // whether it is the latest, and a new version gets the loud one.
   function badge(u) {
     switch (u.state) {
-      case "current": return { tone: "pill--ok", text: "Mais recente" };
-      case "available": case "manual": return { tone: "pill--new", text: "Nova versão " + u.latest };
-      case "checking": return { tone: "pill--off pill--busy", text: "Procurando…", spin: true };
-      case "downloading": return { tone: "pill--new pill--busy", text: "Baixando " + u.latest + "… " + (u.progress || 0) + "%", spin: true };
-      case "ready": return { tone: "pill--new pill--busy", text: "Reiniciando…", spin: true };
-      case "unsupported": return { tone: "pill--off", text: "Versão de desenvolvimento" };
+      case "current": return { tone: "pill--ok", text: t("Mais recente") };
+      case "available": case "manual": return { tone: "pill--new", text: t("Nova versão %s", u.latest) };
+      case "checking": return { tone: "pill--off pill--busy", text: t("Procurando…"), spin: true };
+      case "downloading": return { tone: "pill--new pill--busy", text: t("Baixando %s…", u.latest) + " " + (u.progress || 0) + "%", spin: true };
+      case "ready": return { tone: "pill--new pill--busy", text: t("Reiniciando…"), spin: true };
+      case "unsupported": return { tone: "pill--off", text: t("Versão de desenvolvimento") };
     }
     return null;
   }
 
   function note(u) {
     switch (u.state) {
-      case "available": case "downloading": return "O aplicativo será reiniciado após a instalação.";
-      case "manual": return "Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez.";
-      case "unsupported": return "Ela não se atualiza sozinha.";
-      case "error": return "Não foi possível atualizar agora: " + u.error;
+      case "available": case "downloading": return t("O aplicativo será reiniciado após a instalação.");
+      case "manual": return t("Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez.");
+      case "unsupported": return t("Ela não se atualiza sozinha.");
+      case "error": return t("Não foi possível atualizar agora: %s", u.error);
     }
     return "";
   }
@@ -693,11 +705,11 @@
     page.hidden = u.state !== "manual";
     if (u.page) page.href = u.page;
     if (u.state === "available") {
-      text.textContent = "O WhatsApp MCP " + u.latest + " está disponível. O aplicativo será reiniciado após a instalação.";
+      text.textContent = t("O WhatsApp MCP %s está disponível. O aplicativo será reiniciado após a instalação.", u.latest);
       install.disabled = false;
-      install.textContent = "Atualizar agora";
+      install.textContent = t("Atualizar agora");
     } else if (u.state === "manual") {
-      text.textContent = "O WhatsApp MCP " + u.latest + " está disponível. Baixe e instale o pacote novo.";
+      text.textContent = t("O WhatsApp MCP %s está disponível. Baixe e instale o pacote novo.", u.latest);
     } else {
       text.textContent = describe(u);
       install.disabled = true;
@@ -725,10 +737,10 @@
     button.insertBefore(spin, button.firstChild);
   }
   function install(button) {
-    busy(button, "Atualizando…");
+    busy(button, t("Atualizando…"));
     post("/api/atualizacao/instalar").then(render).catch(function (e) {
       button.disabled = false;
-      button.textContent = "Tentar de novo";
+      button.textContent = t("Tentar de novo");
       var text = (banner && !banner.hidden) ? banner.querySelector("[data-update-banner-text]") : card && card.querySelector("[data-update-text]");
       if (text) { text.textContent = e.message; text.hidden = false; }
     });
@@ -737,16 +749,16 @@
   if (card) {
     var check = card.querySelector("[data-update-check]");
     check.addEventListener("click", function () {
-      busy(check, "Procurando…");
+      busy(check, t("Procurando…"));
       // The answer comes back once GitHub has replied: a new version, or
       // none, or why it could not be asked.
       post("/api/atualizacao/verificar").then(render).catch(function (e) {
         var text = card.querySelector("[data-update-text]");
-        text.textContent = "Não foi possível procurar agora: " + e.message;
+        text.textContent = t("Não foi possível procurar agora: %s", e.message);
         text.hidden = false;
       }).then(function () {
         check.disabled = false;
-        check.textContent = "Procurar atualização";
+        check.textContent = t("Procurar atualização");
       });
     });
     var cardInstall = card.querySelector("[data-update-install]");

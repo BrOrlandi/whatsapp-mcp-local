@@ -17,6 +17,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"math"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/brand"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
@@ -183,6 +185,7 @@ func (p *Panel) Register(mux *http.ServeMux) {
 // registerAssets serves the scripts and icons every page loads.
 func registerAssets(mux *http.ServeMux) {
 	sub, _ := fs.Sub(assets, "assets")
+	mux.HandleFunc("GET /assets/i18n.js", translations)
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(sub))))
 	icon := func(ctype string, body []byte) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -457,103 +460,117 @@ func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout
 func syncLabel(s wacli.Status) (tone, label string) {
 	switch s.State {
 	case "connected":
-		return "ok", "Conectado"
+		return "ok", i18n.N("Conectado")
 	case "paused":
 		if s.PausedFor == "pairing" {
-			return "warn", "Conectando"
+			return "warn", i18n.N("Conectando")
 		}
-		return "warn", "Pausado por instantes"
+		return "warn", i18n.N("Pausado por instantes")
 	case "starting":
-		return "warn", "Carregando"
+		return "warn", i18n.N("Carregando")
 	case "reconnecting":
-		return "warn", "Reconectando"
+		return "warn", i18n.N("Reconectando")
 	case "not_paired":
-		return "off", "Não conectado"
+		return "off", i18n.N("Não conectado")
 	case "logged_out":
-		return "off", "Desconectado pelo WhatsApp"
+		return "off", i18n.N("Desconectado pelo WhatsApp")
 	}
-	return "off", "Parado"
+	return "off", i18n.N("Parado")
 }
 
-// describeCheck says each health check in Portuguese, from the report's own
-// data, so the panel does not show the model-facing English.
+// describeCheck says each health check in the person's language, from the
+// report's own data, so the panel does not show the model-facing English.
 func describeCheck(c mcp.Check, s snapshot) (string, string) {
+	title, text := describeCheckPT(c, s)
+	return i18n.T(title), text
+}
+
+// describeCheckPT is the check's title, still the Portuguese key, and its text
+// already in the person's language.
+func describeCheckPT(c mcp.Check, s snapshot) (string, string) {
 	a := s.Activity
 	switch c.Name {
 	case "daemon":
-		return "WhatsApp MCP", "Funcionando neste computador."
+		return i18n.N("WhatsApp MCP"), i18n.T("Funcionando neste computador.")
 	case "wacli":
 		if s.InApp {
-			return "Componente do WhatsApp", "A parte do app que conecta ao WhatsApp não respondeu. Reinstale o WhatsApp MCP."
+			return i18n.N("Componente do WhatsApp"), i18n.T("A parte do app que conecta ao WhatsApp não respondeu. Reinstale o WhatsApp MCP.")
 		}
-		return "Componente do WhatsApp", "O wacli não respondeu. Instale com brew install openclaw/tap/wacli."
+		return i18n.N("Componente do WhatsApp"), i18n.T("O wacli não respondeu. Instale com brew install openclaw/tap/wacli.")
 	case "paired":
 		if c.Status == "ok" {
-			return "WhatsApp pareado", "Este computador é um dispositivo conectado da sua conta."
+			return i18n.N("WhatsApp pareado"), i18n.T("Este computador é um dispositivo conectado da sua conta.")
 		}
-		return "WhatsApp pareado", "Nenhuma conta conectada. Conecte o seu WhatsApp pelo QR code."
+		return i18n.N("WhatsApp pareado"), i18n.T("Nenhuma conta conectada. Conecte o seu WhatsApp pelo QR code.")
 	case "sync":
 		switch s.Sync.State {
 		case "connected":
 			if !s.Sync.Delegate {
-				return "Conexão", "Conectado e recebendo. O envio de mensagens fica pronto em instantes."
+				return i18n.N("Conexão"), i18n.T("Conectado e recebendo. O envio de mensagens fica pronto em instantes.")
 			}
-			return "Conexão", "Conectado ao WhatsApp e recebendo em tempo real."
+			return i18n.N("Conexão"), i18n.T("Conectado ao WhatsApp e recebendo em tempo real.")
 		case "paused":
-			return "Conexão", "Pausada por alguns segundos para " + pauseReason(s.Sync.PausedFor) + ". Volta sozinha."
+			return i18n.N("Conexão"), i18n.Tf("Pausada por alguns segundos para %s. Volta sozinha.", pauseReason(s.Sync.PausedFor))
 		case "starting":
-			return "Conexão", "Carregando."
+			return i18n.N("Conexão"), i18n.T("Carregando.")
 		case "reconnecting":
-			return "Conexão", "Reconectando ao WhatsApp. Confira a internet deste computador."
+			return i18n.N("Conexão"), i18n.T("Reconectando ao WhatsApp. Confira a internet deste computador.")
 		case "not_paired":
-			return "Conexão", "Aguardando o WhatsApp ser conectado."
+			return i18n.N("Conexão"), i18n.T("Aguardando o WhatsApp ser conectado.")
 		case "logged_out":
-			return "Conexão", "O WhatsApp desconectou este computador. Conecte de novo pelo QR code."
+			return i18n.N("Conexão"), i18n.T("O WhatsApp desconectou este computador. Conecte de novo pelo QR code.")
 		}
-		text := "Parada"
-		if s.Sync.LastError != "" {
-			text += ": " + s.Sync.LastError
+		var text string
+		switch {
+		case s.Sync.LastError != "" && s.LogPath != "":
+			text = i18n.Tf("Parada: %s. Veja o log em %s.", s.Sync.LastError, s.LogPath)
+		case s.Sync.LastError != "":
+			text = i18n.Tf("Parada: %s.", s.Sync.LastError)
+		case s.LogPath != "":
+			text = i18n.Tf("Parada. Veja o log em %s.", s.LogPath)
+		default:
+			text = i18n.T("Parada.")
 		}
-		if s.LogPath != "" {
-			text += ". Veja o log em " + s.LogPath
-		}
-		return "Conexão", text + "."
+		return i18n.N("Conexão"), text
 	case "receiving":
 		if a.NewestIncoming == nil {
-			return "Recebendo mensagens", "Nenhuma mensagem guardada ainda. A primeira sincronização pode estar em andamento."
+			return i18n.N("Recebendo mensagens"), i18n.T("Nenhuma mensagem guardada ainda. A primeira sincronização pode estar em andamento.")
 		}
-		text := fmt.Sprintf("Última mensagem recebida %s; %d na última hora, %d em 24 horas.", relativeSince(*a.NewestIncoming), a.LastHour, a.LastDay)
+		text := i18n.Tf("Última mensagem recebida %s; %d na última hora, %d em 24 horas.", relativeSince(*a.NewestIncoming), a.LastHour, a.LastDay)
 		switch c.Status {
 		case "warn":
-			text += " Mais quieto que o normal: comum de madrugada. Para ter certeza, peça para alguém mandar uma mensagem."
+			text += " " + i18n.T("Mais quieto que o normal: comum de madrugada. Para ter certeza, peça para alguém mandar uma mensagem.")
 		case "fail":
-			text += " Um dia inteiro sem mensagens costuma indicar que não está recebendo."
+			text += " " + i18n.T("Um dia inteiro sem mensagens costuma indicar que não está recebendo.")
 		}
-		return "Recebendo mensagens", text
+		return i18n.N("Recebendo mensagens"), text
 	case "coverage":
 		if c.Status == "ok" {
-			return "Cobertura", "Sem lacunas nos últimos 7 dias."
+			return i18n.N("Cobertura"), i18n.T("Sem lacunas nos últimos 7 dias.")
 		}
-		return "Cobertura", "Houve períodos nos últimos 7 dias sem mensagem em nenhuma conversa, o rastro de um computador desligado."
+		return i18n.N("Cobertura"), i18n.T("Houve períodos nos últimos 7 dias sem mensagem em nenhuma conversa, o rastro de um computador desligado.")
 	case "history_request":
-		return "Pedido de histórico", "O último pedido de histórico falhou em algumas conversas. O celular precisa estar com internet."
+		return i18n.N("Pedido de histórico"), i18n.T("O último pedido de histórico falhou em algumas conversas. O celular precisa estar com internet.")
 	}
 	return c.Name, c.Detail
 }
 
 func pauseReason(r string) string {
 	if strings.HasPrefix(r, "history backfill") {
-		return "buscar histórico antigo no celular"
+		return i18n.T("buscar histórico antigo no celular")
 	}
-	reasons := map[string]string{"revoke message": "apagar uma mensagem", "check numbers": "verificar números", "profile picture": "buscar uma foto de perfil",
-		"group info": "atualizar um grupo", "logout": "desconectar", "pairing": "conectar o WhatsApp",
-		"archive chat": "arquivar uma conversa", "unarchive chat": "desarquivar uma conversa", "pin chat": "fixar uma conversa",
-		"unpin chat": "desafixar uma conversa", "mute chat": "silenciar uma conversa", "unmute chat": "reativar uma conversa"}
-	if v, ok := reasons[r]; ok {
-		return v
+	if v, ok := pauseReasons[r]; ok {
+		return i18n.T(v)
 	}
-	return "uma operação"
+	return i18n.T("uma operação")
 }
+
+// pauseReasons says what wacli pauses for, completing "Pausada por alguns
+// segundos para …".
+var pauseReasons = map[string]string{"revoke message": i18n.N("apagar uma mensagem"), "check numbers": i18n.N("verificar números"), "profile picture": i18n.N("buscar uma foto de perfil"),
+	"group info": i18n.N("atualizar um grupo"), "logout": i18n.N("desconectar"), "pairing": i18n.N("conectar o WhatsApp"),
+	"archive chat": i18n.N("arquivar uma conversa"), "unarchive chat": i18n.N("desarquivar uma conversa"), "pin chat": i18n.N("fixar uma conversa"),
+	"unpin chat": i18n.N("desafixar uma conversa"), "mute chat": i18n.N("silenciar uma conversa"), "unmute chat": i18n.N("reativar uma conversa")}
 
 // ---- the setup flow ----
 
@@ -577,7 +594,7 @@ func (p *Panel) setupStep(ctx context.Context, s snapshot) int {
 }
 
 func steps(now int) []wizardStep {
-	labels := []string{"WhatsApp", "Ferramenta de IA"}
+	labels := []string{i18n.N("WhatsApp"), i18n.N("Ferramenta de IA")}
 	out := make([]wizardStep, len(labels))
 	for i, l := range labels {
 		st := "todo"
@@ -607,7 +624,7 @@ func (p *Panel) instalacao(w http.ResponseWriter, r *http.Request) (string, any)
 			live++
 		}
 	}
-	l := p.layout(r, "Instalação", "", s)
+	l := p.layout(r, i18n.N("Instalação"), "", s)
 	// Setting up is not a problem to be alarmed about, and the wizard follows
 	// the pairing on its own.
 	l.HealthTone, l.LiveKey = "", ""
@@ -660,7 +677,7 @@ func (p *Panel) conectar(w http.ResponseWriter, r *http.Request) (string, any) {
 		LastUse     time.Time
 		Prompts     []string
 		Newcomer    bool
-	}{p.layout(r, "Conectar", "conectar", s), s, set, conns, live, last, suggestedPrompts, p.newcomer(r.Context(), time.Now())}
+	}{p.layout(r, i18n.N("Conectar"), "conectar", s), s, set, conns, live, last, suggestedPrompts, p.newcomer(r.Context(), time.Now())}
 }
 
 // newcomerDays is how long the first page keeps its examples, counted from
@@ -686,7 +703,7 @@ func (p *Panel) ajuda(w http.ResponseWriter, r *http.Request) (string, any) {
 	return "ajuda", struct {
 		layout
 		Prompts []string
-	}{p.layout(r, "Ajuda", "ajuda", s), suggestedPrompts}
+	}{p.layout(r, i18n.N("Ajuda"), "ajuda", s), suggestedPrompts}
 }
 
 // guide is an AI tool the connect flow walks through.
@@ -704,16 +721,16 @@ type guide struct {
 }
 
 var guides = []guide{
-	{"claude-desktop", "Claude Desktop", "Chat e Cowork, no app do Claude para computador.", "claude", "claude-ai",
-		"Conectar o Claude Desktop", "o Claude Desktop", "Claude Desktop conectado"},
-	{"claude-code", "Claude Code", "No terminal ou no editor de código.", "claude-code", "claude-code",
-		"Conectar o Claude Code", "o Claude Code", "Claude Code conectado"},
-	{"codex", "ChatGPT / Codex", "O Codex no app do ChatGPT, no app do Codex, no terminal ou no editor.", "openai", codexClient,
-		"Conectar o ChatGPT / Codex", "o Codex", "Codex conectado"},
-	{"cursor", "Cursor", "O editor de código com IA.", "cursor", cursorClient,
-		"Conectar o Cursor", "o Cursor", "Cursor conectado"},
-	{"outra", "Outra ferramenta", "Windsurf e outras que aceitem MCP.", "grid", "",
-		"Conectar outra ferramenta", "a ferramenta", "Ferramenta conectada"},
+	{"claude-desktop", i18n.N("Claude Desktop"), i18n.N("Chat e Cowork, no app do Claude para computador."), "claude", "claude-ai",
+		i18n.N("Conectar o Claude Desktop"), i18n.N("o Claude Desktop"), i18n.N("Claude Desktop conectado")},
+	{"claude-code", i18n.N("Claude Code"), i18n.N("No terminal ou no editor de código."), "claude-code", "claude-code",
+		i18n.N("Conectar o Claude Code"), i18n.N("o Claude Code"), i18n.N("Claude Code conectado")},
+	{"codex", i18n.N("ChatGPT / Codex"), i18n.N("O Codex no app do ChatGPT, no app do Codex, no terminal ou no editor."), "openai", codexClient,
+		i18n.N("Conectar o ChatGPT / Codex"), i18n.N("o Codex"), i18n.N("Codex conectado")},
+	{"cursor", i18n.N("Cursor"), i18n.N("O editor de código com IA."), "cursor", cursorClient,
+		i18n.N("Conectar o Cursor"), i18n.N("o Cursor"), i18n.N("Cursor conectado")},
+	{"outra", i18n.N("Outra ferramenta"), i18n.N("Windsurf e outras que aceitem MCP."), "grid", "",
+		i18n.N("Conectar outra ferramenta"), i18n.N("a ferramenta"), i18n.N("Ferramenta conectada")},
 }
 
 // toolChoice is a guide with where its tool stands: live, configured or "".
@@ -755,7 +772,7 @@ func (p *Panel) connectChoose(w http.ResponseWriter, r *http.Request) (string, a
 		return "", nil
 	}
 	conns := p.connections(r.Context(), p.setup(r.Context()))
-	l := p.layout(r, "Conectar ferramenta de IA", "conectar", s)
+	l := p.layout(r, i18n.N("Conectar ferramenta de IA"), "conectar", s)
 	l.LiveKey = ""
 	return "conectarescolha", struct {
 		layout
@@ -818,7 +835,7 @@ func (p *Panel) whatsapp(w http.ResponseWriter, r *http.Request) (string, any) {
 	return "whatsapp", struct {
 		layout
 		snapshot
-	}{p.layout(r, "WhatsApp", "whatsapp", s), s}
+	}{p.layout(r, i18n.N("WhatsApp"), "whatsapp", s), s}
 }
 
 func (p *Panel) status(w http.ResponseWriter, r *http.Request) (string, any) {
@@ -826,7 +843,7 @@ func (p *Panel) status(w http.ResponseWriter, r *http.Request) (string, any) {
 	return "status", struct {
 		layout
 		snapshot
-	}{p.layout(r, "Status", "status", s), s}
+	}{p.layout(r, i18n.N("Status"), "status", s), s}
 }
 
 // configuracoes is the settings page. Appearance and audio transcription are
@@ -846,7 +863,7 @@ func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, a
 		Local       localasr.Status
 		Total       int
 		Corrected   int
-	}{p.layout(r, "Configurações", "configuracoes", s), p.setup(r.Context()), portOf(p.endpoint()), r.URL.Query().Get("porta") == "1", local, total, corrected}
+	}{p.layout(r, i18n.N("Configurações"), "configuracoes", s), p.setup(r.Context()), portOf(p.endpoint()), r.URL.Query().Get("porta") == "1", local, total, corrected}
 }
 
 func (p *Panel) apiASR(r *http.Request) (any, error) {
@@ -860,7 +877,7 @@ func (p *Panel) apiASR(r *http.Request) (any, error) {
 func (p *Panel) apiASRInstall(r *http.Request) (any, error) {
 	asr := p.Server.ASR()
 	if asr == nil {
-		return nil, userError{"a transcrição local não está disponível"}
+		return nil, userError{i18n.T("a transcrição local não está disponível")}
 	}
 	if err := asr.StartInstall(); err != nil && !errors.Is(err, localasr.ErrInstalling) {
 		return nil, err
@@ -875,7 +892,7 @@ func (p *Panel) funcoes(w http.ResponseWriter, r *http.Request) (string, any) {
 		layout
 		Tools []mcp.Tool
 		Count int
-	}{p.layout(r, "Funções", "funcoes", s), tools, len(tools)}
+	}{p.layout(r, i18n.N("Funções"), "funcoes", s), tools, len(tools)}
 }
 
 func (p *Panel) receitas(w http.ResponseWriter, r *http.Request) (string, any) {
@@ -883,7 +900,7 @@ func (p *Panel) receitas(w http.ResponseWriter, r *http.Request) (string, any) {
 	return "receitas", struct {
 		layout
 		Recipes []recipe
-	}{p.layout(r, "Receitas", "receitas", s), recipeBook()}
+	}{p.layout(r, i18n.N("Receitas"), "receitas", s), recipeBook()}
 }
 
 func (p *Panel) logout(r *http.Request) (string, error) {
@@ -903,9 +920,9 @@ func (p *Panel) nameNumber(r *http.Request) (string, error) {
 	if err := p.State.SetSetting(r.Context(), account.LabelSetting, label); err != nil {
 		return "/whatsapp", err
 	}
-	ok := "Nome do número salvo."
+	ok := i18n.T("Nome do número salvo.")
 	if label == "" {
-		ok = "Nome do número removido."
+		ok = i18n.T("Nome do número removido.")
 	}
 	return "/whatsapp?ok=" + url.QueryEscape(ok), nil
 }
@@ -915,7 +932,7 @@ func (p *Panel) nameNumber(r *http.Request) (string, error) {
 func (p *Panel) renameConnection(r *http.Request) (string, error) {
 	name, ok := strings.CutPrefix(r.FormValue("client"), "client:")
 	if !ok || name == "" {
-		return "/", userError{"só dá para renomear a conexão de outra ferramenta"}
+		return "/", userError{i18n.T("só dá para renomear a conexão de outra ferramenta")}
 	}
 	label := strings.Join(strings.Fields(r.FormValue("name")), " ")
 	if runes := []rune(label); len(runes) > 40 {
@@ -1045,7 +1062,7 @@ func (p *Panel) apiHistory(r *http.Request) (any, error) {
 	}
 	job, started, err := p.Server.RequestHistory(r.Context(), body.ChatJID, 50, rounds, recentChats)
 	if err != nil {
-		return nil, userError{"não há de onde partir: a busca começa pela mensagem mais antiga que este computador já tem"}
+		return nil, userError{i18n.T("não há de onde partir: a busca começa pela mensagem mais antiga que este computador já tem")}
 	}
 	return map[string]any{"started": started, "job": job}, nil
 }
@@ -1057,7 +1074,7 @@ func (p *Panel) apiPair(r *http.Request) (any, error) {
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	account, _ := p.Supervisor.Account(r.Context())
 	if account.Authenticated {
-		return nil, userError{"este computador já está conectado a um WhatsApp; desconecte antes de conectar outro"}
+		return nil, userError{i18n.T("este computador já está conectado a um WhatsApp; desconecte antes de conectar outro")}
 	}
 	phone := strings.Map(func(r rune) rune {
 		if unicode.IsDigit(r) {
@@ -1066,7 +1083,7 @@ func (p *Panel) apiPair(r *http.Request) (any, error) {
 		return -1
 	}, body.Phone)
 	if body.Phone != "" && (len(phone) < 8 || len(phone) > 15) {
-		return nil, userError{"informe o número com DDI e DDD, por exemplo +55 11 91234-5678"}
+		return nil, userError{i18n.T("informe o número com DDI e DDD, por exemplo +55 11 91234-5678")}
 	}
 	// A code asked for while a QR code (or a code for another number) is up
 	// takes its place; a QR code never replaces a pairing under way, so a
@@ -1101,7 +1118,7 @@ func (p *Panel) apiAddClient(r *http.Request) (any, error) {
 	case "cursor":
 		err = p.addCursor(body.Replace)
 	default:
-		return nil, userError{"cliente desconhecido"}
+		return nil, userError{i18n.T("cliente desconhecido")}
 	}
 	var conflict errConflict
 	if errors.As(err, &conflict) {
@@ -1139,6 +1156,10 @@ func (p *Panel) qr(w http.ResponseWriter, r *http.Request) {
 func funcs() template.FuncMap {
 	return template.FuncMap{
 		"css":           func() template.CSS { return template.CSS(stylesheet) },
+		"t":             translate,
+		"tf":            translatef,
+		"lang":          i18n.Lang,
+		"languages":     func() []i18n.Language { return i18n.Languages },
 		"icon":          icon,
 		"toolmark":      toolmark,
 		"logo":          brand.LogoSVG,
@@ -1151,11 +1172,11 @@ func funcs() template.FuncMap {
 		"accel": func(a string) string {
 			switch a {
 			case "metal":
-				return "na GPU do seu Mac"
+				return i18n.T("na GPU do seu Mac")
 			case "cuda":
-				return "na placa de vídeo NVIDIA"
+				return i18n.T("na placa de vídeo NVIDIA")
 			}
-			return "no processador"
+			return i18n.T("no processador")
 		},
 		"baseOf":        func(endpoint string) string { return strings.TrimSuffix(endpoint, "/mcp") },
 		"relativeSince": relativeSinceAny,
@@ -1163,9 +1184,9 @@ func funcs() template.FuncMap {
 		"count":         countFormat,
 		"plural": func(n int, one, many string) string {
 			if n == 1 {
-				return "1 " + one
+				return "1 " + i18n.T(one)
 			}
-			return strconv.Itoa(n) + " " + many
+			return strconv.Itoa(n) + " " + i18n.T(many)
 		},
 		"initial": func(s string) string {
 			for _, r := range s {
@@ -1177,22 +1198,54 @@ func funcs() template.FuncMap {
 		},
 		"hours": func(h float64) string {
 			if h >= 48 {
-				return fmt.Sprintf("%.0f dias", h/24)
+				return i18n.Tf("%d dias", int(math.Round(h/24)))
 			}
-			return fmt.Sprintf("%.0f horas", h)
+			return i18n.Tf("%d horas", int(math.Round(h)))
 		},
 	}
 }
+
+// translate is s in the person's language. The catalogues are the project's
+// own text, so their markup is trusted, as the Portuguese in the templates is.
+func translate(s string) template.HTML { return template.HTML(i18n.T(s)) }
+
+// translatef is translate of a format, with the values filled in escaped.
+func translatef(format string, args ...any) template.HTML {
+	for i, a := range args {
+		switch v := a.(type) {
+		case template.HTML:
+		case string:
+			args[i] = template.HTMLEscapeString(v)
+		case fmt.Stringer:
+			args[i] = template.HTMLEscapeString(v.String())
+		}
+	}
+	return template.HTML(i18n.Tf(format, args...))
+}
+
+// translations serves the catalogue of the language in use to the panel's
+// scripts, as window.I18N, with t(s, ...args) to look a text up.
+func translations(w http.ResponseWriter, _ *http.Request) {
+	body, _ := json.Marshal(i18n.Catalogue())
+	w.Header().Set("Content-Type", "text/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	fmt.Fprintf(w, "window.I18N={lang:%q,text:%s};\n%s", i18n.Lang(), body, translateScript)
+}
+
+// translateScript is t for the scripts: the same lookup as T, with %s and %d
+// filled in order.
+const translateScript = `window.t=function(s){var r=(window.I18N.text||{})[s]||s,a=arguments,i=1;return r.replace(/%[sd]/g,function(m){return i<a.length?String(a[i++]):m})};
+`
 
 // trayName is what each system calls the place the app's icon lives.
 func trayName() string {
 	switch runtime.GOOS {
 	case "darwin":
-		return "barra de menus"
+		return i18n.T("barra de menus")
 	case "windows":
-		return "área de notificação"
+		return i18n.T("área de notificação")
 	}
-	return "bandeja do sistema"
+	return i18n.T("bandeja do sistema")
 }
 
 func timeOf(v any) (time.Time, bool) {
@@ -1220,13 +1273,13 @@ func relativeSince(t time.Time) string {
 	d := time.Since(t)
 	switch {
 	case d < time.Minute:
-		return "agora"
+		return i18n.T("agora")
 	case d < time.Hour:
-		return fmt.Sprintf("há %d min", int(d.Minutes()))
+		return i18n.Tf("há %d min", int(d.Minutes()))
 	case d < 48*time.Hour:
-		return fmt.Sprintf("há %d h", int(d.Hours()))
+		return i18n.Tf("há %d h", int(d.Hours()))
 	}
-	return fmt.Sprintf("há %d dias", int(d.Hours()/24))
+	return i18n.Tf("há %d dias", int(d.Hours()/24))
 }
 
 func momentAny(v any) string {
@@ -1246,10 +1299,15 @@ func countFormat(v any) string {
 		n = x
 	}
 	s := strconv.FormatInt(n, 10)
+	// English groups thousands with a comma; Portuguese and Spanish, a point.
+	sep := byte('.')
+	if i18n.Lang() == "en" {
+		sep = ','
+	}
 	var out []byte
 	for i := range s {
 		if i > 0 && (len(s)-i)%3 == 0 {
-			out = append(out, '.')
+			out = append(out, sep)
 		}
 		out = append(out, s[i])
 	}

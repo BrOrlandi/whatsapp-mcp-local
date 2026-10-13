@@ -13,6 +13,7 @@ import (
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/appconfig"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/daemon"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
@@ -25,6 +26,7 @@ func (a *App) Settings() panel.HostSettings {
 	return panel.HostSettings{
 		Autostart:   c.Autostart,
 		CloseToTray: c.CloseToTray,
+		Language:    c.Language,
 		CanHide:     a.canHide,
 		PortLocked:  a.portLocked,
 		DataDir:     a.dataDir,
@@ -59,20 +61,31 @@ func (a *App) SetCloseToTray(on bool) error {
 	return a.updateConfig(func(c *appconfig.Config) { c.CloseToTray = on })
 }
 
+// SetLanguage keeps the language in config.json and shows it at once: the
+// panel on its next page, the menus now.
+func (a *App) SetLanguage(code string) error {
+	if err := a.updateConfig(func(c *appconfig.Config) { c.Language = code }); err != nil {
+		return err
+	}
+	i18n.Set(code)
+	a.tray.relabel()
+	return nil
+}
+
 // SetPort moves the MCP and writes the port into config.json, where the
 // bridge finds it.
 func (a *App) SetPort(port int) error {
 	if a.portLocked {
-		return errors.New("a porta está definida pela variável de ambiente WHATSAPP_MCP_PORT")
+		return errors.New(i18n.T("a porta está definida pela variável de ambiente WHATSAPP_MCP_PORT"))
 	}
 	d := a.current()
 	if d == nil {
-		return errors.New("o WhatsApp MCP ainda está iniciando")
+		return errors.New(i18n.T("o WhatsApp MCP ainda está iniciando"))
 	}
 	if err := d.SetPort(port); err != nil {
 		var inUse daemon.ErrPortInUse
 		if errors.As(err, &inUse) {
-			return errors.New("a porta " + itoa(port) + " já está em uso por outro programa")
+			return errors.New(i18n.Tf("a porta %d já está em uso por outro programa", port))
 		}
 		return err
 	}
@@ -147,7 +160,7 @@ func (a *App) setMenu() {
 	app := menu.AddSubmenu(platform.AppName)
 	app.AddRole(application.About)
 	app.AddSeparator()
-	app.Add("Configurações…").SetAccelerator("CmdOrCtrl+,").OnClick(func(*application.Context) { go a.showWindow("/configuracoes") })
+	a.appMenu.settings = app.Add("").SetAccelerator("CmdOrCtrl+,").OnClick(func(*application.Context) { go a.showWindow("/configuracoes") })
 	app.AddSeparator()
 	app.AddRole(application.Hide)
 	app.AddRole(application.HideOthers)
@@ -155,25 +168,30 @@ func (a *App) setMenu() {
 	app.AddSeparator()
 	// ⌘Q closes the window, as the app keeps working in the menu bar;
 	// quitting it is a choice made on purpose, and confirmed.
-	app.Add("Fechar a janela").SetAccelerator("CmdOrCtrl+q").OnClick(func(*application.Context) { go a.closeWindow() })
-	app.Add("Encerrar o " + platform.AppName + "…").OnClick(func(*application.Context) { a.confirmQuit() })
+	a.appMenu.close = app.Add("").SetAccelerator("CmdOrCtrl+q").OnClick(func(*application.Context) { go a.closeWindow() })
+	a.appMenu.quit = app.Add("").OnClick(func(*application.Context) { a.confirmQuit() })
+	a.relabelMenu()
 	menu.AddRole(application.EditMenu)
 	menu.AddRole(application.WindowMenu)
 	a.wails.Menu.SetApplicationMenu(menu)
 }
 
-func htmlEscape(s string) string { return html.EscapeString(s) }
-
-func itoa(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	var b [12]byte
-	i := len(b)
-	for n > 0 {
-		i--
-		b[i] = byte('0' + n%10)
-		n /= 10
-	}
-	return string(b[i:])
+// appMenu holds the application menu's own items, to word them again.
+type appMenu struct {
+	settings, close, quit *application.MenuItem
 }
+
+// relabelMenu sets the application menu's own labels in the language in use;
+// the roles (Hide, Edit, Window…) keep the labels Wails gives them. The
+// tray's relabel calls it.
+func (a *App) relabelMenu() {
+	m := a.appMenu
+	if m.settings == nil {
+		return
+	}
+	m.settings.SetLabel(i18n.T("Configurações…"))
+	m.close.SetLabel(i18n.T("Fechar a janela"))
+	m.quit.SetLabel(i18n.Tf("Encerrar o %s…", platform.AppName))
+}
+
+func htmlEscape(s string) string { return html.EscapeString(s) }

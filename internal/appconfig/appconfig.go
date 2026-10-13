@@ -24,6 +24,9 @@ type Config struct {
 	CloseToTray bool `json:"close_to_tray"`
 	// Autostart opens the app, in the tray only, when the user logs in.
 	Autostart bool `json:"autostart"`
+	// Language is the language the app shows (pt-BR, es, en); empty follows
+	// the system's.
+	Language string `json:"language,omitempty"`
 	// Seen records one-time notices already shown, such as "close" for the
 	// one explaining that closing the window keeps the app in the tray.
 	Seen []string `json:"seen,omitempty"`

@@ -404,6 +404,7 @@ const extraCSS = `
 .card__sub{padding-top:16px;border-top:1px solid var(--border)}
 /* Appearance: each theme drawn as a small window, the system one half and half. */
 .themes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:540px;margin:0;padding:0;border:0;min-width:0}
+.languages{margin:0;padding:0;border:0;min-width:0}
 .theme-pick{position:relative;display:grid;gap:9px;padding:9px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);cursor:pointer}
 .theme-pick:hover{border-color:var(--brand-strong)}
 .theme-pick input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}

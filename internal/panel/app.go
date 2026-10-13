@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 )
 
 // Host is the desktop app around the panel: the settings and actions that
@@ -15,6 +17,9 @@ type Host interface {
 	Settings() HostSettings
 	SetAutostart(on bool) error
 	SetCloseToTray(on bool) error
+	// SetLanguage shows the app in another language (a code of
+	// i18n.Languages, or empty to follow the system's) and keeps it.
+	SetLanguage(code string) error
 	// SetPort moves the MCP to another port and keeps it there.
 	SetPort(port int) error
 	OpenURL(url string) error
@@ -34,6 +39,8 @@ type Host interface {
 type HostSettings struct {
 	Autostart   bool
 	CloseToTray bool
+	// Language is the chosen language, empty when it follows the system's.
+	Language string
 	// CanHide is false where there is no tray to hide into (GNOME without
 	// the AppIndicator extension): closing the window then minimises it.
 	CanHide bool
@@ -85,11 +92,11 @@ func portOf(endpoint string) int {
 
 func (p *Panel) savePort(r *http.Request) (string, error) {
 	if p.Host.Settings().PortLocked {
-		return "/configuracoes", userError{"a porta está definida pela variável de ambiente WHATSAPP_MCP_PORT"}
+		return "/configuracoes", userError{i18n.T("a porta está definida pela variável de ambiente WHATSAPP_MCP_PORT")}
 	}
 	port, err := strconv.Atoi(strings.TrimSpace(r.FormValue("port")))
 	if err != nil || port < 1024 || port > 65535 {
-		return "/configuracoes", userError{"a porta precisa ser um número de 1024 a 65535"}
+		return "/configuracoes", userError{i18n.T("a porta precisa ser um número de 1024 a 65535")}
 	}
 	back := "/configuracoes"
 	if r.FormValue("from") != "" && strings.HasPrefix(r.FormValue("from"), "/") {
@@ -101,16 +108,17 @@ func (p *Panel) savePort(r *http.Request) (string, error) {
 	if err := p.Host.SetPort(port); err != nil {
 		return back, userError{err.Error()}
 	}
-	return "/configuracoes?porta=1&ok=" + url.QueryEscape("O MCP agora responde em "+p.endpoint()+"."), nil
+	return "/configuracoes?porta=1&ok=" + url.QueryEscape(i18n.Tf("O MCP agora responde em %s.", p.endpoint())), nil
 }
 
 func (p *Panel) apiSettings(r *http.Request) (any, error) {
 	var body struct {
-		Autostart   *bool `json:"autostart"`
-		CloseToTray *bool `json:"close_to_tray"`
+		Autostart   *bool   `json:"autostart"`
+		CloseToTray *bool   `json:"close_to_tray"`
+		Language    *string `json:"language"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		return nil, userError{"pedido inválido"}
+		return nil, userError{i18n.T("pedido inválido")}
 	}
 	if body.Autostart != nil {
 		if err := p.Host.SetAutostart(*body.Autostart); err != nil {
@@ -119,6 +127,14 @@ func (p *Panel) apiSettings(r *http.Request) (any, error) {
 	}
 	if body.CloseToTray != nil {
 		if err := p.Host.SetCloseToTray(*body.CloseToTray); err != nil {
+			return nil, err
+		}
+	}
+	if body.Language != nil {
+		if *body.Language != "" && !i18n.Supported(*body.Language) {
+			return nil, userError{i18n.T("pedido inválido")}
+		}
+		if err := p.Host.SetLanguage(*body.Language); err != nil {
 			return nil, err
 		}
 	}
@@ -134,7 +150,7 @@ func (p *Panel) apiOpen(r *http.Request) (any, error) {
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	u, err := url.Parse(body.URL)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, userError{"endereço inválido"}
+		return nil, userError{i18n.T("endereço inválido")}
 	}
 	return map[string]bool{"ok": true}, p.Host.OpenURL(u.String())
 }
@@ -146,7 +162,7 @@ func (p *Panel) quit(w http.ResponseWriter, r *http.Request) {
 	}
 	p.Host.Quit()
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = p.pages.ExecuteTemplate(w, "encerrado", layout{Title: "Encerrando", App: true})
+	_ = p.pages.ExecuteTemplate(w, "encerrado", layout{Title: i18n.N("Encerrando"), App: true})
 }
 
 func (p *Panel) erase(w http.ResponseWriter, r *http.Request) {
@@ -154,8 +170,10 @@ func (p *Panel) erase(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
-	if r.FormValue("confirm") != "apagar" {
-		http.Redirect(w, r, "/configuracoes?erro="+url.QueryEscape("para apagar, digite apagar na caixa de confirmação"), http.StatusSeeOther)
+	// The word to type is the one the page shows, in the person's language;
+	// the Portuguese one is accepted too.
+	if confirm := strings.TrimSpace(r.FormValue("confirm")); confirm != "apagar" && !strings.EqualFold(confirm, i18n.T("apagar")) {
+		http.Redirect(w, r, "/configuracoes?erro="+url.QueryEscape(i18n.T("para apagar, digite apagar na caixa de confirmação")), http.StatusSeeOther)
 		return
 	}
 	if err := p.Host.EraseEverything(); err != nil {
@@ -163,5 +181,5 @@ func (p *Panel) erase(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = p.pages.ExecuteTemplate(w, "apagado", layout{Title: "Dados apagados", App: true})
+	_ = p.pages.ExecuteTemplate(w, "apagado", layout{Title: i18n.N("Dados apagados"), App: true})
 }

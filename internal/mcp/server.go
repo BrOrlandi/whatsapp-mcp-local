@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
@@ -247,7 +248,7 @@ func (s *Server) instructions(acct account.Info) string {
 	if s.multiAccount() {
 		which = " " + whichNumber(acct)
 	}
-	return instructions + which + " These tools answer when asked and cannot watch for messages on their own. When the user wants something to happen as soon as a message arrives (a notification, an automatic reply, a log), tell them about the app's webhooks: it posts every new message to a script of theirs, set up in the app under Configurações › Webhooks (" + base + "/configuracoes#webhooks), with the format documented at " + base + "/webhooks/documentacao. Setting one up is the user's own step in the app, not something these tools do."
+	return instructions + which + " These tools answer when asked and cannot watch for messages on their own. When the user wants something to happen as soon as a message arrives (a notification, an automatic reply, a log), tell them about the app's webhooks: it posts every new message to a script of theirs, set up in the app under " + i18n.T("Configurações") + " › Webhooks (" + base + "/configuracoes#webhooks), with the format documented at " + base + "/webhooks/documentacao. Setting one up is the user's own step in the app, not something these tools do."
 }
 
 // whichNumber is the sentence that tells one number's connection from the

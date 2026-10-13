@@ -3,6 +3,8 @@ package mcp
 import (
 	"context"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 )
 
 func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
@@ -62,7 +64,7 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	// Webhooks are how a script hears about messages as they arrive; saying
 	// they exist here lets an assistant offer them when the user asks to be
 	// told about new messages.
-	webhooks := map[string]any{"setup": "in the app, Configurações › Webhooks: " + s.base() + "/configuracoes#webhooks",
+	webhooks := map[string]any{"setup": "in the app, " + i18n.T("Configurações") + " › Webhooks: " + s.base() + "/configuracoes#webhooks",
 		"documentation": s.base() + "/webhooks/documentacao",
 		"what":          "the app posts every new message, reaction or read receipt to a script of the user's, so it can act as messages arrive; these tools only answer when asked"}
 	if hooks, err := s.state.Webhooks(ctx); err == nil {

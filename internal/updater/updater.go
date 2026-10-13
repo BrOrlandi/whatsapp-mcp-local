@@ -24,6 +24,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 )
 
 // Phases of an update.
@@ -90,7 +92,11 @@ type Updater struct {
 }
 
 // ErrBusy means an update is already being downloaded or installed.
-var ErrBusy = errors.New("a atualização já está em andamento")
+var ErrBusy error = busyError{}
+
+type busyError struct{}
+
+func (busyError) Error() string { return i18n.T("a atualização já está em andamento") }
 
 // Apply downloads, checks and installs the new version, once at a time: a
 // second call while one runs returns ErrBusy at once. The phase becomes
@@ -104,7 +110,7 @@ func (u *Updater) Apply(ctx context.Context) error {
 	}
 	if u.latest == nil {
 		u.mu.Unlock()
-		return errors.New("nenhuma versão nova para instalar")
+		return errors.New(i18n.T("nenhuma versão nova para instalar"))
 	}
 	u.applying = true
 	u.state.Phase, u.state.Progress, u.state.Error = Downloading, 0, ""
@@ -246,7 +252,7 @@ func (u *Updater) Check(ctx context.Context) (bool, error) {
 		}
 	}
 	if found == nil {
-		err := fmt.Errorf("a versão %s não tem o arquivo %s", latest, want)
+		err := errors.New(i18n.Tf("a versão %s não tem o arquivo %s", latest, want))
 		u.set(func(s *State) {
 			s.Phase, s.Error, s.Latest, s.Page, s.CheckedAt = Failed, err.Error(), latest, rel.Page, now
 		})
@@ -274,14 +280,14 @@ func (u *Updater) fetchLatest(ctx context.Context) (*release, error) {
 	defer cancel()
 	resp, err := u.client().Do(req.WithContext(ctx))
 	if err != nil {
-		return nil, fmt.Errorf("não foi possível consultar as versões: %w", err)
+		return nil, fmt.Errorf("%s: %w", i18n.T("não foi possível consultar as versões"), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, nil // no release yet, or a private repository
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("o GitHub respondeu %s", resp.Status)
+		return nil, errors.New(i18n.Tf("o GitHub respondeu %s", resp.Status))
 	}
 	var rel release
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&rel); err != nil {
@@ -300,7 +306,7 @@ func (u *Updater) Download(ctx context.Context) (string, error) {
 	rel, file := u.latest, u.file
 	u.mu.Unlock()
 	if rel == nil {
-		return "", errors.New("nenhuma versão nova para instalar")
+		return "", errors.New(i18n.T("nenhuma versão nova para instalar"))
 	}
 	want, err := u.checksum(ctx, rel, file.Name)
 	if err != nil {
@@ -338,7 +344,7 @@ func (u *Updater) checksum(ctx context.Context, rel *release, name string) (stri
 		}
 	}
 	if sums == nil {
-		return "", errors.New("a versão nova não publicou checksums.txt; ela não será instalada")
+		return "", errors.New(i18n.T("a versão nova não publicou checksums.txt; ela não será instalada"))
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, sums.URL, nil)
 	if err != nil {
@@ -350,7 +356,7 @@ func (u *Updater) checksum(ctx context.Context, rel *release, name string) (stri
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("checksums.txt respondeu %s", resp.Status)
+		return "", errors.New(i18n.Tf("checksums.txt respondeu %s", resp.Status))
 	}
 	sc := bufio.NewScanner(io.LimitReader(resp.Body, 1<<20))
 	for sc.Scan() {
@@ -359,7 +365,7 @@ func (u *Updater) checksum(ctx context.Context, rel *release, name string) (stri
 			return strings.ToLower(fields[0]), nil
 		}
 	}
-	return "", fmt.Errorf("checksums.txt não tem %s", name)
+	return "", errors.New(i18n.Tf("checksums.txt não tem %s", name))
 }
 
 func (u *Updater) fetch(ctx context.Context, file asset, path, want string) error {
@@ -369,11 +375,11 @@ func (u *Updater) fetch(ctx context.Context, file asset, path, want string) erro
 	}
 	resp, err := u.client().Do(req)
 	if err != nil {
-		return fmt.Errorf("o download parou: %w", err)
+		return fmt.Errorf("%s: %w", i18n.T("o download parou"), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("o download respondeu %s", resp.Status)
+		return errors.New(i18n.Tf("o download respondeu %s", resp.Status))
 	}
 	total := file.Size
 	if total <= 0 {
@@ -404,11 +410,11 @@ func (u *Updater) fetch(ctx context.Context, file asset, path, want string) erro
 			break
 		}
 		if rerr != nil {
-			return fmt.Errorf("o download parou: %w", rerr)
+			return fmt.Errorf("%s: %w", i18n.T("o download parou"), rerr)
 		}
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); got != want {
-		return fmt.Errorf("o arquivo baixado não confere com checksums.txt (sha256 %s, esperado %s)", got, want)
+		return errors.New(i18n.Tf("o arquivo baixado não confere com checksums.txt (sha256 %s, esperado %s)", got, want))
 	}
 	return out.Close()
 }
@@ -421,7 +427,7 @@ func (u *Updater) Install(ctx context.Context) error {
 	path := u.staged
 	u.mu.Unlock()
 	if path == "" {
-		return errors.New("baixe a versão nova antes de instalar")
+		return errors.New(i18n.T("baixe a versão nova antes de instalar"))
 	}
 	var err error
 	switch u.Target.Kind {
@@ -432,7 +438,7 @@ func (u *Updater) Install(ctx context.Context) error {
 	case "appimage":
 		err = installAppImage(path, u.Target.Path)
 	default:
-		err = errors.New("este jeito de instalar não se atualiza sozinho")
+		err = errors.New(i18n.T("este jeito de instalar não se atualiza sozinho"))
 	}
 	if err != nil {
 		u.fail(err)

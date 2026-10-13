@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/sidecar"
 )
@@ -122,7 +123,7 @@ func (e *Engine) Status() Status {
 		s.Missing = append(s.Missing, "ffmpeg")
 	}
 	if s.Model == "" {
-		s.Missing = append(s.Missing, "modelo")
+		s.Missing = append(s.Missing, i18n.T("modelo"))
 	}
 	s.Ready = len(s.Missing) == 0
 	e.mu.Lock()
@@ -199,9 +200,9 @@ func (e *Engine) installAll(ctx context.Context) error {
 	if s.Whisper == "" || s.FFmpeg == "" || s.Install.Error != "" {
 		pkg, ok := sidecar.ForThisSystem()
 		if !ok {
-			return fmt.Errorf("ainda não há transcrição local publicada para %s/%s", runtime.GOOS, runtime.GOARCH)
+			return errors.New(i18n.Tf("ainda não há transcrição local publicada para %s/%s", runtime.GOOS, runtime.GOARCH))
 		}
-		e.setInstall(func(i *Install) { i.Step, i.Downloaded, i.Total = "Baixando o whisper.cpp", 0, pkg.Size })
+		e.setInstall(func(i *Install) { i.Step, i.Downloaded, i.Total = i18n.T("Baixando o whisper.cpp"), 0, pkg.Size })
 		err := sidecar.Install(ctx, e.data, pkg, func(done, total int64) {
 			e.setInstall(func(i *Install) { i.Downloaded, i.Total = done, total })
 		})
@@ -221,18 +222,18 @@ func (e *Engine) download(ctx context.Context) error {
 	if err := os.MkdirAll(e.dir, 0o755); err != nil {
 		return err
 	}
-	e.setInstall(func(i *Install) { i.Step, i.Total = "Baixando o modelo de transcrição", modelSize })
+	e.setInstall(func(i *Install) { i.Step, i.Total = i18n.T("Baixando o modelo de transcrição"), modelSize })
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ModelURL, nil)
 	if err != nil {
 		return err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("não foi possível baixar o modelo: %w", err)
+		return fmt.Errorf("%s: %w", i18n.T("não foi possível baixar o modelo"), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("o download do modelo respondeu %s", resp.Status)
+		return errors.New(i18n.Tf("o download do modelo respondeu %s", resp.Status))
 	}
 	if resp.ContentLength > 0 {
 		e.setInstall(func(i *Install) { i.Total = resp.ContentLength })
@@ -263,14 +264,14 @@ func (e *Engine) download(ctx context.Context) error {
 		}
 		if rerr != nil {
 			f.Close()
-			return fmt.Errorf("o download do modelo parou: %w", rerr)
+			return fmt.Errorf("%s: %w", i18n.T("o download do modelo parou"), rerr)
 		}
 	}
 	if err := f.Close(); err != nil {
 		return err
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); got != modelSHA256 {
-		return fmt.Errorf("o modelo baixado não confere (%d bytes, sha256 %s); tente de novo", n, got)
+		return errors.New(i18n.Tf("o modelo baixado não confere (%d bytes, sha256 %s); tente de novo", n, got))
 	}
 	return os.Rename(tmp, e.modelPath())
 }
@@ -281,7 +282,7 @@ func (e *Engine) download(ctx context.Context) error {
 func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string) (string, error) {
 	s := e.Status()
 	if !s.Ready {
-		return "", fmt.Errorf("a transcrição local não está instalada (falta: %s)", strings.Join(s.Missing, ", "))
+		return "", errors.New(i18n.Tf("a transcrição local não está instalada (falta: %s)", strings.Join(s.Missing, ", ")))
 	}
 	e.busy.Lock()
 	defer e.busy.Unlock()
@@ -296,7 +297,7 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 	conv := exec.CommandContext(ctx, s.FFmpeg, "-nostdin", "-loglevel", "error", "-i", audio, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav)
 	platform.Background(conv)
 	if out, err := conv.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("ffmpeg não conseguiu ler o áudio: %s", lastLines(string(out), 2))
+		return "", errors.New(i18n.Tf("ffmpeg não conseguiu ler o áudio: %s", lastLines(string(out), 2)))
 	}
 	if language == "" {
 		language = "auto"
@@ -315,11 +316,11 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 	run := exec.CommandContext(ctx, s.Whisper, args...)
 	platform.Background(run)
 	if out, err := run.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("whisper.cpp falhou: %s", lastLines(string(out), 3))
+		return "", errors.New(i18n.Tf("whisper.cpp falhou: %s", lastLines(string(out), 3)))
 	}
 	text, err := os.ReadFile(base + ".txt")
 	if err != nil {
-		return "", fmt.Errorf("whisper.cpp não devolveu texto: %w", err)
+		return "", fmt.Errorf("%s: %w", i18n.T("whisper.cpp não devolveu texto"), err)
 	}
 	return cleanTranscript(string(text)), nil
 }

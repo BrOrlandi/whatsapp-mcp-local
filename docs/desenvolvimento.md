@@ -79,6 +79,26 @@ O painel sobe em `http://127.0.0.1:47890` com um wacli falso
 sobre um banco preenchido por `scripts/preview/seed.sql`. Só o que depende de
 um celular é simulado: pareamento, sync e pedidos de histórico.
 
+## Idiomas
+
+O app fala português (Brasil), espanhol e inglês. O texto continua escrito em
+português no código, e é ele a chave: `{{t "…"}}` e `{{tf "… %s …" .X}}` nos
+templates, `i18n.T("…")` e `i18n.Tf("…", x)` no Go, `t("…")` nos scripts do
+painel. `internal/i18n/locales/es.json` e `en.json` levam cada texto à sua
+tradução; o que não tiver tradução aparece em português. Um valor guardado para
+depois (uma lista, um rótulo de tabela) leva `i18n.N("…")` onde é escrito e é
+traduzido onde aparece.
+
+O idioma é escolhido em *Configurações › Idioma* e fica em `config.json`
+(`"language"`); vazio, segue o do sistema. Na linha de comando,
+`WHATSAPP_MCP_LANG` tem a palavra final. As descrições e respostas das tools
+vão para a IA e continuam em inglês.
+
+`go test ./internal/i18n` falha quando um texto novo não tem tradução nos dois
+catálogos, quando uma tradução troca os `%s`/`%d` de lugar e quando um catálogo
+traduz um texto que o código não usa mais. Para outro idioma: um `locales/xx.json`
+e uma linha em `i18n.Languages`.
+
 ## Testes
 
 Os testes do supervisor, do pareamento, da recuperação de órfãos e do núcleo

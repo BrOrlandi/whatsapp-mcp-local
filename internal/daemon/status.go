@@ -2,9 +2,10 @@ package daemon
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 )
 
 // Status is the gateway in one line, for the tray: a colour, what it is
@@ -31,27 +32,27 @@ func (d *Daemon) status(ctx context.Context) Status {
 	st := Status{Sync: sync.State}
 	switch sync.State {
 	case "connected":
-		st.Tone, st.Title = "ok", "Conectado"
+		st.Tone, st.Title = "ok", i18n.T("Conectado")
 	case "paused":
-		st.Tone, st.Title = "warn", "Pausado por instantes"
+		st.Tone, st.Title = "warn", i18n.T("Pausado por instantes")
 		if sync.PausedFor == "pairing" {
-			st.Title = "Conectando o WhatsApp"
+			st.Title = i18n.T("Conectando o WhatsApp")
 		}
 	case "starting":
-		st.Tone, st.Title = "warn", "Carregando"
+		st.Tone, st.Title = "warn", i18n.T("Carregando")
 	case "reconnecting":
-		st.Tone, st.Title = "warn", "Reconectando"
+		st.Tone, st.Title = "warn", i18n.T("Reconectando")
 	case "not_paired":
-		st.Tone, st.Title = "fail", "WhatsApp não conectado"
+		st.Tone, st.Title = "fail", i18n.T("WhatsApp não conectado")
 	case "logged_out":
-		st.Tone, st.Title = "fail", "Desconectado pelo celular"
+		st.Tone, st.Title = "fail", i18n.T("Desconectado pelo celular")
 	default:
-		st.Tone, st.Title = "fail", "Sincronização parada"
+		st.Tone, st.Title = "fail", i18n.T("Sincronização parada")
 	}
 	arriving := pairing.State == "syncing" || (!sync.History.LastAt.IsZero() && time.Since(sync.History.LastAt) < 90*time.Second)
 	switch {
 	case arriving && st.Tone == "ok":
-		st.Tone, st.Detail = "warn", "Recebendo o histórico"
+		st.Tone, st.Detail = "warn", i18n.T("Recebendo o histórico")
 	case st.Tone == "ok":
 		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
@@ -64,7 +65,7 @@ func (d *Daemon) status(ctx context.Context) Status {
 		if st.Tone == "ok" {
 			st.Tone = "warn"
 		}
-		st.Detail = fmt.Sprintf("MCP fora do ar: a porta %d está ocupada", d.Port())
+		st.Detail = i18n.Tf("MCP fora do ar: a porta %d está ocupada", d.Port())
 	}
 	return st
 }
@@ -72,11 +73,11 @@ func (d *Daemon) status(ctx context.Context) Status {
 func messagesLastHour(n int64) string {
 	switch n {
 	case 0:
-		return "Nenhuma mensagem na última hora"
+		return i18n.T("Nenhuma mensagem na última hora")
 	case 1:
-		return "1 mensagem na última hora"
+		return i18n.T("1 mensagem na última hora")
 	}
-	return fmt.Sprintf("%d mensagens na última hora", n)
+	return i18n.Tf("%d mensagens na última hora", n)
 }
 
 // Watch delivers the status every time it changes, starting with the current

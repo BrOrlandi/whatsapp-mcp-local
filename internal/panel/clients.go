@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 )
@@ -69,7 +70,7 @@ func isOurBridge(entry map[string]any) bool {
 type errConflict struct{ client, other string }
 
 func (e errConflict) Error() string {
-	return fmt.Sprintf("o %s já tem um servidor chamado %q, que aponta para %s", e.client, ServerName, e.other)
+	return i18n.Tf("o %s já tem um servidor chamado %q, que aponta para %s", e.client, ServerName, e.other)
 }
 
 // parseMCPGet reads the address out of `claude mcp get`.
@@ -228,7 +229,7 @@ func (p *Panel) codeInfo(ctx context.Context, fresh bool) clientInfo {
 			}
 		}
 	} else {
-		info.Detail = "o comando claude não foi encontrado neste computador"
+		info.Detail = i18n.T("o comando claude não foi encontrado neste computador")
 	}
 	p.code.info, p.code.at, p.code.endpoint = info, time.Now(), endpoint
 	return info
@@ -260,7 +261,7 @@ func (p *Panel) codexInfo(ctx context.Context, fresh bool) clientInfo {
 			}
 		}
 	} else {
-		info.Detail = "o comando codex não foi encontrado neste computador"
+		info.Detail = i18n.T("o comando codex não foi encontrado neste computador")
 	}
 	p.codex.info, p.codex.at, p.codex.endpoint = info, time.Now(), endpoint
 	return info
@@ -292,11 +293,11 @@ func (p *Panel) cursorInfo() clientInfo {
 	case errors.Is(err, os.ErrNotExist):
 		info.Found = cursorInstalled()
 		if !info.Found {
-			info.Detail = "o Cursor não parece estar instalado"
+			info.Detail = i18n.T("o Cursor não parece estar instalado")
 		}
 	case err != nil:
 		info.Found = true
-		info.Detail = "não foi possível ler a configuração: " + err.Error()
+		info.Detail = i18n.Tf("não foi possível ler a configuração: %s", err.Error())
 	default:
 		info.Found = true
 		if servers, ok := cfg["mcpServers"].(map[string]any); ok {
@@ -333,11 +334,11 @@ func (p *Panel) desktopInfo() clientInfo {
 		_, dirErr := os.Stat(filepath.Dir(DesktopConfigPath()))
 		info.Found = dirErr == nil
 		if !info.Found {
-			info.Detail = "o Claude Desktop não parece estar instalado"
+			info.Detail = i18n.T("o Claude Desktop não parece estar instalado")
 		}
 	case err != nil:
 		info.Found = true
-		info.Detail = "não foi possível ler a configuração: " + err.Error()
+		info.Detail = i18n.Tf("não foi possível ler a configuração: %s", err.Error())
 	default:
 		info.Found = true
 		if servers, ok := cfg["mcpServers"].(map[string]any); ok {
@@ -439,7 +440,7 @@ func describeEntry(entry map[string]any) string {
 func (p *Panel) addClaudeCode(ctx context.Context, replace bool) error {
 	bin := findClaude()
 	if bin == "" {
-		return userError{"o comando claude não foi encontrado; instale o Claude Code ou rode o comando mostrado"}
+		return userError{i18n.T("o comando claude não foi encontrado; instale o Claude Code ou rode o comando mostrado")}
 	}
 	if info := p.codeInfo(ctx, true); info.Other != "" && !replace {
 		return errConflict{"Claude Code", info.Other}
@@ -456,7 +457,7 @@ func (p *Panel) addClaudeCode(ctx context.Context, replace bool) error {
 	out, err := add.CombinedOutput()
 	p.codeInfo(ctx, true)
 	if err != nil {
-		return fmt.Errorf("claude mcp add falhou: %s", strings.TrimSpace(string(out)))
+		return errors.New(i18n.Tf("claude mcp add falhou: %s", strings.TrimSpace(string(out))))
 	}
 	return nil
 }
@@ -528,7 +529,7 @@ func CursorConfigPath() string {
 func (p *Panel) addCodex(ctx context.Context, replace bool) error {
 	bin := findCodex()
 	if bin == "" {
-		return userError{"o comando codex não foi encontrado; instale o Codex ou configure à mão"}
+		return userError{i18n.T("o comando codex não foi encontrado; instale o Codex ou configure à mão")}
 	}
 	if info := p.codexInfo(ctx, true); info.Other != "" && !replace {
 		return errConflict{"Codex", info.Other}
@@ -541,7 +542,7 @@ func (p *Panel) addCodex(ctx context.Context, replace bool) error {
 	out, err := add.CombinedOutput()
 	p.codexInfo(ctx, true)
 	if err != nil {
-		return fmt.Errorf("codex mcp add falhou: %s", strings.TrimSpace(string(out)))
+		return errors.New(i18n.Tf("codex mcp add falhou: %s", strings.TrimSpace(string(out))))
 	}
 	return nil
 }
@@ -618,11 +619,11 @@ func editServers(path, tool string, f func(servers map[string]any)) error {
 	if errors.Is(err, os.ErrNotExist) {
 		cfg = map[string]any{}
 	} else if err != nil {
-		return userError{"a configuração do " + tool + " não é um JSON válido; corrija " + path + " antes"}
+		return userError{i18n.Tf("a configuração do %s não é um JSON válido; corrija %s antes", tool, path)}
 	} else if raw, err := os.ReadFile(path); err == nil {
 		backup := path + ".bak-" + time.Now().Format("20060102-150405")
 		if err := os.WriteFile(backup, raw, 0o600); err != nil {
-			return fmt.Errorf("não foi possível salvar uma cópia da configuração: %w", err)
+			return fmt.Errorf("%s: %w", i18n.T("não foi possível salvar uma cópia da configuração"), err)
 		}
 	}
 	servers, _ := cfg["mcpServers"].(map[string]any)

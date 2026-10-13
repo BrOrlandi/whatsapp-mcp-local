@@ -29,6 +29,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
@@ -152,7 +153,7 @@ func check(path, want string) error {
 		return err
 	}
 	if want == "" || got != want {
-		return fmt.Errorf("%s mudou depois de instalado; instale a transcrição de novo", filepath.Base(path))
+		return errors.New(i18n.Tf("%s mudou depois de instalado; instale a transcrição de novo", filepath.Base(path)))
 	}
 	verified.Store(path, stamp)
 	return nil
@@ -191,11 +192,11 @@ func Install(ctx context.Context, dataDir string, pkg Package, progress func(don
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("não foi possível baixar os programas de transcrição: %w", err)
+		return fmt.Errorf("%s: %w", i18n.T("não foi possível baixar os programas de transcrição"), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("o download dos programas de transcrição respondeu %s", resp.Status)
+		return errors.New(i18n.Tf("o download dos programas de transcrição respondeu %s", resp.Status))
 	}
 	total := pkg.Size
 	if total <= 0 {
@@ -220,11 +221,11 @@ func Install(ctx context.Context, dataDir string, pkg Package, progress func(don
 			break
 		}
 		if rerr != nil {
-			return fmt.Errorf("o download dos programas de transcrição parou: %w", rerr)
+			return fmt.Errorf("%s: %w", i18n.T("o download dos programas de transcrição parou"), rerr)
 		}
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); !strings.EqualFold(got, pkg.SHA256) {
-		return fmt.Errorf("os programas de transcrição baixados não conferem (sha256 %s, esperado %s)", got, pkg.SHA256)
+		return errors.New(i18n.Tf("os programas de transcrição baixados não conferem (sha256 %s, esperado %s)", got, pkg.SHA256))
 	}
 	if err := tmp.Close(); err != nil {
 		return err
@@ -250,7 +251,7 @@ func Install(ctx context.Context, dataDir string, pkg Package, progress func(don
 	}
 	for _, name := range []string{"whisper-cli", "ffmpeg"} {
 		if rec.Files[platform.ExeName(name)] == "" {
-			return fmt.Errorf("o pacote de transcrição não tem %s", name)
+			return errors.New(i18n.Tf("o pacote de transcrição não tem %s", name))
 		}
 	}
 	body, _ := json.MarshalIndent(rec, "", "  ")
@@ -345,7 +346,7 @@ func checkSignature(path string) error {
 		return nil // a licence or another text file
 	}
 	if out, err := exec.Command("codesign", "--verify", "--strict", path).CombinedOutput(); err != nil {
-		return fmt.Errorf("a assinatura de %s não confere: %s", filepath.Base(path), strings.TrimSpace(string(out)))
+		return errors.New(i18n.Tf("a assinatura de %s não confere: %s", filepath.Base(path), strings.TrimSpace(string(out))))
 	}
 	return nil
 }

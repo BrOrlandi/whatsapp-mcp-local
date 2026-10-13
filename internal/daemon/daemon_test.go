@@ -247,6 +247,7 @@ func (fakeHost) Settings() panel.HostSettings {
 }
 func (fakeHost) SetAutostart(bool) error   { return nil }
 func (fakeHost) SetCloseToTray(bool) error { return nil }
+func (fakeHost) SetLanguage(string) error  { return nil }
 func (h fakeHost) SetPort(p int) error     { return h.port(p) }
 func (fakeHost) OpenURL(string) error      { return nil }
 func (fakeHost) OpenDataFolder() error     { return nil }

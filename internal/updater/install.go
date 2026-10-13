@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
@@ -25,20 +26,20 @@ func installDMG(ctx context.Context, dmg, bundle string) error {
 	}
 	defer os.RemoveAll(mount)
 	if out, err := exec.CommandContext(ctx, "hdiutil", "attach", "-nobrowse", "-readonly", "-noautoopen", "-mountpoint", mount, dmg).CombinedOutput(); err != nil {
-		return fmt.Errorf("não foi possível abrir a imagem da versão nova: %s", strings.TrimSpace(string(out)))
+		return errors.New(i18n.Tf("não foi possível abrir a imagem da versão nova: %s", strings.TrimSpace(string(out))))
 	}
 	defer exec.Command("hdiutil", "detach", "-force", mount).Run()
 
 	src := filepath.Join(mount, filepath.Base(bundle))
 	if _, err := os.Stat(src); err != nil {
-		return fmt.Errorf("a imagem da versão nova não tem %s", filepath.Base(bundle))
+		return errors.New(i18n.Tf("a imagem da versão nova não tem %s", filepath.Base(bundle)))
 	}
 	next := bundle + ".new"
 	old := bundle + ".old"
 	os.RemoveAll(next)
 	os.RemoveAll(old)
 	if out, err := exec.CommandContext(ctx, "ditto", src, next).CombinedOutput(); err != nil {
-		return fmt.Errorf("não foi possível copiar a versão nova: %s", strings.TrimSpace(string(out)))
+		return errors.New(i18n.Tf("não foi possível copiar a versão nova: %s", strings.TrimSpace(string(out))))
 	}
 	if err := sameSigner(bundle, next); err != nil {
 		os.RemoveAll(next)
@@ -46,11 +47,11 @@ func installDMG(ctx context.Context, dmg, bundle string) error {
 	}
 	if err := os.Rename(bundle, old); err != nil {
 		os.RemoveAll(next)
-		return fmt.Errorf("não foi possível trocar o app: %w", err)
+		return fmt.Errorf("%s: %w", i18n.T("não foi possível trocar o app"), err)
 	}
 	if err := os.Rename(next, bundle); err != nil {
 		_ = os.Rename(old, bundle)
-		return fmt.Errorf("não foi possível trocar o app: %w", err)
+		return fmt.Errorf("%s: %w", i18n.T("não foi possível trocar o app"), err)
 	}
 	return relaunch(`rm -rf "$OLD"; open "$TARGET"`, map[string]string{"OLD": old, "TARGET": bundle})
 }
@@ -59,11 +60,11 @@ func installDMG(ctx context.Context, dmg, bundle string) error {
 // different developer than the running one.
 func sameSigner(current, next string) error {
 	if out, err := exec.Command("codesign", "--verify", "--deep", "--strict", next).CombinedOutput(); err != nil {
-		return fmt.Errorf("a assinatura da versão nova não confere: %s", strings.TrimSpace(string(out)))
+		return errors.New(i18n.Tf("a assinatura da versão nova não confere: %s", strings.TrimSpace(string(out))))
 	}
 	have, want := teamID(next), teamID(current)
 	if want != "" && have != want {
-		return fmt.Errorf("a versão nova foi assinada por outro desenvolvedor (%q, esperado %q)", have, want)
+		return errors.New(i18n.Tf("a versão nova foi assinada por outro desenvolvedor (%q, esperado %q)", have, want))
 	}
 	return nil
 }
@@ -94,7 +95,7 @@ func installAppImage(downloaded, appImage string) error {
 	}
 	if err := os.Rename(next, appImage); err != nil {
 		os.Remove(next)
-		return fmt.Errorf("não foi possível trocar o AppImage: %w", err)
+		return fmt.Errorf("%s: %w", i18n.T("não foi possível trocar o AppImage"), err)
 	}
 	return relaunch(`exec "$TARGET"`, map[string]string{"TARGET": appImage})
 }
