@@ -4,6 +4,35 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.5.0] - 2026-10-14
+
+### Adicionado
+
+- **O app em espanhol e inglês, além do português.** O painel, a bandeja, as
+  notificações e as mensagens do app aparecem em português, espanhol ou
+  inglês. Numa instalação nova, o app segue o idioma do computador.
+- **Escolha do idioma com bandeiras.** Na instalação, na tela do QR code e na
+  seguinte, e em Configurações › Idioma, cada idioma tem um botão com a sua
+  bandeira; ao passar o mouse, aparece o nome do idioma. A troca é na hora e
+  não interrompe uma conexão em andamento. A opção "O do sistema" volta a
+  seguir o idioma do computador.
+- **O instalador do Windows em português, espanhol e inglês**, conforme o
+  idioma do Windows. No Linux, o atalho do app também aparece nos três
+  idiomas.
+- **Na linha de comando,** o idioma do painel se escolhe em Configurações ou
+  com `WHATSAPP_MCP_LANG` (`pt-BR`, `es` ou `en`).
+- **O site e o README em espanhol e inglês**, com um seletor de idioma no topo.
+
+### Mudou
+
+- **Quem já usa o app continua em português** depois de atualizar, mesmo com o
+  computador em inglês ou espanhol. Para mudar, use Configurações › Idioma.
+- **O idioma vale só para a tela.** O que a sua ferramenta de IA recebe e os
+  avisos dos webhooks, inclusive o aviso de teste, continuam iguais em
+  qualquer idioma: as mensagens, os nomes e os valores chegam como sempre.
+
+Inclui o wacli 0.20.0.
+
 ## [1.4.0] - 2026-10-10
 
 ### Adicionado
@@ -237,6 +266,8 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.5.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.5.0
+[1.4.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.4.0
 [1.3.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.3.1
 [1.3.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.3.0
 [1.2.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.2.0
