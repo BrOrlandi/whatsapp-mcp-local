@@ -188,6 +188,9 @@ func fatal(err error) {
 
 func serve(cfg config) error {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	if err := appconfig.MarkNew(cfg.DataDir); err != nil {
+		logger.Warn("could not write config.json", "error", err)
+	}
 	d, err := daemon.Start(daemon.Config{
 		Port: cfg.Port, RequirePort: true, Token: cfg.Token,
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,

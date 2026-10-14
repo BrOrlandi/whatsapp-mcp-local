@@ -95,9 +95,8 @@ ou em *Configurações › Idioma*, no app e na linha de comando, e fica em
 `config.json` (`"language"`); vazio, segue o do sistema. Um `config.json` sem
 `"language"` é de uma versão anterior aos idiomas: quem atualiza continua em
 português, mesmo com o computador em inglês, e só uma instalação nova segue o
-sistema; na linha de comando, que só grava o `config.json` quando uma
-configuração muda, uma pasta de dados já em uso sem ele também fica em
-português. Os dois passam por `POST /api/idioma`, e a página volta no idioma novo. Na linha de comando,
+sistema; na linha de comando, uma pasta de dados já em uso sem `config.json`
+também fica em português, e uma nova ganha o seu na primeira execução. Os dois passam por `POST /api/idioma`, e a página volta no idioma novo. Na linha de comando,
 `WHATSAPP_MCP_LANG` tem a palavra final quando o serviço inicia. As descrições e respostas das tools
 vão para a IA e continuam em inglês.
 

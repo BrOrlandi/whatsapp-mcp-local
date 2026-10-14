@@ -17,6 +17,17 @@ func TestLanguage(t *testing.T) {
 	if got := language(fresh); got != "" {
 		t.Errorf("a new data folder: %q, want the system's", got)
 	}
+	// Its first run marks it, so it keeps following the system once the
+	// daemon has written state.db.
+	if err := appconfig.MarkNew(fresh); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(fresh, "state.db"), nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := language(fresh); got != "" {
+		t.Errorf("a new data folder after its first run: %q, want the system's", got)
+	}
 
 	before := t.TempDir()
 	if err := os.WriteFile(filepath.Join(before, "state.db"), nil, 0o600); err != nil {
@@ -24,6 +35,12 @@ func TestLanguage(t *testing.T) {
 	}
 	if got := language(before); got != appconfig.LanguageBefore {
 		t.Errorf("a data folder from before the languages: %q, want %q", got, appconfig.LanguageBefore)
+	}
+	if err := appconfig.MarkNew(before); err != nil {
+		t.Fatal(err)
+	}
+	if got := language(before); got != appconfig.LanguageBefore {
+		t.Errorf("MarkNew changed a folder in use to %q", got)
 	}
 
 	if err := appconfig.Save(before, appconfig.Config{Port: appconfig.DefaultPort, Language: "es"}); err != nil {

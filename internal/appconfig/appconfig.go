@@ -75,8 +75,9 @@ func Load(dataDir string) (Config, error) {
 
 // Chosen is the language kept in a data folder: "language" in config.json,
 // empty to follow the system's. A data folder in use from before the app had
-// languages, with no config.json (the command line writes one only when a
-// setting changes), stays in Portuguese, as the person has been using it.
+// languages, with no config.json (the command line wrote one only when a
+// setting changed; now MarkNew writes it on a folder's first run), stays in
+// Portuguese, as the person has been using it.
 func Chosen(dataDir string) string {
 	if _, err := os.Stat(Path(dataDir)); err == nil {
 		c, _ := Load(dataDir)
@@ -86,6 +87,19 @@ func Chosen(dataDir string) string {
 		return LanguageBefore
 	}
 	return ""
+}
+
+// MarkNew gives a data folder about to be used for the first time a
+// config.json with the defaults, so later runs know it is from after the
+// languages and keep following the system's (Chosen). A folder already in use
+// is left alone.
+func MarkNew(dataDir string) error {
+	for _, name := range []string{File, "state.db"} {
+		if _, err := os.Stat(filepath.Join(dataDir, name)); !errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+	}
+	return Save(dataDir, Defaults())
 }
 
 // Save writes config.json atomically: a temporary file renamed over the old
