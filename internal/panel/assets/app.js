@@ -444,7 +444,9 @@
                 : t("O celular não tinha mensagens mais antigas para mandar.");
             refresh();
           } else if (job) {
-            note.textContent = t("Buscando… %d de %d conversas, %d mensagens novas até agora.", job.chats_done, job.chats.length, job.messages_added);
+            note.textContent = t("Buscando… %d de %s, %s até agora.", job.chats_done,
+              job.chats.length === 1 ? t("1 conversa") : t("%d conversas", job.chats.length),
+              job.messages_added === 1 ? t("1 mensagem nova") : t("%s mensagens novas", job.messages_added));
           }
         }).catch(function () {});
       }, 3000);

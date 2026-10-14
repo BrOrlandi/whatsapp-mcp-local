@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/appconfig"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
@@ -115,5 +116,30 @@ func TestLanguagePickers(t *testing.T) {
 		if !strings.Contains(page, want) {
 			t.Errorf("Configurações on the command line lacks %q", want)
 		}
+	}
+}
+
+// Sentences built from counts and lists read right in every language: one
+// takes the singular, a list ends with the language's "and", and a date in
+// English names its month.
+func TestCountsListsAndDates(t *testing.T) {
+	defer i18n.Set(i18n.Source)
+	tools := []Connection{{Tool: "Claude Code", Live: true}, {Tool: "Codex"}, {Tool: "Cursor", Live: true}, {Tool: "VS Code", Live: true}}
+	at := time.Date(2026, 5, 10, 15, 4, 0, 0, time.Local)
+	for lang, want := range map[string][]string{
+		i18n.Source: {"1 mensagem nova", "1.234 mensagens novas", "1 conversa", "<strong>Claude Code</strong>, <strong>Cursor</strong> e <strong>VS Code</strong>", "10/05/2026 15:04"},
+		"es":        {"1 mensaje nuevo", "1.234 mensajes nuevos", "1 conversación", "<strong>Claude Code</strong>, <strong>Cursor</strong> y <strong>VS Code</strong>", "10/05/2026 15:04"},
+		"en":        {"1 new message", "1,234 new messages", "1 chat", "<strong>Claude Code</strong>, <strong>Cursor</strong> and <strong>VS Code</strong>", "May 10, 2026, 3:04 PM"},
+	} {
+		i18n.Set(lang)
+		got := []string{newMessages(1), newMessages(1234), chatCount(1), string(liveTools(tools)), momentAny(at)}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("%s: got %q, want %q", lang, got[i], want[i])
+			}
+		}
+	}
+	if got := string(liveTools(tools[:1])); got != "<strong>Claude Code</strong>" {
+		t.Errorf("one tool: %q", got)
 	}
 }

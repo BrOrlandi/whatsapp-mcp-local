@@ -203,7 +203,7 @@ button per language, each in its own language, pressed for the one shown. */}}
 <div class="card__head"><h2>{{t "Histórico"}}</h2>{{with .History}}{{if .FinishedAt}}<span class="pill pill--ok">{{t "Último pedido concluído"}}</span>{{else}}<span class="pill pill--warn">{{t "Buscando…"}}</span>{{end}}{{end}}</div>
 <div class="card__body stack">
 <p class="muted">{{t "Cada pedido pode trazer mais histórico do WhatsApp para este computador, e ele fica disponível para a sua ferramenta de IA consultar pelo MCP. O celular precisa estar com internet."}}</p>
-{{with .History}}<p class="muted">{{if .FinishedAt}}{{tf "Último pedido: %s mensagens novas em %d conversas." (count .Added) (len .Chats)}}{{else}}{{tf "Buscando: %d de %d conversas, %s mensagens novas até agora." .Done (len .Chats) (count .Added)}}{{end}}</p>{{end}}
+{{with .History}}<p class="muted">{{if .FinishedAt}}{{tf "Último pedido: %s em %s." (newMessages .Added) (chatCount (len .Chats))}}{{else}}{{tf "Buscando: %d de %s, %s até agora." .Done (chatCount (len .Chats)) (newMessages .Added)}}{{end}}</p>{{end}}
 <div class="actions"><button class="btn btn--ghost btn--small" type="button" data-history-all>{{t "Buscar mensagens mais antigas das conversas recentes"}}</button></div>
 <p class="busy" data-history-all-note role="status" hidden></p>
 </div></section>
@@ -467,7 +467,7 @@ button per language, each in its own language, pressed for the one shown. */}}
 <section class="card card--accent">
 <div class="card__head"><h2>{{t "Tudo pronto"}}</h2><span class="pill pill--ok">{{if eq .LiveCount 1}}{{t "1 ferramenta conectada"}}{{else}}{{tf "%d ferramentas conectadas" .LiveCount}}{{end}}</span></div>
 <div class="card__body">
-<p class="lead">{{range $i, $c := .Connections}}{{if .Live}}{{if $i}}, {{end}}<strong>{{.Tool}}</strong>{{end}}{{end}} {{t "já está usando o seu WhatsApp."}}</p>
+<p class="lead">{{if eq .LiveCount 1}}{{tf "%s já está usando o seu WhatsApp." (liveTools .Connections)}}{{else}}{{tf "%s já estão usando o seu WhatsApp." (liveTools .Connections)}}{{end}}</p>
 <p class="muted">{{t "Para testar, mande isto no chat:"}}</p>
 <div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
 <form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done">

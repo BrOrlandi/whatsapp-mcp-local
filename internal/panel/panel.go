@@ -1190,12 +1190,9 @@ func funcs() template.FuncMap {
 		"relativeSince": relativeSinceAny,
 		"moment":        momentAny,
 		"count":         countFormat,
-		"plural": func(n int, one, many string) string {
-			if n == 1 {
-				return "1 " + i18n.T(one)
-			}
-			return strconv.Itoa(n) + " " + i18n.T(many)
-		},
+		"newMessages":   newMessages,
+		"chatCount":     chatCount,
+		"liveTools":     liveTools,
 		"initial": func(s string) string {
 			for _, r := range s {
 				if unicode.IsLetter(r) || unicode.IsDigit(r) {
@@ -1281,7 +1278,7 @@ func relativeSince(t time.Time) string {
 	d := time.Since(t)
 	switch {
 	case d < time.Minute:
-		return i18n.T("agora")
+		return i18n.T("agora há pouco")
 	case d < time.Hour:
 		return i18n.Tf("há %d min", int(d.Minutes()))
 	case d < 48*time.Hour:
@@ -1295,7 +1292,43 @@ func momentAny(v any) string {
 	if !ok {
 		return "—"
 	}
+	// Day first in Portuguese and Spanish; in English, the month by name,
+	// which no reader takes for the day.
+	if i18n.Lang() == "en" {
+		return t.Local().Format("Jan 2, 2006, 3:04 PM")
+	}
 	return t.Local().Format("02/01/2006 15:04")
+}
+
+// newMessages is a count of new messages, in the singular for one.
+func newMessages(v any) string {
+	if n, _ := v.(int); n == 1 || v == int64(1) {
+		return i18n.T("1 mensagem nova")
+	}
+	return i18n.Tf("%s mensagens novas", countFormat(v))
+}
+
+// chatCount is a count of chats, in the singular for one.
+func chatCount(n int) string {
+	if n == 1 {
+		return i18n.T("1 conversa")
+	}
+	return i18n.Tf("%d conversas", n)
+}
+
+// liveTools names the AI tools already using WhatsApp, as a list in the
+// person's language: "Claude Code", "Claude Code e Cursor", "A, B e C".
+func liveTools(conns []Connection) template.HTML {
+	var names []string
+	for _, c := range conns {
+		if c.Live {
+			names = append(names, "<strong>"+template.HTMLEscapeString(c.Tool)+"</strong>")
+		}
+	}
+	if len(names) < 2 {
+		return template.HTML(strings.Join(names, ""))
+	}
+	return template.HTML(i18n.Tf("%s e %s", strings.Join(names[:len(names)-1], ", "), names[len(names)-1]))
 }
 
 func countFormat(v any) string {
