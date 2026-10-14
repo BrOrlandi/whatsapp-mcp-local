@@ -2,6 +2,46 @@
   const REPO = "BrOrlandi/whatsapp-mcp-local";
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // The page's language (<html lang>) picks the words this script writes.
+  const lang = { es: "es", en: "en" }[document.documentElement.lang.slice(0, 2)] || "pt";
+  const text = {
+    pt: {
+      locale: "pt-BR",
+      version: (version, date) => `Versão ${version}, de ${date}`,
+      copy: "Copiar",
+      copied: "Copiado",
+      copyFailed: "Selecione e copie",
+    },
+    es: {
+      locale: "es",
+      version: (version, date) => `Versión ${version}, del ${date}`,
+      copy: "Copiar",
+      copied: "Copiado",
+      copyFailed: "Selecciona y copia",
+    },
+    en: {
+      locale: "en-US",
+      version: (version, date) => `Version ${version}, released ${date}`,
+      copy: "Copy",
+      copied: "Copied",
+      copyFailed: "Select and copy",
+    },
+  }[lang];
+
+  // The language menu remembers the choice, so the Portuguese pages (the
+  // default URLs) send this visitor back to it; see the script in their <head>.
+  document.querySelectorAll(".langs a[hreflang]").forEach((link) => {
+    link.addEventListener("click", () => {
+      try {
+        localStorage.setItem("lang", link.hreflang);
+      } catch {
+        // Storage blocked: the menu still works, it just isn't remembered.
+      }
+      // The sections keep the same ids in every language.
+      if (location.hash && !link.hash) link.hash = location.hash;
+    });
+  });
+
   // The visitor's system, to point at the right download.
   function detectOS() {
     const ua = navigator.userAgent;
@@ -24,9 +64,9 @@
       .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
       .then((release) => {
         const version = release.tag_name.replace(/^v/, "");
-        const date = new Date(release.published_at).toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" });
+        const date = new Date(release.published_at).toLocaleDateString(text.locale, { day: "numeric", month: "long", year: "numeric" });
         document.querySelectorAll("[data-version]").forEach((el) => {
-          el.textContent = `Versão ${version}, de ${date}`;
+          el.textContent = text.version(version, date);
         });
         assetLinks.forEach((link) => {
           const pattern = new RegExp(link.dataset.asset);
@@ -47,11 +87,11 @@
       const text = document.getElementById(button.dataset.copy).textContent.trim();
       try {
         await navigator.clipboard.writeText(text);
-        label.textContent = "Copiado";
+        label.textContent = text.copied;
       } catch {
-        label.textContent = "Selecione e copie";
+        label.textContent = text.copyFailed;
       }
-      setTimeout(() => (label.textContent = "Copiar"), 2000);
+      setTimeout(() => (label.textContent = text.copy), 2000);
     });
   });
 
@@ -93,41 +133,113 @@
   const chat = document.querySelector("[data-chat]");
   if (!chat) return;
 
-  const scenarios = [
-    {
-      title: "Resumo do grupo da família",
-      ask: "Resume o que rolou hoje no grupo da família",
-      working: "Lendo as mensagens de Família",
-      done: "Leu 52 mensagens de Família",
-      reply: [
-        "<p>Hoje no grupo da família:</p>",
-        "<ul><li><strong>Almoço de domingo:</strong> na casa da vó, às 13h.</li><li><strong>Sobremesa:</strong> a Carla leva. Ainda falta alguém para as bebidas.</li><li><strong>Fotos:</strong> o Pedro mandou 12 da formatura.</li></ul>",
-        "<p>Ninguém te marcou. Quer que eu avise no grupo que você leva as bebidas?</p>",
-      ],
-    },
-    {
-      title: "Endereço da Ana",
-      ask: "Qual endereço a Ana mandou em março?",
-      working: "Procurando nas conversas com a Ana",
-      done: "Achou 1 mensagem de 14 de março",
-      reply: [
-        "<p>A Ana mandou em 14 de março, às 18h07:</p>",
-        "<blockquote>Rua Harmonia, 412, apto 31, Vila Madalena. O porteiro já sabe que você vem.</blockquote>",
-        "<p>Quer que eu encaminhe para alguém?</p>",
-      ],
-    },
-    {
-      title: "Áudio do Marcos",
-      ask: "Transcreve o áudio que o Marcos mandou agora",
-      working: "Transcrevendo um áudio de 1:42 neste computador",
-      done: "Transcreveu um áudio de 1:42 sem tirar do computador",
-      reply: [
-        "<p>O Marcos disse:</p>",
-        "<blockquote>Fala! Consegui adiantar a reunião com o cliente para quinta, às 10h. Se puder, leva o contrato impresso, que eles querem assinar lá mesmo.</blockquote>",
-        "<p><strong>Resumindo:</strong> reunião na quinta às 10h, e levar o contrato impresso.</p>",
-      ],
-    },
-  ];
+  const scenarios = {
+    pt: [
+      {
+        title: "Resumo do grupo da família",
+        ask: "Resume o que rolou hoje no grupo da família",
+        working: "Lendo as mensagens de Família",
+        done: "Leu 52 mensagens de Família",
+        reply: [
+          "<p>Hoje no grupo da família:</p>",
+          "<ul><li><strong>Almoço de domingo:</strong> na casa da vó, às 13h.</li><li><strong>Sobremesa:</strong> a Carla leva. Ainda falta alguém para as bebidas.</li><li><strong>Fotos:</strong> o Pedro mandou 12 da formatura.</li></ul>",
+          "<p>Ninguém te marcou. Quer que eu avise no grupo que você leva as bebidas?</p>",
+        ],
+      },
+      {
+        title: "Endereço da Ana",
+        ask: "Qual endereço a Ana mandou em março?",
+        working: "Procurando nas conversas com a Ana",
+        done: "Achou 1 mensagem de 14 de março",
+        reply: [
+          "<p>A Ana mandou em 14 de março, às 18h07:</p>",
+          "<blockquote>Rua Harmonia, 412, apto 31, Vila Madalena. O porteiro já sabe que você vem.</blockquote>",
+          "<p>Quer que eu encaminhe para alguém?</p>",
+        ],
+      },
+      {
+        title: "Áudio do Marcos",
+        ask: "Transcreve o áudio que o Marcos mandou agora",
+        working: "Transcrevendo um áudio de 1:42 neste computador",
+        done: "Transcreveu um áudio de 1:42 sem tirar do computador",
+        reply: [
+          "<p>O Marcos disse:</p>",
+          "<blockquote>Fala! Consegui adiantar a reunião com o cliente para quinta, às 10h. Se puder, leva o contrato impresso, que eles querem assinar lá mesmo.</blockquote>",
+          "<p><strong>Resumindo:</strong> reunião na quinta às 10h, e levar o contrato impresso.</p>",
+        ],
+      },
+    ],
+    es: [
+      {
+        title: "Resumen del grupo de la familia",
+        ask: "Resume lo que pasó hoy en el grupo de la familia",
+        working: "Leyendo los mensajes de Familia",
+        done: "Leyó 52 mensajes de Familia",
+        reply: [
+          "<p>Hoy en el grupo de la familia:</p>",
+          "<ul><li><strong>Almuerzo del domingo:</strong> en casa de la abuela, a la 1 de la tarde.</li><li><strong>Postre:</strong> lo lleva Carla. Todavía falta alguien para las bebidas.</li><li><strong>Fotos:</strong> Pedro mandó 12 de la graduación.</li></ul>",
+          "<p>Nadie te mencionó. ¿Quieres que avise en el grupo que tú llevas las bebidas?</p>",
+        ],
+      },
+      {
+        title: "Dirección de Ana",
+        ask: "¿Qué dirección mandó Ana en marzo?",
+        working: "Buscando en las conversaciones con Ana",
+        done: "Encontró 1 mensaje del 14 de marzo",
+        reply: [
+          "<p>Ana la mandó el 14 de marzo, a las 18:07:</p>",
+          "<blockquote>Calle Armonía 412, depto. 31. El portero ya sabe que vienes.</blockquote>",
+          "<p>¿Quieres que se la reenvíe a alguien?</p>",
+        ],
+      },
+      {
+        title: "Audio de Marcos",
+        ask: "Transcribe el audio que Marcos acaba de mandar",
+        working: "Transcribiendo un audio de 1:42 en esta computadora",
+        done: "Transcribió un audio de 1:42 sin sacarlo de la computadora",
+        reply: [
+          "<p>Marcos dijo:</p>",
+          "<blockquote>¡Hola! Logré adelantar la reunión con el cliente para el jueves a las 10. Si puedes, lleva el contrato impreso, que lo quieren firmar ahí mismo.</blockquote>",
+          "<p><strong>En resumen:</strong> reunión el jueves a las 10 y llevar el contrato impreso.</p>",
+        ],
+      },
+    ],
+    en: [
+      {
+        title: "Family group summary",
+        ask: "Sum up what happened in the family group today",
+        working: "Reading the messages in Family",
+        done: "Read 52 messages from Family",
+        reply: [
+          "<p>Today in the family group:</p>",
+          "<ul><li><strong>Sunday lunch:</strong> at Grandma’s, at 1 pm.</li><li><strong>Dessert:</strong> Carla’s bringing it. Someone still needs to bring drinks.</li><li><strong>Photos:</strong> Pedro sent 12 from the graduation.</li></ul>",
+          "<p>Nobody mentioned you. Want me to tell the group you’ll bring the drinks?</p>",
+        ],
+      },
+      {
+        title: "Ana’s address",
+        ask: "What address did Ana send in March?",
+        working: "Searching the chats with Ana",
+        done: "Found 1 message from March 14",
+        reply: [
+          "<p>Ana sent it on March 14, at 6:07 pm:</p>",
+          "<blockquote>412 Harmony Street, apartment 31. The doorman knows you’re coming.</blockquote>",
+          "<p>Want me to forward it to someone?</p>",
+        ],
+      },
+      {
+        title: "Voice message from Marcos",
+        ask: "Transcribe the voice message Marcos just sent",
+        working: "Transcribing a 1:42 voice message on this computer",
+        done: "Transcribed a 1:42 voice message without it leaving the computer",
+        reply: [
+          "<p>Marcos said:</p>",
+          "<blockquote>Hey! I managed to move the client meeting up to Thursday at 10. If you can, bring a printed copy of the contract, they want to sign it right there.</blockquote>",
+          "<p><strong>In short:</strong> meeting on Thursday at 10 am, and bring the printed contract.</p>",
+        ],
+      },
+    ],
+  }[lang];
 
   const body = chat.querySelector(".chat__body");
   const title = chat.querySelector(".chat__title");

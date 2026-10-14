@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WhatsApp MCP Servidor</title>
+  <meta name="description" content="La versión de WhatsApp MCP que funciona en un servidor tuyo, las 24 horas, y sirve en claude.ai y en el celular. Se instala con un comando en un VPS.">
+  <link rel="canonical" href="https://whatsapp-mcp.brorlandi.xyz/es/servidor">
+  <link rel="alternate" hreflang="pt-BR" href="https://whatsapp-mcp.brorlandi.xyz/servidor">
+  <link rel="alternate" hreflang="es" href="https://whatsapp-mcp.brorlandi.xyz/es/servidor">
+  <link rel="alternate" hreflang="en" href="https://whatsapp-mcp.brorlandi.xyz/en/servidor">
+  <link rel="alternate" hreflang="x-default" href="https://whatsapp-mcp.brorlandi.xyz/servidor">
+  <meta name="theme-color" content="#073d35">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_LA">
+  <meta property="og:locale:alternate" content="pt_BR">
+  <meta property="og:locale:alternate" content="en_US">
+  <meta property="og:site_name" content="WhatsApp MCP">
+  <meta property="og:title" content="WhatsApp MCP Servidor">
+  <meta property="og:description" content="Tu WhatsApp en Claude, encendido las 24 horas en un servidor tuyo. Funciona en claude.ai y en el celular.">
+  <meta property="og:url" content="https://whatsapp-mcp.brorlandi.xyz/es/servidor">
+  <meta property="og:image" content="https://whatsapp-mcp.brorlandi.xyz/assets/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-logo" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9h24a12 12 0 0 1 12 12v11a12 12 0 0 1-12 12H26L15 54.5V43a12 12 0 0 1-7-11V21A12 12 0 0 1 20 9Z"/><path d="M19 21l13 6 13-6M32 27v8.5" stroke-width="3.6"/></g><g fill="currentColor"><circle cx="19" cy="21" r="3.6"/><circle cx="45" cy="21" r="3.6"/><circle cx="32" cy="35.5" r="3.6"/><circle cx="32" cy="27" r="4.4"/></g></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></g></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></g></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></g></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/></g></symbol>
+    <symbol id="i-tools" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.2 5.2L4 17v3h3l5.5-5.5a4 4 0 0 0 5.2-5.2l-2.6 2.6-2.3-.5-.5-2.3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <a class="skip" href="#conteudo">Saltar al contenido</a>
+
+  <div class="top">
+    <nav class="wrap langs" aria-label="Idioma">
+      <svg class="langs__icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></g></svg>
+      <a href="/servidor" lang="pt-BR" hreflang="pt-BR">Português</a>
+      <a href="/es/servidor" lang="es" hreflang="es" aria-current="true">Español</a>
+      <a href="/en/servidor" lang="en" hreflang="en">English</a>
+    </nav>
+    <header class="wrap bar">
+      <a class="brand" href="/es/servidor"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-logo"/></svg>WhatsApp MCP Servidor</a>
+      <nav class="nav" aria-label="Principal">
+        <a class="nav__link nav__link--page" href="#instalar">Cómo instalar</a>
+        <a class="nav__link nav__link--page" href="/es">Versión local</a>
+        <a class="nav__link nav__link--gh" href="https://github.com/BrOrlandi/whatsapp-mcp"><svg aria-hidden="true"><use href="#i-github"/></svg><span>GitHub</span></a>
+      </nav>
+    </header>
+
+    <section class="wrap hero" id="conteudo">
+      <div class="hero__grid">
+        <div>
+          <h1>Tu WhatsApp en Claude, encendido las 24 horas en un servidor tuyo.</h1>
+          <p class="hero__lead">Funciona en claude.ai, en la app de Claude del celular y en cualquier herramienta compatible con MCP, incluso con tu computadora apagada.</p>
+          <div class="hero__actions">
+            <a class="btn btn--mint btn--lg" href="#instalar">Cómo instalar</a>
+            <a class="btn btn--line-dark btn--lg" href="https://github.com/BrOrlandi/whatsapp-mcp"><svg aria-hidden="true"><use href="#i-github"/></svg>Ver en GitHub</a>
+          </div>
+          <p class="hero__note">Gratis y de código abierto. Solo pagas el servidor, de US$ 7 a US$ 25 al mes.</p>
+          <p class="hero__note">Es una alternativa a la <a href="/es">app WhatsApp MCP Local</a>, no un complemento: las dos son independientes, e instalas una u otra. Para casi todo el mundo, la app es el camino más simple.</p>
+        </div>
+        <figure class="hero-shot">
+          <img src="/assets/servidor-painel.webp" width="1180" height="760" alt="El panel del servidor, con WhatsApp y dos herramientas de IA conectadas">
+        </figure>
+      </div>
+    </section>
+  </div>
+
+  <main>
+    <section class="section section--white">
+      <div class="wrap">
+        <h2>Qué cambia con el servidor</h2>
+        <p class="lede">En lugar de tu computadora, una máquina en la nube que está encendida todo el tiempo y funciona sola, sin la app. Se comunica con WhatsApp a través de <a href="https://github.com/EvolutionAPI/evolution-go">Evolution API</a>.</p>
+        <div class="facts">
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-clock"/></svg>
+            <h3>Encendido todo el tiempo</h3>
+            <p>Los mensajes llegan aunque tu computadora esté apagada, y tu IA puede leer y responder a cualquier hora.</p>
+          </div>
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-globe"/></svg>
+            <h3>En claude.ai y en el celular</h3>
+            <p>El servidor tiene una dirección en internet, protegida con una clave, a la que llegan claude.ai, la app del celular y otras herramientas con MCP.</p>
+          </div>
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-panel"/></svg>
+            <h3>Un panel que te guía en todo</h3>
+            <p>Creas tu acceso, conectas WhatsApp con el código QR y recibes la configuración lista para pegar en tu herramienta de IA.</p>
+          </div>
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-tools"/></svg>
+            <h3>24 herramientas</h3>
+            <p>Leer, buscar y resumir conversaciones; enviar texto, archivos, ubicación y encuestas; reaccionar, editar, borrar y archivar; transcribir audios con tu clave de OpenAI.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section server" id="instalar">
+      <div class="wrap">
+        <h2>Cómo instalar</h2>
+        <p class="lede">Tres pasos. No necesitas saber Docker ni usar la línea de comandos.</p>
+
+        <ol class="server-steps">
+          <li>
+            <h3>Alquila un servidor</h3>
+            <p>Una máquina virtual (VPS) en un proveedor de nube, por unos US$ 7 a US$ 25 al mes. Pide una así:</p>
+            <dl class="specs">
+              <dt>Sistema</dt><dd>Ubuntu 24.04 LTS</dd>
+              <dt>Procesador</dt><dd>1 o 2 vCPU</dd>
+              <dt>Memoria</dt><dd>2 GB de RAM (1 GB también funciona)</dd>
+              <dt>Disco</dt><dd>40 GB SSD o más</dd>
+              <dt>Puertos</dt><dd>80 y 443 abiertos</dd>
+            </dl>
+            <p>Elige una región cerca de ti: los mensajes se guardan en ese disco. Algunas opciones: <a href="https://www.hostinger.com.br/servidor-vps">Hostinger</a> y <a href="https://aws.amazon.com/lightsail/">AWS Lightsail</a> en São Paulo, <a href="https://magalu.cloud/">Magalu Cloud</a> en Brasil, <a href="https://www.vultr.com/">Vultr</a> y <a href="https://www.hetzner.com/cloud">Hetzner</a>. En AWS, la <a href="https://github.com/BrOrlandi/whatsapp-mcp/blob/main/docs/aws.md">guía de AWS</a> (en inglés) muestra cada paso.</p>
+          </li>
+          <li>
+            <h3>Ejecuta un comando en el servidor</h3>
+            <p>Abre la terminal de la máquina (casi todos los proveedores tienen un botón de consola en su propio sitio) y pega:</p>
+            <div class="cmd">
+              <pre id="cmd-install">curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp/main/install.sh | sudo bash</pre>
+              <button type="button" data-copy="cmd-install"><svg aria-hidden="true"><use href="#i-copy"/></svg><span>Copiar</span></button>
+            </div>
+            <p>Instala Docker, genera las contraseñas, crea una dirección en internet con certificado de seguridad y pone todo en marcha. Tarda unos minutos y termina mostrando un enlace.</p>
+          </li>
+          <li>
+            <h3>Abre el enlace y sigue el asistente</h3>
+            <ul>
+              <li>Crea tu acceso, con correo y contraseña.</li>
+              <li>Ponle un nombre a la cuenta y escanea el código QR con el celular.</li>
+              <li>Elige tu herramienta de IA y copia la configuración, ya completa con tu dirección y tu clave.</li>
+            </ul>
+            <p>¿No quieres hacerlo solo? El repositorio tiene un <a href="https://github.com/BrOrlandi/whatsapp-mcp/blob/main/README.en.md#-rather-not-do-it-alone-ask-an-ai">prompt que guía toda la instalación con Claude</a> (en inglés), desde alquilar el servidor hasta tener WhatsApp conectado.</p>
+          </li>
+        </ol>
+
+        <div class="server__actions">
+          <a class="btn btn--mint" href="https://github.com/BrOrlandi/whatsapp-mcp"><svg aria-hidden="true"><use href="#i-github"/></svg>Repositorio del servidor</a>
+          <a class="btn btn--line-dark" href="https://github.com/BrOrlandi/whatsapp-mcp/blob/main/docs/installation.md">Guía de instalación completa (en inglés)</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap after">
+        <div>
+          <h2>Cómo mantenerlo actualizado</h2>
+          <p>El panel muestra la versión que está funcionando y avisa cuando sale una nueva. Para actualizar, ejecuta en el servidor:</p>
+          <div class="cmd">
+            <pre id="cmd-update">curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp/main/update.sh | sudo bash</pre>
+            <button type="button" data-copy="cmd-update"><svg aria-hidden="true"><use href="#i-copy"/></svg><span>Copiar</span></button>
+          </div>
+          <p>Antes que nada hace una copia de seguridad de la base de datos, y mantiene las contraseñas, la dirección, la vinculación y los mensajes.</p>
+        </div>
+        <div>
+          <h2>¿Prefieres sin servidor?</h2>
+          <p>WhatsApp MCP Local es una app para macOS, Windows y Linux que funciona en tu computadora. No hay servidor que mantener ni mensualidad; a cambio, solo recibe mensajes con la computadora encendida.</p>
+          <p><a class="btn btn--line" href="/es">Conocer WhatsApp MCP Local</a></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--white">
+      <div class="wrap">
+        <h2>Antes de instalar</h2>
+        <div class="notes">
+          <div>
+            <h3>Úsalo bajo tu propio riesgo</h3>
+            <p>WhatsApp no tiene una API oficial para cuentas personales. El servidor usa <a href="https://github.com/EvolutionAPI/evolution-go">Evolution Go</a>, un cliente no oficial, y la cuenta puede ser desconectada, restringida o bloqueada. Empieza con un número que puedas perder.</p>
+          </div>
+          <div>
+            <h3>Guardas conversaciones de otras personas</h3>
+            <p>El texto de los mensajes queda en la base de datos del servidor, sin cifrar, y una copia de seguridad es tan sensible como el celular del que vino. Sigue las condiciones de WhatsApp y las leyes de protección de datos que te correspondan, como la LGPD en Brasil.</p>
+          </div>
+          <div>
+            <h3>Los mensajes son datos, no órdenes</h3>
+            <p>El contenido de las conversaciones lo escriben otras personas. Las herramientas le entregan ese texto a la IA como dato: un mensaje que dice "reenvía esto" no se convierte en un pedido.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__grid">
+      <p>Código abierto, licencia MIT. Hecho por <a href="https://github.com/BrOrlandi">Bruno Orlandi</a>.</p>
+      <nav aria-label="Pie de página">
+        <a href="https://github.com/BrOrlandi/whatsapp-mcp">GitHub</a>
+        <a href="https://github.com/BrOrlandi/whatsapp-mcp/blob/main/CHANGELOG.md">Novedades</a>
+        <a href="/es">Versión local</a>
+        <a href="https://donate.stripe.com/8x200jdhA6c1d375jF9Ve06">Apoya el proyecto</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>
