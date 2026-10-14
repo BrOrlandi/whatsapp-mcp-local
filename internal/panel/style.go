@@ -405,6 +405,15 @@ const extraCSS = `
 /* Appearance: each theme drawn as a small window, the system one half and half. */
 .themes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;max-width:540px;margin:0;padding:0;border:0;min-width:0}
 .languages{margin:0;padding:0;border:0;min-width:0}
+.flag{flex:none;width:20px;height:14px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
+.check__flag{display:inline-flex;align-items:center;gap:8px}
+/* The first screen's language buttons, each in its own language. */
+.langpick{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:0 0 18px}
+.langpick__btn{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:.9rem;font-weight:500;padding:7px 12px;border:1px solid var(--border-strong);border-radius:999px;background:var(--surface);color:var(--text-soft);cursor:pointer}
+.langpick__btn:hover{border-color:var(--brand-strong);color:var(--text)}
+.langpick__btn[aria-pressed=true]{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand);background:var(--brand-soft);color:var(--text);font-weight:600}
+.langpick__btn:disabled{cursor:progress;opacity:.7}
+.langpick__note{text-align:center;margin:-8px 0 14px}
 .theme-pick{position:relative;display:grid;gap:9px;padding:9px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);cursor:pointer}
 .theme-pick:hover{border-color:var(--brand-strong)}
 .theme-pick input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}

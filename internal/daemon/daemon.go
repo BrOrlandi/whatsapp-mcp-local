@@ -123,7 +123,7 @@ func Start(cfg Config) (*Daemon, error) {
 	d.primary, d.accounts = primary, []*Account{primary}
 
 	d.panel = &panel.Panel{Server: primary.server, Supervisor: primary.sup, Index: primary.idx, State: primary.st, Token: cfg.Token,
-		Endpoint: d.MCPURL, Desktop: cfg.Desktop, LogPath: cfg.LogPath, MCPProblem: d.PortProblem}
+		Endpoint: d.MCPURL, Desktop: cfg.Desktop, LogPath: cfg.LogPath, MCPProblem: d.PortProblem, DataDir: cfg.DataDir}
 	if cfg.Panel != nil {
 		cfg.Panel(d.panel)
 	}

@@ -89,9 +89,11 @@ tradução; o que não tiver tradução aparece em português. Um valor guardado
 depois (uma lista, um rótulo de tabela) leva `i18n.N("…")` onde é escrito e é
 traduzido onde aparece.
 
-O idioma é escolhido em *Configurações › Idioma* e fica em `config.json`
-(`"language"`); vazio, segue o do sistema. Na linha de comando,
-`WHATSAPP_MCP_LANG` tem a palavra final. As descrições e respostas das tools
+O idioma é escolhido nos botões com bandeira da primeira tela (a do QR code) ou
+em *Configurações › Idioma*, no app e na linha de comando, e fica em
+`config.json` (`"language"`); vazio, segue o do sistema. Os dois passam por
+`POST /api/idioma`, e a página volta no idioma novo. Na linha de comando,
+`WHATSAPP_MCP_LANG` tem a palavra final quando o serviço inicia. As descrições e respostas das tools
 vão para a IA e continuam em inglês.
 
 `go test ./internal/i18n` falha quando um texto novo não tem tradução nos dois

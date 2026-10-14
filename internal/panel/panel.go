@@ -58,6 +58,9 @@ type Panel struct {
 	MCPProblem func() *PortProblem
 	// Host is the desktop app around the panel; nil on the command line.
 	Host Host
+	// DataDir is the data folder, whose config.json keeps the language
+	// picked on the command line, where there is no Host to keep it.
+	DataDir string
 
 	pages *template.Template
 	code  codeCache
@@ -176,6 +179,7 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/pair", p.api(p.apiPair))
 	mux.HandleFunc("POST /api/pair/cancel", p.api(p.apiCancelPair))
 	mux.HandleFunc("POST /api/clients/{client}", p.api(p.apiAddClient))
+	mux.HandleFunc("POST /api/idioma", p.api(p.apiLanguage))
 	if p.Host != nil {
 		p.registerApp(mux)
 	}
@@ -314,7 +318,10 @@ type layout struct {
 	OK       string
 	// App is set inside the desktop app, whose window has no address bar and
 	// opens links in the browser.
-	App        bool
+	App bool
+	// Language is the language the person picked, empty when the panel
+	// follows the system's.
+	Language   string
 	MCPProblem *PortProblem
 	Settings   HostSettings
 	Update     UpdateState
@@ -442,7 +449,7 @@ func syncKey(s wacli.Status) string {
 }
 
 func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout {
-	l := layout{Title: title, Active: active, HealthTone: s.Tone, Error: r.URL.Query().Get("erro"), OK: r.URL.Query().Get("ok")}
+	l := layout{Title: title, Active: active, HealthTone: s.Tone, Error: r.URL.Query().Get("erro"), OK: r.URL.Query().Get("ok"), Language: p.chosenLanguage()}
 	if s.Sync.State != "" {
 		l.LiveKey, l.LiveBusy = syncKey(s.Sync), settling(s.Sync) || s.Sync.State == "reconnecting"
 	}
@@ -1160,6 +1167,7 @@ func funcs() template.FuncMap {
 		"tf":            translatef,
 		"lang":          i18n.Lang,
 		"languages":     func() []i18n.Language { return i18n.Languages },
+		"flag":          flag,
 		"icon":          icon,
 		"toolmark":      toolmark,
 		"logo":          brand.LogoSVG,

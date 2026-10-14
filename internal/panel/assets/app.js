@@ -152,6 +152,32 @@
     }, 4000);
   }
 
+  // ---- language ----
+  // The first screen's buttons and the choice in Configurações: kept in
+  // config.json, and the page comes back in the new language.
+  function chooseLanguage(code, controls) {
+    var note = document.querySelector("[data-language-note]");
+    controls.forEach(function (c) { c.disabled = true; });
+    return api("/api/idioma", { language: code }).then(function () {
+      window.location.reload();
+    }).catch(function (error) {
+      controls.forEach(function (c) { c.disabled = false; });
+      if (note) { note.hidden = false; note.textContent = error.message; }
+    });
+  }
+  var picks = Array.prototype.slice.call(document.querySelectorAll("[data-language-pick]"));
+  picks.forEach(function (button) {
+    button.addEventListener("click", function () {
+      if (button.getAttribute("aria-pressed") === "true") return;
+      picks.forEach(function (b) { b.setAttribute("aria-pressed", b === button ? "true" : "false"); });
+      chooseLanguage(button.getAttribute("data-language-pick"), picks);
+    });
+  });
+  var radios = Array.prototype.slice.call(document.querySelectorAll("[data-language]"));
+  radios.forEach(function (input) {
+    input.addEventListener("change", function () { chooseLanguage(input.value, radios); });
+  });
+
   // ---- pairing ----
   var pairing = document.querySelector("[data-pairing]");
   if (pairing) {
@@ -598,18 +624,6 @@
         input.checked = !input.checked;
         if (note) { note.hidden = false; note.textContent = error.message; }
       }).then(function () { input.disabled = false; });
-    });
-  });
-
-  // The language: kept by the app, and the page comes back in it.
-  document.querySelectorAll("[data-language]").forEach(function (input) {
-    input.addEventListener("change", function () {
-      var note = document.querySelector("[data-language-note]");
-      post("/api/configuracoes", { language: input.value }).then(function () {
-        window.location.reload();
-      }).catch(function (error) {
-        if (note) { note.hidden = false; note.textContent = error.message; }
-      });
     });
   });
 

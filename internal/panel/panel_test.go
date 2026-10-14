@@ -141,7 +141,8 @@ func TestStatusWhileSendingGetsReady(t *testing.T) {
 }
 
 // On the command line there is no app around the panel: Configurações keeps
-// the appearance and audio transcription, and none of the app's settings.
+// the appearance, the language and audio transcription, and none of the app's
+// settings.
 func TestSettingsOnTheCommandLine(t *testing.T) {
 	var b strings.Builder
 	if err := parseTemplates().ExecuteTemplate(&b, "configuracoes", struct {
@@ -156,7 +157,7 @@ func TestSettingsOnTheCommandLine(t *testing.T) {
 		t.Fatal(err)
 	}
 	page := b.String()
-	for _, want := range []string{"Aparência", `data-theme-choice`, `id="transcricao"`, "Transcrição de áudio", `class="gear" href="/configuracoes" aria-label="Configurações" title="Configurações" aria-current="page"`} {
+	for _, want := range []string{"Aparência", `data-theme-choice`, `id="idioma"`, `id="transcricao"`, "Transcrição de áudio", `class="gear" href="/configuracoes" aria-label="Configurações" title="Configurações" aria-current="page"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("Configurações lacks %q", want)
 		}

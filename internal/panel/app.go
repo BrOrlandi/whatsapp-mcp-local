@@ -131,10 +131,7 @@ func (p *Panel) apiSettings(r *http.Request) (any, error) {
 		}
 	}
 	if body.Language != nil {
-		if *body.Language != "" && !i18n.Supported(*body.Language) {
-			return nil, userError{i18n.T("pedido inválido")}
-		}
-		if err := p.Host.SetLanguage(*body.Language); err != nil {
+		if err := p.setLanguage(*body.Language); err != nil {
 			return nil, err
 		}
 	}

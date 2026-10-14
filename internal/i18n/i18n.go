@@ -22,13 +22,14 @@ const Source = "pt-BR"
 // Language is one the app can show.
 type Language struct {
 	Code string `json:"code"`
-	// Name is the language in itself, as the picker lists it.
+	// Name is the language in itself, as the pickers list it, beside the
+	// flag that tells Brazil's Portuguese apart.
 	Name string `json:"name"`
 }
 
 // Languages are the ones with a catalogue, Portuguese first.
 var Languages = []Language{
-	{Source, "Português (Brasil)"},
+	{Source, "Português"},
 	{"es", "Español"},
 	{"en", "English"},
 }
