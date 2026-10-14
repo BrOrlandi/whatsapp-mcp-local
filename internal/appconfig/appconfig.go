@@ -15,6 +15,10 @@ import (
 // servers that live on 3000, 5173 or 8080.
 const DefaultPort = 47821
 
+// LanguageBefore is the language of a config.json written before the app
+// had languages, which spoke only Brazilian Portuguese.
+const LanguageBefore = "pt-BR"
+
 // File is config.json's name inside the data folder.
 const File = "config.json"
 
@@ -25,8 +29,9 @@ type Config struct {
 	// Autostart opens the app, in the tray only, when the user logs in.
 	Autostart bool `json:"autostart"`
 	// Language is the language the app shows (pt-BR, es, en); empty follows
-	// the system's.
-	Language string `json:"language,omitempty"`
+	// the system's. It is always written, empty too, so a config.json
+	// without it is one from before the app had languages (see Load).
+	Language string `json:"language"`
 	// Seen records one-time notices already shown, such as "close" for the
 	// one explaining that closing the window keeps the app in the tray.
 	Seen []string `json:"seen,omitempty"`
@@ -52,6 +57,15 @@ func Load(dataDir string) (Config, error) {
 	}
 	if err := json.Unmarshal(raw, &c); err != nil {
 		return Defaults(), err
+	}
+	// A config.json from before the app had languages: the person has been
+	// using it in Portuguese, and an update does not change that, even on a
+	// computer set to English. A new install follows the system's language.
+	var keys map[string]json.RawMessage
+	if json.Unmarshal(raw, &keys) == nil {
+		if _, ok := keys["language"]; !ok {
+			c.Language = LanguageBefore
+		}
 	}
 	if c.Port < 1 || c.Port > 65535 {
 		c.Port = DefaultPort
