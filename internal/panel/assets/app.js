@@ -472,7 +472,7 @@
           } else if (job) {
             note.textContent = t("Buscando… %d de %s, %s até agora.", job.chats_done,
               job.chats.length === 1 ? t("1 conversa") : t("%d conversas", job.chats.length),
-              job.messages_added === 1 ? t("1 mensagem nova") : t("%s mensagens novas", job.messages_added));
+              job.messages_added === 1 ? t("1 mensagem nova") : t("%s mensagens novas", job.messages_added.toLocaleString(document.documentElement.lang)));
           }
         }).catch(function () {});
       }, 3000);
