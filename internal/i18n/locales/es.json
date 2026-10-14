@@ -753,5 +753,6 @@
  "Última mensagem recebida %s; %d na última hora, %d em 24 horas.": "Último mensaje recibido %s; %d en la última hora, %d en 24 horas.",
  "Último pedido concluído": "Última solicitud completada",
  "Último pedido: %s mensagens novas em %d conversas.": "Última solicitud: %s mensajes nuevos en %d conversaciones.",
- "área de notificação": "el área de notificación"
+ "área de notificação": "el área de notificación",
+ "Mensagem de teste do WhatsApp MCP": "Mensaje de prueba de WhatsApp MCP"
 }

@@ -197,7 +197,7 @@ func serve(cfg config) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "\n  Painel: %s/\n  MCP:    %s/mcp\n\n", cfg.baseURL(), cfg.baseURL())
+	fmt.Fprintf(os.Stderr, "\n  Panel:  %s/\n  MCP:    %s/mcp\n\n", cfg.baseURL(), cfg.baseURL())
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	<-ctx.Done()
@@ -236,7 +236,7 @@ func serviceCmd(cfg config, args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("installed %s\nthe daemon now runs at login and restarts if it stops\n\n  Painel: %s/\n  MCP:    %s/mcp\n\n", path, cfg.baseURL(), cfg.baseURL())
+		fmt.Printf("installed %s\nthe daemon now runs at login and restarts if it stops\n\n  Panel:  %s/\n  MCP:    %s/mcp\n\n", path, cfg.baseURL(), cfg.baseURL())
 		if len(args) > 1 && args[1] == "--no-open" {
 			return nil
 		}

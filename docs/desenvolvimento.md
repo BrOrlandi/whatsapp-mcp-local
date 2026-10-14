@@ -101,7 +101,12 @@ vão para a IA e continuam em inglês.
 
 `go test ./internal/i18n` falha quando um texto novo não tem tradução nos dois
 catálogos, quando uma tradução troca os `%s`/`%d` de lugar e quando um catálogo
-traduz um texto que o código não usa mais. Para outro idioma: um `locales/xx.json`
+traduz um texto que o código não usa mais. `coverage_test.go`, no mesmo pacote,
+procura o texto que escapou do catálogo: palavras e atributos (`title`,
+`aria-label`, `alt`, `placeholder`) nos templates fora de `{{t}}`, textos dos
+scripts fora de `t()` e textos em português no Go fora de `i18n.T`/`Tf`/`N`. É
+uma heurística (acento ou palavra que só as chaves em português têm); o que é
+igual em todo idioma vai nas listas do próprio teste. Para outro idioma: um `locales/xx.json`
 e uma linha em `i18n.Languages`.
 
 ## Testes

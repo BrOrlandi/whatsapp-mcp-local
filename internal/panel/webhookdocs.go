@@ -105,8 +105,8 @@ func webhookExamples() []webhookExampleGroup {
 		}},
 		{ID: "test", Title: i18n.T("Aviso de teste"), Intro: i18n.T("O que o botão Testar manda. Tem test true; não conta para o desligamento automático."), Examples: []webhookExample{
 			{ID: "teste", Title: i18n.T("Teste"), JSON: exampleJSON(webhook.Event{Kind: "message", ID: "e84bc09f176d2a35", At: sent, Test: true, Account: number,
-				Message: &webhook.Message{ID: "TEST", ChatJID: "5511900000000@s.whatsapp.net", ChatName: "Teste", Timestamp: at,
-					SenderJID: "5511900000000@s.whatsapp.net", SenderName: "Teste", Text: "Mensagem de teste do WhatsApp MCP"}})},
+				Message: &webhook.Message{ID: "TEST", ChatJID: "5511900000000@s.whatsapp.net", ChatName: i18n.T("Teste"), Timestamp: at,
+					SenderJID: "5511900000000@s.whatsapp.net", SenderName: i18n.T("Teste"), Text: i18n.T("Mensagem de teste do WhatsApp MCP")}})},
 		}},
 	}
 }

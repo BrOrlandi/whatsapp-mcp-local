@@ -533,8 +533,8 @@ func (m *Manager) Test(ctx context.Context, id string) (map[string]any, error) {
 		return nil, err
 	}
 	ev := Event{Kind: "message", ID: randomHex(8), At: time.Now().UTC(), Test: true,
-		Message: &Message{ID: "TEST", ChatJID: "5511900000000@s.whatsapp.net", ChatName: "Teste", Timestamp: time.Now().UTC(),
-			SenderJID: "5511900000000@s.whatsapp.net", SenderName: "Teste", Text: "Mensagem de teste do WhatsApp MCP"}}
+		Message: &Message{ID: "TEST", ChatJID: "5511900000000@s.whatsapp.net", ChatName: i18n.T("Teste"), Timestamp: time.Now().UTC(),
+			SenderJID: "5511900000000@s.whatsapp.net", SenderName: i18n.T("Teste"), Text: i18n.T("Mensagem de teste do WhatsApp MCP")}}
 	m.stamp(ctx, &ev)
 	started := time.Now()
 	result, err := m.post(ctx, h, ev)
