@@ -414,6 +414,12 @@ const extraCSS = `
 .langpick__btn[aria-pressed=true]{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand);background:var(--brand-soft);color:var(--text);font-weight:600}
 .langpick__btn:disabled{cursor:progress;opacity:.7}
 .langpick__note{text-align:center;margin:-8px 0 14px}
+/* A short name over a control, shown on hover and on keyboard focus, in the
+   tooltips' look: the language's name in the one the panel shows. */
+.hint{position:relative}
+.hint::after{content:attr(data-hint);position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:240px;padding:6px 10px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border-strong);box-shadow:var(--shadow-lift);color:var(--text);font-size:.8rem;font-weight:500;line-height:1.4;white-space:nowrap;visibility:hidden;opacity:0;transition:opacity .12s;z-index:20;pointer-events:none}
+.hint:hover::after,.hint:focus-visible::after,.check:hover>.hint::after,.check:focus-within>.hint::after{visibility:visible;opacity:1}
+.hint[data-hint=""]::after{display:none}
 .theme-pick{position:relative;display:grid;gap:9px;padding:9px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);cursor:pointer}
 .theme-pick:hover{border-color:var(--brand-strong)}
 .theme-pick input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}

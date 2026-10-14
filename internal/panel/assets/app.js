@@ -159,6 +159,8 @@
     var note = document.querySelector("[data-language-note]");
     controls.forEach(function (c) { c.disabled = true; });
     return api("/api/idioma", { language: code }).then(function () {
+      // The page comes back where it was; the keyboard, on the language chosen.
+      try { window.sessionStorage.setItem("language-focus", code); } catch (e) {}
       window.location.reload();
     }).catch(function (error) {
       controls.forEach(function (c) { c.disabled = false; });
@@ -177,6 +179,20 @@
   radios.forEach(function (input) {
     input.addEventListener("change", function () { chooseLanguage(input.value, radios); });
   });
+  var refocus = null;
+  try {
+    refocus = window.sessionStorage.getItem("language-focus");
+    window.sessionStorage.removeItem("language-focus");
+  } catch (e) {}
+  if (refocus !== null) {
+    picks.concat(radios).some(function (control) {
+      var code = control.getAttribute("data-language-pick");
+      if (code === null) code = control.value;
+      if (code !== refocus) return false;
+      control.focus({ preventScroll: true });
+      return true;
+    });
+  }
 
   // ---- pairing ----
   var pairing = document.querySelector("[data-pairing]");

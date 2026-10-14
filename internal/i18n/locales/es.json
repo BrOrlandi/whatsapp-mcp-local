@@ -760,5 +760,8 @@
  "%s e %s": "%s y %s",
  "a conexão levou mais de 30 minutos e foi interrompida": "la vinculación tardó más de 30 minutos y se detuvo",
  "a conexão terminou sem completar; tente de novo": "la vinculación terminó sin completarse; inténtalo de nuevo",
- "+55 11 91234-5678": "+52 55 1234 5678"
+ "+55 11 91234-5678": "+52 55 1234 5678",
+ "Português do Brasil": "Portugués de Brasil",
+ "Espanhol": "Español",
+ "Inglês": "Inglés"
 }

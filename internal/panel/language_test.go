@@ -65,8 +65,9 @@ func TestLanguageOnTheCommandLine(t *testing.T) {
 	}
 }
 
-// The first screen offers every language, each named in itself, with the one
-// shown pressed; Configurações offers them on the command line too.
+// The first screen offers every language, each named in itself and, on hover,
+// in the panel's language, with the one shown pressed; Configurações offers
+// them on the command line too.
 func TestLanguagePickers(t *testing.T) {
 	defer i18n.Set(i18n.Source)
 	i18n.Set("en")
@@ -87,9 +88,9 @@ func TestLanguagePickers(t *testing.T) {
 	page := b.String()
 	for _, want := range []string{
 		`<html lang="en"`,
-		`lang="pt-BR" data-language-pick="pt-BR" aria-pressed="false"`,
-		`lang="es" data-language-pick="es" aria-pressed="false"`,
-		`lang="en" data-language-pick="en" aria-pressed="true"`,
+		`lang="pt-BR" data-language-pick="pt-BR" data-hint="Brazilian Portuguese" aria-pressed="false"`,
+		`lang="es" data-language-pick="es" data-hint="Spanish" aria-pressed="false"`,
+		`lang="en" data-language-pick="en" data-hint="English" aria-pressed="true"`,
 		`<span>Português</span>`, `<span>Español</span>`, `<span>English</span>`,
 		`<svg class="flag"`,
 		"Connect your WhatsApp",
@@ -112,7 +113,7 @@ func TestLanguagePickers(t *testing.T) {
 		t.Fatal(err)
 	}
 	page = b.String()
-	for _, want := range []string{`id="idioma"`, `value="es" data-language checked`, `value="" data-language>`} {
+	for _, want := range []string{`id="idioma"`, `value="es" data-language checked`, `value="" data-language>`, `data-hint="English"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("Configurações on the command line lacks %q", want)
 		}

@@ -67,6 +67,21 @@ func (p *Panel) apiLanguage(r *http.Request) (any, error) {
 	return map[string]string{"language": *body.Language, "lang": i18n.Lang()}, nil
 }
 
+// languageHint is the tooltip over a language's button: its name in the
+// language the panel shows, so whoever cannot read "Español" learns it is
+// Spanish.
+func languageHint(code string) string {
+	switch code {
+	case i18n.Source:
+		return i18n.T("Português do Brasil")
+	case "es":
+		return i18n.T("Espanhol")
+	case "en":
+		return i18n.T("Inglês")
+	}
+	return ""
+}
+
 // flags are the languages' flags, drawn simply enough to read at 20 by 14
 // pixels: emoji flags do not show on Windows.
 var flags = map[string]string{

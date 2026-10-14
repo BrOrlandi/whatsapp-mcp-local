@@ -760,5 +760,8 @@
  "%s e %s": "%s and %s",
  "a conexão levou mais de 30 minutos e foi interrompida": "linking took longer than 30 minutes and was stopped",
  "a conexão terminou sem completar; tente de novo": "linking ended without connecting; try again",
- "+55 11 91234-5678": "+1 415 555 0123"
+ "+55 11 91234-5678": "+1 415 555 0123",
+ "Português do Brasil": "Brazilian Portuguese",
+ "Espanhol": "Spanish",
+ "Inglês": "English"
 }

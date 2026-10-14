@@ -1184,6 +1184,7 @@ func funcs() template.FuncMap {
 		"lang":          i18n.Lang,
 		"languages":     func() []i18n.Language { return i18n.Languages },
 		"flag":          flag,
+		"languageHint":  languageHint,
 		"icon":          icon,
 		"toolmark":      toolmark,
 		"logo":          brand.LogoSVG,
