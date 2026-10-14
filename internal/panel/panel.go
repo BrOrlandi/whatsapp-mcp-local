@@ -572,6 +572,21 @@ func pauseReason(r string) string {
 	return i18n.T("uma operação")
 }
 
+// pairingErrors are the pairing's own errors, which wacli reports in
+// English, in the person's language; any other error is wacli's and shows as
+// it came.
+var pairingErrors = map[string]string{
+	"pairing took longer than 30 minutes and was stopped": i18n.N("a conexão levou mais de 30 minutos e foi interrompida"),
+	"wacli auth ended without pairing; try again":         i18n.N("a conexão terminou sem completar; tente de novo"),
+}
+
+func pairingError(err string) string {
+	if pt, ok := pairingErrors[err]; ok {
+		return i18n.T(pt)
+	}
+	return err
+}
+
 // pauseReasons says what wacli pauses for, completing "Pausada por alguns
 // segundos para …".
 var pauseReasons = map[string]string{"revoke message": i18n.N("apagar uma mensagem"), "check numbers": i18n.N("verificar números"), "profile picture": i18n.N("buscar uma foto de perfil"),
@@ -1008,6 +1023,7 @@ func (p *Panel) apiState(r *http.Request) (any, error) {
 		"account": s.Account, "name": s.Name, "phone": s.Phone,
 		"sync": sync, "pairing": s.Pairing, "health": s.Health,
 		"history": s.History, "clients_live": live, "clients": clients, "endpoint": p.endpoint(), "version": mcp.Version,
+		"pairing_error": pairingError(s.Pairing.Error),
 	}, nil
 }
 

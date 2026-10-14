@@ -231,7 +231,7 @@
           break;
         case "error":
           showOnly("error");
-          pairing.querySelector("[data-error-text]").textContent = t("Não foi possível conectar: %s", p.error);
+          pairing.querySelector("[data-error-text]").textContent = t("Não foi possível conectar: %s", state.pairing_error || p.error);
           break;
         case "done":
           window.location.reload();

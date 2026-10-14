@@ -121,7 +121,7 @@ func webhookError(err error) error {
 	case err == nil:
 		return nil
 	case errors.As(err, &ue):
-		return userError{i18n.T(ue.Msg)}
+		return userError{ue.Msg} // already in the person's language
 	case errors.Is(err, state.ErrNoWebhook):
 		return userError{i18n.T("nenhum webhook tem esse id")}
 	}

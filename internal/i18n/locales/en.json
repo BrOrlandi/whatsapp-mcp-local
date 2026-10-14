@@ -757,5 +757,8 @@
  "%s mensagens novas": "%s new messages",
  "%s já está usando o seu WhatsApp.": "%s is already using your WhatsApp.",
  "%s já estão usando o seu WhatsApp.": "%s are already using your WhatsApp.",
- "%s e %s": "%s and %s"
+ "%s e %s": "%s and %s",
+ "a conexão levou mais de 30 minutos e foi interrompida": "linking took longer than 30 minutes and was stopped",
+ "a conexão terminou sem completar; tente de novo": "linking ended without connecting; try again",
+ "+55 11 91234-5678": "+1 415 555 0123"
 }

@@ -424,7 +424,7 @@ button per language, each in its own language, pressed for the one shown. */}}
 <div data-pair-phone hidden>
 <label class="field" for="phone"><span class="field__label">{{t "Número deste WhatsApp"}}</span>
 <span class="field__hint">{{t "Com DDI e DDD. O celular pede um código de 8 caracteres, que vai aparecer aqui."}}</span></label>
-<input id="phone" type="text" inputmode="tel" autocomplete="tel" placeholder="+55 11 91234-5678" data-pair-phone-input>
+<input id="phone" type="text" inputmode="tel" autocomplete="tel" placeholder="{{t "+55 11 91234-5678"}}" data-pair-phone-input>
 <div class="actions"><button class="btn" type="button" data-pair-phone-go>{{t "Gerar código"}}</button></div>
 </div>
 </div>
