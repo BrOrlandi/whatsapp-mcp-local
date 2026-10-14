@@ -123,7 +123,7 @@ func (e *Engine) Status() Status {
 		s.Missing = append(s.Missing, "ffmpeg")
 	}
 	if s.Model == "" {
-		s.Missing = append(s.Missing, i18n.T("modelo"))
+		s.Missing = append(s.Missing, "modelo")
 	}
 	s.Ready = len(s.Missing) == 0
 	e.mu.Lock()

@@ -1046,6 +1046,9 @@ func (p *Panel) apiChats(r *http.Request) (any, error) {
 	if chats == nil {
 		chats = []index.ChatPreview{}
 	}
+	for i := range chats {
+		chats[i].Name = index.ShownName(chats[i].Name)
+	}
 	return map[string]any{"chats": chats, "history": p.Server.HistoryStatus()}, nil
 }
 
@@ -1240,6 +1243,10 @@ func translatef(format string, args ...any) template.HTML {
 			args[i] = template.HTMLEscapeString(v)
 		case fmt.Stringer:
 			args[i] = template.HTMLEscapeString(v.String())
+		case int, int64, float64:
+		default:
+			// An error, or anything else that prints as text.
+			args[i] = template.HTMLEscapeString(fmt.Sprint(v))
 		}
 	}
 	return template.HTML(i18n.Tf(format, args...))

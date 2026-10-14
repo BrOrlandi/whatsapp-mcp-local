@@ -73,6 +73,21 @@ func Load(dataDir string) (Config, error) {
 	return c, nil
 }
 
+// Chosen is the language kept in a data folder: "language" in config.json,
+// empty to follow the system's. A data folder in use from before the app had
+// languages, with no config.json (the command line writes one only when a
+// setting changes), stays in Portuguese, as the person has been using it.
+func Chosen(dataDir string) string {
+	if _, err := os.Stat(Path(dataDir)); err == nil {
+		c, _ := Load(dataDir)
+		return c.Language
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "state.db")); err == nil {
+		return LanguageBefore
+	}
+	return ""
+}
+
 // Save writes config.json atomically: a temporary file renamed over the old
 // one, so the bridge never reads half a file.
 func Save(dataDir string, c Config) error {

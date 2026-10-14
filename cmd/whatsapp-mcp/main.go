@@ -124,6 +124,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	i18n.Set(language(cfg.DataDir))
 	switch cmd {
 	case "serve":
 		err = serve(cfg)
@@ -171,6 +172,15 @@ const usage = `whatsapp-mcp — WhatsApp for MCP clients, on localhost, over wac
 Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WHATSAPP_MCP_LANG (pt-BR, es, en), WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
 `
 
+// language is the one the panel and the messages show: WHATSAPP_MCP_LANG,
+// else the one kept in the data folder (appconfig.Chosen).
+func language(dataDir string) string {
+	if lang := os.Getenv("WHATSAPP_MCP_LANG"); lang != "" {
+		return lang
+	}
+	return appconfig.Chosen(dataDir)
+}
+
 func fatal(err error) {
 	fmt.Fprintln(os.Stderr, "whatsapp-mcp:", err)
 	os.Exit(1)
@@ -178,13 +188,6 @@ func fatal(err error) {
 
 func serve(cfg config) error {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	// The panel's language: WHATSAPP_MCP_LANG, else "language" in
-	// config.json, else the system's.
-	lang := os.Getenv("WHATSAPP_MCP_LANG")
-	if c, err := appconfig.Load(cfg.DataDir); lang == "" && err == nil {
-		lang = c.Language
-	}
-	i18n.Set(lang)
 	d, err := daemon.Start(daemon.Config{
 		Port: cfg.Port, RequirePort: true, Token: cfg.Token,
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,

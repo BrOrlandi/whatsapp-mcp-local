@@ -188,13 +188,32 @@ func formatJID(jid string) string {
 		}
 		return "+" + user
 	case "g.us":
-		return i18n.T("Grupo sem nome")
+		return unnamedGroup
 	case "newsletter":
-		return i18n.T("Canal do WhatsApp")
+		return channel
 	case "broadcast":
-		return i18n.T("Lista de transmissão")
+		return broadcastList
 	}
 	return user
+}
+
+// The names of a chat without one. They reach the tools and the webhooks as
+// they are, whatever language the panel shows; the panel translates them
+// (ShownName).
+var (
+	unnamedGroup  = i18n.N("Grupo sem nome")
+	channel       = i18n.N("Canal do WhatsApp")
+	broadcastList = i18n.N("Lista de transmissão")
+)
+
+// ShownName is a chat's name as the panel shows it: a name WhatsApp gave
+// none of, in the panel's language.
+func ShownName(name string) string {
+	switch name {
+	case unnamedGroup, channel, broadcastList:
+		return i18n.T(name)
+	}
+	return name
 }
 
 // IsIdentifier reports whether a stored name is really a JID or a bare number.

@@ -19,11 +19,7 @@ func (p *Panel) chosenLanguage() string {
 	if p.DataDir == "" {
 		return ""
 	}
-	c, err := appconfig.Load(p.DataDir)
-	if err != nil {
-		return ""
-	}
-	return c.Language
+	return appconfig.Chosen(p.DataDir)
 }
 
 // setLanguage shows the panel in code (a code of i18n.Languages, or empty to

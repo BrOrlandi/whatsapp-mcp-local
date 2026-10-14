@@ -113,7 +113,9 @@ func (t *tray) relabel() {
 	t.app.relabelMenu()
 	t.menu.Update()
 	if d := t.app.current(); d != nil && rendered {
-		go t.render(d.Status())
+		// The status reads the database: not on the request that changed
+		// the language.
+		go func() { t.render(d.Status()) }()
 	}
 }
 

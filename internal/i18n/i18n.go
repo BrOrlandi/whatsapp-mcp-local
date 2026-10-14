@@ -4,7 +4,10 @@
 // Portuguese when the catalogue has no entry. A catalogue is a JSON object in
 // locales/, from the Portuguese to its translation, with the same %s and %d
 // verbs in the same order. The tools' descriptions and results go to the AI,
-// not to the person, and stay in English.
+// not to the person, and stay in English; where they name a place in the
+// panel (Configurações) they name it as the person sees it, and the names
+// they and the webhooks give a chat without one stay in Portuguese, as
+// before (index.ShownName translates those for the panel).
 package i18n
 
 import (
