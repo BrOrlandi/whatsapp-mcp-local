@@ -403,7 +403,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <header class="masthead"><a class="brand" href="/instalacao">{{template "brandmark"}}</a>
 <div class="masthead__tools">{{template "settingslink" .}}</div></header>
 <div class="wizard-shell"{{if eq .Step 2}} style="max-width:620px"{{end}}>
-{{if eq .Step 1}}{{template "langpick" .}}{{end}}
+{{template "langpick" .}}
 {{template "portbanner" .}}
 <ol class="wizard" aria-label="{{t "Etapas da instalação"}}" style="max-width:520px;margin-left:auto;margin-right:auto">
 {{range .Steps}}<li class="wizard__step wizard__step--{{.State}}"{{if eq .State "now"}} aria-current="step"{{end}}>

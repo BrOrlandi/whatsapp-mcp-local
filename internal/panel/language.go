@@ -48,7 +48,7 @@ func (p *Panel) setLanguage(code string) error {
 	return nil
 }
 
-// apiLanguage is the language buttons of the first screen and the choice in
+// apiLanguage is the language buttons of the setup screens and the choice in
 // Configurações, in the app and on the command line alike.
 func (p *Panel) apiLanguage(r *http.Request) (any, error) {
 	var body struct {

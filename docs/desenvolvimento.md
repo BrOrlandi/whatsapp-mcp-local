@@ -89,13 +89,15 @@ tradução; o que não tiver tradução aparece em português. Um valor guardado
 depois (uma lista, um rótulo de tabela) leva `i18n.N("…")` onde é escrito e é
 traduzido onde aparece.
 
-O idioma é escolhido nos botões com bandeira da primeira tela (a do QR code) ou
-em *Configurações › Idioma*, no app e na linha de comando, e fica em
+O idioma é escolhido nos botões com bandeira da instalação (a tela do QR code
+e a seguinte), com o nome de cada idioma no idioma do painel ao passar o mouse,
+ou em *Configurações › Idioma*, no app e na linha de comando, e fica em
 `config.json` (`"language"`); vazio, segue o do sistema. Um `config.json` sem
 `"language"` é de uma versão anterior aos idiomas: quem atualiza continua em
 português, mesmo com o computador em inglês, e só uma instalação nova segue o
-sistema. Os dois passam por
-`POST /api/idioma`, e a página volta no idioma novo. Na linha de comando,
+sistema; na linha de comando, que só grava o `config.json` quando uma
+configuração muda, uma pasta de dados já em uso sem ele também fica em
+português. Os dois passam por `POST /api/idioma`, e a página volta no idioma novo. Na linha de comando,
 `WHATSAPP_MCP_LANG` tem a palavra final quando o serviço inicia. As descrições e respostas das tools
 vão para a IA e continuam em inglês.
 
