@@ -3,12 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    // Someone who picked Español or English in the language menu goes back to it.
+    // Only a stored choice redirects, never the browser's language.
+    try {
+      if (/[?&]lang=pt\b/.test(location.search)) localStorage.setItem("lang", "pt-BR");
+      var lang = localStorage.getItem("lang");
+      if (lang === "es" || lang === "en") location.replace("/" + lang + location.pathname.replace(/\/+$/, "") + location.search + location.hash);
+    } catch (e) {}
+  </script>
   <title>WhatsApp MCP Servidor</title>
   <meta name="description" content="A versão do WhatsApp MCP que roda num servidor seu, 24 horas por dia, e funciona no claude.ai e no celular. Instala com um comando numa VPS.">
   <link rel="canonical" href="https://whatsapp-mcp.brorlandi.xyz/servidor">
+  <link rel="alternate" hreflang="pt-BR" href="https://whatsapp-mcp.brorlandi.xyz/servidor">
+  <link rel="alternate" hreflang="es" href="https://whatsapp-mcp.brorlandi.xyz/es/servidor">
+  <link rel="alternate" hreflang="en" href="https://whatsapp-mcp.brorlandi.xyz/en/servidor">
+  <link rel="alternate" hreflang="x-default" href="https://whatsapp-mcp.brorlandi.xyz/servidor">
   <meta name="theme-color" content="#073d35">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="pt_BR">
+  <meta property="og:locale:alternate" content="es_LA">
+  <meta property="og:locale:alternate" content="en_US">
   <meta property="og:site_name" content="WhatsApp MCP">
   <meta property="og:title" content="WhatsApp MCP Servidor">
   <meta property="og:description" content="O seu WhatsApp no Claude, ligado 24 horas num servidor seu. Funciona no claude.ai e no celular.">
@@ -38,6 +53,12 @@
   <a class="skip" href="#conteudo">Pular para o conteúdo</a>
 
   <div class="top">
+    <nav class="wrap langs" aria-label="Idioma">
+      <svg class="langs__icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></g></svg>
+      <a href="/servidor" lang="pt-BR" hreflang="pt-BR" aria-current="true">Português</a>
+      <a href="/es/servidor" lang="es" hreflang="es">Español</a>
+      <a href="/en/servidor" lang="en" hreflang="en">English</a>
+    </nav>
     <header class="wrap bar">
       <a class="brand" href="/servidor"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-logo"/></svg>WhatsApp MCP Servidor</a>
       <nav class="nav" aria-label="Principal">

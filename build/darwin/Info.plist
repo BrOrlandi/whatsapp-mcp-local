@@ -20,6 +20,12 @@
 	<string>@VERSION@</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>pt-BR</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>pt-BR</string>
+		<string>es</string>
+		<string>en</string>
+	</array>
 	<key>LSMinimumSystemVersion</key>
 	<string>11.0</string>
 	<key>LSApplicationCategoryType</key>
@@ -29,6 +35,6 @@
 	<key>NSSupportsAutomaticGraphicsSwitching</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>© Bruno Orlandi. Código aberto, licença MIT.</string>
+	<string>© Bruno Orlandi. MIT License.</string>
 </dict>
 </plist>

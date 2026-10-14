@@ -30,6 +30,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/appconfig"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/bridge"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/daemon"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
@@ -123,6 +124,7 @@ func main() {
 	if err != nil {
 		fatal(err)
 	}
+	i18n.Set(language(cfg.DataDir))
 	switch cmd {
 	case "serve":
 		err = serve(cfg)
@@ -167,8 +169,17 @@ const usage = `whatsapp-mcp — WhatsApp for MCP clients, on localhost, over wac
   open                open the control panel in the browser
   version             print the version
 
-Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
+Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WHATSAPP_MCP_LANG (pt-BR, es, en), WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
 `
+
+// language is the one the panel and the messages show: WHATSAPP_MCP_LANG,
+// else the one kept in the data folder (appconfig.Chosen).
+func language(dataDir string) string {
+	if lang := os.Getenv("WHATSAPP_MCP_LANG"); lang != "" {
+		return lang
+	}
+	return appconfig.Chosen(dataDir)
+}
 
 func fatal(err error) {
 	fmt.Fprintln(os.Stderr, "whatsapp-mcp:", err)
@@ -177,6 +188,9 @@ func fatal(err error) {
 
 func serve(cfg config) error {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	if err := appconfig.MarkNew(cfg.DataDir); err != nil {
+		logger.Warn("could not write config.json", "error", err)
+	}
 	d, err := daemon.Start(daemon.Config{
 		Port: cfg.Port, RequirePort: true, Token: cfg.Token,
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
@@ -189,7 +203,7 @@ func serve(cfg config) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "\n  Painel: %s/\n  MCP:    %s/mcp\n\n", cfg.baseURL(), cfg.baseURL())
+	fmt.Fprintf(os.Stderr, "\n  Panel:  %s/\n  MCP:    %s/mcp\n\n", cfg.baseURL(), cfg.baseURL())
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	<-ctx.Done()
@@ -228,7 +242,7 @@ func serviceCmd(cfg config, args []string) error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("installed %s\nthe daemon now runs at login and restarts if it stops\n\n  Painel: %s/\n  MCP:    %s/mcp\n\n", path, cfg.baseURL(), cfg.baseURL())
+		fmt.Printf("installed %s\nthe daemon now runs at login and restarts if it stops\n\n  Panel:  %s/\n  MCP:    %s/mcp\n\n", path, cfg.baseURL(), cfg.baseURL())
 		if len(args) > 1 && args[1] == "--no-open" {
 			return nil
 		}

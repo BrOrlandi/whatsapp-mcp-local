@@ -12,7 +12,7 @@
     }
     return fetch(path, options).then(function (response) {
       return response.json().catch(function () { return {}; }).then(function (data) {
-        if (!response.ok) throw new Error(data.error || "erro " + response.status);
+        if (!response.ok) throw new Error(data.error || t("erro %d", response.status));
         return data;
       });
     });
@@ -53,15 +53,17 @@
     if (!bytes) return "0 MB";
     var units = ["bytes", "KB", "MB", "GB"], i = 0, n = bytes;
     while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
-    return (i === 0 ? n : n.toFixed(n < 10 ? 1 : 0)).toString().replace(".", ",") + " " + units[i];
+    var digits = i === 0 ? 0 : (n < 10 ? 1 : 0);
+    return Number(i === 0 ? n : n.toFixed(digits)).toLocaleString(document.documentElement.lang, { useGrouping: false, minimumFractionDigits: digits, maximumFractionDigits: digits }) + " " + units[i];
   }
 
   function ago(iso) {
     var s = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
-    if (s < 60) return "agora há pouco";
-    if (s < 3600) return "há " + Math.floor(s / 60) + " min";
-    if (s < 86400) return "há " + Math.floor(s / 3600) + " h";
-    return "há " + Math.floor(s / 86400) + " dias";
+    if (s < 60) return t("agora há pouco");
+    if (s < 3600) return t("há %d min", Math.floor(s / 60));
+    if (s < 86400) return t("há %d h", Math.floor(s / 3600));
+    var d = Math.floor(s / 86400);
+    return d === 1 ? t("há 1 dia") : t("há %d dias", d);
   }
 
   // ---- webhooks ----
@@ -86,7 +88,7 @@
       form.hidden = !open;
       cancel.hidden = count > 0;
     };
-    var EVENTS = { message: "Mensagens", reaction: "Reações", receipt: "Entregas e leituras" };
+    var EVENTS = { message: t("Mensagens"), reaction: t("Reações"), receipt: t("Entregas e leituras") };
     // What a row last said (a test's result, an error), kept across the
     // refreshes that redraw the list.
     var notes = {};
@@ -96,41 +98,41 @@
       var main = el("span", "row__main");
       main.appendChild(el("span", "row__title mono", w.url));
       var what = (w.events || []).map(function (e) { return EVENTS[e] || e; }).join(" · ");
-      if (w.include_own) what += " · inclui as suas";
-      if (w.chats && w.chats.length) what += " · " + w.chats.length + (w.chats.length === 1 ? " conversa" : " conversas");
+      if (w.include_own) what += " · " + t("inclui as suas");
+      if (w.chats && w.chats.length) what += " · " + (w.chats.length === 1 ? t("1 conversa") : t("%d conversas", w.chats.length));
       main.appendChild(el("span", "row__meta", what));
       var status;
-      if (!w.enabled && w.disabled_reason) status = "Desligado sozinho " + ago(w.disabled_at) + ": " + w.disabled_reason;
-      else if (!w.enabled) status = "Desligado.";
-      else if (w.last_success_at) status = "Última entrega " + ago(w.last_success_at) + " · " + w.delivered + (w.delivered === 1 ? " entregue" : " entregues");
-      else status = "Nenhuma mensagem entregue ainda.";
-      if (w.queued) status += " · " + w.queued + " esperando";
+      if (!w.enabled && w.disabled_reason) status = t("Desligado sozinho %s: %s", ago(w.disabled_at), w.disabled_reason);
+      else if (!w.enabled) status = t("Desligado.");
+      else if (w.last_success_at) status = t("Última entrega %s", ago(w.last_success_at)) + " · " + (w.delivered === 1 ? t("1 entregue") : t("%d entregues", w.delivered));
+      else status = t("Nenhuma mensagem entregue ainda.");
+      if (w.queued) status += " · " + t("%d esperando", w.queued);
       main.appendChild(el("span", "row__meta", status));
       var note = el("span", "row__meta", notes[w.id] || "");
       note.hidden = !notes[w.id];
       main.appendChild(note);
       var say = function (text) { notes[w.id] = text; note.textContent = text; note.hidden = !text; };
       li.appendChild(main);
-      li.appendChild(el("span", "pill " + (w.enabled ? "pill--ok" : "pill--off"), w.enabled ? "Ligado" : "Desligado"));
+      li.appendChild(el("span", "pill " + (w.enabled ? "pill--ok" : "pill--off"), w.enabled ? t("Ligado") : t("Desligado")));
 
       var actions = el("span", "actions");
-      var test = button("Testar");
+      var test = button(t("Testar"));
       test.addEventListener("click", function () {
         test.disabled = true;
-        say("Mandando um aviso de teste…");
+        say(t("Mandando um aviso de teste…"));
         request("POST", "/api/webhooks/" + w.id + "/test").then(function (r) {
-          say(r.ok ? "O teste chegou, em " + r.ms + " ms." : "O teste não chegou: " + (r.result || r.error) + ".");
+          say(r.ok ? t("O teste chegou, em %d ms.", r.ms) : t("O teste não chegou: %s.", r.result || r.error));
         }).catch(function (e) { say(e.message); }).then(function () { test.disabled = false; });
       });
-      var toggle = button(w.enabled ? "Desligar" : "Religar");
+      var toggle = button(w.enabled ? t("Desligar") : t("Religar"));
       toggle.addEventListener("click", function () {
         toggle.disabled = true;
         request("PATCH", "/api/webhooks/" + w.id, { enabled: !w.enabled }).then(load).catch(function (e) {
           say(e.message); toggle.disabled = false;
         });
       });
-      var remove = button("Apagar");
-      confirming(remove, "Confirmar: apagar", function () {
+      var remove = button(t("Apagar"));
+      confirming(remove, t("Confirmar: apagar"), function () {
         remove.disabled = true;
         request("DELETE", "/api/webhooks/" + w.id).then(function () { delete notes[w.id]; return load(); }).catch(function (e) {
           say(e.message); remove.disabled = false;
@@ -154,7 +156,7 @@
         layout();
       }).catch(function (e) {
         loading.hidden = false;
-        loading.textContent = "Não foi possível ler os webhooks: " + e.message;
+        loading.textContent = t("Não foi possível ler os webhooks: %s", e.message);
       });
     };
 
@@ -197,13 +199,13 @@
     var copyKey = secretBox.querySelector("[data-webhook-secret-copy]");
     copyKey.addEventListener("click", function () {
       var value = secretBox.querySelector("[data-webhook-secret-value]").textContent;
-      if (!navigator.clipboard) { copyKey.textContent = "Selecione e copie"; return; }
-      navigator.clipboard.writeText(value).then(function () { copyKey.textContent = "Copiada"; }, function () { copyKey.textContent = "Selecione e copie"; });
+      if (!navigator.clipboard) { copyKey.textContent = t("Selecione e copie"); return; }
+      navigator.clipboard.writeText(value).then(function () { copyKey.textContent = t("Copiada"); }, function () { copyKey.textContent = t("Selecione e copie"); });
     });
     secretBox.querySelector("[data-webhook-secret-close]").addEventListener("click", function () {
       secretBox.hidden = true;
       secretBox.querySelector("[data-webhook-secret-value]").textContent = "";
-      copyKey.textContent = "Copiar a chave";
+      copyKey.textContent = t("Copiar a chave");
     });
 
     load();
@@ -220,16 +222,16 @@
     var days = media.querySelector("[data-media-days]");
     var clearMedia = media.querySelector("[data-media-clear]");
     var clearExports = media.querySelector("[data-media-clear-exports]");
-    var KINDS = { image: "Fotos", audio: "Áudios", video: "Vídeos", document: "Documentos" };
+    var KINDS = { image: t("Fotos"), audio: t("Áudios"), video: t("Vídeos"), document: t("Documentos") };
 
     var show = function (text) { note.textContent = text; note.hidden = !text; };
 
     var render = function (inv) {
       media.querySelector("[data-media-bytes]").textContent = size(inv.bytes);
       media.querySelector("[data-media-files]").textContent = inv.files;
-      media.querySelector("[data-media-exports]").textContent = inv.exports.files ? inv.exports.files + " · " + size(inv.exports.bytes) : "Nenhuma";
+      media.querySelector("[data-media-exports]").textContent = inv.exports.files ? inv.exports.files + " · " + size(inv.exports.bytes) : t("Nenhuma");
       var parts = Object.keys(KINDS).filter(function (k) { return inv.by_type[k]; }).map(function (k) { return KINDS[k] + " " + size(inv.by_type[k].bytes); });
-      if (inv.duplicate_bytes) parts.push("repetidos " + size(inv.duplicate_bytes));
+      if (inv.duplicate_bytes) parts.push(t("repetidos %s", size(inv.duplicate_bytes)));
       var types = media.querySelector("[data-media-types]");
       types.textContent = parts.join(" · ");
       types.hidden = !parts.length;
@@ -237,19 +239,19 @@
       if (inv.retention_days > 0) days.value = inv.retention_days;
       days.disabled = !retention.checked;
       clearMedia.hidden = !inv.files;
-      clearMedia.textContent = "Apagar os arquivos baixados (" + size(inv.bytes) + ")";
+      clearMedia.textContent = t("Apagar os arquivos baixados (%s)", size(inv.bytes));
       clearExports.hidden = !inv.exports.files;
     };
 
     var load = function () {
-      return request("GET", "/api/media").then(render).catch(function (e) { show("Não foi possível medir os arquivos: " + e.message); });
+      return request("GET", "/api/media").then(render).catch(function (e) { show(t("Não foi possível medir os arquivos: %s", e.message)); });
     };
 
     var saveRetention = function () {
       var n = retention.checked ? Math.max(1, parseInt(days.value, 10) || 30) : 0;
       days.disabled = !retention.checked;
       request("POST", "/api/media/retention", { days: n }).then(function (r) {
-        show(r.deleted_files ? r.deleted_files + " arquivos antigos apagados, " + size(r.freed_bytes) + " liberados." : "");
+        show(r.deleted_files ? (r.deleted_files === 1 ? t("1 arquivo antigo apagado, %s liberados.", size(r.freed_bytes)) : t("%d arquivos antigos apagados, %s liberados.", r.deleted_files, size(r.freed_bytes))) : "");
         return load();
       }).catch(function (e) { show(e.message); });
     };
@@ -259,12 +261,12 @@
     var purge = function (what, b) {
       b.disabled = true;
       request("POST", "/api/media/purge", { what: what }).then(function (r) {
-        show(r.deleted_files + (r.deleted_files === 1 ? " arquivo apagado, " : " arquivos apagados, ") + size(r.freed_bytes) + " liberados.");
+        show(r.deleted_files === 1 ? t("1 arquivo apagado, %s liberados.", size(r.freed_bytes)) : t("%d arquivos apagados, %s liberados.", r.deleted_files, size(r.freed_bytes)));
         return load();
       }).catch(function (e) { show(e.message); }).then(function () { b.disabled = false; });
     };
-    confirming(clearMedia, "Confirmar: apagar todos", function () { purge("media", clearMedia); });
-    confirming(clearExports, "Confirmar: apagar as exportações", function () { purge("exports", clearExports); });
+    confirming(clearMedia, t("Confirmar: apagar todos"), function () { purge("media", clearMedia); });
+    confirming(clearExports, t("Confirmar: apagar as exportações"), function () { purge("exports", clearExports); });
 
     load();
   })();

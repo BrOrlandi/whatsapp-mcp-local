@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WhatsApp MCP: tu IA con el contexto de tu WhatsApp</title>
+  <meta name="description" content="Una app gratuita para macOS, Windows y Linux que conecta tu WhatsApp con Claude, Codex y cualquier herramienta de IA compatible con MCP. Resume grupos, encuentra mensajes, responde y transcribe audios, con los mensajes en tu computadora.">
+  <link rel="canonical" href="https://whatsapp-mcp.brorlandi.xyz/es">
+  <link rel="alternate" hreflang="pt-BR" href="https://whatsapp-mcp.brorlandi.xyz/">
+  <link rel="alternate" hreflang="es" href="https://whatsapp-mcp.brorlandi.xyz/es">
+  <link rel="alternate" hreflang="en" href="https://whatsapp-mcp.brorlandi.xyz/en">
+  <link rel="alternate" hreflang="x-default" href="https://whatsapp-mcp.brorlandi.xyz/">
+  <meta name="theme-color" content="#073d35">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_LA">
+  <meta property="og:locale:alternate" content="pt_BR">
+  <meta property="og:locale:alternate" content="en_US">
+  <meta property="og:site_name" content="WhatsApp MCP">
+  <meta property="og:title" content="WhatsApp MCP: tu IA con el contexto de tu WhatsApp">
+  <meta property="og:description" content="Una app gratuita para macOS, Windows y Linux. Pídele a Claude, a Codex o a tu herramienta de IA que resuma grupos, encuentre mensajes, responda y transcriba audios.">
+  <meta property="og:url" content="https://whatsapp-mcp.brorlandi.xyz/es">
+  <meta property="og:image" content="https://whatsapp-mcp.brorlandi.xyz/assets/og.png?v=2">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&display=swap">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-logo" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9h24a12 12 0 0 1 12 12v11a12 12 0 0 1-12 12H26L15 54.5V43a12 12 0 0 1-7-11V21A12 12 0 0 1 20 9Z"/><path d="M19 21l13 6 13-6M32 27v8.5" stroke-width="3.6"/></g><g fill="currentColor"><circle cx="19" cy="21" r="3.6"/><circle cx="45" cy="21" r="3.6"/><circle cx="32" cy="35.5" r="3.6"/><circle cx="32" cy="27" r="4.4"/></g></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="currentColor" opacity=".14"/><path d="M7.5 12.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-computer" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8.5 20h7M12 16v4"/></g></symbol>
+    <symbol id="i-mic" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></g></symbol>
+    <symbol id="i-tray" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8.5h18"/></g><circle cx="17.5" cy="6.3" r="1.2" fill="currentColor"/><circle cx="14" cy="6.3" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M19.5 10A7.8 7.8 0 0 0 5.6 7.4L4 9M4 4.5V9h4.5M4.5 14a7.8 7.8 0 0 0 13.9 2.6L20 15M20 19.5V15h-4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <a class="skip" href="#conteudo">Saltar al contenido</a>
+
+  <div class="top">
+    <nav class="wrap langs" aria-label="Idioma">
+      <svg class="langs__icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></g></svg>
+      <a href="/" lang="pt-BR" hreflang="pt-BR">Português</a>
+      <a href="/es" lang="es" hreflang="es" aria-current="true">Español</a>
+      <a href="/en" lang="en" hreflang="en">English</a>
+    </nav>
+    <header class="wrap bar">
+      <a class="brand" href="/es"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-logo"/></svg>WhatsApp MCP</a>
+      <nav class="nav" aria-label="Principal">
+        <a class="nav__link nav__link--page" href="#como-funciona">Cómo funciona</a>
+        <a class="nav__link nav__link--page" href="#perguntas">Preguntas</a>
+        <a class="nav__link nav__link--page" href="/es/servidor">Versión servidor</a>
+        <a class="nav__link nav__link--gh" href="https://github.com/BrOrlandi/whatsapp-mcp-local"><svg aria-hidden="true"><use href="#i-github"/></svg><span>GitHub</span></a>
+        <a class="btn btn--mint btn--sm" href="/es/download">Descargar</a>
+      </nav>
+    </header>
+
+    <section class="wrap hero" id="conteudo">
+      <div class="hero__grid">
+        <div>
+          <h1>Tu IA con el contexto de tu WhatsApp, funcionando en tu computadora.</h1>
+          <p class="hero__lead">Pídele a Claude, a Codex o a la herramienta de IA que uses que resuma un grupo, encuentre un mensaje de hace meses, le responda a alguien o transcriba un audio. Los mensajes no salen de tu computadora.</p>
+          <div class="hero__actions">
+            <a class="btn btn--mint btn--lg" href="/es/download"><svg aria-hidden="true"><use href="#i-download"/></svg>Descargar la app</a>
+            <a class="btn btn--line-dark btn--lg" href="https://github.com/BrOrlandi/whatsapp-mcp-local"><svg aria-hidden="true"><use href="#i-github"/></svg>Ver en GitHub</a>
+          </div>
+          <p class="hero__note">WhatsApp MCP Local es gratis y de código abierto, para macOS, Windows y Linux, en español, inglés y portugués.</p>
+        </div>
+
+        <div>
+          <div class="chat" data-chat aria-label="Ejemplo de conversación con una herramienta de IA">
+            <div class="chat__bar">
+              <span class="chat__dots" aria-hidden="true"><span></span><span></span><span></span></span>
+              <span class="chat__title">Resumen del grupo de la familia</span>
+            </div>
+            <div class="chat__body">
+              <div class="ask">Resume lo que pasó hoy en el grupo de la familia</div>
+              <div class="tool"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-logo"/></svg><span>Leyó 52 mensajes de Familia</span><svg class="tool__chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-chevron"/></svg></div>
+              <div class="answer">
+                <p>Hoy en el grupo de la familia:</p>
+                <ul><li><strong>Almuerzo del domingo:</strong> en casa de la abuela, a la 1 de la tarde.</li><li><strong>Postre:</strong> lo lleva Carla. Todavía falta alguien para las bebidas.</li><li><strong>Fotos:</strong> Pedro mandó 12 de la graduación.</li></ul>
+                <p>Nadie te mencionó. ¿Quieres que avise en el grupo que tú llevas las bebidas?</p>
+              </div>
+            </div>
+            <div class="chat__composer" aria-hidden="true">Responder…<span class="chat__send"><svg viewBox="0 0 24 24"><use href="#i-send"/></svg></span></div>
+          </div>
+          <div class="try" role="group" aria-label="Ejemplos de pedidos">
+            <span class="try__label">Prueba:</span>
+            <button class="chip" type="button" data-scenario="0" aria-pressed="true">Resumir un grupo</button>
+            <button class="chip" type="button" data-scenario="1" aria-pressed="false">Encontrar un mensaje</button>
+            <button class="chip" type="button" data-scenario="2" aria-pressed="false">Transcribir un audio</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <main>
+    <section class="section" id="video">
+      <div class="wrap">
+        <h2>Mira cómo funciona</h2>
+        <p class="lede">De la descarga a la primera conversación con tu IA, en un minuto. La narración y los subtítulos están en portugués; la app en sí también está en español.</p>
+        <figure class="video">
+          <video src="/assets/video/como-funciona.mp4" poster="/assets/video/como-funciona.jpg" width="1920" height="1080"
+                 autoplay muted loop playsinline preload="metadata" data-video
+                 aria-label="Cómo funciona WhatsApp MCP, de la descarga a la primera conversación con la IA, con narración y subtítulos en portugués"></video>
+          <button class="sound" type="button" aria-pressed="false" data-sound>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/>
+              <path class="sound__on" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>
+              <path class="sound__off" d="m16 9 6 6m0-6-6 6"/>
+            </svg>
+            <span class="sound__off">Activar el sonido</span><span class="sound__on">Quitar el sonido</span>
+          </button>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section section--white" id="como-funciona">
+      <div class="wrap how">
+        <div>
+          <h2>Tres pasos, sin terminal</h2>
+          <ol class="steps">
+            <li>
+              <h3>Descarga y abre la app</h3>
+              <p>Hay versión para macOS, Windows y Linux. En la Mac, arrástrala a Aplicaciones; en Windows, ejecuta el instalador.</p>
+            </li>
+            <li>
+              <h3>Escanea el código QR con el celular</h3>
+              <p>En WhatsApp, entra a Dispositivos vinculados y apunta la cámara al código. Si prefieres, pide un código para escribirlo en el celular.</p>
+            </li>
+            <li>
+              <h3>Conecta tu herramienta de IA</h3>
+              <p>Con un clic se conecta Claude Desktop (chat y Cowork) o Claude Code. Para Codex, Cursor y otras herramientas compatibles con MCP, la app te da un texto listo para pegar.</p>
+            </li>
+          </ol>
+        </div>
+        <figure class="shot">
+          <img src="/assets/app-instalacao.webp" width="1000" height="791" loading="lazy" alt="La primera pantalla de la app: los pasos para conectar WhatsApp y el código QR para escanear con el celular">
+        </figure>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="wrap">
+        <h2>Todo pasa en tu computadora</h2>
+        <p class="lede">No hay ningún servidor nuestro en el medio. La app entra a WhatsApp como un dispositivo vinculado, igual que WhatsApp Web, guarda los mensajes en tu computadora y solo les responde a los programas que corren en ella.</p>
+        <div class="facts">
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-computer"/></svg>
+            <h3>Los mensajes se quedan contigo</h3>
+            <p>Lo que llega de WhatsApp se guarda en tu computadora. No hay cuenta que crear ni mensualidad.</p>
+          </div>
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-mic"/></svg>
+            <h3>Los audios se vuelven texto aquí mismo</h3>
+            <p>Cuando lo pides, Whisper los transcribe en tu propia computadora, sin que el audio salga de ella. Con la GPU de la Mac o una tarjeta NVIDIA, tarda segundos.</p>
+          </div>
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-tray"/></svg>
+            <h3>Vive en la barra de menús</h3>
+            <p>Cerrar la ventana no cierra la app. Se abre sola cuando enciendes la computadora, y el ícono muestra si WhatsApp está conectado.</p>
+          </div>
+          <div class="fact">
+            <svg aria-hidden="true"><use href="#i-refresh"/></svg>
+            <h3>Se actualiza sola</h3>
+            <p>Dos veces al día la app busca una versión nueva. Con un clic la descarga, revisa el archivo y se reinicia ya actualizada.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section--white">
+      <div class="wrap">
+        <h2>Antes de instalar</h2>
+        <div class="notes">
+          <div>
+            <h3>Úsala bajo tu propio riesgo</h3>
+            <p>WhatsApp no tiene una API oficial para cuentas personales. La app usa <a href="https://github.com/openclaw/wacli">wacli</a>, un cliente no oficial, y la cuenta puede ser desconectada o restringida.</p>
+          </div>
+          <div>
+            <h3>La computadora tiene que estar encendida</h3>
+            <p>Para recibir mensajes, la app tiene que estar abierta. Si la computadora se apaga por poco tiempo, WhatsApp entrega lo pendiente cuando vuelve.</p>
+          </div>
+          <div>
+            <h3>La herramienta de IA corre en esta computadora</h3>
+            <p>Funciona con cualquier herramienta de IA compatible con MCP que corra en esta computadora, como Claude Desktop, Claude Code, Codex y Cursor. claude.ai en el navegador y las apps del celular no llegan a tu computadora; para ellos, la alternativa es la <a href="/es/servidor">versión servidor</a>, en lugar de la app.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="perguntas">
+      <div class="wrap">
+        <h2>Preguntas frecuentes</h2>
+        <div class="faq">
+          <details class="faq__item" id="banimento">
+            <summary><h3>¿Hay riesgo de que Meta bloquee mi número?</h3><svg class="faq__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <div class="faq__answer">
+              <p>La app, por sí sola, no causa bloqueos. Lo que lleva a Meta a bloquear una cuenta es la forma en que esa cuenta envía mensajes:</p>
+              <ul>
+                <li>enviar mensajes de forma automatizada y masiva;</li>
+                <li>mandar el mismo mensaje, repetido, a muchos contactos;</li>
+                <li>enviar a un ritmo que ninguna persona tendría, con un comportamiento que no parece humano.</li>
+              </ul>
+              <p>WhatsApp MCP se hizo para llevar el contexto de tus conversaciones, como los grupos de trabajo con clientes, a las herramientas de IA. No se hizo para envíos masivos ni para crear chatbots. Usado para lo que fue hecho, no debería causar bloqueos ni problemas con Meta.</p>
+              <p>Si todavía te queda alguna duda, lee las <a href="https://www.whatsapp.com/legal/terms-of-service">Condiciones del servicio de WhatsApp</a>.</p>
+            </div>
+          </details>
+          <details class="faq__item" id="ferramentas">
+            <summary><h3>¿Con qué herramientas de IA funciona?</h3><svg class="faq__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <div class="faq__answer">
+              <p>Con cualquier herramienta de IA compatible con MCP que corra en tu computadora, como Claude Desktop (chat y Cowork), Claude Code, Codex, Cursor y Windsurf.</p>
+              <p>Claude Desktop y Claude Code se conectan con un clic en la app. Para las demás, la app te da un texto listo: lo pegas en el chat de la herramienta y ella misma se configura.</p>
+              <p>claude.ai en el navegador y las apps del celular no llegan a tu computadora. Para ellos existe la <a href="/es/servidor">versión servidor</a>.</p>
+            </div>
+          </details>
+          <details class="faq__item" id="historico">
+            <summary><h3>¿Cómo traigo mensajes más antiguos?</h3><svg class="faq__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <div class="faq__answer">
+              <p>Cuando conectas, WhatsApp le manda a la app parte del historial reciente, como hace con WhatsApp Web. A partir de ahí, todo lo que llega se guarda en tu computadora.</p>
+              <p>Para ir más atrás en una conversación, pídele a tu IA que busque sus mensajes más antiguos. La app se los pide a tu celular, que tiene que estar conectado a internet, y los mensajes llegan de a poco, de los más nuevos a los más antiguos. El propio WhatsApp limita hasta dónde se puede volver.</p>
+              <p>Para tener una conversación completa, expórtala desde el celular (en las opciones del chat, Exportar chat) y entrégale el archivo a tu IA.</p>
+            </div>
+          </details>
+          <details class="faq__item" id="business">
+            <summary><h3>¿Funciona con WhatsApp Business?</h3><svg class="faq__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></summary>
+            <div class="faq__answer">
+              <p>Sí. Funciona con WhatsApp normal y con WhatsApp Business: la app entra a la cuenta como un dispositivo vinculado, igual que WhatsApp Web.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="wrap cta__inner">
+        <div>
+          <h2>Descarga WhatsApp MCP Local</h2>
+          <p>Gratis, para macOS, Windows y Linux.</p>
+        </div>
+        <a class="btn btn--mint btn--lg" href="/es/download"><svg aria-hidden="true"><use href="#i-download"/></svg>Descargar la app</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__grid">
+      <p>Código abierto, licencia MIT. Hecho por <a href="https://github.com/BrOrlandi">Bruno Orlandi</a>.</p>
+      <nav aria-label="Pie de página">
+        <a href="https://github.com/BrOrlandi/whatsapp-mcp-local">GitHub</a>
+        <a href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/CHANGELOG.md">Novedades</a>
+        <a href="/es/servidor">Versión servidor</a>
+        <a href="https://donate.stripe.com/8x200jdhA6c1d375jF9Ve06">Apoya el proyecto</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

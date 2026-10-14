@@ -79,6 +79,44 @@ O painel sobe em `http://127.0.0.1:47890` com um wacli falso
 sobre um banco preenchido por `scripts/preview/seed.sql`. Só o que depende de
 um celular é simulado: pareamento, sync e pedidos de histórico.
 
+## Idiomas
+
+O app fala português (Brasil), espanhol e inglês. O texto continua escrito em
+português no código, e é ele a chave: `{{t "…"}}` e `{{tf "… %s …" .X}}` nos
+templates, `i18n.T("…")` e `i18n.Tf("…", x)` no Go, `t("…")` nos scripts do
+painel. `internal/i18n/locales/es.json` e `en.json` levam cada texto à sua
+tradução; o que não tiver tradução aparece em português. Um valor guardado para
+depois (uma lista, um rótulo de tabela) leva `i18n.N("…")` onde é escrito e é
+traduzido onde aparece.
+
+O idioma é escolhido nos botões com bandeira da instalação (a tela do QR code
+e a seguinte), com o nome de cada idioma no idioma do painel ao passar o mouse,
+ou em *Configurações › Idioma*, no app e na linha de comando, e fica em
+`config.json` (`"language"`); vazio, segue o do sistema. Um `config.json` sem
+`"language"` é de uma versão anterior aos idiomas: quem atualiza continua em
+português, mesmo com o computador em inglês, e só uma instalação nova segue o
+sistema; na linha de comando, uma pasta de dados já em uso sem `config.json`
+também fica em português, e uma nova ganha o seu na primeira execução. Os dois passam por `POST /api/idioma`, e a página volta no idioma novo. Na linha de comando,
+`WHATSAPP_MCP_LANG` tem a palavra final quando o serviço inicia.
+
+O idioma é só da interface. O que vai para programas não muda com ele: as
+descrições e respostas das tools continuam em inglês para a IA (com os nomes das
+telas em português, como antes), e os avisos dos webhooks, o de teste também,
+levam as mensagens, os nomes e os valores como sempre. Os testes
+`TestEventsDoNotFollowTheLanguage` (webhook), `TestAnswersDoNotFollowTheLanguage`
+(mcp), `TestTranscribeErrorsDoNotFollowTheLanguage` (localasr) e
+`TestFallbackNamesDoNotFollowTheLanguage` (index) conferem isso.
+
+`go test ./internal/i18n` falha quando um texto novo não tem tradução nos dois
+catálogos, quando uma tradução troca os `%s`/`%d` de lugar e quando um catálogo
+traduz um texto que o código não usa mais. `coverage_test.go`, no mesmo pacote,
+procura o texto que escapou do catálogo: palavras e atributos (`title`,
+`aria-label`, `alt`, `placeholder`) nos templates fora de `{{t}}`, textos dos
+scripts fora de `t()` e textos em português no Go fora de `i18n.T`/`Tf`/`N`. É
+uma heurística (acento ou palavra que só as chaves em português têm); o que é
+igual em todo idioma vai nas listas do próprio teste. Para outro idioma: um `locales/xx.json`
+e uma linha em `i18n.Languages`.
+
 ## Testes
 
 Os testes do supervisor, do pareamento, da recuperação de órfãos e do núcleo

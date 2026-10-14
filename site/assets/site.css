@@ -128,6 +128,17 @@ code {
   .nav__link--gh span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 }
 
+/*
+  Language menu: a slim row above the header bar, so the bar keeps its room
+  and the three names fit side by side on a phone.
+*/
+.langs { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 2px; padding-top: 10px; font-size: 0.86rem; line-height: 1.2; }
+.langs__icon { width: 16px; height: 16px; margin-right: 4px; color: var(--on-deep-soft); }
+.langs a { padding: 5px 10px; border-radius: 999px; color: var(--on-deep-soft); font-weight: 600; text-decoration: none; }
+.langs a:hover { color: #fff; background: rgba(255, 255, 255, 0.07); }
+.langs a[aria-current="true"] { color: var(--on-deep); background: rgba(255, 255, 255, 0.1); }
+.langs + .bar { min-height: 64px; }
+
 /* Hero */
 .hero { padding-block: clamp(32px, 6vw, 72px) clamp(64px, 9vw, 112px); }
 .hero__grid {

@@ -13,6 +13,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/daemon"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
@@ -35,13 +36,19 @@ type tray struct {
 	app       *App
 	icon      *application.SystemTray
 	menu      *application.Menu
+	open      *application.MenuItem
 	status    *application.MenuItem
 	update    *application.MenuItem
 	autostart *application.MenuItem
+	quit      *application.MenuItem
 
 	mu    sync.Mutex
 	tone  string
 	icons map[string][]byte
+	// rendered is set once a status has replaced "Carregando…"; version is
+	// the one the update line offers.
+	rendered bool
+	version  string
 }
 
 func newTray(a *App) *tray {
@@ -56,11 +63,11 @@ func newTray(a *App) *tray {
 		}
 	}
 	t.menu = a.wails.NewMenu()
-	t.menu.Add("Abrir o " + platform.AppName).OnClick(func(*application.Context) { go a.showWindow("") })
-	t.status = t.menu.Add("Carregando…").SetEnabled(false)
+	t.open = t.menu.Add("").OnClick(func(*application.Context) { go a.showWindow("") })
+	t.status = t.menu.Add("").SetEnabled(false)
 	t.update = t.menu.Add("").SetHidden(true).OnClick(func(*application.Context) { go a.showWindow("/configuracoes#atualizacoes") })
 	t.menu.AddSeparator()
-	t.autostart = t.menu.AddCheckbox("Iniciar com o sistema", a.Settings().Autostart).OnClick(func(ctx *application.Context) {
+	t.autostart = t.menu.AddCheckbox("", a.Settings().Autostart).OnClick(func(ctx *application.Context) {
 		on := ctx.ClickedMenuItem().Checked()
 		if err := a.SetAutostart(on); err != nil {
 			a.logger.Warn("autostart could not be changed", "error", err)
@@ -68,11 +75,12 @@ func newTray(a *App) *tray {
 		}
 	})
 	t.menu.AddSeparator()
-	t.menu.Add("Encerrar o " + platform.AppName + "…").OnClick(func(*application.Context) { a.confirmQuit() })
+	t.quit = t.menu.Add("").OnClick(func(*application.Context) { a.confirmQuit() })
 
 	t.icon = a.wails.SystemTray.New()
 	t.setIcon("warn")
 	t.icon.SetTooltip(platform.AppName)
+	t.relabel()
 	t.icon.SetMenu(t.menu)
 	if runtime.GOOS != "darwin" {
 		// Windows and Linux open the window on a click and keep the menu for
@@ -81,6 +89,34 @@ func newTray(a *App) *tray {
 		t.icon.OnRightClick(func() { t.icon.OpenMenu() })
 	}
 	return t
+}
+
+// relabel sets every label of the menu again in the language in use: once
+// as the tray is made, and again when the person picks another language. The
+// status line comes back from the gateway, which words it as it reports.
+func (t *tray) relabel() {
+	if t == nil {
+		return
+	}
+	t.open.SetLabel(i18n.Tf("Abrir o %s", platform.AppName))
+	t.autostart.SetLabel(i18n.T("Iniciar com o sistema"))
+	t.quit.SetLabel(i18n.Tf("Encerrar o %s…", platform.AppName))
+	t.mu.Lock()
+	rendered, version := t.rendered, t.version
+	t.mu.Unlock()
+	if !rendered {
+		t.status.SetLabel(i18n.T("Carregando…"))
+	}
+	if version != "" {
+		t.update.SetLabel(i18n.Tf("Instalar a versão %s…", version))
+	}
+	t.app.relabelMenu()
+	t.menu.Update()
+	if d := t.app.current(); d != nil && rendered {
+		// The status reads the database: not on the request that changed
+		// the language.
+		go func() { t.render(d.Status()) }()
+	}
 }
 
 // render shows a status: the icon's colour, and the line in the menu.
@@ -92,6 +128,7 @@ func (t *tray) render(st daemon.Status) {
 	t.mu.Lock()
 	changed := st.Tone != t.tone
 	t.tone = st.Tone
+	t.rendered = true
 	t.mu.Unlock()
 	if changed {
 		t.setIcon(st.Tone)
@@ -118,7 +155,10 @@ func (t *tray) offerUpdate(version string) {
 	if t == nil {
 		return
 	}
-	t.update.SetLabel("Instalar a versão " + version + "…").SetHidden(false)
+	t.mu.Lock()
+	t.version = version
+	t.mu.Unlock()
+	t.update.SetLabel(i18n.Tf("Instalar a versão %s…", version)).SetHidden(false)
 	t.menu.Update()
 }
 

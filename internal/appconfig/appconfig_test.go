@@ -55,3 +55,29 @@ func TestEnvironmentWinsOverConfig(t *testing.T) {
 		t.Fatalf("without either, the default: got %d", got)
 	}
 }
+
+// Someone updating from a version without languages keeps Portuguese, even on
+// a computer set to English; a new install, and a choice of the system's
+// language made since, follow the system.
+func TestLanguageOfAnOlderConfig(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(Path(dir), []byte(`{"port":47821,"close_to_tray":true,"autostart":true,"seen":["first-run"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c, err := Load(dir)
+	if err != nil || c.Language != LanguageBefore {
+		t.Fatalf("an older config.json loads with language %q (%v), want %q", c.Language, err, LanguageBefore)
+	}
+
+	c.Language = ""
+	if err := Save(dir, c); err != nil {
+		t.Fatal(err)
+	}
+	if c, _ := Load(dir); c.Language != "" {
+		t.Errorf("the system's language, once chosen, loads as %q", c.Language)
+	}
+
+	if c, _ := Load(t.TempDir()); c.Language != "" {
+		t.Errorf("a new install starts with language %q, want the system's", c.Language)
+	}
+}

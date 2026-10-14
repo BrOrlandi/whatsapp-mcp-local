@@ -31,7 +31,7 @@ VIProductVersion "${VERSION4}"
 VIFileVersion "${VERSION4}"
 VIAddVersionKey "ProductName" "${PRODUCT}"
 VIAddVersionKey "CompanyName" "Bruno Orlandi"
-VIAddVersionKey "FileDescription" "${PRODUCT} — instalador"
+VIAddVersionKey "FileDescription" "${PRODUCT} Setup"
 VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "ProductVersion" "${VERSION}"
 VIAddVersionKey "LegalCopyright" "© Bruno Orlandi. MIT License."
@@ -40,13 +40,27 @@ VIAddVersionKey "LegalCopyright" "© Bruno Orlandi. MIT License."
 !define MUI_UNICON "icon.ico"
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${EXE}"
-!define MUI_FINISHPAGE_RUN_TEXT "Abrir o ${PRODUCT}"
+!define MUI_FINISHPAGE_RUN_TEXT "$(OpenApp)"
 !insertmacro MUI_PAGE_WELCOME
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
+; The installer speaks the language of Windows, as the app does: Portuguese,
+; Spanish, or English for any other. The first one listed is the fallback.
+!insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "PortugueseBR"
+!insertmacro MUI_LANGUAGE "Spanish"
+!insertmacro MUI_LANGUAGE "SpanishInternational"
+
+LangString OpenApp ${LANG_ENGLISH} "Open ${PRODUCT}"
+LangString OpenApp ${LANG_PORTUGUESEBR} "Abrir o ${PRODUCT}"
+LangString OpenApp ${LANG_SPANISH} "Abrir ${PRODUCT}"
+LangString OpenApp ${LANG_SPANISHINTERNATIONAL} "Abrir ${PRODUCT}"
+LangString InstallingWebView ${LANG_ENGLISH} "Installing WebView2…"
+LangString InstallingWebView ${LANG_PORTUGUESEBR} "Instalando o WebView2…"
+LangString InstallingWebView ${LANG_SPANISH} "Instalando WebView2…"
+LangString InstallingWebView ${LANG_SPANISHINTERNATIONAL} "Instalando WebView2…"
 
 Var UpdatePID
 
@@ -83,7 +97,7 @@ Section "Install"
   ReadRegStr $1 HKCU "Software\Microsoft\EdgeUpdate\Clients\${WEBVIEW2_GUID}" "pv"
   ${If} $0 == ""
   ${AndIf} $1 == ""
-    DetailPrint "Instalando o WebView2…"
+    DetailPrint "$(InstallingWebView)"
     SetOutPath "$PLUGINSDIR"
     File "MicrosoftEdgeWebview2Setup.exe"
     ExecWait '"$PLUGINSDIR\MicrosoftEdgeWebview2Setup.exe" /silent /install'

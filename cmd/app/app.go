@@ -21,6 +21,7 @@ import (
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/appconfig"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/daemon"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
@@ -53,6 +54,7 @@ type App struct {
 	showMu   sync.Mutex
 	dockedAt time.Time
 	tray     *tray
+	appMenu  appMenu
 	notifier *notifications.NotificationService
 	handler  swapHandler
 	updates  *updates
@@ -99,6 +101,7 @@ func newApp(hidden bool) (*App, error) {
 	if port, ok, err := appconfig.PortFromEnv(); ok && err == nil {
 		a.cfg.Port, a.portLocked = port, true
 	}
+	i18n.Set(a.cfg.Language)
 	a.canHide = trayAvailable()
 	a.updates = newUpdates(a)
 	logger.Info("starting", "version", version, "data", dataDir, "wacli", a.wacliBin, "bridge", a.bridge, "hidden", hidden)
@@ -131,7 +134,7 @@ func (a *App) run() error {
 	a.notifier = notifications.New()
 	a.wails = application.New(application.Options{
 		Name:        platform.AppName,
-		Description: "Seu WhatsApp nas suas ferramentas de IA, neste computador.",
+		Description: i18n.T("Seu WhatsApp nas suas ferramentas de IA, neste computador."),
 		Icon:        appIcon,
 		Logger:      a.logger,
 		Services:    []application.Service{application.NewService(a.notifier)},
@@ -243,8 +246,8 @@ func (a *App) followStatus(ctx context.Context, d *daemon.Daemon) {
 				a.tray.render(st)
 			}
 			if st.Sync == "logged_out" && last != "" && last != "logged_out" {
-				a.notify("whatsapp-logged-out", "WhatsApp desconectado",
-					"O celular desconectou este computador. Abra o WhatsApp MCP para conectar de novo.")
+				a.notify("whatsapp-logged-out", i18n.T("WhatsApp desconectado"),
+					i18n.T("O celular desconectou este computador. Abra o WhatsApp MCP para conectar de novo."))
 			}
 			last = st.Sync
 		}
@@ -296,8 +299,8 @@ func (a *App) closeWindow() {
 		a.hideWindow()
 		if !a.config().HasSeen("close") {
 			_ = a.updateConfig(func(c *appconfig.Config) { c.Seen = append(c.Seen, "close") })
-			a.notify("close", "O WhatsApp MCP continua rodando",
-				fmt.Sprintf("Ele fica na %s, e as ferramentas de IA continuam usando o WhatsApp. Para desligar de vez, use Encerrar no ícone dele.", trayPlace()))
+			a.notify("close", i18n.T("O WhatsApp MCP continua rodando"),
+				stillRunning())
 		}
 	default:
 		a.quit()
@@ -316,14 +319,14 @@ func (a *App) shouldQuit() bool {
 }
 
 // quitWarning is what quitting costs, said before the person confirms.
-const quitWarning = "O MCP é desligado: as ferramentas de IA perdem o acesso ao WhatsApp, e este computador para de receber mensagens enquanto o app estiver fechado."
+var quitWarning = i18n.N("O MCP é desligado: as ferramentas de IA perdem o acesso ao WhatsApp, e este computador para de receber mensagens enquanto o app estiver fechado.")
 
 // confirmQuit asks before quitting, from the tray and the app menu.
 func (a *App) confirmQuit() {
 	application.InvokeSync(activate)
-	d := a.wails.Dialog.Question().SetTitle("Encerrar o " + platform.AppName + "?").SetMessage(quitWarning)
+	d := a.wails.Dialog.Question().SetTitle(i18n.Tf("Encerrar o %s?", platform.AppName)).SetMessage(i18n.T(quitWarning))
 	// Windows only has its own Sim and Não, which Wails names in English.
-	no, yes := "Cancelar", "Encerrar"
+	no, yes := i18n.T("Cancelar"), i18n.T("Encerrar")
 	if runtime.GOOS == "windows" {
 		no, yes = "No", "Yes"
 	}
@@ -479,14 +482,16 @@ func (a *App) notify(id, title, body string) {
 	}()
 }
 
-func trayPlace() string {
+// stillRunning says where the app went when its window closed, in the words
+// of each system.
+func stillRunning() string {
 	switch runtime.GOOS {
 	case "darwin":
-		return "barra de menus"
+		return i18n.T("Ele fica na barra de menus, e as ferramentas de IA continuam usando o WhatsApp. Para desligar de vez, use Encerrar no ícone dele.")
 	case "windows":
-		return "área de notificação"
+		return i18n.T("Ele fica na área de notificação, e as ferramentas de IA continuam usando o WhatsApp. Para desligar de vez, use Encerrar no ícone dele.")
 	}
-	return "bandeja do sistema"
+	return i18n.T("Ele fica na bandeja do sistema, e as ferramentas de IA continuam usando o WhatsApp. Para desligar de vez, use Encerrar no ícone dele.")
 }
 
 // swapHandler is what the window loads: the panel once the gateway is up,
@@ -509,13 +514,14 @@ func (s *swapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func startFailure(err error, logPath string) http.Handler {
 	msg := err.Error()
 	if errors.Is(err, daemon.ErrWacliMissing) {
-		msg = "O wacli, que conecta ao WhatsApp, não foi encontrado dentro do app. Reinstale o WhatsApp MCP."
+		msg = i18n.T("O wacli, que conecta ao WhatsApp, não foi encontrado dentro do app. Reinstale o WhatsApp MCP.")
 	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>WhatsApp MCP</title>
+		fmt.Fprintf(w, `<!doctype html><html lang="%s"><meta charset="utf-8"><title>WhatsApp MCP</title>
 <body style="font:16px/1.6 -apple-system,system-ui,sans-serif;max-width:560px;margin:80px auto;padding:0 24px;color:#17322c">
-<h1 style="font-size:1.4rem">O WhatsApp MCP não conseguiu iniciar</h1><p>%s</p>
-<p style="color:#5b6f6a">Detalhes no log: <code>%s</code></p></body></html>`, htmlEscape(msg), htmlEscape(logPath))
+<h1 style="font-size:1.4rem">%s</h1><p>%s</p>
+<p style="color:#5b6f6a">%s</p></body></html>`, htmlEscape(i18n.Lang()), htmlEscape(i18n.T("O WhatsApp MCP não conseguiu iniciar")), htmlEscape(msg),
+			i18n.Tf("Detalhes no log: <code>%s</code>", htmlEscape(logPath)))
 	})
 }

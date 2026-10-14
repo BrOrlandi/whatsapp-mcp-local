@@ -3,12 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    // Someone who picked Español or English in the language menu goes back to it.
+    // Only a stored choice redirects, never the browser's language.
+    try {
+      if (/[?&]lang=pt\b/.test(location.search)) localStorage.setItem("lang", "pt-BR");
+      var lang = localStorage.getItem("lang");
+      if (lang === "es" || lang === "en") location.replace("/" + lang + location.pathname.replace(/\/+$/, "") + location.search + location.hash);
+    } catch (e) {}
+  </script>
   <title>WhatsApp MCP: a sua IA com o contexto do seu WhatsApp</title>
   <meta name="description" content="Um app gratuito para macOS, Windows e Linux que conecta o seu WhatsApp ao Claude, ao Codex e a qualquer ferramenta de IA que aceite MCP. Resuma grupos, ache mensagens, responda e transcreva áudios, com as mensagens no seu computador.">
   <link rel="canonical" href="https://whatsapp-mcp.brorlandi.xyz/">
+  <link rel="alternate" hreflang="pt-BR" href="https://whatsapp-mcp.brorlandi.xyz/">
+  <link rel="alternate" hreflang="es" href="https://whatsapp-mcp.brorlandi.xyz/es">
+  <link rel="alternate" hreflang="en" href="https://whatsapp-mcp.brorlandi.xyz/en">
+  <link rel="alternate" hreflang="x-default" href="https://whatsapp-mcp.brorlandi.xyz/">
   <meta name="theme-color" content="#073d35">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="pt_BR">
+  <meta property="og:locale:alternate" content="es_LA">
+  <meta property="og:locale:alternate" content="en_US">
   <meta property="og:site_name" content="WhatsApp MCP">
   <meta property="og:title" content="WhatsApp MCP: a sua IA com o contexto do seu WhatsApp">
   <meta property="og:description" content="Um app gratuito para macOS, Windows e Linux. Peça ao Claude, ao Codex ou à sua ferramenta de IA para resumir grupos, achar mensagens, responder e transcrever áudios.">
@@ -42,6 +57,12 @@
   <a class="skip" href="#conteudo">Pular para o conteúdo</a>
 
   <div class="top">
+    <nav class="wrap langs" aria-label="Idioma">
+      <svg class="langs__icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></g></svg>
+      <a href="/" lang="pt-BR" hreflang="pt-BR" aria-current="true">Português</a>
+      <a href="/es" lang="es" hreflang="es">Español</a>
+      <a href="/en" lang="en" hreflang="en">English</a>
+    </nav>
     <header class="wrap bar">
       <a class="brand" href="/"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-logo"/></svg>WhatsApp MCP</a>
       <nav class="nav" aria-label="Principal">

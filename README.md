@@ -1,3 +1,5 @@
+<p align="center"><strong>Português</strong> · <a href="README.es.md">Español</a> · <a href="README.en.md">English</a></p>
+
 <p align="center">
   <img src="docs/assets/logo.svg" alt="" width="80" height="80">
 </p>
@@ -140,6 +142,8 @@ do WhatsApp é dado, não instrução.
   por uma livre com um clique, em Configurações.
 - **Agentes de IA também operam o app** por uma [API local](docs/api.md): ver o
   estado, conectar o WhatsApp e configurar o Claude.
+- **Em português, espanhol ou inglês.** O app segue o idioma do computador;
+  para trocar, use *Configurações › Idioma*.
 
 <p align="center">
   <img src="docs/assets/app-whatsapp.png" alt="As conversas recentes no app, para comparar com o celular" width="720">

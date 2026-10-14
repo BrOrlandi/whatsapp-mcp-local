@@ -25,6 +25,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/sidecar"
 )
@@ -199,9 +200,9 @@ func (e *Engine) installAll(ctx context.Context) error {
 	if s.Whisper == "" || s.FFmpeg == "" || s.Install.Error != "" {
 		pkg, ok := sidecar.ForThisSystem()
 		if !ok {
-			return fmt.Errorf("ainda não há transcrição local publicada para %s/%s", runtime.GOOS, runtime.GOARCH)
+			return errors.New(i18n.Tf("ainda não há transcrição local publicada para %s/%s", runtime.GOOS, runtime.GOARCH))
 		}
-		e.setInstall(func(i *Install) { i.Step, i.Downloaded, i.Total = "Baixando o whisper.cpp", 0, pkg.Size })
+		e.setInstall(func(i *Install) { i.Step, i.Downloaded, i.Total = i18n.T("Baixando o whisper.cpp"), 0, pkg.Size })
 		err := sidecar.Install(ctx, e.data, pkg, func(done, total int64) {
 			e.setInstall(func(i *Install) { i.Downloaded, i.Total = done, total })
 		})
@@ -221,18 +222,18 @@ func (e *Engine) download(ctx context.Context) error {
 	if err := os.MkdirAll(e.dir, 0o755); err != nil {
 		return err
 	}
-	e.setInstall(func(i *Install) { i.Step, i.Total = "Baixando o modelo de transcrição", modelSize })
+	e.setInstall(func(i *Install) { i.Step, i.Total = i18n.T("Baixando o modelo de transcrição"), modelSize })
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ModelURL, nil)
 	if err != nil {
 		return err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("não foi possível baixar o modelo: %w", err)
+		return fmt.Errorf("%s: %w", i18n.T("não foi possível baixar o modelo"), err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("o download do modelo respondeu %s", resp.Status)
+		return errors.New(i18n.Tf("o download do modelo respondeu %s", resp.Status))
 	}
 	if resp.ContentLength > 0 {
 		e.setInstall(func(i *Install) { i.Total = resp.ContentLength })
@@ -263,21 +264,22 @@ func (e *Engine) download(ctx context.Context) error {
 		}
 		if rerr != nil {
 			f.Close()
-			return fmt.Errorf("o download do modelo parou: %w", rerr)
+			return fmt.Errorf("%s: %w", i18n.T("o download do modelo parou"), rerr)
 		}
 	}
 	if err := f.Close(); err != nil {
 		return err
 	}
 	if got := hex.EncodeToString(h.Sum(nil)); got != modelSHA256 {
-		return fmt.Errorf("o modelo baixado não confere (%d bytes, sha256 %s); tente de novo", n, got)
+		return errors.New(i18n.Tf("o modelo baixado não confere (%d bytes, sha256 %s); tente de novo", n, got))
 	}
 	return os.Rename(tmp, e.modelPath())
 }
 
 // Transcribe turns an audio file into text. prompt is the conversation's
 // context, which Whisper uses to spell names and terms; language is an
-// ISO-639-1 code or empty for automatic detection.
+// ISO-639-1 code or empty for automatic detection. Its errors reach the AI
+// through transcribe_audio, so they do not follow the panel's language.
 func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string) (string, error) {
 	s := e.Status()
 	if !s.Ready {
