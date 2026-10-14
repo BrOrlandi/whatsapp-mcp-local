@@ -155,12 +155,22 @@
   // ---- language ----
   // The first screen's buttons and the choice in Configurações: kept in
   // config.json, and the page comes back in the new language.
+  // byPointer is whether the last choice came from a mouse or a finger,
+  // rather than the keyboard.
+  var byPointer = false;
+  document.addEventListener("pointerdown", function () { byPointer = true; }, true);
+  document.addEventListener("keydown", function () { byPointer = false; }, true);
   function chooseLanguage(code, controls) {
     var note = document.querySelector("[data-language-note]");
     controls.forEach(function (c) { c.disabled = true; });
     return api("/api/idioma", { language: code }).then(function () {
-      // The page comes back where it was; the keyboard, on the language chosen.
-      try { window.sessionStorage.setItem("language-focus", code); } catch (e) {}
+      // The page comes back where it was; when the choice was made with the
+      // keyboard, with the focus on the language chosen. Not after a click,
+      // where the focus would keep its tooltip open.
+      try {
+        if (byPointer) window.sessionStorage.removeItem("language-focus");
+        else window.sessionStorage.setItem("language-focus", code);
+      } catch (e) {}
       window.location.reload();
     }).catch(function (error) {
       controls.forEach(function (c) { c.disabled = false; });
