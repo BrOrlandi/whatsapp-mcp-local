@@ -525,6 +525,14 @@ func (m *Manager) status(h state.Webhook) Status {
 	return st
 }
 
+// TestMessage is the message of a test event. Like every event, it is the
+// same whatever language the panel shows: the language is the interface's,
+// and the programs that receive the webhooks see one contract.
+func TestMessage(at time.Time) *Message {
+	return &Message{ID: "TEST", ChatJID: "5511900000000@s.whatsapp.net", ChatName: "Teste", Timestamp: at,
+		SenderJID: "5511900000000@s.whatsapp.net", SenderName: "Teste", Text: "Mensagem de teste do WhatsApp MCP"}
+}
+
 // Test sends one test event to a webhook now, once, and says what came back.
 // It neither queues nor counts toward turning the webhook off.
 func (m *Manager) Test(ctx context.Context, id string) (map[string]any, error) {
@@ -532,9 +540,7 @@ func (m *Manager) Test(ctx context.Context, id string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
-	ev := Event{Kind: "message", ID: randomHex(8), At: time.Now().UTC(), Test: true,
-		Message: &Message{ID: "TEST", ChatJID: "5511900000000@s.whatsapp.net", ChatName: i18n.T("Teste"), Timestamp: time.Now().UTC(),
-			SenderJID: "5511900000000@s.whatsapp.net", SenderName: i18n.T("Teste"), Text: i18n.T("Mensagem de teste do WhatsApp MCP")}}
+	ev := Event{Kind: "message", ID: randomHex(8), At: time.Now().UTC(), Test: true, Message: TestMessage(time.Now().UTC())}
 	m.stamp(ctx, &ev)
 	started := time.Now()
 	result, err := m.post(ctx, h, ev)

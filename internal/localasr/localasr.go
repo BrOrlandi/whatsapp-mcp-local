@@ -278,11 +278,12 @@ func (e *Engine) download(ctx context.Context) error {
 
 // Transcribe turns an audio file into text. prompt is the conversation's
 // context, which Whisper uses to spell names and terms; language is an
-// ISO-639-1 code or empty for automatic detection.
+// ISO-639-1 code or empty for automatic detection. Its errors reach the AI
+// through transcribe_audio, so they do not follow the panel's language.
 func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string) (string, error) {
 	s := e.Status()
 	if !s.Ready {
-		return "", errors.New(i18n.Tf("a transcrição local não está instalada (falta: %s)", strings.Join(s.Missing, ", ")))
+		return "", fmt.Errorf("a transcrição local não está instalada (falta: %s)", strings.Join(s.Missing, ", "))
 	}
 	e.busy.Lock()
 	defer e.busy.Unlock()
@@ -297,7 +298,7 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 	conv := exec.CommandContext(ctx, s.FFmpeg, "-nostdin", "-loglevel", "error", "-i", audio, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav)
 	platform.Background(conv)
 	if out, err := conv.CombinedOutput(); err != nil {
-		return "", errors.New(i18n.Tf("ffmpeg não conseguiu ler o áudio: %s", lastLines(string(out), 2)))
+		return "", fmt.Errorf("ffmpeg não conseguiu ler o áudio: %s", lastLines(string(out), 2))
 	}
 	if language == "" {
 		language = "auto"
@@ -316,11 +317,11 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 	run := exec.CommandContext(ctx, s.Whisper, args...)
 	platform.Background(run)
 	if out, err := run.CombinedOutput(); err != nil {
-		return "", errors.New(i18n.Tf("whisper.cpp falhou: %s", lastLines(string(out), 3)))
+		return "", fmt.Errorf("whisper.cpp falhou: %s", lastLines(string(out), 3))
 	}
 	text, err := os.ReadFile(base + ".txt")
 	if err != nil {
-		return "", fmt.Errorf("%s: %w", i18n.T("whisper.cpp não devolveu texto"), err)
+		return "", fmt.Errorf("whisper.cpp não devolveu texto: %w", err)
 	}
 	return cleanTranscript(string(text)), nil
 }

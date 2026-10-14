@@ -3,11 +3,12 @@
 // T looks it up in the catalogue of the language in use and falls back to the
 // Portuguese when the catalogue has no entry. A catalogue is a JSON object in
 // locales/, from the Portuguese to its translation, with the same %s and %d
-// verbs in the same order. The tools' descriptions and results go to the AI,
-// not to the person, and stay in English; where they name a place in the
-// panel (Configurações) they name it as the person sees it, and the names
-// they and the webhooks give a chat without one stay in Portuguese, as
-// before (index.ShownName translates those for the panel).
+// verbs in the same order. The language is the interface's only: what goes to
+// programs, the tools' descriptions and results for the AI and the webhooks'
+// events, is the same in every language, as it was before the languages
+// (English for the AI, naming the panel's Portuguese labels; the messages,
+// names and test event as they are). index.ShownName translates the name of a
+// chat without one for the panel alone.
 package i18n
 
 import (

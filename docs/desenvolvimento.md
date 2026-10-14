@@ -97,8 +97,15 @@ ou em *Configurações › Idioma*, no app e na linha de comando, e fica em
 português, mesmo com o computador em inglês, e só uma instalação nova segue o
 sistema; na linha de comando, uma pasta de dados já em uso sem `config.json`
 também fica em português, e uma nova ganha o seu na primeira execução. Os dois passam por `POST /api/idioma`, e a página volta no idioma novo. Na linha de comando,
-`WHATSAPP_MCP_LANG` tem a palavra final quando o serviço inicia. As descrições e respostas das tools
-vão para a IA e continuam em inglês.
+`WHATSAPP_MCP_LANG` tem a palavra final quando o serviço inicia.
+
+O idioma é só da interface. O que vai para programas não muda com ele: as
+descrições e respostas das tools continuam em inglês para a IA (com os nomes das
+telas em português, como antes), e os avisos dos webhooks, o de teste também,
+levam as mensagens, os nomes e os valores como sempre. Os testes
+`TestEventsDoNotFollowTheLanguage` (webhook), `TestAnswersDoNotFollowTheLanguage`
+(mcp), `TestTranscribeErrorsDoNotFollowTheLanguage` (localasr) e
+`TestFallbackNamesDoNotFollowTheLanguage` (index) conferem isso.
 
 `go test ./internal/i18n` falha quando um texto novo não tem tradução nos dois
 catálogos, quando uma tradução troca os `%s`/`%d` de lugar e quando um catálogo

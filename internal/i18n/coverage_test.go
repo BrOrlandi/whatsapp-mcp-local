@@ -254,11 +254,29 @@ var alsoEnglish = map[string]bool{"serve": true}
 // reads (tool descriptions, which quote WhatsApp users' Portuguese), what
 // the code parses, and the stylesheet.
 var goAllow = map[string]bool{
-	"internal/mcp/triage.go":  true, // short Portuguese replies the triage recognises
-	"internal/mcp/tools.go":   true, // tool descriptions, for the AI
-	"internal/mcp/health.go":  true, // the health report, for the AI
-	"internal/panel/style.go": true,
-	"internal/i18n/i18n.go":   true, // the languages' own names
+	"internal/mcp/triage.go": true, // short Portuguese replies the triage recognises
+	"internal/mcp/tools.go":  true, // tool descriptions, for the AI
+	"internal/mcp/health.go": true, // the health report, for the AI
+	// What the AI reads, in English, naming the panel's Portuguese labels as
+	// they were before the languages: the same whatever language the panel
+	// shows.
+	"internal/mcp/server.go":        true, // the server's instructions
+	"internal/mcp/status.go":        true, // whatsapp_status
+	"internal/mcp/transcription.go": true, // transcribe_audio
+	"internal/panel/style.go":       true,
+	"internal/i18n/i18n.go":         true, // the languages' own names
+}
+
+// contract is Portuguese that programs receive, which the language of the
+// interface does not change: the webhooks' test event and the errors
+// transcribe_audio gives the AI.
+var contract = map[string]bool{
+	"Teste":                             true,
+	"Mensagem de teste do WhatsApp MCP": true,
+	"a transcrição local não está instalada (falta: %s)": true,
+	"ffmpeg não conseguiu ler o áudio: %s":               true,
+	"whisper.cpp falhou: %s":                             true,
+	"whisper.cpp não devolveu texto: %w":                 true,
 }
 
 func TestGoCoverage(t *testing.T) {
@@ -291,7 +309,7 @@ func TestGoCoverage(t *testing.T) {
 					wrapped := n >= 4 && window[n-1] == token.LPAREN && window[n-2] == token.IDENT && window[n-3] == token.PERIOD && window[n-4] == token.IDENT &&
 						lits[n-4] == "i18n" && (lits[n-2] == "T" || lits[n-2] == "Tf" || lits[n-2] == "N")
 					v, _ := strconv.Unquote(lit)
-					if !wrapped && portuguese(v, vocab) && !strings.HasSuffix(rel, "templates.go") && !strings.HasSuffix(rel, "webhookdocs.go") {
+					if !wrapped && !contract[v] && portuguese(v, vocab) && !strings.HasSuffix(rel, "templates.go") && !strings.HasSuffix(rel, "webhookdocs.go") {
 						short := v
 						if len(short) > 90 {
 							short = short[:90] + "…"
