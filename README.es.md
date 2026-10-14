@@ -35,7 +35,8 @@ directamente desde tu WhatsApp.
    - **macOS:** abre el `.dmg` y arrastra la app a Aplicaciones.
    - **Windows:** ejecuta el instalador. No está firmado: en "Windows protegió
      su PC", haz clic en **Más información** y luego en **Ejecutar de todas
-     formas**. El instalador en sí está en portugués.
+     formas**. El instalador sale en el idioma de Windows si es español,
+     portugués o inglés.
    - **Linux:** haz que el AppImage sea ejecutable (`chmod +x`) y ábrelo; en
      Ubuntu y Debian, puedes usar el `.deb`.
 2. **Conecta WhatsApp.** La app se abre mostrando un código QR. En el celular,

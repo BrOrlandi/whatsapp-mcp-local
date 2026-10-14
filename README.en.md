@@ -35,8 +35,8 @@ WhatsApp.
    with the right file for your system.
    - **macOS:** open the `.dmg` and drag the app to Applications.
    - **Windows:** run the installer. It isn't signed: on "Windows protected your
-     PC", click **More info** and then **Run anyway**. The installer itself is
-     in Portuguese.
+     PC", click **More info** and then **Run anyway**. The installer speaks your
+     Windows language when it is English, Portuguese or Spanish.
    - **Linux:** make the AppImage executable (`chmod +x`) and open it; on
      Ubuntu and Debian, you can use the `.deb`.
 2. **Connect WhatsApp.** The app opens showing a QR code. On your phone, go to
