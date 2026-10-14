@@ -4,13 +4,29 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <script>
-    // Someone who picked Español or English in the language menu goes back to it.
-    // Only a stored choice redirects, never the browser's language.
-    try {
-      if (/[?&]lang=pt\b/.test(location.search)) localStorage.setItem("lang", "pt-BR");
-      var lang = localStorage.getItem("lang");
+    // The Portuguese pages are the default addresses. A choice made in the
+    // language menu wins; without one, the browser's languages pick Spanish or
+    // English, and anything else stays in Portuguese. ?lang=pt keeps Portuguese;
+    // /es and /en are never redirected, so this cannot loop. Crawlers are left
+    // on the page they asked for.
+    (function () {
+      var keep = /[?&]lang=pt\b/.test(location.search), lang = null;
+      try {
+        if (keep) localStorage.setItem("lang", "pt-BR");
+        lang = localStorage.getItem("lang");
+      } catch (e) {}
+      if (keep) return;
+      if (lang !== "pt-BR" && lang !== "es" && lang !== "en") {
+        lang = null;
+        if (/bot|crawl|spider|slurp/i.test(navigator.userAgent)) return;
+        var wanted = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
+        for (var i = 0; i < wanted.length && !lang; i++) {
+          var code = String(wanted[i]).slice(0, 2).toLowerCase();
+          lang = code === "pt" ? "pt-BR" : code === "es" || code === "en" ? code : null;
+        }
+      }
       if (lang === "es" || lang === "en") location.replace("/" + lang + location.pathname.replace(/\/+$/, "") + location.search + location.hash);
-    } catch (e) {}
+    })();
   </script>
   <title>Baixar o WhatsApp MCP Local</title>
   <meta name="description" content="Baixe o WhatsApp MCP Local para macOS, Windows ou Linux e conecte o seu WhatsApp ao Claude, ao Codex ou à sua ferramenta de IA.">

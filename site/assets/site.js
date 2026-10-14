@@ -29,13 +29,17 @@
   }[lang];
 
   // The language menu remembers the choice, so the Portuguese pages (the
-  // default URLs) send this visitor back to it; see the script in their <head>.
+  // default URLs) send this visitor back to it rather than to the browser's
+  // language; see the script in their <head>.
   document.querySelectorAll(".langs a[hreflang]").forEach((link) => {
     link.addEventListener("click", () => {
       try {
         localStorage.setItem("lang", link.hreflang);
       } catch {
         // Storage blocked: the menu still works, it just isn't remembered.
+        // Portuguese says so in the address, or the browser's language would
+        // send the visitor straight back.
+        if (link.hreflang === "pt-BR") link.search = "?lang=pt";
       }
       // The sections keep the same ids in every language.
       if (location.hash && !link.hash) link.hash = location.hash;
