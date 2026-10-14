@@ -69,8 +69,11 @@ refreshes when it has passed. */}}
 steps for that one, which end when it connects. No tabs on the way. */}}
 {{/* The language, on the first screen, before anything else is read: one
 button per language, each in its own language, pressed for the one shown. */}}
+{{/* A language's name in the panel's language, over its button on hover and
+focus. Hidden from screen readers, which read the name in itself, with lang. */}}
+{{define "hint"}}<span class="hint__body" aria-hidden="true" lang="{{lang}}">{{languageHint .}}</span>{{end}}
 {{define "langpick"}}<div class="langpick" role="group" aria-label="{{t "Idioma"}}">
-{{range languages}}<button class="langpick__btn hint" type="button" lang="{{.Code}}" data-language-pick="{{.Code}}" data-hint="{{languageHint .Code}}" aria-pressed="{{if eq lang .Code}}true{{else}}false{{end}}">{{flag .Code}}<span>{{.Name}}</span></button>
+{{range languages}}<button class="langpick__btn hint" type="button" lang="{{.Code}}" data-language-pick="{{.Code}}" aria-pressed="{{if eq lang .Code}}true{{else}}false{{end}}">{{flag .Code}}<span>{{.Name}}</span>{{template "hint" .Code}}</button>
 {{end}}</div>
 <p class="busy langpick__note" data-language-note role="status" hidden></p>{{end}}
 
@@ -721,7 +724,7 @@ button per language, each in its own language, pressed for the one shown. */}}
 <div class="card__body stack">
 <fieldset class="languages stack"><legend class="sr-only">{{t "Idioma"}}</legend>
 <label class="check"><input type="radio" name="idioma" value="" data-language{{if eq $chosen ""}} checked{{end}}><span><strong>{{t "O do sistema"}}</strong><span class="check__hint">{{t "Português, español ou English, conforme o idioma do computador."}}</span></span></label>
-{{range languages}}<label class="check" lang="{{.Code}}"><input type="radio" name="idioma" value="{{.Code}}" data-language{{if eq $chosen .Code}} checked{{end}}><span class="check__flag hint" data-hint="{{languageHint .Code}}">{{flag .Code}}<strong>{{.Name}}</strong></span></label>
+{{range languages}}<label class="check" lang="{{.Code}}"><input type="radio" name="idioma" value="{{.Code}}" data-language{{if eq $chosen .Code}} checked{{end}}><span class="check__flag hint">{{flag .Code}}<strong>{{.Name}}</strong>{{template "hint" .Code}}</span></label>
 {{end}}</fieldset>
 <p class="busy" data-language-note role="status" hidden></p>
 </div></section>
