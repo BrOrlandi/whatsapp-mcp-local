@@ -3,7 +3,7 @@ bin/
 dist/
 .vercel
 .env*
-video/
+/video/
 # The paid part, laid over the tree from the private repository
 # (docs/plano-multiplas-contas.md).
 internal/pro/
