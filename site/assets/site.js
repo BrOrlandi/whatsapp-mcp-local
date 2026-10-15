@@ -37,14 +37,30 @@
         localStorage.setItem("lang", link.hreflang);
       } catch {
         // Storage blocked: the menu still works, it just isn't remembered.
-        // Portuguese says so in the address, or the browser's language would
-        // send the visitor straight back.
-        if (link.hreflang === "pt-BR") link.search = "?lang=pt";
+        // Portuguese says so in its address (?lang=pt), so the browser's
+        // language does not send the visitor back, in a new tab too.
       }
       // The sections keep the same ids in every language.
       if (location.hash && !link.hash) link.hash = location.hash;
     });
   });
+
+  // ?lang=pt that could not be stored goes along to the other Portuguese
+  // pages, which would otherwise follow the browser's language again.
+  if (/[?&]lang=pt\b/.test(location.search)) {
+    let stored = false;
+    try {
+      stored = localStorage.getItem("lang") === "pt-BR";
+    } catch {}
+    if (!stored) {
+      document.querySelectorAll('a[href^="/"]').forEach((link) => {
+        const url = new URL(link.href);
+        if (/^\/(es|en|assets)(\/|$)/.test(url.pathname) || url.searchParams.has("lang")) return;
+        url.searchParams.set("lang", "pt");
+        link.href = url.pathname + url.search + url.hash;
+      });
+    }
+  }
 
   // The visitor's system, to point at the right download.
   function detectOS() {
