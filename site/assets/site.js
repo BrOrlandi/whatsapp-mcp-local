@@ -168,30 +168,36 @@
     const buttons = new Map();
     // A switch keeps the moment and whether it was playing; a paused video
     // stays paused (autoplay would start the new one by itself), and a moment
-    // past the end of a shorter cut lands near its end.
-    // The page's own cut, chosen as it opens, keeps the autoplay; going back
-    // from a cut that failed resumes where the visitor was.
+    // past the end of a shorter cut lands near its end. The page's own cut,
+    // chosen as it opens, keeps the autoplay. A switch made before the last
+    // one loaded replaces it, keeping the moment the visitor was at; a cut
+    // that does not load goes back to that one, and loses its button.
+    let pending = null;
     const switchTo = (cut, opening = false, resume = null) => {
-      const from = current();
-      if (cut === from) return;
-      const at = resume ? resume.at : video.currentTime;
-      const playing = resume ? resume.playing : !video.paused && !video.ended;
+      if (cut === current()) return;
+      const state = resume || (pending && pending.state) || { at: video.currentTime, playing: !video.paused && !video.ended, from: current() };
+      if (pending) pending.cancel();
       if (!opening) video.autoplay = false;
-      const loaded = () => {
-        video.removeEventListener("error", failed);
-        const end = video.duration;
-        if (at > 0) video.currentTime = Number.isFinite(end) ? Math.min(at, Math.max(0, end - 0.5)) : at;
-        if (playing) video.play().catch(() => {});
-      };
-      // A cut that does not load goes back to the one before, and loses its button.
-      const failed = () => {
+      const done = () => {
         video.removeEventListener("loadedmetadata", loaded);
+        video.removeEventListener("error", failed);
+        pending = null;
+      };
+      const loaded = () => {
+        done();
+        const end = video.duration;
+        if (state.at > 0) video.currentTime = Number.isFinite(end) ? Math.min(state.at, Math.max(0, end - 0.5)) : state.at;
+        if (state.playing) video.play().catch(() => {});
+      };
+      const failed = () => {
+        done();
         buttons.get(cut)?.remove();
         buttons.delete(cut);
-        if (from) switchTo(from, false, { at, playing });
+        if (state.from && state.from !== cut) switchTo(state.from, false, { ...state, from: null });
       };
-      video.addEventListener("loadedmetadata", loaded, { once: true });
-      video.addEventListener("error", failed, { once: true });
+      pending = { state, cancel: done };
+      video.addEventListener("loadedmetadata", loaded);
+      video.addEventListener("error", failed);
       video.poster = cut.poster;
       video.src = cut.src;
       buttons.forEach((button, c) => button.setAttribute("aria-pressed", String(c === cut)));
