@@ -123,7 +123,8 @@
   openFromHash();
   window.addEventListener("hashchange", openFromHash);
 
-  // The explainer plays muted by itself; the button turns its narration on.
+  // The explainer plays muted by itself, with the browser's own controls to
+  // seek, change the speed or go full screen; the button turns its narration on.
   const video = document.querySelector("[data-video]");
   const sound = document.querySelector("[data-sound]");
   if (video && sound) {
@@ -135,6 +136,8 @@
       sound.hidden = true;
     } else {
       let heard = false;
+      // The native controls change the sound too: the button follows them.
+      video.addEventListener("volumechange", () => sound.setAttribute("aria-pressed", String(!video.muted)));
       sound.addEventListener("click", () => {
         video.muted = !video.muted;
         sound.setAttribute("aria-pressed", String(!video.muted));
