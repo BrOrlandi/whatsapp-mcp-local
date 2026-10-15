@@ -134,7 +134,10 @@ code {
 */
 .langs { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 2px; padding-top: 10px; font-size: 0.86rem; line-height: 1.2; }
 .langs__icon { width: 16px; height: 16px; margin-right: 4px; color: var(--on-deep-soft); }
-.langs a { padding: 5px 10px; border-radius: 999px; color: var(--on-deep-soft); font-weight: 600; text-decoration: none; }
+.langs a { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 999px; color: var(--on-deep-soft); font-weight: 600; text-decoration: none; }
+.langs__flag { flex: none; width: 18px; height: 13px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18); }
+/* On a phone the three flags and names fit on one line without the globe. */
+@media (max-width: 420px) { .langs__icon { display: none; } .langs a { gap: 5px; padding: 5px 7px; } }
 .langs a:hover { color: #fff; background: rgba(255, 255, 255, 0.07); }
 .langs a[aria-current="true"] { color: var(--on-deep); background: rgba(255, 255, 255, 0.1); }
 .langs + .bar { min-height: 64px; }
@@ -271,6 +274,14 @@ code {
   .sound { top: 8px; right: 8px; padding: 8px; }
   .sound span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
+/* The explainer's languages, right below it: one button per cut there is. */
+.video-langs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+.video-langs[hidden] { display: none; }
+.video-langs button { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-soft); font: inherit; font-size: 0.92rem; font-weight: 600; cursor: pointer; }
+.video-langs button:hover { border-color: var(--brand); color: var(--ink); }
+.video-langs button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--ink); box-shadow: 0 0 0 1px var(--brand); }
+.video-langs__flag { flex: none; width: 20px; height: 14px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12); }
+@media (max-width: 420px) { .video-langs { gap: 6px; } .video-langs button { gap: 6px; padding: 6px 10px; font-size: 0.86rem; } }
 .video video {
   display: block;
   width: 100%;

@@ -25,6 +25,14 @@ video of the project: Gemini TTS, model `gemini-3.1-flash-tts-preview`, voice `A
 line prefixed with "Say in a soft, calm and warm voice, as a Brazilian Portuguese video narrator,
 at a natural pace:", sped up 1.4x with ffmpeg's `atempo`.
 
+The video comes in Portuguese, Spanish and English, with the same voice: `como-funciona.mp4`,
+`como-funciona-es.mp4` and `como-funciona-en.mp4` (and their `.jpg` posters) in
+`site/assets/video/`, each listed in `videoCuts` in `site/assets/site.js`. Each home page plays
+its own language's cut, and buttons below the video switch cuts, keeping the moment and whether
+it was playing. A new cut replaces its files; a cut in another language needs its files, a line
+in `videoCuts`, and that page's `<video>` pointing at it. List a cut only once its files are in
+the repository.
+
 ## wacli version
 
 The app ships one wacli, pinned in `build/wacli.env` (the version and the sha256 of each system,
