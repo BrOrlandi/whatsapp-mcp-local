@@ -156,6 +156,8 @@
   // language when there is one.
   const videoCuts = [
     { lang: "pt-BR", flag: "br", name: "Português", src: "/assets/video/como-funciona.mp4", poster: "/assets/video/como-funciona.jpg" },
+    { lang: "es", flag: "es", name: "Español", src: "/assets/video/como-funciona-es.mp4", poster: "/assets/video/como-funciona-es.jpg" },
+    { lang: "en", flag: "us", name: "English", src: "/assets/video/como-funciona-en.mp4", poster: "/assets/video/como-funciona-en.jpg" },
   ];
   const cutButtons = document.querySelector("[data-video-langs]");
   if (video && cutButtons && videoCuts.length > 1) {
