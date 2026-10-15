@@ -136,8 +136,12 @@
       sound.hidden = true;
     } else {
       let heard = false;
-      // The native controls change the sound too: the button follows them.
-      video.addEventListener("volumechange", () => sound.setAttribute("aria-pressed", String(!video.muted)));
+      // The native controls change the sound too: the button follows them,
+      // and sound turned on there counts as heard, with no jump to the start.
+      video.addEventListener("volumechange", () => {
+        sound.setAttribute("aria-pressed", String(!video.muted));
+        if (!video.muted) heard = true;
+      });
       sound.addEventListener("click", () => {
         video.muted = !video.muted;
         sound.setAttribute("aria-pressed", String(!video.muted));
