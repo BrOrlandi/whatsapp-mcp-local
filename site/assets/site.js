@@ -133,6 +133,64 @@
     }
   }
 
+  // The explainer in each language there is a cut of. A language joins this
+  // list only once its video and poster are in /assets/video/ (made by the
+  // video project's render, video/README.md); with two or more, buttons below
+  // the video switch between them, and a page opens on the cut in its own
+  // language when there is one.
+  const videoCuts = [
+    { lang: "pt-BR", flag: "br", name: "Português", src: "/assets/video/como-funciona.mp4", poster: "/assets/video/como-funciona.jpg" },
+  ];
+  const cutButtons = document.querySelector("[data-video-langs]");
+  if (video && cutButtons && videoCuts.length > 1) {
+    const current = () => videoCuts.find((cut) => cut.src === video.getAttribute("src"));
+    const buttons = new Map();
+    // A switch keeps the moment and whether it was playing; a paused video
+    // stays paused (autoplay would start the new one by itself), and a moment
+    // past the end of a shorter cut lands near its end.
+    // The page's own cut, chosen as it opens, keeps the autoplay; going back
+    // from a cut that failed resumes where the visitor was.
+    const switchTo = (cut, opening = false, resume = null) => {
+      const from = current();
+      if (cut === from) return;
+      const at = resume ? resume.at : video.currentTime;
+      const playing = resume ? resume.playing : !video.paused && !video.ended;
+      if (!opening) video.autoplay = false;
+      const loaded = () => {
+        video.removeEventListener("error", failed);
+        const end = video.duration;
+        if (at > 0) video.currentTime = Number.isFinite(end) ? Math.min(at, Math.max(0, end - 0.5)) : at;
+        if (playing) video.play().catch(() => {});
+      };
+      // A cut that does not load goes back to the one before, and loses its button.
+      const failed = () => {
+        video.removeEventListener("loadedmetadata", loaded);
+        buttons.get(cut)?.remove();
+        buttons.delete(cut);
+        if (from) switchTo(from, false, { at, playing });
+      };
+      video.addEventListener("loadedmetadata", loaded, { once: true });
+      video.addEventListener("error", failed, { once: true });
+      video.poster = cut.poster;
+      video.src = cut.src;
+      buttons.forEach((button, c) => button.setAttribute("aria-pressed", String(c === cut)));
+    };
+    for (const cut of videoCuts) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.lang = cut.lang;
+      button.innerHTML = `<svg class="video-langs__flag" aria-hidden="true" focusable="false"><use href="#flag-${cut.flag}"/></svg>`;
+      button.append(cut.name);
+      button.addEventListener("click", () => switchTo(cut));
+      buttons.set(cut, button);
+      cutButtons.append(button);
+    }
+    buttons.forEach((button, c) => button.setAttribute("aria-pressed", String(c === current())));
+    const own = videoCuts.find((cut) => cut.lang.slice(0, 2) === document.documentElement.lang.slice(0, 2));
+    if (own && own !== current()) switchTo(own, true);
+    cutButtons.hidden = false;
+  }
+
   // The hero conversation: a request, what the app did in WhatsApp, and the answer.
   const chat = document.querySelector("[data-chat]");
   if (!chat) return;

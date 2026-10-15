@@ -274,6 +274,14 @@ code {
   .sound { top: 8px; right: 8px; padding: 8px; }
   .sound span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
+/* The explainer's languages, right below it: one button per cut there is. */
+.video-langs { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+.video-langs[hidden] { display: none; }
+.video-langs button { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--ink-soft); font: inherit; font-size: 0.92rem; font-weight: 600; cursor: pointer; }
+.video-langs button:hover { border-color: var(--brand); color: var(--ink); }
+.video-langs button[aria-pressed="true"] { border-color: var(--brand); background: var(--brand-soft); color: var(--ink); box-shadow: 0 0 0 1px var(--brand); }
+.video-langs__flag { flex: none; width: 20px; height: 14px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12); }
+@media (max-width: 420px) { .video-langs { gap: 6px; } .video-langs button { gap: 6px; padding: 6px 10px; font-size: 0.86rem; } }
 .video video {
   display: block;
   width: 100%;
