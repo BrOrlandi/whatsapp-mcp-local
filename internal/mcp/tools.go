@@ -408,6 +408,17 @@ func definitions() []any {
 			}, "required": []string{"name"}},
 		},
 		map[string]any{
+			"name":        "save_contact",
+			"description": "Save a contact, or rename one, in the WhatsApp account, like \"Save contact\" in the app: the name syncs to the phone and linked devices and is what WhatsApp shows for that number. With phonebook the phone also writes it to its address book. Use dry_run to see the current name first. Briefly pauses sync.",
+			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
+				"contact":    stringSchema("Phone number with country code, or a JID ending in @s.whatsapp.net."),
+				"name":       stringSchema("Full name to save."),
+				"first_name": stringSchema("Optional first name; defaults to the first word of name."),
+				"phonebook":  boolSchema("Also save it to the phone's address book."),
+				"dry_run":    boolSchema("Show the current and the new name without saving."),
+			}, "required": []string{"contact", "name"}},
+		},
+		map[string]any{
 			"name":        "set_group_photo",
 			"description": "Set or remove the picture of a group or community the account administers. The image (JPEG or PNG) is center-cropped to a square and resized to at most 640 px. WhatsApp tells the group. Briefly pauses sync.",
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{

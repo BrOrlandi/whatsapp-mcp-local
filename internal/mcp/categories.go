@@ -64,6 +64,7 @@ var toolCategories = map[string]string{
 	"leave_group":               CategoryGroups,
 
 	"organise_chat": CategoryOrganise,
+	"save_contact":  CategoryOrganise,
 }
 
 // ToolCategory is the category of a tool, empty for an unknown one.

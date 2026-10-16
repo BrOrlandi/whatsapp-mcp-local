@@ -57,6 +57,9 @@ type arguments struct {
 	Model      string   `json:"model"`
 
 	Remove       bool   `json:"remove"`
+	Contact      string `json:"contact"`
+	FirstName    string `json:"first_name"`
+	Phonebook    bool   `json:"phonebook"`
 	CommunityJID string `json:"community_jid"`
 	AnnounceOnly *bool  `json:"announce_only"`
 	Locked       *bool  `json:"locked"`
@@ -167,6 +170,7 @@ func (s *Server) handlers() map[string]func(context.Context, arguments) map[stri
 		"update_group":              s.updateGroup,
 		"create_group":              s.createGroup,
 		"set_group_photo":           s.setGroupPhoto,
+		"save_contact":              s.saveContact,
 		"update_group_settings":     s.updateGroupSettings,
 		"group_join_requests":       s.groupJoinRequests,
 		"community_groups":          s.communityGroups,
