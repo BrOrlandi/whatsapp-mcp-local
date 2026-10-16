@@ -21,6 +21,12 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
   - `community_groups` lista os grupos de uma comunidade, traz um grupo que já
     existe para dentro dela ou tira um grupo dela.
 - `get_group` com `live` agora traz a descrição do grupo e essas permissões.
+- **Salvar e renomear contatos.** `save_contact` salva um contato na conta do
+  WhatsApp, como o "Salvar contato" do app, ou troca o nome dele: o nome vai
+  para o celular e para os outros aparelhos, e é o que o WhatsApp mostra para
+  aquele número. Com `phonebook`, o celular grava também na agenda. `dry_run`
+  mostra o nome atual antes de trocar. Precisa de um wacli com
+  `contacts save` (openclaw/wacli#500).
 
 Precisa de um wacli com os comandos de grupo novos (openclaw/wacli#479); com um
 wacli mais antigo, essas ferramentas avisam e não mudam nada.
