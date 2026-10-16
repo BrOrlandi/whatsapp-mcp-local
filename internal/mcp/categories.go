@@ -55,10 +55,16 @@ var toolCategories = map[string]string{
 
 	"manage_group_participants": CategoryGroups,
 	"update_group":              CategoryGroups,
+	"create_group":              CategoryGroups,
+	"set_group_photo":           CategoryGroups,
+	"update_group_settings":     CategoryGroups,
+	"group_join_requests":       CategoryGroups,
+	"community_groups":          CategoryGroups,
 	"get_group_invite_link":     CategoryGroups,
 	"leave_group":               CategoryGroups,
 
 	"organise_chat": CategoryOrganise,
+	"save_contact":  CategoryOrganise,
 }
 
 // ToolCategory is the category of a tool, empty for an unknown one.

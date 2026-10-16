@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
@@ -115,4 +116,31 @@ func (c *CLI) Supports(ctx context.Context, flag string, command ...string) bool
 func IsLockError(err error) bool {
 	var e *Error
 	return errors.As(err, &e) && strings.Contains(strings.ToLower(e.Message), "lock")
+}
+
+var subcommands sync.Map // bin + "\x00" + parent + "\x00" + name -> bool
+
+// HasGroupsCommand says whether this wacli has `groups <name>`: the app ships
+// one pinned wacli, and some group tools need commands newer ones added.
+func (c *CLI) HasGroupsCommand(ctx context.Context, name string) bool {
+	return c.HasSubcommand(ctx, "groups", name)
+}
+
+// HasSubcommand says whether this wacli has `<parent> <name>`. A wacli without
+// the command falls back to the parent's help, so the check reads the usage
+// line. Help needs no store, so it runs without the lock.
+func (c *CLI) HasSubcommand(ctx context.Context, parent, name string) bool {
+	key := c.Bin + "\x00" + parent + "\x00" + name
+	if v, ok := subcommands.Load(key); ok {
+		return v.(bool)
+	}
+	cmd := exec.CommandContext(ctx, c.Bin, parent, name, "--help")
+	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1")
+	platform.Background(cmd)
+	out, err := cmd.Output()
+	has := err == nil && strings.Contains(string(out), "wacli "+parent+" "+name+" ")
+	if err == nil {
+		subcommands.Store(key, has)
+	}
+	return has
 }

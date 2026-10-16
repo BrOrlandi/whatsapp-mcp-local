@@ -145,6 +145,13 @@ func (n *Names) canonical(jid string) string {
 
 // Name is what to call a JID. It never returns an empty string: with no name
 // known, a person is their phone number and anything else its identifier.
+// Forget drops the cached names, so the next read sees a name just saved.
+func (n *Names) Forget() {
+	n.mu.Lock()
+	n.loaded = time.Time{}
+	n.mu.Unlock()
+}
+
 func (n *Names) Name(ctx context.Context, jid string) string {
 	n.refresh(ctx)
 	n.mu.Lock()
