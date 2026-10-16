@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
@@ -115,4 +116,26 @@ func (c *CLI) Supports(ctx context.Context, flag string, command ...string) bool
 func IsLockError(err error) bool {
 	var e *Error
 	return errors.As(err, &e) && strings.Contains(strings.ToLower(e.Message), "lock")
+}
+
+var groupsCommands sync.Map // bin + "\x00" + name -> bool
+
+// HasGroupsCommand says whether this wacli has `groups <name>`: the app ships
+// one pinned wacli, and some group tools need commands newer ones added. A
+// wacli without the command falls back to the `groups` help, so the check
+// reads the usage line. Help needs no store, so it runs without the lock.
+func (c *CLI) HasGroupsCommand(ctx context.Context, name string) bool {
+	key := c.Bin + "\x00" + name
+	if v, ok := groupsCommands.Load(key); ok {
+		return v.(bool)
+	}
+	cmd := exec.CommandContext(ctx, c.Bin, "groups", name, "--help")
+	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1")
+	platform.Background(cmd)
+	out, err := cmd.Output()
+	has := err == nil && strings.Contains(string(out), "wacli groups "+name+" [")
+	if err == nil {
+		groupsCommands.Store(key, has)
+	}
+	return has
 }

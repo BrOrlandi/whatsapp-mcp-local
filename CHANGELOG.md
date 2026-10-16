@@ -4,6 +4,27 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+### Adicionado
+
+- **Cuidar dos grupos e da comunidade pela IA.** Novas ferramentas para quem
+  administra grupos:
+  - `create_group` cria um grupo, dentro de uma comunidade se quiser, já com
+    descrição e com as permissões escolhidas (grupo privado, com aprovação para
+    entrar; só administradores mandam mensagens, editam os dados ou adicionam
+    pessoas);
+  - `set_group_photo` põe ou tira a foto de um grupo ou da comunidade (a imagem
+    é cortada em quadrado);
+  - `update_group_settings` muda essas permissões depois;
+  - `group_join_requests` lista, aprova ou recusa pedidos de entrada;
+  - `community_groups` lista os grupos de uma comunidade, traz um grupo que já
+    existe para dentro dela ou tira um grupo dela.
+- `get_group` com `live` agora traz a descrição do grupo e essas permissões.
+
+Precisa de um wacli com os comandos de grupo novos (openclaw/wacli#479); com um
+wacli mais antigo, essas ferramentas avisam e não mudam nada.
+
 ## [1.5.0] - 2026-10-14
 
 ### Adicionado

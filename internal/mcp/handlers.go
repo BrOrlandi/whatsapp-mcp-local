@@ -56,6 +56,13 @@ type arguments struct {
 	Link       bool     `json:"link"`
 	Model      string   `json:"model"`
 
+	Remove       bool   `json:"remove"`
+	CommunityJID string `json:"community_jid"`
+	AnnounceOnly *bool  `json:"announce_only"`
+	Locked       *bool  `json:"locked"`
+	JoinApproval *bool  `json:"join_approval"`
+	AdminsAdd    *bool  `json:"admins_add"`
+
 	MaxSilenceHours float64 `json:"max_silence_hours"`
 
 	ReplyTo  string   `json:"reply_to"`
@@ -158,6 +165,11 @@ func (s *Server) handlers() map[string]func(context.Context, arguments) map[stri
 
 		"manage_group_participants": s.manageParticipants,
 		"update_group":              s.updateGroup,
+		"create_group":              s.createGroup,
+		"set_group_photo":           s.setGroupPhoto,
+		"update_group_settings":     s.updateGroupSettings,
+		"group_join_requests":       s.groupJoinRequests,
+		"community_groups":          s.communityGroups,
 		"get_group_invite_link":     s.groupInviteLink,
 		"leave_group":               s.leaveGroup,
 
@@ -494,11 +506,18 @@ func (s *Server) getGroup(ctx context.Context, a arguments) map[string]any {
 	if !strings.HasSuffix(jid, "@g.us") {
 		return toolError("group_jid must be a group JID ending in @g.us")
 	}
+	// The index keeps no description or settings: only a live read has them.
+	var live struct {
+		Topic                  string
+		IsAnnounce             bool
+		IsLocked               bool
+		IsJoinApprovalRequired bool
+		MemberAddMode          string
+	}
 	if a.Live {
 		ctx, cancel := context.WithTimeout(ctx, liveTimeout)
 		err := s.supervisor.Exclusive(ctx, "group info", func(ctx context.Context) error {
-			_, err := s.cli.Run(ctx, "groups", "info", "--jid", jid)
-			return err
+			return s.cli.Decode(ctx, &live, "groups", "info", "--jid", jid)
 		})
 		cancel()
 		if err != nil {
@@ -509,7 +528,17 @@ func (s *Server) getGroup(ctx context.Context, a arguments) map[string]any {
 	if err != nil {
 		return toolError("%v", err)
 	}
-	return textResult(g, false)
+	if !a.Live {
+		return textResult(g, false)
+	}
+	return textResult(struct {
+		index.Group
+		Description  string `json:"description"`
+		AnnounceOnly bool   `json:"announce_only"`
+		Locked       bool   `json:"locked"`
+		JoinApproval bool   `json:"join_approval"`
+		AdminsAdd    bool   `json:"admins_add"`
+	}{g, live.Topic, live.IsAnnounce, live.IsLocked, live.IsJoinApprovalRequired, live.MemberAddMode == "admin_add"}, false)
 }
 
 // ---- resolving a message ----
