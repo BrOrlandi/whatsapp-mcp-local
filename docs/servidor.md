@@ -200,6 +200,9 @@ O que precisa:
 - **`WHATSAPP_MCP_REMOTE_LISTEN`** no daemon, com o endereço em que o proxy o
   alcança. O daemon serve ali só as rotas do acesso remoto; o painel, a API e
   o MCP continuam só no `127.0.0.1` do servidor.
+- **`WHATSAPP_MCP_REMOTE_TRUSTED_PROXY`**, quando outros contêineres dividem a
+  rede do proxy: o nome do contêiner do proxy (ou o IP, ou a faixa). As rotas
+  remotas recusam qualquer outro.
 
 O [`install-docker.sh`](../install-docker.sh) pergunta o endereço e o proxy, e
 monta tudo isso:
@@ -255,12 +258,14 @@ servidor, sem conectar o celular de novo:
 5. **Suba o contêiner** e espere `whatsapp-mcp status` dizer que está
    conectado, sem pedir QR code. As conversas recentes devem bater com as do
    celular.
-6. **No computador**, guarde a pasta `wacli/` antiga com outro nome (não
-   apague), para o app nunca abrir aquela sessão de novo, e pareie o app com o
-   servidor.
+6. **No computador**, pareie o app com o servidor marcando *Levei os dados
+   deste computador para o servidor*: o app guarda a pasta `wacli/` antiga com
+   outro nome (não apaga), para nunca abrir aquela sessão de novo.
 
 **Para voltar:** pare o contêiner, devolva a pasta guardada ao nome original
-(ou restaure o backup) e, no app, *Voltar ao modo local*.
+(ou restaure o backup) e, no app, *Voltar ao modo local*, confirmando que o
+WhatsApp do servidor foi desconectado. Enquanto este computador guardar a
+mesma sessão que o servidor usa, o app recusa voltar sem essa confirmação.
 
 ## Transcrição de áudio
 

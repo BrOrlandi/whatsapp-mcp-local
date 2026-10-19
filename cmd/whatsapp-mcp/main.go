@@ -229,7 +229,7 @@ stdout, errors included as {"error": "...", "exit_code": N}. Exit codes: 0 done,
 2 wrong usage, 3 the daemon does not answer, 4 WhatsApp not ready or not connected, 5 timeout,
 6 not possible here (a setting fixed by the environment, a busy port, Docker).
 
-Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WHATSAPP_MCP_REMOTE_LISTEN (host:port for the app's remote access, behind an HTTPS proxy), WHATSAPP_MCP_LANG (pt-BR, es, en), WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
+Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WHATSAPP_MCP_REMOTE_LISTEN (host:port for the app's remote access, behind an HTTPS proxy), WHATSAPP_MCP_REMOTE_TRUSTED_PROXY (that proxy: names, IPs or CIDRs), WHATSAPP_MCP_LANG (pt-BR, es, en), WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
 `
 
 // language is the one the panel and the messages show: WHATSAPP_MCP_LANG,
@@ -257,6 +257,7 @@ func fatal(err error) {
 }
 
 func serve(cfg config) error {
+	privateFiles()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := appconfig.MarkNew(cfg.DataDir); err != nil {
 		logger.Warn("could not write config.json", "error", err)
@@ -266,6 +267,7 @@ func serve(cfg config) error {
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
 		LogPath: logPath(), Version: version, Logger: logger,
 		Desktop: desktopCommand(cfg), RemoteListen: os.Getenv("WHATSAPP_MCP_REMOTE_LISTEN"),
+		RemoteTrustedProxy: os.Getenv("WHATSAPP_MCP_REMOTE_TRUSTED_PROXY"),
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
 		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)

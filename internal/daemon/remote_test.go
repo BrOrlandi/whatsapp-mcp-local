@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -107,3 +108,61 @@ func get2(mcpURL, path string) (int, string, error) {
 }
 
 func waitABit() { <-time.After(25 * time.Millisecond) }
+
+// A program on the app's computer reaches the server through the app with
+// the same rights it would have on the server: the panel's checks and the
+// server's token apply to it. Only what the app's window sends is served as
+// the window.
+func TestOnlyTheAppsWindowIsTheWindow(t *testing.T) {
+	root := t.TempDir()
+	store := root + "/s"
+	_ = os.MkdirAll(store, 0o700)
+	_ = os.WriteFile(store+"/AUTHED", nil, 0o600)
+	d, err := Start(Config{Port: freePort(t), RequirePort: true, Token: "server-token-0123456789", WacliBin: fakeWacli,
+		StoreDir: store, DataDir: root + "/data"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Stop()
+	proxy := httptest.NewTLSServer(d.Remote().Handler())
+	defer proxy.Close()
+	remote.Transport = proxy.Client().Transport
+	defer func() { remote.Transport = nil }()
+	code, _ := d.Remote().NewCode("Mac", remote.ScopeAdmin)
+	dev, key, err := remote.Pair(context.Background(), proxy.URL, code.Code, "Mac")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, _ := remote.NewClient(dev, key)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go c.Run(ctx)
+	for i := 0; i < 200 && c.Status().State != remote.StateConnected; i++ {
+		waitABit()
+	}
+	post := func(path string, header map[string]string) int {
+		req, _ := http.NewRequest(http.MethodPost, "http://remote"+path, strings.NewReader(`{"name":"x"}`))
+		req.Header.Set("Content-Type", "application/json")
+		for k, v := range header {
+			req.Header.Set(k, v)
+		}
+		resp, err := c.RoundTrip(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	if got := post("/api/remote/codigo", nil); got != http.StatusForbidden {
+		t.Errorf("a program without the token made a pairing code: %d", got)
+	}
+	if got := post("/api/remote/codigo", map[string]string{"Authorization": "Bearer server-token-0123456789"}); got != 200 {
+		t.Errorf("a program with the server's token: %d", got)
+	}
+	if got := post("/mcp", nil); got != http.StatusUnauthorized {
+		t.Errorf("the MCP without the token: %d", got)
+	}
+	if got := post("/api/remote/codigo", map[string]string{remote.WindowHeader: "1"}); got != 200 {
+		t.Errorf("the app's window: %d", got)
+	}
+}

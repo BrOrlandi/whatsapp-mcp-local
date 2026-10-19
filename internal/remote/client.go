@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -84,8 +85,11 @@ func dial(ctx context.Context, server *url.URL, path string) (*websocket.Conn, e
 	u.RawQuery = query
 	ws, resp, err := websocket.Dial(ctx, u.String(), &websocket.DialOptions{HTTPClient: httpClient()})
 	if err != nil {
-		if resp != nil && resp.StatusCode == http.StatusUpgradeRequired {
-			return nil, errors.New("the server is not behind HTTPS")
+		if resp != nil && resp.Body != nil {
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+			if strings.Contains(string(body), HTTPSOnly) {
+				return nil, errors.New("the server's proxy did not say the connection came over HTTPS: check the proxy's configuration")
+			}
 		}
 		return nil, err
 	}
@@ -126,15 +130,23 @@ func Pair(ctx context.Context, serverURL, code, name string) (Device, []byte, er
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	ws, err := dial(ctx, server, "/remote/v1/pair?id="+url.QueryEscape(id))
+	ws, err := dial(ctx, server, "/remote/v1/pair")
 	if err != nil {
 		return Device{}, nil, fmt.Errorf("could not reach the server: %w", err)
 	}
 	defer ws.CloseNow()
+	// The code's id goes in the first message, out of the address (which a
+	// proxy may log). It is not secret: the secret never leaves this app.
+	if err := ws.Write(ctx, websocket.MessageBinary, []byte(id)); err != nil {
+		return Device{}, nil, fmt.Errorf("could not reach the server: %w", err)
+	}
 	hs, err := noise.NewHandshakeState(noise.Config{CipherSuite: suite, Pattern: noise.HandshakeXX, Initiator: true,
 		Prologue: []byte(pairPrologue + ":" + id), StaticKeypair: key, PresharedKey: secret, PresharedKeyPlacement: 3})
 	if err != nil {
 		return Device{}, nil, err
+	}
+	if runes := []rune(strings.TrimSpace(name)); len(runes) > maxNameLen {
+		name = string(runes[:maxNameLen])
 	}
 	hello, _ := json.Marshal(map[string]string{"name": name})
 	ch, _, err := handshake(ctx, ws, hs, true, [][]byte{nil, hello})
@@ -192,8 +204,14 @@ type Client struct {
 	device Device
 	server *url.URL
 	key    noise.DHKey
+	// next is a key asked for with Rotate and not yet proved to the server:
+	// the next session tries it, and falls back to key if the server lost it.
+	next *noise.DHKey
 	// Now is the clock, replaceable in tests.
 	Now func() time.Time
+	// OnKey is told the device's private key once the server has taken a
+	// new one, for the app to keep it (in the keychain).
+	OnKey func(private []byte)
 
 	mu     sync.Mutex
 	mux    *clientMux
@@ -305,41 +323,74 @@ func (c *Client) connect(ctx context.Context) (*clientMux, error) {
 	if err != nil {
 		return nil, err
 	}
+	c.mu.Lock()
+	key, trying := c.key, c.next
+	if trying != nil {
+		key = *trying
+	}
+	stamp := max(c.Now().UnixNano(), c.last+1)
+	c.last = stamp
+	c.mu.Unlock()
 	hs, err := noise.NewHandshakeState(noise.Config{CipherSuite: suite, Pattern: noise.HandshakeIK, Initiator: true,
-		Prologue: []byte(sessionPrologue), StaticKeypair: c.key, PeerStatic: c.device.ServerKey})
+		Prologue: []byte(sessionPrologue), StaticKeypair: key, PeerStatic: c.device.ServerKey})
 	if err != nil {
 		ws.CloseNow()
 		return nil, err
 	}
-	c.mu.Lock()
-	stamp := max(c.Now().UnixNano(), c.last+1)
-	c.last = stamp
-	c.mu.Unlock()
 	ch, _, err := handshake(hctx, ws, hs, true, [][]byte{timestamp(stamp)})
 	if err != nil {
 		ws.CloseNow()
 		if websocket.CloseStatus(err) == websocket.StatusPolicyViolation {
+			if trying != nil {
+				// The server no longer knows the new key (it restarted, say):
+				// the current one still works.
+				c.mu.Lock()
+				c.next = nil
+				c.mu.Unlock()
+				return c.connect(ctx)
+			}
 			return nil, errRefused
 		}
 		return nil, err
 	}
+	if trying != nil {
+		c.mu.Lock()
+		c.key, c.next = *trying, nil
+		onKey := c.OnKey
+		c.mu.Unlock()
+		if onKey != nil {
+			onKey(trying.Private)
+		}
+	}
 	return newClientMux(ch), nil
 }
 
+// keepAlive pings the server, and ends a session that stops answering:
+// a connection a network change killed without closing it.
 func (c *Client) keepAlive(ctx context.Context, m *clientMux) {
-	t := time.NewTicker(25 * time.Second)
+	t := time.NewTicker(pingEvery)
 	defer t.Stop()
+	missed := 0
 	for {
 		select {
 		case <-ctx.Done():
 			return
+		case <-m.pongs:
+			missed = 0
 		case <-t.C:
+			if missed++; missed > 2 {
+				m.ch.close("the server stopped answering")
+				return
+			}
 			if m.ch.write(ctx, frame(framePing, 0, nil)) != nil {
 				return
 			}
 		}
 	}
 }
+
+// pingEvery is how often a session is pinged; tests shorten it.
+var pingEvery = 25 * time.Second
 
 // ErrNotConnected is a request made while the session is down.
 var ErrNotConnected = errors.New("the app is not connected to the server right now")
@@ -357,8 +408,7 @@ func (c *Client) RoundTrip(req *http.Request) (*http.Response, error) {
 
 // Rotate gives the device a new key: the server is told over the current
 // session, the client reconnects proving it holds the new one, and only
-// then is the old one dropped. It returns the new private key, for the
-// keychain.
+// then is the old one dropped, here and on the server, and OnKey told.
 func (c *Client) Rotate(ctx context.Context) ([]byte, error) {
 	c.mu.Lock()
 	m := c.mux
@@ -382,8 +432,10 @@ func (c *Client) Rotate(ctx context.Context) ([]byte, error) {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+	// The next session proves the new key; only then does it replace the
+	// current one, here (OnKey) and on the server.
 	c.mu.Lock()
-	c.key = next
+	c.next = &next
 	c.mu.Unlock()
 	m.ch.close("rotating the key")
 	c.Retry()

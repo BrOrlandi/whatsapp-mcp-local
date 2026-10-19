@@ -93,7 +93,11 @@ func (p *Panel) apiRemoteDevices(r *http.Request) (any, error) {
 }
 
 func (p *Panel) apiRemoteRevoke(r *http.Request) (any, error) {
-	err := p.State.RevokeRemoteClient(r.Context(), strings.TrimSpace(r.PathValue("id")))
+	if p.Remote == nil {
+		return nil, userError{i18n.T("o acesso remoto não está disponível")}
+	}
+	// Revoke also ends the device's open sessions.
+	err := p.Remote.Revoke(r.Context(), strings.TrimSpace(r.PathValue("id")))
 	if errors.Is(err, state.ErrNoRemoteClient) {
 		return nil, userError{i18n.T("nenhum dispositivo ativo tem esse id")}
 	}

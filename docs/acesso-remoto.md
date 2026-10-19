@@ -46,8 +46,9 @@ antes. Cada pedido vai ao servidor dentro da sessão cifrada.
    dele). O código tem um identificador, **32 bytes aleatórios** (`crypto/rand`)
    e o começo da chave pública do servidor (a impressão digital). Ele aparece
    uma vez e **não é gravado**: o segredo fica só na memória do processo, vale
-   **10 minutos** e **uma vez**; uma tentativa com ele, certa ou errada, o
-   consome.
+   **10 minutos** e **uma vez**. Ele é gasto quando um aparelho prova que tem o
+   segredo; quem souber só o identificador (que não é secreto, e viaja na
+   primeira mensagem, fora do endereço que um proxy registra) não o gasta.
 2. No app, a pessoa cola o endereço `https://` do servidor e o código. O app
    gera o par de chaves do dispositivo (X25519) e roda o handshake
    `Noise_XXpsk3_25519_ChaChaPoly_SHA256` com o segredo do código como chave
@@ -90,17 +91,21 @@ pareamento:
 
 ## Escopos, revogação e troca de chave
 
-- **Escopo `admin`** (o app): o painel, a API e o MCP do servidor, como a
-  janela do app teria localmente. **Escopo `tools`**: só o `/mcp`; qualquer
+- **Escopo `admin`** (o app): o painel, a API e o MCP do servidor. O que a
+  janela do app manda é servido como a janela do painel; o que outro programa
+  do computador do app manda pelo `127.0.0.1` dele passa pelas mesmas
+  checagens que no servidor (o painel recusa ações sem JSON ou vindas de outro
+  site, e o token do servidor vale). **Escopo `tools`**: só o `/mcp`; qualquer
   outra rota responde 403. A administração (parear, revogar, desconectar o
   WhatsApp, webhooks) fica fora do alcance de um dispositivo `tools`.
 - **Revogar:** `whatsapp-mcp remote revoke <id>`, ou o botão em
-  *Configurações › Acesso remoto*. Uma sessão aberta cai no pedido seguinte, e
-  o dispositivo não reconecta; precisa ser pareado de novo.
+  *Configurações › Acesso remoto*. As sessões abertas do dispositivo caem na
+  hora, e ele não reconecta; precisa ser pareado de novo.
 - **Trocar a chave do dispositivo:** no app, *Trocar a chave deste app*. O
   app manda a nova chave pública pela sessão atual; o servidor a aceita só
   quando o app abre uma sessão provando que tem a nova, e só então a antiga
-  deixa de valer.
+  deixa de valer, no servidor e no Keychain. Se o servidor reiniciar no meio,
+  o app volta à chave atual, que continua valendo.
 - **A chave do servidor** fica em `remote-server.key` na pasta de dados
   (0600). Trocá-la (apagar o arquivo e reiniciar) obriga a parear de novo
   todos os dispositivos, porque eles a fixaram.
@@ -113,9 +118,12 @@ pareamento:
   servidor, validade). Não existe opção para ignorar erro de certificado.
 - O app não segue redirecionamento nenhum: um `3xx` (para `http://` ou para
   outro lugar) encerra a tentativa.
-- O servidor recusa nas rotas remotas o que não chegou por HTTPS (TLS direto,
-  ou `X-Forwarded-Proto: https` do proxy) e qualquer pedido com `Origin`, que
-  só uma página web mandaria.
+- As rotas remotas só atendem o proxy: com `WHATSAPP_MCP_REMOTE_TRUSTED_PROXY`
+  (o nome do contêiner do Traefik, um IP ou uma faixa), outro contêiner da
+  mesma rede Docker é recusado, mesmo dizendo que veio por HTTPS. Do proxy,
+  elas exigem que a conexão tenha chegado por HTTPS (`X-Forwarded-Proto` com
+  `https`, ou `wss` num WebSocket) e recusam qualquer pedido com `Origin`, que
+  só uma página web mandaria. O `install-docker.sh` preenche o proxy confiável.
 - Entre o proxy e o contêiner, o tráfego anda na rede privada do Docker (ou no
   loopback do servidor) e não é publicado como porta HTTP; mesmo ali, ele já
   vai cifrado pelo Noise.
@@ -128,8 +136,18 @@ pareamento:
 | O servidor lê as conversas? | Sim: ele é uma das pontas. Ele roda o WhatsApp e precisa ler para servir o MCP. A criptografia de ponta a ponta é entre o app e o serviço, não contra o serviço. |
 | Alguém que copie o código de pareamento consegue entrar? | Só se usar antes do app, em até 10 minutos, uma vez. Nesse caso o app recebe recusa, e o dispositivo do intruso aparece na lista para ser revogado. Gere o código só na hora de colar. |
 | Uma chave copiada identifica o mesmo Mac? | Não exatamente. A sessão prova a posse da chave privada do dispositivo, que fica no Keychain deste Mac e nunca trafega; copiá-la exige comprometer o Mac ou o Keychain. Não há atestação de hardware (Secure Enclave): a chave X25519 do Noise não pode morar nele. |
-| E se o banco do servidor vazar? | Ele tem só chaves públicas dos dispositivos: não dá para se passar por eles. A chave privada do servidor está no arquivo `remote-server.key`; com ela, alguém poderia se passar pelo servidor para um app, por isso o arquivo é 0600 e fica fora do banco. |
-| Um programa no próprio Mac usa o MCP? | Sim, como no modo local: o `127.0.0.1:47821` do app atende os programas deste computador. A proteção da rede não muda o que um programa local pode fazer. |
+| E se o banco do servidor vazar? | Só o banco: ele tem só chaves públicas dos dispositivos, e não dá para se passar por eles. A chave privada do servidor está em `remote-server.key` (0600). Quem copiar a pasta de dados inteira, com o banco e essa chave, pode se passar pelo servidor para os apps e, por uma propriedade conhecida do padrão IK, também pelos dispositivos para o servidor. Nesse caso: revogue todos os dispositivos, apague `remote-server.key`, reinicie e pareie de novo. |
+| Um programa no próprio Mac usa o MCP? | Sim, como no modo local: o `127.0.0.1:47821` do app atende os programas deste computador, com as mesmas regras que valeriam no servidor. Se o servidor tem token (`whatsapp-mcp token`), os programas do Mac também precisam dele para o MCP e para as ações da API; só a janela do próprio app dispensa. |
+
+## Limites
+
+- Até 16 handshakes ao mesmo tempo, até 64 pedidos ao mesmo tempo numa
+  sessão; uma sessão sem nenhuma mensagem por 90 segundos (o app manda um
+  ping a cada 25) é encerrada, e o app derruba uma sessão que para de
+  responder aos pings.
+- O corpo de um pedido que o servidor não lê não trava os outros pedidos da
+  sessão: ele é descartado, e só aquele pedido falha.
+- O nome do dispositivo é cortado em 64 caracteres.
 
 ## Decisões e alternativas
 
@@ -153,10 +171,16 @@ pareamento:
 
 `internal/remote/remote_test.go` e `internal/daemon/remote_test.go` cobrem:
 pareamento e pedidos pela sessão; código de uso único, expirado e com segredo
-errado; chave do servidor que não bate com o código (nada é registrado);
-`http://`, redirecionamento e certificado não confiável recusados; rotas sem
-HTTPS ou com `Origin` recusadas; dispositivo revogado e chave desconhecida
-recusados; escopo `tools` restrito ao MCP; troca de chave (a antiga para de
-valer); mensagem adulterada, mensagem repetida e handshake repetido
-recusados; rekey; e o painel do servidor pelo túnel, com o aviso de modo
-remoto, que não aparece no acesso local.
+errado; o identificador do código, sozinho, não o gasta; chave do servidor
+que não bate com o código (nada é registrado); `http://`, redirecionamento e
+certificado não confiável recusados; rotas sem HTTPS, com `Origin` ou fora do
+proxy confiável recusadas; dispositivo revogado (a sessão aberta cai na hora)
+e chave desconhecida recusados; escopo `tools` restrito ao MCP; troca de
+chave (a antiga para de valer; uma troca perdida pelo servidor volta à chave
+atual); mensagem adulterada, mensagem repetida e handshake repetido
+recusados; rekey; um corpo que ninguém lê não trava a sessão; nome cortado;
+o token do servidor e as checagens do painel valendo para os programas do
+computador do app, e só a janela do app tratada como janela; e o painel do
+servidor pelo túnel, com o aviso de modo remoto, que não aparece no acesso
+local. A primeira versão passou por uma revisão de segurança independente,
+cujos achados estão corrigidos nesta.

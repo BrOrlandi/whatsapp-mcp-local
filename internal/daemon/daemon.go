@@ -50,6 +50,10 @@ type Config struct {
 	// there (internal/remote): two routes, for an HTTPS proxy on a private
 	// network to reach. Everything else stays on the loopback port.
 	RemoteListen string
+	// RemoteTrustedProxy names the HTTPS proxy (IPs, CIDRs or host names,
+	// comma separated); the remote routes refuse anything else. Empty, the
+	// listener must be one only the proxy reaches.
+	RemoteTrustedProxy string
 }
 
 // Daemon is a running gateway.
@@ -161,20 +165,28 @@ func (d *Daemon) startRemote(cfg Config, primary *Account) error {
 	if err != nil {
 		return err
 	}
-	// A device's requests reach the daemon as the app's own window reaches
-	// it: the device proved itself in the handshake. The loopback guard is
-	// for the network, which these requests did not come through.
-	local := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r.Host = addr(d.Port())
-			if cfg.Token != "" {
-				r.Header.Set("Authorization", "Bearer "+cfg.Token)
-			}
-			next.ServeHTTP(w, r)
-		})
+	// A device's requests come through its session, already authenticated
+	// as that device, and not through the loopback guard. What the app's own
+	// window sent (remote.WindowHeader, which the app sets for its window
+	// only) is served as the panel serves its window, with the token; every
+	// other request, from a program on the app's computer, gets the same
+	// checks as a program on this one: sameOrigin, the agent rules, the token.
+	routes := func(w http.ResponseWriter, r *http.Request, admin bool) {
+		window := admin && r.Header.Get(remote.WindowHeader) == "1"
+		r.Header.Del(remote.WindowHeader)
+		r.Host = addr(d.Port())
+		if !window {
+			d.routes.ServeHTTP(w, r)
+			return
+		}
+		if cfg.Token != "" {
+			r.Header.Set("Authorization", "Bearer "+cfg.Token)
+		}
+		panel.Internal(d.routes).ServeHTTP(w, r)
 	}
-	srv.Admin = local(panel.Internal(d.routes))
-	srv.Tools = local(d.routes)
+	srv.Admin = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { routes(w, r, true) })
+	srv.Tools = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { routes(w, r, false) })
+	srv.TrustedProxy = remote.TrustProxies(cfg.RemoteTrustedProxy)
 	d.remote = srv
 	d.panel.Remote = srv
 	if cfg.RemoteListen == "" {
