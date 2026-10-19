@@ -618,6 +618,9 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 			draft["reply_to"] = reply.quoted
 		}
 		if src := strings.TrimPrefix(strings.TrimSpace(a.URL), "file://"); filepath.IsAbs(src) {
+			if fromRemote(ctx) {
+				return toolError("%v", errRemotePath)
+			}
 			info, err := os.Stat(src)
 			if err != nil || info.IsDir() || info.Size() > maxMedia {
 				return toolError("%s is not a readable file of at most 100 MiB", src)
@@ -681,6 +684,9 @@ func (s *Server) fetchFile(ctx context.Context, source, filename string) (string
 		source = p
 	}
 	if filepath.IsAbs(source) {
+		if fromRemote(ctx) {
+			return "", nothing, errRemotePath
+		}
 		info, err := os.Stat(source)
 		if err != nil {
 			return "", nothing, fmt.Errorf("cannot read %s: %v", source, err)
@@ -699,7 +705,7 @@ func (s *Server) fetchFile(ctx context.Context, source, filename string) (string
 	if err != nil {
 		return "", nothing, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := downloadClient(ctx).Do(req)
 	if err != nil {
 		return "", nothing, fmt.Errorf("could not download %s: %v", source, err)
 	}
