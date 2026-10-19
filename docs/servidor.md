@@ -8,8 +8,8 @@ para um servidor acessado por SSH, um computador que fica ligado o tempo todo
 ou um contêiner Docker.
 
 O MCP continua respondendo só em `127.0.0.1`: quem usa o WhatsApp é um
-programa no próprio servidor (o Claude Code, um agente, um script). Para usar
-de outro computador, veja [De outro computador](#de-outro-computador).
+programa no próprio servidor (o Claude Code, um agente, um script), ou o app
+de outro computador, pelo [acesso remoto](#usar-pelo-app-de-outro-computador).
 
 ## Sem Docker
 
@@ -57,7 +57,9 @@ importa nele:
 
 - **`network_mode: host`.** O daemon só responde em `127.0.0.1`; com a rede do
   servidor, o MCP fica em `http://127.0.0.1:47821/mcp` no próprio servidor.
-  Sem isso, nada fora do contêiner alcança o MCP.
+  Sem isso, nada fora do contêiner alcança o MCP. Para usar pelo app de outro
+  computador, o `install-docker.sh` monta outro compose, atrás de um proxy
+  HTTPS ([abaixo](#usar-pelo-app-de-outro-computador)).
 - **O volume `/data`** guarda tudo o que precisa sobreviver ao contêiner: a
   sessão e as mensagens do WhatsApp (`/data/wacli`) e o estado, as
   configurações e o token do daemon (`/data/mcp`). Apagar o volume desconecta
@@ -181,19 +183,84 @@ quando chega `paired`. Ou pede o código: `pair --phone <número> --json
 --no-wait` devolve o código e deixa a conexão correndo, e `status --json`
 diz quando terminou.
 
-## De outro computador
+## Usar pelo app de outro computador
 
-O daemon recusa qualquer pedido que não venha de `127.0.0.1`, e as leituras
-da API não pedem token. Abrir a porta para a rede exporia as conversas a quem
-alcançasse o servidor, e por isso não há opção para isso nesta versão. Para
-usar o painel ou o MCP de outro computador, um túnel SSH leva a porta até lá:
+O app do Mac (ou do Windows e do Linux) pode ser o controle deste servidor:
+mostra o painel dele, conecta o WhatsApp dele por QR code ou código, e leva as
+ferramentas de IA daquele computador até o MCP daqui. A conexão é só por
+HTTPS, com uma camada de criptografia de ponta a ponta entre o app e o
+servidor; os detalhes estão em [Acesso remoto](acesso-remoto.md).
+
+O que precisa:
+
+- **Um endereço HTTPS** para o servidor, com certificado válido (Let's
+  Encrypt, por exemplo), servido por um proxy: um Traefik que já roda no
+  Docker, ou outro proxy seu. Não há opção para HTTP nem para certificado
+  inválido, nem na configuração inicial.
+- **`WHATSAPP_MCP_REMOTE_LISTEN`** no daemon, com o endereço em que o proxy o
+  alcança. O daemon serve ali só as rotas do acesso remoto; o painel, a API e
+  o MCP continuam só no `127.0.0.1` do servidor.
+
+O [`install-docker.sh`](../install-docker.sh) pergunta o endereço e o proxy, e
+monta tudo isso:
 
 ```sh
-ssh -N -L 47821:127.0.0.1:47821 usuario@servidor
+curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-local/main/install-docker.sh -o install-docker.sh
+bash install-docker.sh
 ```
 
-Com o túnel aberto, o painel fica em `http://127.0.0.1:47821/` e o MCP em
-`http://127.0.0.1:47821/mcp` no seu computador, como se o daemon rodasse nele.
+Com um Traefik, o contêiner entra na rede Docker dele e recebe só o caminho
+`/remote/v1/` do endereço escolhido; com outro proxy, a porta do acesso remoto
+fica só no `127.0.0.1` do servidor, para o proxy encaminhar com
+`X-Forwarded-Proto: https`.
+
+Depois, para cada app:
+
+```sh
+docker exec whatsapp-mcp whatsapp-mcp remote code --name "Mac do escritório"
+```
+
+O código vale uma vez, por 10 minutos, e não aparece de novo. No app:
+*Configurações › Acesso remoto › Usar um servidor*, com o endereço `https://`
+e o código. O app para de rodar o WhatsApp no próprio computador e mostra, no
+topo de cada tela, que está no modo remoto, qual servidor usa e como estão as
+duas conexões: a do app com o servidor e a do servidor com o WhatsApp.
+
+| Comando | O que faz |
+|---|---|
+| `remote` | Lista os aparelhos pareados, quando cada um apareceu e a impressão digital do servidor |
+| `remote code [--name N] [--scope admin\|tools]` | Um código para mais um aparelho; `tools` alcança só o MCP |
+| `remote revoke <id>` | Corta um aparelho na hora; ele precisa ser pareado de novo |
+
+## Trazer os dados de outro computador
+
+Para levar a conexão do WhatsApp, as conversas já sincronizadas, as
+transcrições, os webhooks e a mídia baixada de um computador para o
+servidor, sem conectar o celular de novo:
+
+1. **No computador, encerre o app** (*Encerrar*, no ícone). Uma sessão do
+   WhatsApp não pode estar aberta em dois lugares: até o fim, só um dos dois
+   roda.
+2. **Faça um backup** da pasta de dados inteira, com o app encerrado (no
+   macOS, `~/Library/Application Support/WhatsApp MCP/`), num arquivo `.tar`
+   guardado fora dela. É ele que permite voltar atrás.
+3. **Confira as versões do wacli.** O app traz um wacli (`wacli --version`
+   dentro do app) e a imagem traz o de `build/wacli.env`. Com a mesma versão,
+   o banco é o mesmo; com versões diferentes, veja
+   [Dependências](dependencias.md#wacli) antes.
+4. **No servidor, pare o contêiner**, copie a pasta `wacli/` para
+   `data/wacli/` e o resto (`state.db`, `media/`, `exports/`, `models/` se
+   houver) para `data/mcp/`, e dê a pasta ao usuário 1000:
+   `sudo chown -R 1000:1000 data`.
+5. **Suba o contêiner** e espere `whatsapp-mcp status` dizer que está
+   conectado, sem pedir QR code. As conversas recentes devem bater com as do
+   celular.
+6. **No computador**, guarde a pasta `wacli/` antiga com outro nome (não
+   apague), para o app nunca abrir aquela sessão de novo, e pareie o app com o
+   servidor.
+
+**Para voltar:** pare o contêiner, devolva a pasta guardada ao nome original
+(ou restaure o backup) e, no app, *Voltar ao modo local*.
 
 ## Transcrição de áudio
 
