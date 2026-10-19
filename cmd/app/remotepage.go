@@ -14,12 +14,11 @@ const remotePageSource = `<!doctype html>
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Modo remoto"}}</h2><span class="pill pill--accent pill--plain">{{.Server}}</span></div>
 <div class="card__body stack">
 <p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor. As ferramentas de IA deste computador continuam no mesmo endereço, e o app leva os pedidos até o servidor."}}</p>
-<ul class="list">
-<li class="list__row"><span><strong>{{t "App ↔ servidor"}}</strong><br><span class="note">{{t "a conexão cifrada deste app com o servidor, por HTTPS"}}</span></span><span class="pill pill--{{.LinkTone}}" data-remote-link>{{.LinkLabel}}</span></li>
-{{with .Link.LastError}}<li class="list__row"><span class="note">{{t "Último erro:"}} {{.}}</span></li>{{end}}
-<li class="list__row"><span><strong>{{t "Servidor ↔ WhatsApp"}}</strong><br><span class="note">{{t "o WhatsApp conectado no servidor"}}{{if .WhatsApp}}{{with .WhatsApp.Name}} · {{.}}{{end}}{{with .WhatsApp.Phone}} · {{.}}{{end}}{{end}}</span></span><span class="pill pill--{{.WATone}}">{{.WALabel}}</span></li>
+<ul class="rows">
+<li class="row"><span class="row__main"><span class="row__title">{{t "App ↔ servidor"}}</span><span class="row__meta">{{t "a conexão cifrada deste app com o servidor, por HTTPS"}}{{with .Link.LastError}} <span class="tip" tabindex="0" aria-describedby="tip-erro"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-erro">{{t "Último erro:"}} {{.}}</span></span>{{end}}</span></span><span class="pill pill--{{.LinkTone}}" data-remote-link>{{.LinkLabel}}</span></li>
+<li class="row"><span class="row__main"><span class="row__title">{{t "Servidor ↔ WhatsApp"}}</span><span class="row__meta">{{t "o WhatsApp conectado no servidor"}}{{if .WhatsApp}}{{with .WhatsApp.Name}} · {{.}}{{end}}{{with .WhatsApp.Phone}} · {{.}}{{end}}{{end}}</span></span><span class="pill pill--{{.WATone}}">{{.WALabel}}</span></li>
 </ul>
-<p class="note">{{t "Servidor:"}} <code>{{.Server}}</code> · {{t "chave do servidor"}} <code>{{.Finger}}</code> · {{t "este app"}} <code>{{.Device}}</code>{{if not .Checked.IsZero}} · {{tf "conferido às %s" (moment .Checked)}}{{end}}</p>
+<p class="muted">{{t "Servidor:"}} <strong>{{.Server}}</strong>{{if not .Checked.IsZero}} · {{tf "conferido às %s" (moment .Checked)}}{{end}} <span class="tip" tabindex="0" aria-describedby="tip-chaves"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-chaves">{{t "chave do servidor"}} {{.Finger}} · {{t "este app"}} {{.Device}}</span></span></p>
 <div class="actions">
 <form method="post" action="/__app/remoto/tentar"><button class="btn" type="submit">{{t "Tentar de novo agora"}}</button></form>
 <form method="post" action="/__app/remoto/girar"><button class="btn btn--quiet" type="submit">{{t "Trocar a chave deste app"}}</button></form>
