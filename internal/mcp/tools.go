@@ -143,7 +143,7 @@ func definitions() []any {
 			"inputSchema": map[string]any{"type": "object", "properties": map[string]any{
 				"to":       stringSchema("Recipient JID or phone number with country code."),
 				"type":     map[string]any{"type": "string", "enum": []string{"image", "video", "audio", "document", "sticker"}},
-				"url":      stringSchema("HTTP(S) URL of the file, or an absolute path to a file on this machine."),
+				"url":      stringSchema("HTTP(S) URL of the file, or an absolute path to a file on this machine. Through remote access (the app using a server), only a URL on the internet."),
 				"caption":  stringSchema("Optional caption, not for stickers."),
 				"filename": stringSchema("Optional file name, for documents."),
 				"reply_to": stringSchema("Optional id of the message to quote, from the same conversation."),

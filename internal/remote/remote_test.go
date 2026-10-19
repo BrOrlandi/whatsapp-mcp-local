@@ -294,6 +294,62 @@ func TestToolsReachTheMCPOnly(t *testing.T) {
 	if code, out, _ := get(t, c, "/mcp"); code != 200 || out["path"] != "/mcp" {
 		t.Errorf("a tools device and the MCP: %d %v", code, out)
 	}
+	// download_media's links are the MCP's too.
+	if code, out, _ := get(t, c, "/media/abc"); code != 200 || out["path"] != "/media/abc" {
+		t.Errorf("a tools device and a media link: %d %v", code, out)
+	}
+}
+
+// A handler's panic answers 500 and leaves the session, and the server, up.
+func TestAPanicEndsOnlyItsRequest(t *testing.T) {
+	f := newFixture(t)
+	admin := f.srv.Admin
+	f.srv.Admin = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/boom" {
+			panic("boom")
+		}
+		admin.ServeHTTP(w, r)
+	})
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	if code, _, err := get(t, c, "/boom"); err != nil || code != http.StatusInternalServerError {
+		t.Fatalf("a panic: %d %v", code, err)
+	}
+	if code, _, err := get(t, c, "/api/status"); err != nil || code != 200 {
+		t.Fatalf("after a panic: %d %v", code, err)
+	}
+}
+
+// The app keeps the last handshake stamp, so a clock that went back does
+// not lock the device out: the server refuses a stamp that is not larger.
+func TestAClockGoingBackKeepsTheDeviceIn(t *testing.T) {
+	f := newFixture(t)
+	d, key := f.pair(ScopeAdmin)
+	var kept int64
+	c, err := NewClient(d, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.OnStamp = func(s int64) { kept = s }
+	ctx, cancel := context.WithCancel(context.Background())
+	go c.Run(ctx)
+	waitState(t, c, StateConnected)
+	cancel()
+	if kept == 0 {
+		t.Fatal("the stamp was not handed over to be kept")
+	}
+	// The app restarts with the clock an hour behind.
+	c2, err := NewClient(d, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c2.Now = func() time.Time { return time.Now().Add(-time.Hour) }
+	c2.LastStamp = kept
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
+	go c2.Run(ctx2)
+	waitState(t, c2, StateConnected)
 }
 
 func TestRotatingTheKey(t *testing.T) {
