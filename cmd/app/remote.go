@@ -87,6 +87,19 @@ func (a *App) startRemote() {
 			a.logger.Error("the device's new key could not be kept in the keychain", "error", err)
 		}
 	}
+	client.LastStamp = cfg.LastStamp
+	client.OnStamp = func(stamp int64) {
+		err := a.updateConfig(func(c *appconfig.Config) {
+			if c.Remote != nil && c.Remote.DeviceID == cfg.DeviceID {
+				r := *c.Remote // a copy: others read the current one unlocked
+				r.LastStamp = stamp
+				c.Remote = &r
+			}
+		})
+		if err != nil {
+			a.logger.Warn("the handshake stamp could not be kept", "error", err)
+		}
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	rm := &remoteMode{client: client, cancel: cancel, server: cfg.Server}
 	go client.Run(ctx)
@@ -481,8 +494,14 @@ func (a *App) remoteToLocal(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// The choice is written first: if it cannot be, the app stays remote
+	// rather than run locally now and come back remote, without its key, at
+	// the next start.
+	if err := a.updateConfig(func(c *appconfig.Config) { c.Remote = nil }); err != nil {
+		back(w, r, "", err)
+		return
+	}
 	a.stopRemote()
-	_ = a.updateConfig(func(c *appconfig.Config) { c.Remote = nil })
 	if cfg != nil && r.FormValue("forget") == "1" {
 		_ = deleteDeviceKey(cfg.DeviceID)
 	}

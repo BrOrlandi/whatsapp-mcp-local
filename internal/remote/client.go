@@ -224,6 +224,11 @@ type Client struct {
 	// OnKey is told the device's private key once the server has taken a
 	// new one, for the app to keep it (in the keychain).
 	OnKey func(private []byte)
+	// LastStamp is the handshake stamp the device sent last, kept by the
+	// app (OnStamp) so the next one is larger even if the clock went back:
+	// the server refuses a stamp that is not.
+	LastStamp int64
+	OnStamp   func(stamp int64)
 
 	mu     sync.Mutex
 	mux    *clientMux
@@ -340,9 +345,13 @@ func (c *Client) connect(ctx context.Context) (*clientMux, error) {
 	if trying != nil {
 		key = *trying
 	}
-	stamp := max(c.Now().UnixNano(), c.last+1)
+	stamp := max(c.Now().UnixNano(), c.last+1, c.LastStamp+1)
 	c.last = stamp
+	onStamp := c.OnStamp
 	c.mu.Unlock()
+	if onStamp != nil {
+		onStamp(stamp)
+	}
 	hs, err := noise.NewHandshakeState(noise.Config{CipherSuite: suite, Pattern: noise.HandshakeIK, Initiator: true,
 		Prologue: []byte(sessionPrologue), StaticKeypair: key, PeerStatic: c.device.ServerKey})
 	if err != nil {

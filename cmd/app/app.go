@@ -122,6 +122,7 @@ func (a *App) config() appconfig.Config {
 func (a *App) updateConfig(f func(*appconfig.Config)) error {
 	a.cfgMu.Lock()
 	defer a.cfgMu.Unlock()
+	before := a.cfg
 	f(&a.cfg)
 	saved := a.cfg
 	if a.portLocked {
@@ -130,7 +131,11 @@ func (a *App) updateConfig(f func(*appconfig.Config)) error {
 			saved.Port = disk.Port
 		}
 	}
-	return appconfig.Save(a.dataDir, saved)
+	if err := appconfig.Save(a.dataDir, saved); err != nil {
+		a.cfg = before // what runs keeps matching what is on disk
+		return err
+	}
+	return nil
 }
 
 func (a *App) run() error {
