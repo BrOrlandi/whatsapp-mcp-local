@@ -185,7 +185,7 @@ func (s *Server) Handler() http.Handler {
 // the connection on HTTPS; this check catches a proxy set up without it.
 func (s *Server) guard(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.TLS == nil && !strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		if r.TLS == nil && !overTLS(r.Header.Get("X-Forwarded-Proto")) {
 			http.Error(w, "HTTPS only", http.StatusUpgradeRequired)
 			return
 		}
@@ -195,6 +195,13 @@ func (s *Server) guard(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next(w, r)
 	}
+}
+
+// overTLS reads X-Forwarded-Proto: https, or wss, which Traefik sends for a
+// WebSocket that arrived over TLS. http and ws did not.
+func overTLS(proto string) bool {
+	proto = strings.ToLower(strings.TrimSpace(proto))
+	return proto == "https" || proto == "wss"
 }
 
 func accept(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {

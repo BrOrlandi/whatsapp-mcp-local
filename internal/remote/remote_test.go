@@ -235,6 +235,8 @@ func TestTheRoutesRefusePlainHTTPAndPages(t *testing.T) {
 	}{
 		{nil, http.StatusUpgradeRequired},
 		{map[string]string{"X-Forwarded-Proto": "http"}, http.StatusUpgradeRequired},
+		{map[string]string{"X-Forwarded-Proto": "ws"}, http.StatusUpgradeRequired},
+		{map[string]string{"X-Forwarded-Proto": "wss"}, http.StatusOK}, // Traefik, for a WebSocket over TLS
 		{map[string]string{"X-Forwarded-Proto": "https", "Origin": "https://evil.example"}, http.StatusForbidden},
 		{map[string]string{"X-Forwarded-Proto": "https"}, http.StatusOK},
 	} {
