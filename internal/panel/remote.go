@@ -117,11 +117,16 @@ func (p *Panel) devices(r *http.Request) []remoteDevice {
 	return out
 }
 
-// ClientsHandler sets the AI tools of this computer up (POST
-// /api/clients/{client}), for the app in remote mode: the tools reach the
-// MCP through the app, at this computer's own address.
-func (p *Panel) ClientsHandler() http.Handler {
+// LocalHandler answers, in the app's remote mode, what belongs to this
+// computer and not to the server: setting this computer's AI tools up (POST
+// /api/clients/{client}; they reach the MCP through the app, at this
+// computer's own address) and bringing the app's window up (POST
+// /api/app/open, with a Host).
+func (p *Panel) LocalHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/clients/{client}", p.api(p.apiAddClient))
+	if p.Host != nil {
+		mux.HandleFunc("POST /api/app/open", p.api(p.apiOpenApp))
+	}
 	return mux
 }

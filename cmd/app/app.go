@@ -235,7 +235,7 @@ func (a *App) startDaemon() {
 	ctx, cancel := context.WithCancel(context.Background())
 	a.follow = cancel
 	a.dmu.Unlock()
-	a.handler.set(a.withAppPages(d.AppHandler()))
+	a.handler.set(panel.Internal(a.withAppPages(d.AppHandler())))
 	go a.followStatus(ctx, d)
 }
 

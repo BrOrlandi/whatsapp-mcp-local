@@ -87,6 +87,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{define "flowhead"}}
 <header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
 <div class="masthead__tools">{{template "settingslink" .}}</div></header>
+{{template "remotebanner" .}}
 <div class="flow">
 {{template "portbanner" .}}
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
@@ -409,6 +410,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{define "instalacao"}}{{template "head" .}}
 <header class="masthead"><a class="brand" href="/instalacao">{{template "brandmark"}}</a>
 <div class="masthead__tools">{{template "settingslink" .}}</div></header>
+{{template "remotebanner" .}}
 <div class="wizard-shell"{{if eq .Step 2}} style="max-width:620px"{{end}}>
 {{template "langpick" .}}
 {{template "portbanner" .}}
