@@ -10,6 +10,9 @@ services:
     container_name: whatsapp-mcp
     restart: unless-stopped
     network_mode: host
+    # ./data must exist and belong to the container's user before the
+    # first up, or Docker creates it as root and the daemon cannot write:
+    #   mkdir -p data && sudo chown 1000:1000 data
     volumes:
       - ./data:/data
     environment:

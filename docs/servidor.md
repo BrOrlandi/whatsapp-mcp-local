@@ -47,6 +47,7 @@ montada a partir do repositório.
 ```sh
 git clone https://github.com/BrOrlandi/whatsapp-mcp-local.git
 cd whatsapp-mcp-local
+mkdir -p build/docker/data && sudo chown 1000:1000 build/docker/data
 docker compose -f build/docker/compose.yaml up -d --build
 docker compose -f build/docker/compose.yaml exec whatsapp-mcp whatsapp-mcp pair
 ```
@@ -63,7 +64,10 @@ importa nele:
 - **O volume `/data`** guarda tudo o que precisa sobreviver ao contêiner: a
   sessão e as mensagens do WhatsApp (`/data/wacli`) e o estado, as
   configurações e o token do daemon (`/data/mcp`). Apagar o volume desconecta
-  o WhatsApp. A pasta pertence ao usuário 1000 do contêiner.
+  o WhatsApp. A pasta `data/`, ao lado do compose, precisa existir e
+  pertencer ao usuário 1000 do contêiner antes do primeiro `up`: sem isso, o
+  Docker a cria como root e o daemon não consegue gravar nela (o
+  `install-docker.sh` já cuida disso).
 - **O contêiner é o serviço.** Os comandos `service` não se aplicam:
   `docker compose up -d`, `restart` e `stop` fazem esse papel, e o registro
   sai em `docker compose logs -f`.
@@ -150,8 +154,8 @@ de cada ferramenta.
 
 ## Automação
 
-Todos os comandos, menos `serve`, `bridge` e `logs`, aceitam `--json`: o
-resultado sai como um objeto JSON na saída padrão, e um erro também, como
+Os comandos `status`, `pair`, `logout`, `port`, `token`, `webhooks`,
+`update` e `remote` aceitam `--json`: o resultado sai como um objeto JSON na saída padrão, e um erro também, como
 `{"error": "…", "exit_code": 4}`. O `status --json` é o mesmo
 [`GET /api/status`](api.md#get-apistatus).
 
