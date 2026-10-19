@@ -224,8 +224,8 @@ Settings:
   bridge                    stdio MCP server for Claude Desktop that forwards to the daemon
   version                   print the version
 
-Every command but serve, bridge and logs takes --json: one JSON object (pair: one per line) on
-stdout, errors included as {"error": "...", "exit_code": N}. Exit codes: 0 done, 1 failed,
+status, pair, logout, port, token, webhooks, update and remote take --json: one JSON object
+(pair: one per line) on stdout, errors included as {"error": "...", "exit_code": N}. Exit codes: 0 done, 1 failed,
 2 wrong usage, 3 the daemon does not answer, 4 WhatsApp not ready or not connected, 5 timeout,
 6 not possible here (a setting fixed by the environment, a busy port, Docker).
 

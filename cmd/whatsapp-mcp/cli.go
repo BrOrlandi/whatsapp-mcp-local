@@ -88,6 +88,15 @@ func newFlags(name string) *flags {
 }
 
 func (f *flags) parse(args []string) ([]string, error) {
+	// A wrong flag after --json is still reported as JSON.
+	for _, a := range args {
+		if a == "--" {
+			break
+		}
+		if a == "--json" || a == "-json" || a == "--json=true" || a == "-json=true" {
+			jsonOutput = true
+		}
+	}
 	var rest []string
 	for {
 		if err := f.Parse(args); err != nil {
