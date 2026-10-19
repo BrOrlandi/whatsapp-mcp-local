@@ -137,16 +137,19 @@ pareamento:
 | Alguém que copie o código de pareamento consegue entrar? | Só se usar antes do app, em até 10 minutos, uma vez. Nesse caso o app recebe recusa, e o dispositivo do intruso aparece na lista para ser revogado. Gere o código só na hora de colar. |
 | Uma chave copiada identifica o mesmo Mac? | Não exatamente. A sessão prova a posse da chave privada do dispositivo, que fica no Keychain deste Mac e nunca trafega; copiá-la exige comprometer o Mac ou o Keychain. Não há atestação de hardware (Secure Enclave): a chave X25519 do Noise não pode morar nele. |
 | E se o banco do servidor vazar? | Só o banco: ele tem só chaves públicas dos dispositivos, e não dá para se passar por eles. A chave privada do servidor está em `remote-server.key` (0600). Quem copiar a pasta de dados inteira, com o banco e essa chave, pode se passar pelo servidor para os apps e, por uma propriedade conhecida do padrão IK, também pelos dispositivos para o servidor. Nesse caso: revogue todos os dispositivos, apague `remote-server.key`, reinicie e pareie de novo. |
-| Um programa no próprio Mac usa o MCP? | Sim, como no modo local: o `127.0.0.1:47821` do app atende os programas deste computador, com as mesmas regras que valeriam no servidor. Se o servidor tem token (`whatsapp-mcp token`), os programas do Mac também precisam dele para o MCP e para as ações da API; só a janela do próprio app dispensa. |
+| Um programa no próprio Mac usa o MCP? | Sim, como no modo local: o `127.0.0.1:47821` do app atende os programas deste computador, com as mesmas regras que valeriam no próprio servidor. Se o servidor tem token (`whatsapp-mcp token`), os programas do Mac precisam dele para o `/mcp` e o `/health`. A API do painel, como no servidor, atende qualquer programa da máquina que se passe pelo painel: a proteção dela é só alcançar quem roda no computador. |
 
 ## Limites
 
-- Até 16 handshakes ao mesmo tempo, até 64 pedidos ao mesmo tempo numa
-  sessão; uma sessão sem nenhuma mensagem por 90 segundos (o app manda um
+- Até 16 handshakes ao mesmo tempo, no servidor todo (uma conexão que não
+  manda a primeira mensagem em 5 segundos é fechada), até 64 pedidos ao mesmo
+  tempo numa sessão; uma sessão sem nenhuma mensagem por 90 segundos (o app manda um
   ping a cada 25) é encerrada, e o app derruba uma sessão que para de
   responder aos pings.
 - O corpo de um pedido que o servidor não lê não trava os outros pedidos da
-  sessão: ele é descartado, e só aquele pedido falha.
+  sessão: ele é descartado, e só aquele pedido falha. Um pedido que o app
+  abandona (um prazo, uma página trocada no meio) também termina sozinho, sem
+  derrubar a sessão.
 - O nome do dispositivo é cortado em 64 caracteres.
 
 ## Decisões e alternativas
@@ -182,5 +185,5 @@ recusados; rekey; um corpo que ninguém lê não trava a sessão; nome cortado;
 o token do servidor e as checagens do painel valendo para os programas do
 computador do app, e só a janela do app tratada como janela; e o painel do
 servidor pelo túnel, com o aviso de modo remoto, que não aparece no acesso
-local. A primeira versão passou por uma revisão de segurança independente,
-cujos achados estão corrigidos nesta.
+local. A primeira versão passou por uma revisão de segurança independente, e as
+correções por uma segunda; os achados das duas estão corrigidos nesta.

@@ -657,6 +657,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 
 <section class="card" id="remoto" data-remote-card>
 <div class="card__head"><h2 class="card__title">{{icon "globe"}}{{t "Acesso remoto"}}</h2>{{if .Remote}}<span class="pill pill--accent pill--plain">{{t "Modo remoto"}}</span>{{end}}</div>
+<div class="card__body stack">
 {{if .Remote}}<p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor, por uma conexão cifrada de ponta a ponta dentro do HTTPS."}}</p>
 <div class="actions"><a class="btn" href="/__app/remoto">{{t "Gerenciar a conexão com o servidor"}}</a></div>
 {{else if .App}}<p>{{t "O WhatsApp pode rodar num servidor que fica ligado o tempo todo, e este app passa a ser o controle dele: as ferramentas de IA deste computador continuam no mesmo endereço."}}</p>
@@ -666,7 +667,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{if not .RevokedAt}}<button class="btn btn--quiet btn--small" type="button" data-remote-revoke="{{.ID}}">{{t "Revogar"}}</button>{{end}}</li>{{end}}</ul>{{end}}
 <div class="actions"><button class="btn" type="button" data-remote-code>{{t "Gerar código de pareamento"}}</button></div>
 <div data-remote-code-out hidden><p class="note">{{t "Copie agora: o código não aparece de novo."}}</p><p><code data-remote-code-value></code></p><p class="note" data-remote-code-note></p></div>{{end}}
-</section>
+</div></section>
 
 <section class="card" id="webhooks" data-webhooks>
 <div class="card__head"><h2 class="card__title">{{icon "code"}}Webhooks</h2><a class="btn btn--ghost btn--small" href="/webhooks/documentacao">{{icon "book"}}{{t "Documentação"}}</a></div>

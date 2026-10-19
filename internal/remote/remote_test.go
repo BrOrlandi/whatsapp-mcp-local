@@ -597,3 +597,62 @@ func TestADeviceNameIsCut(t *testing.T) {
 		t.Fatalf("a %d-character name was kept", len([]rune(devices[0].Name)))
 	}
 }
+
+// A request the app gives up on (a timeout, a page navigated away) ends on
+// its own: the session, and the other requests in it, go on.
+func TestACancelledRequestLeavesTheSessionUp(t *testing.T) {
+	f := newFixture(t)
+	release := make(chan struct{})
+	f.srv.Admin = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/slow" {
+			<-release
+			_, _ = w.Write([]byte(strings.Repeat("late answer ", 10000)))
+			return
+		}
+		_, _ = io.WriteString(w, "ok")
+	})
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	since := c.Status().Since
+	for i := 0; i < 5; i++ {
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		req, _ := http.NewRequestWithContext(ctx, http.MethodPost, "http://local/slow", strings.NewReader(strings.Repeat("y", 200<<10)))
+		if _, err := c.RoundTrip(req); err == nil {
+			t.Fatal("the slow request should have timed out")
+		}
+		cancel()
+	}
+	close(release) // the handlers answer now, for requests nobody waits for
+	time.Sleep(300 * time.Millisecond)
+	if code, _, err := get(t, c, "/fast"); err != nil || code != 200 {
+		t.Fatalf("after cancelled requests: %d %v", code, err)
+	}
+	if st := c.Status(); st.State != StateConnected || st.Failures != 0 || !st.Since.Equal(since) {
+		t.Fatalf("the session dropped: %+v", st)
+	}
+}
+
+// Connections that never send anything do not hold the handshake slots for
+// long.
+func TestIdleConnectionsLetGoOfTheHandshakeSlots(t *testing.T) {
+	f := newFixture(t)
+	u, _ := url.Parse(f.url())
+	var idle []*websocket.Conn
+	for i := 0; i < maxPending; i++ {
+		ws, err := dial(context.Background(), u, "/remote/v1/session")
+		if err != nil {
+			t.Fatal(err)
+		}
+		idle = append(idle, ws)
+	}
+	defer func() {
+		for _, ws := range idle {
+			ws.CloseNow()
+		}
+	}()
+	time.Sleep(firstFrame + time.Second)
+	if _, _, err := Pair(context.Background(), f.url(), f.code(ScopeAdmin), "a"); err != nil {
+		t.Fatalf("idle connections still hold the slots: %v", err)
+	}
+}
