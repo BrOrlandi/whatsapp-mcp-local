@@ -181,6 +181,8 @@ func main() {
 		err = logsCmd(cfg, args)
 	case "update":
 		err = updateCmd(cfg, args)
+	case "remote":
+		err = remoteCmd(cfg, args)
 	case "config":
 		printConfig(cfg)
 	case "transcription":
@@ -226,6 +228,9 @@ Settings:
   token [show|new|set <token>|clear]   the key /mcp and the API's actions ask for (restarts the service)
   webhooks [list|add <url>|remove <id>|enable <id>|disable <id>|test <id>]
       add: [--events message,reaction,receipt] [--include-own] [--chats <jid>,<jid>]
+  remote [devices]          the devices (the app on another computer) that use this daemon remotely
+  remote code [--name N]    a one-time pairing code for one more device (valid 10 minutes)
+  remote revoke <id>        cut a device off at once
   config                    print the configuration for Claude Code and Claude Desktop
   transcription install     set up voice-note transcription on this computer (whisper.cpp)
   open                      open the control panel in the browser
@@ -244,6 +249,7 @@ its flags and examples.
 Environment (each one wins over what the commands saved):
   WHATSAPP_MCP_PORT    the port of the MCP and the panel (default 47821)
   WHATSAPP_MCP_TOKEN   the key the MCP asks for (see whatsapp-mcp token)
+  WHATSAPP_MCP_REMOTE_LISTEN  host:port for the app's remote access, behind an HTTPS proxy
   WHATSAPP_MCP_LANG    the language of the messages and the panel: pt-BR, es, en
   WHATSAPP_MCP_DATA    the data folder (default ~/.whatsapp-mcp)
   WACLI_BIN            the wacli program to run (default: the one beside this program, else PATH)
@@ -283,7 +289,7 @@ func serve(cfg config) error {
 		Port: cfg.Port, RequirePort: true, Token: cfg.Token,
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
 		LogPath: logPath(), Version: version, Logger: logger,
-		Desktop: desktopCommand(cfg), CommandLine: true,
+		Desktop: desktopCommand(cfg), CommandLine: true, RemoteListen: os.Getenv("WHATSAPP_MCP_REMOTE_LISTEN"),
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
 		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)
