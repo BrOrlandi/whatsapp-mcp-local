@@ -1,6 +1,9 @@
 package updater
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -9,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -113,5 +117,46 @@ func TestNoReleaseIsUpToDate(t *testing.T) {
 	u := &Updater{Repo: "o/r", Version: "1.2.0", API: srv.URL, Target: Target{Kind: "setup"}}
 	if found, err := u.Check(context.Background()); err != nil || found || u.State().Phase != Current {
 		t.Fatalf("%v %v %+v", found, err, u.State())
+	}
+}
+
+// The command line updates its own program from the release's archive.
+func TestCLIReplacesItsProgram(t *testing.T) {
+	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+		t.Skip("the command line updates itself on macOS and Linux")
+	}
+	var archive bytes.Buffer
+	gz := gzip.NewWriter(&archive)
+	tw := tar.NewWriter(gz)
+	program := []byte("#!/bin/sh\necho 1.3.0\n")
+	_ = tw.WriteHeader(&tar.Header{Name: "whatsapp-mcp", Mode: 0o755, Size: int64(len(program)), Typeflag: tar.TypeReg})
+	_, _ = tw.Write(program)
+	_ = tw.Close()
+	_ = gz.Close()
+	h := sha256.Sum256(archive.Bytes())
+
+	exe := filepath.Join(t.TempDir(), "whatsapp-mcp")
+	if err := os.WriteFile(exe, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	target := Target{Kind: "cli", Path: exe}
+	srv := fakeGitHub(t, "v1.3.0", target.assetName(), archive.Bytes(), hex.EncodeToString(h[:]))
+	defer srv.Close()
+	u := &Updater{Repo: "o/r", Version: "v1.2.0", API: srv.URL, Dir: t.TempDir(), Target: target}
+	if found, err := u.Check(context.Background()); err != nil || !found {
+		t.Fatalf("check: %v %v", found, err)
+	}
+	if err := u.Apply(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(exe)
+	if !bytes.Equal(got, program) {
+		t.Fatalf("the program was not replaced: %q", got)
+	}
+	if fi, _ := os.Stat(exe); fi.Mode().Perm()&0o100 == 0 {
+		t.Fatalf("the new program is not executable: %v", fi.Mode())
+	}
+	if st := u.State(); st.Phase != Ready {
+		t.Fatalf("state %+v", st)
 	}
 }
