@@ -168,7 +168,11 @@ curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-local/main/i
 
 Se instala como servicio del sistema y abre el mismo panel en el navegador, en
 **http://127.0.0.1:47821** (de nuevo: `whatsapp-mcp open`), con la misma
-[API local](docs/api.md).
+[API local](docs/api.md). En un servidor sin pantalla, todo se hace desde la
+terminal: `whatsapp-mcp pair` dibuja el código QR ahí mismo (o da un código
+para escribir en el celular), y hay comandos para el estado, el puerto, el
+token, los webhooks y las actualizaciones, también en un contenedor Docker.
+Consulta [En un servidor sin pantalla](docs/servidor.md) (en portugués).
 
 ## Bueno saber
 
