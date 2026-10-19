@@ -357,7 +357,8 @@ func TestToken(t *testing.T) {
 	if err != nil || json.Unmarshal([]byte(out), &got) != nil || len(got.Token) < 32 || got.Source != "file" {
 		t.Fatalf("token new: %v\n%s", err, out)
 	}
-	if fi, err := os.Stat(filepath.Join(data, "token")); err != nil || fi.Mode().Perm() != 0o600 {
+	// Windows has no Unix permissions: the file is guarded by the profile's ACL.
+	if fi, err := os.Stat(filepath.Join(data, "token")); err != nil || (runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600) {
 		t.Fatalf("the token file must be readable only by its owner: %v %v", fi.Mode(), err)
 	}
 	if cfg, _ := load(); cfg.Token != got.Token || cfg.TokenSource != "file" {
@@ -416,5 +417,10 @@ func TestFlagsAnywhere(t *testing.T) {
 	jsonOutput = false
 	if _, err := newFlags("x").parse([]string{"--nope"}); exitCode(err) != exitUsage {
 		t.Fatalf("an unknown flag: exit %d", exitCode(err))
+	}
+	// A wrong flag after --json is reported as JSON too.
+	defer func() { jsonOutput = false }()
+	if _, err := newFlags("x").parse([]string{"--json", "--nope"}); exitCode(err) != exitUsage || !jsonOutput {
+		t.Fatalf("--json then an unknown flag: exit %d, json %v", exitCode(err), jsonOutput)
 	}
 }
