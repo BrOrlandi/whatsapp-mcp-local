@@ -850,13 +850,31 @@
   });
   var link = document.querySelector("[data-remote-link]");
   if (!link) return;
+  var whatsapp = document.querySelector("[data-remote-whatsapp]");
   var labels = { connected: t("Conectado"), connecting: t("Conectando"), reconnecting: t("Reconectando"), unavailable: t("Indisponível"), refused: t("Recusado pelo servidor") };
   var tones = { connected: "ok", connecting: "warn", reconnecting: "warn", unavailable: "fail", refused: "fail" };
+  // The server's WhatsApp, as far as the app knows: nothing is known while
+  // the app cannot reach the server, and the page must not keep saying
+  // what it said before.
+  function whatsappState(d) {
+    if (!d.link || d.link.state !== "connected" || !d.whatsapp) return [t("Desconhecido"), "off"];
+    switch (d.whatsapp.next) {
+      case "ready": return [t("Conectado"), "ok"];
+      case "syncing": case "wait": return [t("Sincronizando"), "warn"];
+      case "pair": case "scan": return [t("Desconectado"), "fail"];
+    }
+    return [t("A sincronização parou"), "fail"];
+  }
   function poll() {
     fetch("/__app/remote/status", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
       var state = d.link && d.link.state;
       link.textContent = labels[state] || state;
       link.className = "pill pill--" + (tones[state] || "warn");
+      if (whatsapp) {
+        var w = whatsappState(d);
+        whatsapp.textContent = w[0];
+        whatsapp.className = "pill pill--" + w[1];
+      }
     }).catch(function () {});
   }
   poll();
