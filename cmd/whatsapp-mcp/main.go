@@ -1,15 +1,8 @@
 // Command whatsapp-mcp is WhatsApp MCP without a window: for servers, for a
 // computer that stays on, and for installing with an AI agent. The desktop app
-// runs the same gateway in its own process.
-//
-//	whatsapp-mcp serve               run the daemon (sync + MCP endpoint)
-//	whatsapp-mcp bridge              stdio MCP for Claude Desktop, forwarding to the daemon
-//	whatsapp-mcp service install     start the daemon at login and keep it running
-//	whatsapp-mcp service uninstall
-//	whatsapp-mcp service stop|start  stop and start it again, without removing it
-//	whatsapp-mcp open                open the control panel
-//	whatsapp-mcp config              print the client configuration
-//	whatsapp-mcp version
+// runs the same gateway in its own process. Everything the panel sets up can
+// be done from a terminal too, over SSH: `usage` below lists the commands,
+// and docs/servidor.md the deploy on a server.
 package main
 
 import (
@@ -40,22 +33,23 @@ import (
 var version = "dev"
 
 type config struct {
-	Port     int
-	Token    string
-	WacliBin string
-	StoreDir string
-	DataDir  string
+	Port int
+	// PortSource is where the port came from: env (WHATSAPP_MCP_PORT, which
+	// wins), config (config.json) or default.
+	PortSource string
+	Token      string
+	// TokenSource is env (WHATSAPP_MCP_TOKEN), file (the token file in the
+	// data folder, which `token` writes) or empty, with no token.
+	TokenSource string
+	WacliBin    string
+	StoreDir    string
+	DataDir     string
 }
 
 func (c config) baseURL() string { return "http://127.0.0.1:" + strconv.Itoa(c.Port) }
 
 func load() (config, error) {
-	c := config{Port: appconfig.DefaultPort, Token: os.Getenv("WHATSAPP_MCP_TOKEN")}
-	if p, ok, err := appconfig.PortFromEnv(); err != nil {
-		return c, err
-	} else if ok {
-		c.Port = p
-	}
+	c := config{Port: appconfig.DefaultPort, PortSource: "default"}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return c, err
@@ -71,6 +65,21 @@ func load() (config, error) {
 	c.DataDir = os.Getenv("WHATSAPP_MCP_DATA")
 	if c.DataDir == "" {
 		c.DataDir = filepath.Join(home, ".whatsapp-mcp")
+	}
+	if p, ok, err := appconfig.PortFromEnv(); err != nil {
+		return c, err
+	} else if ok {
+		c.Port, c.PortSource = p, "env"
+	} else if _, err := os.Stat(appconfig.Path(c.DataDir)); err == nil {
+		// `port` keeps the port in config.json, where the bridge finds it too.
+		if saved, err := appconfig.Load(c.DataDir); err == nil {
+			c.Port, c.PortSource = saved.Port, "config"
+		}
+	}
+	if c.Token = os.Getenv("WHATSAPP_MCP_TOKEN"); c.Token != "" {
+		c.TokenSource = "env"
+	} else if c.Token = readToken(c.DataDir); c.Token != "" {
+		c.TokenSource = "file"
 	}
 	return c, nil
 }
@@ -122,9 +131,13 @@ func main() {
 	}
 	cfg, err := load()
 	if err != nil {
-		fatal(err)
+		fatal(fail(exitUsage, "%v", err))
 	}
 	i18n.Set(language(cfg.DataDir))
+	args := []string{}
+	if len(os.Args) > 2 {
+		args = os.Args[2:]
+	}
 	switch cmd {
 	case "serve":
 		err = serve(cfg)
@@ -137,20 +150,40 @@ func main() {
 			NotRunning: "the WhatsApp MCP daemon is not running; start it with `whatsapp-mcp service install` or `whatsapp-mcp serve`",
 		}, os.Stdin, os.Stdout)
 	case "service":
-		err = serviceCmd(cfg, os.Args[2:])
+		err = serviceCmd(cfg, args)
+	case "status":
+		err = statusCmd(cfg, args)
+	case "pair", "connect":
+		err = pairCmd(cfg, args)
+	case "logout", "disconnect":
+		err = logoutCmd(cfg, args)
+	case "port":
+		err = portCmd(cfg, args)
+	case "token":
+		err = tokenCmd(cfg, args)
+	case "webhooks", "webhook":
+		err = webhooksCmd(cfg, args)
+	case "logs":
+		err = logsCmd(cfg, args)
+	case "update":
+		err = updateCmd(cfg, args)
 	case "config":
 		printConfig(cfg)
 	case "transcription":
-		err = transcriptionCmd(cfg, os.Args[2:])
+		err = transcriptionCmd(cfg, args)
 	case "open":
-		err = platform.Open(cfg.baseURL() + "/")
+		if headless() {
+			err = fail(exitConflict, "%s", i18n.Tf("sem tela para abrir o navegador; o painel fica em %s/ (por um túnel SSH, por exemplo), e tudo o que ele faz tem comando: whatsapp-mcp help", cfg.baseURL()))
+		} else {
+			err = platform.Open(cfg.baseURL() + "/")
+		}
 	case "version", "--version", "-v":
 		fmt.Println(version)
 	case "help", "--help", "-h":
 		fmt.Print(usage)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", cmd, usage)
-		os.Exit(2)
+		os.Exit(exitUsage)
 	}
 	if err != nil {
 		fatal(err)
@@ -159,15 +192,37 @@ func main() {
 
 const usage = `whatsapp-mcp — WhatsApp for MCP clients, on localhost, over wacli
 
-  serve               run the daemon: supervises wacli sync and serves MCP at http://127.0.0.1:47821/mcp
-  bridge              stdio MCP server for Claude Desktop that forwards to the daemon
-  service install     run the daemon at login and restart it if it stops (launchd / systemd --user)
-  service uninstall   remove that service
-  service stop|start  stop the service (as if the computer were off) and start it again
-  config              print the configuration for Claude Code and Claude Desktop
-  transcription install   set up voice-note transcription on this computer (whisper.cpp)
-  open                open the control panel in the browser
-  version             print the version
+Setup and service:
+  serve                     run the daemon: supervises wacli sync and serves MCP at http://127.0.0.1:47821/mcp
+  service install [--no-open]  run the daemon at login and restart it if it stops (launchd / systemd --user)
+  service uninstall         remove that service
+  service stop|start|restart  stop the service (as if the computer were off), start it, restart it
+  update [--check]          install the latest release of this program and restart the service
+  logs [-f] [-n 100]        show the daemon's log
+
+WhatsApp:
+  status                    where things stand and what comes next (exit 0 when ready, 4 when not yet)
+  pair                      connect WhatsApp with a QR code drawn in the terminal, kept current
+  pair --phone '+55 11 91234-5678'   connect with a code typed on the phone instead
+      [--no-wait] [--timeout 5m] [--qr-file qr.png] [--invert]
+  logout [--yes]            disconnect WhatsApp from this computer
+
+Settings:
+  port [<port>]             show or change the MCP's port (restarts the service)
+  token [show|new|set <token>|clear]   the key /mcp and the API's actions ask for (restarts the service)
+  webhooks [list|add <url>|remove <id>|enable <id>|disable <id>|test <id>]
+      add: [--events message,reaction,receipt] [--include-own] [--chats <jid>,<jid>]
+  config                    print the configuration for Claude Code and Claude Desktop
+  transcription install     set up voice-note transcription on this computer (whisper.cpp)
+  open                      open the control panel in the browser
+
+  bridge                    stdio MCP server for Claude Desktop that forwards to the daemon
+  version                   print the version
+
+Every command but serve, bridge and logs takes --json: one JSON object (pair: one per line) on
+stdout, errors included as {"error": "...", "exit_code": N}. Exit codes: 0 done, 1 failed,
+2 wrong usage, 3 the daemon does not answer, 4 WhatsApp not ready or not connected, 5 timeout,
+6 not possible here (a setting fixed by the environment, a busy port, Docker).
 
 Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WHATSAPP_MCP_LANG (pt-BR, es, en), WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
 `
@@ -181,9 +236,19 @@ func language(dataDir string) string {
 	return appconfig.Chosen(dataDir)
 }
 
+// fatal ends the program with err's exit code, saying why on stderr, or on
+// stdout as JSON after --json.
 func fatal(err error) {
-	fmt.Fprintln(os.Stderr, "whatsapp-mcp:", err)
-	os.Exit(1)
+	code := exitCode(err)
+	if errors.Is(err, errSilent) {
+		os.Exit(code)
+	}
+	if jsonOutput {
+		printJSON(map[string]any{"error": err.Error(), "exit_code": code})
+	} else {
+		fmt.Fprintln(os.Stderr, "whatsapp-mcp:", err)
+	}
+	os.Exit(code)
 }
 
 func serve(cfg config) error {
@@ -224,35 +289,73 @@ func desktopCommand(cfg config) panel.DesktopCommand {
 	return c
 }
 
+// installService writes the login service for this program and (re)starts
+// it. The port goes into config.json, where every command finds it; the
+// token stays in its file, unless it came from the environment.
+func installService(cfg config) (string, error) {
+	if cfg.PortSource != "config" {
+		c, _ := appconfig.Load(cfg.DataDir)
+		c.Port = cfg.Port
+		if err := appconfig.Save(cfg.DataDir, c); err != nil {
+			return "", err
+		}
+	}
+	env := map[string]string{"WACLI_BIN": cfg.WacliBin, "WACLI_STORE_DIR": cfg.StoreDir,
+		"WHATSAPP_MCP_DATA": cfg.DataDir}
+	if cfg.TokenSource == "env" {
+		env["WHATSAPP_MCP_TOKEN"] = cfg.Token
+	}
+	if lang := os.Getenv("WHATSAPP_MCP_LANG"); lang != "" {
+		env["WHATSAPP_MCP_LANG"] = lang
+	}
+	home, _ := os.UserHomeDir()
+	return service.Install(service.Spec{Binary: platform.Executable(), Args: []string{"serve"}, Env: env,
+		LogDir: filepath.Join(home, "Library", "Logs")})
+}
+
 func serviceCmd(cfg config, args []string) error {
 	if len(args) == 0 {
-		return errors.New("usage: whatsapp-mcp service install|uninstall|stop|start")
+		return fail(exitUsage, "usage: whatsapp-mcp service install|uninstall|stop|start|restart")
+	}
+	if inContainer() {
+		return fail(exitConflict, "%s", i18n.T("no Docker, o contêiner é o serviço: docker compose up -d, stop, restart"))
 	}
 	switch args[0] {
 	case "install":
-		bin := platform.Executable()
-		env := map[string]string{"WACLI_BIN": cfg.WacliBin, "WACLI_STORE_DIR": cfg.StoreDir,
-			"WHATSAPP_MCP_DATA": cfg.DataDir, "WHATSAPP_MCP_PORT": strconv.Itoa(cfg.Port)}
-		if cfg.Token != "" {
-			env["WHATSAPP_MCP_TOKEN"] = cfg.Token
-		}
-		home, _ := os.UserHomeDir()
-		path, err := service.Install(service.Spec{Binary: bin, Args: []string{"serve"}, Env: env,
-			LogDir: filepath.Join(home, "Library", "Logs")})
+		path, err := installService(cfg)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("installed %s\nthe daemon now runs at login and restarts if it stops\n\n  Panel:  %s/\n  MCP:    %s/mcp\n\n", path, cfg.baseURL(), cfg.baseURL())
-		if len(args) > 1 && args[1] == "--no-open" {
-			return nil
+		if !service.Lingering() {
+			// On a server, a user's services end with their last SSH session
+			// unless systemd is told to keep them.
+			if err := service.Linger(); err != nil {
+				fmt.Println(i18n.T("Atenção: sem o linger do systemd, o serviço para quando a sua última sessão SSH termina. Rode: sudo loginctl enable-linger $USER"))
+			} else {
+				fmt.Println(i18n.T("O serviço continua rodando depois que você sai da sessão (loginctl enable-linger)."))
+			}
 		}
 		if err := waitHealthy(cfg.baseURL()+"/healthz", 15*time.Second); err != nil {
-			return fmt.Errorf("the service was installed but is not answering yet: %w (see %s)", err, logPath())
+			return fail(exitNotRunning, "the service was installed but is not answering yet: %v (see %s)", err, logPath())
+		}
+		if (len(args) > 1 && args[1] == "--no-open") || headless() {
+			fmt.Println(i18n.T("Para conectar o WhatsApp por aqui: whatsapp-mcp pair"))
+			return nil
 		}
 		fmt.Println("opening the panel in the browser: connect your WhatsApp there")
 		if err := platform.Open(cfg.baseURL() + "/"); err != nil {
 			fmt.Printf("open %s/ in the browser\n", cfg.baseURL())
 		}
+		return nil
+	case "restart":
+		if err := service.Restart(); err != nil {
+			return err
+		}
+		if err := waitHealthy(cfg.baseURL()+"/healthz", 20*time.Second); err != nil {
+			return fail(exitNotRunning, "the service restarted but is not answering yet: %v (see %s)", err, logPath())
+		}
+		fmt.Printf("service restarted; panel at %s/\n", cfg.baseURL())
 		return nil
 	case "uninstall":
 		if err := service.Uninstall(); err != nil {
@@ -273,7 +376,7 @@ func serviceCmd(cfg config, args []string) error {
 		fmt.Printf("service started; panel at %s/\n", cfg.baseURL())
 		return nil
 	}
-	return fmt.Errorf("unknown service command %q", args[0])
+	return fail(exitUsage, "unknown service command %q", args[0])
 }
 
 func waitHealthy(url string, timeout time.Duration) error {

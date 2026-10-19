@@ -55,7 +55,13 @@ func main() {
 	case "auth status":
 		reply(map[string]any{"authenticated": exists("AUTHED"), "phone": "5511912345678"})
 	case "auth --events":
-		auth()
+		auth(args)
+	case "auth logout":
+		if locked() {
+			fail("store is locked by another process")
+		}
+		_ = os.Remove(filepath.Join(store, "AUTHED"))
+		reply(map[string]any{"logged_out": true})
 	case "sync --follow":
 		syncFollow()
 	case "chats archive":
@@ -135,7 +141,7 @@ func interrupted() <-chan os.Signal {
 	return c
 }
 
-func auth() {
+func auth(args []string) {
 	if locked() {
 		fmt.Fprintln(os.Stderr, "store is locked")
 		os.Exit(1)
@@ -149,10 +155,22 @@ func auth() {
 		}
 	}
 	event("auth_starting", nil)
-	event("qr_code", map[string]any{"code": "2@first"})
-	pause(300 * time.Millisecond)
-	event("qr_code", map[string]any{"code": "2@second"})
-	pause(300 * time.Millisecond)
+	// QR_PAUSE (in the store, in milliseconds) holds each QR code longer.
+	step := 300 * time.Millisecond
+	if raw, err := os.ReadFile(filepath.Join(store, "QR_PAUSE")); err == nil {
+		if ms, err := time.ParseDuration(strings.TrimSpace(string(raw)) + "ms"); err == nil {
+			step = ms
+		}
+	}
+	if phoneGiven(args) {
+		event("pair_code", map[string]any{"code": "ABCD-EFGH"})
+		pause(2 * step)
+	} else {
+		event("qr_code", map[string]any{"code": "2@first"})
+		pause(step)
+		event("qr_code", map[string]any{"code": "2@second"})
+		pause(step)
+	}
 	_ = os.WriteFile(filepath.Join(store, "AUTHED"), nil, 0o600)
 	event("connected", nil)
 	event("history_sync", map[string]any{"conversations": 12})
@@ -164,6 +182,15 @@ func auth() {
 	}
 	pause(300 * time.Millisecond)
 	event("idle_exit", map[string]any{"messages_synced": 512})
+}
+
+func phoneGiven(args []string) bool {
+	for _, a := range args {
+		if a == "--phone" {
+			return true
+		}
+	}
+	return false
 }
 
 func syncFollow() {
