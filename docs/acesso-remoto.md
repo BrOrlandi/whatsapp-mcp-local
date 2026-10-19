@@ -85,9 +85,11 @@ pareamento:
   contador como nonce. Uma mensagem alterada, repetida, perdida ou fora de
   ordem não decifra, e a sessão termina na hora.
 - **Dentro da sessão**, os pedidos HTTP viajam em quadros (método, caminho,
-  cabeçalhos, corpo). Cabeçalhos de conexão e credenciais do lado do app
-  (`Authorization`, `Cookie`) não atravessam: no servidor, quem fala é o
-  dispositivo autenticado.
+  cabeçalhos, corpo). Os cabeçalhos de conexão e o `Cookie` não atravessam.
+  O `Authorization` atravessa de propósito: um programa do computador do app
+  apresenta o token do servidor (`whatsapp-mcp token`), e o servidor confere
+  como conferiria um programa dele. Ele não substitui a sessão: o pedido só
+  chega se veio de um dispositivo autenticado.
 
 ## Escopos, revogação e troca de chave
 
@@ -95,9 +97,15 @@ pareamento:
   janela do app manda é servido como a janela do painel; o que outro programa
   do computador do app manda pelo `127.0.0.1` dele passa pelas mesmas
   checagens que no servidor (o painel recusa ações sem JSON ou vindas de outro
-  site, e o token do servidor vale). **Escopo `tools`**: só o `/mcp`; qualquer
-  outra rota responde 403. A administração (parear, revogar, desconectar o
+  site, e o token do servidor vale). **Escopo `tools`**: só o `/mcp` e os links
+  `/media/…` que o `download_media` devolve; qualquer outra rota responde 403. A administração (parear, revogar, desconectar o
   WhatsApp, webhooks) fica fora do alcance de um dispositivo `tools`.
+- **Arquivos e rede do servidor:** pelo acesso remoto, o
+  `send_media_message` não aceita caminho de arquivo (o servidor não é o
+  computador do agente) e só baixa URLs da internet: um endereço que leve ao
+  próprio servidor, à rede local, a uma VPN ou ao serviço de metadados de uma
+  nuvem é recusado, conferido depois do DNS e em cada redirecionamento. No
+  modo local, nada muda.
 - **Revogar:** `whatsapp-mcp remote revoke <id>`, ou o botão em
   *Configurações › Acesso remoto*. As sessões abertas do dispositivo caem na
   hora, e ele não reconecta; precisa ser pareado de novo.

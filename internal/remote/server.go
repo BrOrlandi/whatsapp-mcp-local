@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -626,10 +627,23 @@ func (s *Server) answer(session, ctx context.Context, ch *channel, device state.
 	w := &responseWriter{ctx: session, stop: ctx, ch: ch, stream: id, header: http.Header{}}
 	defer w.finish()
 	defer body.Close()
+	// A handler's panic ends this request, as net/http does, not the
+	// process and every session with it.
+	defer func() {
+		if p := recover(); p != nil {
+			if p != http.ErrAbortHandler {
+				s.logger.Error("a remote request failed", "device", device.ID, "path", head.Path, "panic", p, "stack", string(debug.Stack()))
+			}
+			if !w.wrote {
+				http.Error(w, "internal error", http.StatusInternalServerError)
+			}
+		}
+	}()
 	handler := s.Admin
 	if device.Scope != ScopeAdmin {
 		handler = s.Tools
-		if head.Path != "/mcp" && !strings.HasPrefix(head.Path, "/mcp?") {
+		// The MCP, and the links its download_media gives.
+		if head.Path != "/mcp" && !strings.HasPrefix(head.Path, "/mcp?") && !strings.HasPrefix(head.Path, "/media/") {
 			http.Error(w, "this device reaches the MCP only", http.StatusForbidden)
 			return
 		}
