@@ -36,6 +36,9 @@ precisar da janela. O app e a versão de linha de comando têm a mesma API; só
 | `GET /api/pair/qr.png` | O QR code da vez, em PNG, enquanto `pairing.state` é `qr` |
 | `POST /api/pair/cancel` | Cancela a conexão em andamento |
 | `POST /api/logout` | Desconecta o WhatsApp deste computador, como o botão da aba WhatsApp |
+| `POST /api/remote/codigo` | Um código de pareamento para o app de outro computador ([Acesso remoto](acesso-remoto.md)): `{"name": "Mac", "scope": "admin"}`; aparece só nesta resposta |
+| `GET /api/remote/dispositivos` | Os aparelhos pareados e a impressão digital da chave do servidor |
+| `DELETE /api/remote/dispositivos/{id}` | Revoga um aparelho na hora |
 | `POST /api/clients/claude-code` | Configura o MCP no Claude Code deste computador. `{"replace": true}` substitui uma configuração antiga |
 | `POST /api/clients/claude-desktop` | O mesmo no Claude Desktop (chat e Cowork), que precisa ser reiniciado |
 | `POST /api/clients/codex` | O mesmo no Codex (o do app do ChatGPT, o app do Codex, o terminal e o editor), pelo comando `codex mcp add` |
