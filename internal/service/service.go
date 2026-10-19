@@ -150,7 +150,9 @@ WantedBy=default.target
 	if err := os.WriteFile(path, []byte(unit), 0o644); err != nil {
 		return "", err
 	}
-	for _, args := range [][]string{{"daemon-reload"}, {"enable", "--now", "whatsapp-mcp.service"}} {
+	// restart, not enable --now: a unit already running would keep the old
+	// settings (a new port, a new token), as launchd's reload does not.
+	for _, args := range [][]string{{"daemon-reload"}, {"enable", "whatsapp-mcp.service"}, {"restart", "whatsapp-mcp.service"}} {
 		if out, err := exec.Command("systemctl", append([]string{"--user"}, args...)...).CombinedOutput(); err != nil {
 			return "", fmt.Errorf("systemctl --user %s: %v: %s", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 		}
