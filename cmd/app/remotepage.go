@@ -33,8 +33,8 @@ const remotePageSource = `<!doctype html>
 <p class="note">{{t "A conexão é só por HTTPS, com o certificado conferido, e cifrada de ponta a ponta entre este app e o servidor: um proxy no caminho não lê o conteúdo. A chave deste app fica no Keychain deste Mac."}}</p>
 <form method="post" action="/__app/remoto/parear" autocomplete="off">
 <label class="field" for="server"><span class="field__label">{{t "Endereço do servidor"}}</span><input id="server" name="server" type="url" required pattern="https://.+" placeholder="{{t "https://whatsapp.exemplo.com"}}" title="{{t "Só endereços https://"}}"></label>
-<label class="field" for="code"><span class="field__label">{{t "Código de pareamento"}}</span><input id="code" name="code" required placeholder="{{t "wamcp1-…"}}" spellcheck="false"></label>
-<label class="field" for="name"><span class="field__label">{{t "Nome deste app no servidor"}}</span><input id="name" name="name" value="{{.Hostname}}"></label>
+<label class="field" for="code"><span class="field__label">{{t "Código de pareamento"}}</span><input id="code" name="code" type="text" required placeholder="{{t "wamcp1-…"}}" spellcheck="false"></label>
+<label class="field" for="name"><span class="field__label">{{t "Nome deste app no servidor"}}</span><input id="name" name="name" type="text" value="{{.Hostname}}"></label>
 <p class="note">{{t "Ao conectar, o app para de rodar o WhatsApp neste computador. Os dados daqui ficam onde estão."}}</p>
 <div class="actions"><button class="btn" type="submit">{{t "Conectar ao servidor"}}</button></div></form></section>
 {{end}}

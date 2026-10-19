@@ -184,8 +184,8 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .field{display:block;margin:0 0 7px}
 .field__label{display:block;font-weight:600;font-size:.9rem}
 .field__hint{display:block;font-weight:400;color:var(--muted);font-size:.84rem;margin-top:3px}
-input[type=text],input[type=email],input[type=password]{width:100%;font:inherit;padding:10px 12px;color:var(--text);background:var(--surface-soft);border:1px solid var(--border-strong);border-radius:var(--radius-sm)}
-input[type=text]:hover,input[type=email]:hover,input[type=password]:hover{border-color:var(--brand-strong)}
+input[type=text],input[type=url],input[type=email],input[type=password]{width:100%;font:inherit;padding:10px 12px;color:var(--text);background:var(--surface-soft);border:1px solid var(--border-strong);border-radius:var(--radius-sm)}
+input[type=text]:hover,input[type=url]:hover,input[type=email]:hover,input[type=password]:hover{border-color:var(--brand-strong)}
 input[type=radio]{accent-color:var(--brand-strong);width:18px;height:18px;flex:none;margin:0}
 /* Anything after a control opens a new block. .reveal is that same control
    once password.js has wrapped it with the show/hide button, so both spellings
