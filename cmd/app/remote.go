@@ -76,7 +76,7 @@ func (a *App) startRemote() {
 	}
 	if err != nil {
 		a.logger.Error("remote mode cannot start: the device's key is missing", "error", err)
-		a.handler.set(a.withAppPages(remoteKeyMissing()))
+		a.handler.set(panel.Internal(a.withAppPages(remoteKeyMissing())))
 		return
 	}
 	ctx, cancel := context.WithCancel(context.Background())
@@ -84,13 +84,24 @@ func (a *App) startRemote() {
 	go client.Run(ctx)
 	proxy := a.remoteProxy(rm)
 
+	// What belongs to this computer, not to the server: its AI tools' setup
+	// and the app's window.
+	local := (&panel.Panel{Endpoint: a.localMCPURL, Desktop: a.desktopCommand(), Host: a}).LocalHandler()
+	withLocal := func(next http.Handler) http.Handler {
+		mux := http.NewServeMux()
+		mux.Handle("POST /api/clients/{client}", local)
+		mux.Handle("POST /api/app/open", local)
+		mux.Handle("/", next)
+		return mux
+	}
+
 	// The AI tools and the command line of this computer: the server's MCP
 	// and API, at the same address as in local mode.
 	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(a.config().Port)))
 	if err != nil {
 		a.logger.Warn("the MCP port is taken; the AI tools of this computer cannot reach the server", "port", a.config().Port, "error", err)
 	} else {
-		rm.srv = httpserver.NewServer(httpserver.Guard(proxy, a.logger))
+		rm.srv = httpserver.NewServer(httpserver.Guard(withLocal(proxy), a.logger))
 		go func() { _ = rm.srv.Serve(ln) }()
 	}
 
@@ -99,11 +110,7 @@ func (a *App) startRemote() {
 	a.dmu.Unlock()
 	// The window: the server's panel, with the app's own pages and the
 	// setup of this computer's AI tools.
-	local := (&panel.Panel{Endpoint: a.localMCPURL, Desktop: a.desktopCommand()}).ClientsHandler()
-	mux := http.NewServeMux()
-	mux.Handle("POST /api/clients/{client}", local)
-	mux.Handle("/", proxy)
-	a.handler.set(panel.Internal(a.withAppPages(mux)))
+	a.handler.set(panel.Internal(a.withAppPages(withLocal(proxy))))
 	a.logger.Info("remote mode", "server", cfg.Server, "device", cfg.DeviceID)
 	go a.followRemote(ctx, rm)
 }
