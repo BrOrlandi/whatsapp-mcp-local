@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
 	"io"
 	"log/slog"
 	"net"
@@ -45,6 +46,10 @@ type Config struct {
 	// Panel adjusts the control panel before it is served, for the app to
 	// plug in what only it can do.
 	Panel func(*panel.Panel)
+	// RemoteListen, when set (host:port), serves the app's remote access
+	// there (internal/remote): two routes, for an HTTPS proxy on a private
+	// network to reach. Everything else stays on the loopback port.
+	RemoteListen string
 }
 
 // Daemon is a running gateway.
@@ -66,6 +71,9 @@ type Daemon struct {
 	port      int
 	srv       *http.Server
 	listenErr *PortProblem
+
+	remote    *remote.Server
+	remoteSrv *http.Server
 
 	watch watchers
 }
@@ -138,8 +146,59 @@ func Start(cfg Config) (*Daemon, error) {
 		logger.Info("serving MCP", "url", d.MCPURL(), "wacli", cfg.WacliBin, "store", cfg.StoreDir, "token", cfg.Token != "")
 	}
 	go d.watchLoop(ctx)
+	if err := d.startRemote(cfg, primary); err != nil {
+		d.Stop()
+		return nil, err
+	}
 	return d, nil
 }
+
+// startRemote prepares remote access: the server's key and the paired
+// devices, always (so a code can be made before the listener is up), and the
+// listener when RemoteListen is set.
+func (d *Daemon) startRemote(cfg Config, primary *Account) error {
+	srv, err := remote.NewServer(cfg.DataDir, primary.st, d.logger)
+	if err != nil {
+		return err
+	}
+	// A device's requests reach the daemon as the app's own window reaches
+	// it: the device proved itself in the handshake. The loopback guard is
+	// for the network, which these requests did not come through.
+	local := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Host = addr(d.Port())
+			if cfg.Token != "" {
+				r.Header.Set("Authorization", "Bearer "+cfg.Token)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+	srv.Admin = local(panel.Internal(d.routes))
+	srv.Tools = local(d.routes)
+	d.remote = srv
+	d.panel.Remote = srv
+	if cfg.RemoteListen == "" {
+		return nil
+	}
+	ln, err := net.Listen("tcp", cfg.RemoteListen)
+	if err != nil {
+		return fmt.Errorf("cannot listen for remote access on %s: %w", cfg.RemoteListen, err)
+	}
+	hs := httpserver.NewServer(srv.Handler())
+	d.mu.Lock()
+	d.remoteSrv = hs
+	d.mu.Unlock()
+	go func() {
+		if err := hs.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			d.logger.Error("the remote listener stopped", "error", err)
+		}
+	}()
+	d.logger.Info("serving remote access", "listen", cfg.RemoteListen, "server_key", remote.Fingerprint(srv.PublicKey()))
+	return nil
+}
+
+// Remote is the daemon's remote access.
+func (d *Daemon) Remote() *remote.Server { return d.remote }
 
 func addr(port int) string    { return net.JoinHostPort("127.0.0.1", strconv.Itoa(port)) }
 func baseURL(port int) string { return "http://" + addr(port) }
@@ -182,11 +241,14 @@ func (d *Daemon) Stop() {
 	wg.Wait()
 	<-d.watchDone
 	d.mu.Lock()
-	srv := d.srv
-	d.srv = nil
+	srv, rsrv := d.srv, d.remoteSrv
+	d.srv, d.remoteSrv = nil, nil
 	d.mu.Unlock()
 	if srv != nil {
 		httpserver.Shutdown(srv)
+	}
+	if rsrv != nil {
+		httpserver.Shutdown(rsrv)
 	}
 	for _, a := range accounts {
 		a.stop()

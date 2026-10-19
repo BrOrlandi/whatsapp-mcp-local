@@ -167,6 +167,8 @@ func main() {
 		err = logsCmd(cfg, args)
 	case "update":
 		err = updateCmd(cfg, args)
+	case "remote":
+		err = remoteCmd(cfg, args)
 	case "config":
 		printConfig(cfg)
 	case "transcription":
@@ -212,6 +214,9 @@ Settings:
   token [show|new|set <token>|clear]   the key /mcp and the API's actions ask for (restarts the service)
   webhooks [list|add <url>|remove <id>|enable <id>|disable <id>|test <id>]
       add: [--events message,reaction,receipt] [--include-own] [--chats <jid>,<jid>]
+  remote [devices]          the devices (the app on another computer) that use this daemon remotely
+  remote code [--name N]    a one-time pairing code for one more device (valid 10 minutes)
+  remote revoke <id>        cut a device off at once
   config                    print the configuration for Claude Code and Claude Desktop
   transcription install     set up voice-note transcription on this computer (whisper.cpp)
   open                      open the control panel in the browser
@@ -224,7 +229,7 @@ stdout, errors included as {"error": "...", "exit_code": N}. Exit codes: 0 done,
 2 wrong usage, 3 the daemon does not answer, 4 WhatsApp not ready or not connected, 5 timeout,
 6 not possible here (a setting fixed by the environment, a busy port, Docker).
 
-Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WHATSAPP_MCP_LANG (pt-BR, es, en), WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
+Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WHATSAPP_MCP_REMOTE_LISTEN (host:port for the app's remote access, behind an HTTPS proxy), WHATSAPP_MCP_LANG (pt-BR, es, en), WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
 `
 
 // language is the one the panel and the messages show: WHATSAPP_MCP_LANG,
@@ -260,7 +265,7 @@ func serve(cfg config) error {
 		Port: cfg.Port, RequirePort: true, Token: cfg.Token,
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
 		LogPath: logPath(), Version: version, Logger: logger,
-		Desktop: desktopCommand(cfg),
+		Desktop: desktopCommand(cfg), RemoteListen: os.Getenv("WHATSAPP_MCP_REMOTE_LISTEN"),
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
 		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)

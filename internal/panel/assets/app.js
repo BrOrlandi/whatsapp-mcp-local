@@ -818,3 +818,47 @@
   }
   poll();
 })();
+
+// Remote access: the pairing code, shown once and never put in an address;
+// revoking a device; and, in the app on another computer, the live state of
+// its connection with the server (the app answers /__app/remote/status).
+(function () {
+  var out = document.querySelector("[data-remote-code-out]");
+  var make = document.querySelector("[data-remote-code]");
+  if (make && out) {
+    make.addEventListener("click", function () {
+      make.disabled = true;
+      fetch("/api/remote/codigo", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          make.disabled = false;
+          if (d.error) { window.alert(d.error); return; }
+          out.hidden = false;
+          out.querySelector("[data-remote-code-value]").textContent = d.code;
+          out.querySelector("[data-remote-code-note]").textContent = t("Impressão digital do servidor:") + " " + d.server_fingerprint;
+        })
+        .catch(function () { make.disabled = false; });
+    });
+  }
+  document.querySelectorAll("[data-remote-revoke]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (!window.confirm(t("Revogar este dispositivo? Ele perde o acesso na hora e precisa ser pareado de novo."))) return;
+      fetch("/api/remote/dispositivos/" + encodeURIComponent(b.getAttribute("data-remote-revoke")),
+        { method: "DELETE", credentials: "same-origin", headers: { "Content-Type": "application/json" } })
+        .then(function () { window.location.reload(); });
+    });
+  });
+  var link = document.querySelector("[data-remote-link]");
+  if (!link) return;
+  var labels = { connected: t("Conectado"), connecting: t("Conectando"), reconnecting: t("Reconectando"), unavailable: t("Indisponível"), refused: t("Recusado pelo servidor") };
+  var tones = { connected: "ok", connecting: "warn", reconnecting: "warn", unavailable: "fail", refused: "fail" };
+  function poll() {
+    fetch("/__app/remote/status", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
+      var state = d.link && d.link.state;
+      link.textContent = labels[state] || state;
+      link.className = "pill pill--" + (tones[state] || "warn");
+    }).catch(function () {});
+  }
+  poll();
+  setInterval(poll, 3000);
+})();

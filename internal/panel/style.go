@@ -143,6 +143,10 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .pill--off{background:var(--off-bg);color:var(--off)}
 .pill--plain::before{display:none}
 .pill--accent{background:var(--accent-soft);color:var(--accent)}
+.pill--fail{background:var(--danger-bg);color:var(--danger);border-color:var(--danger-border)}
+.remote-banner{margin:0 0 18px;padding:12px 14px;border-radius:var(--radius-sm);border:1px solid var(--accent-soft);background:var(--accent-soft)}
+.remote-banner p{margin:0}
+.remote-banner__links{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin-top:8px!important;font-size:.9rem}
 
 /* ---- buttons ---- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-size:.94rem;font-weight:600;text-decoration:none;padding:10px 16px;border:1px solid transparent;border-radius:var(--radius-sm);cursor:pointer;background:var(--brand);color:var(--brand-ink);white-space:nowrap}
@@ -541,3 +545,6 @@ input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:v
 .update-banner__close{position:absolute;top:8px;right:10px;background:none;border:0;font-size:1.2rem;line-height:1;color:var(--muted);cursor:pointer;padding:4px}
 .btn .spinner{width:13px;height:13px}
 `
+
+// Stylesheet is the panel's stylesheet, for the app's own pages.
+func Stylesheet() string { return stylesheet }

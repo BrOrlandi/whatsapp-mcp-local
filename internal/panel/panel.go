@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
 	"html/template"
 	"io"
 	"io/fs"
@@ -61,6 +62,9 @@ type Panel struct {
 	// DataDir is the data folder, whose config.json keeps the language
 	// picked on the command line, where there is no Host to keep it.
 	DataDir string
+	// Remote is the daemon's remote access, which pairs and serves the app
+	// on another computer (internal/remote).
+	Remote *remote.Server
 
 	pages *template.Template
 	code  codeCache
@@ -179,6 +183,7 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/pair", p.api(p.apiPair))
 	mux.HandleFunc("POST /api/pair/cancel", p.api(p.apiCancelPair))
 	mux.HandleFunc("POST /api/logout", p.api(p.apiLogout))
+	p.registerRemote(mux)
 	mux.HandleFunc("POST /api/clients/{client}", p.api(p.apiAddClient))
 	mux.HandleFunc("POST /api/idioma", p.api(p.apiLanguage))
 	if p.Host != nil {
@@ -326,6 +331,8 @@ type layout struct {
 	MCPProblem *PortProblem
 	Settings   HostSettings
 	Update     UpdateState
+	// Remote is set on a page shown by the app on another computer.
+	Remote *remoteBanner
 }
 
 // snapshot is what most pages need about the account, gathered once.
@@ -462,6 +469,7 @@ func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout
 		l.Settings = p.Host.Settings()
 		l.Update = p.Host.Update()
 	}
+	l.Remote = p.remoteBanner(r, s)
 	return l
 }
 
@@ -886,7 +894,8 @@ func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, a
 		Local       localasr.Status
 		Total       int
 		Corrected   int
-	}{p.layout(r, i18n.N("Configurações"), "configuracoes", s), p.setup(r.Context()), portOf(p.endpoint()), r.URL.Query().Get("porta") == "1", local, total, corrected}
+		Devices     []remoteDevice
+	}{p.layout(r, i18n.N("Configurações"), "configuracoes", s), p.setup(r.Context()), portOf(p.endpoint()), r.URL.Query().Get("porta") == "1", local, total, corrected, p.devices(r)}
 }
 
 func (p *Panel) apiASR(r *http.Request) (any, error) {
