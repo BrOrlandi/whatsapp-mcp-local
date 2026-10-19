@@ -1,0 +1,302 @@
+package remote
+
+import (
+	"context"
+	"encoding/binary"
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+	"strings"
+	"sync"
+)
+
+// Frames inside a session: one byte of type, four of stream, then the
+// payload. A stream is one HTTP request and its response.
+const (
+	frameReqHead  = 1 // {"m":method,"p":path,"h":headers}
+	frameReqBody  = 2
+	frameReqEnd   = 3
+	frameRespHead = 4 // {"s":status,"h":headers}
+	frameRespBody = 5
+	frameRespEnd  = 6
+	frameCancel   = 7
+	framePing     = 8
+	framePong     = 9
+	frameRotate   = 10 // {"key": the device's next public key}
+	frameRotated  = 11
+)
+
+const chunk = 32 << 10
+
+type reqHead struct {
+	Method string      `json:"m"`
+	Path   string      `json:"p"`
+	Header http.Header `json:"h"`
+}
+
+type respHead struct {
+	Status int         `json:"s"`
+	Header http.Header `json:"h"`
+}
+
+func frame(kind byte, stream uint32, payload []byte) []byte {
+	b := make([]byte, 5+len(payload))
+	b[0] = kind
+	binary.BigEndian.PutUint32(b[1:], stream)
+	copy(b[5:], payload)
+	return b
+}
+
+func parseFrame(b []byte) (byte, uint32, []byte, error) {
+	if len(b) < 5 {
+		return 0, 0, nil, errors.New("remote: a frame too short")
+	}
+	return b[0], binary.BigEndian.Uint32(b[1:5]), b[5:], nil
+}
+
+// hopHeaders never cross: they belong to one connection, or carry a
+// credential the session replaces.
+var hopHeaders = []string{"Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization", "Te", "Trailer",
+	"Transfer-Encoding", "Upgrade", "Authorization", "Cookie", "Host"}
+
+func cleanHeader(h http.Header) http.Header {
+	out := h.Clone()
+	if out == nil {
+		out = http.Header{}
+	}
+	for _, k := range hopHeaders {
+		out.Del(k)
+	}
+	return out
+}
+
+// sendBody streams r as body frames of a stream, then the end frame.
+func sendBody(ctx context.Context, ch *channel, kind, end byte, stream uint32, r io.Reader) error {
+	if r != nil {
+		buf := make([]byte, chunk)
+		for {
+			n, err := r.Read(buf)
+			if n > 0 {
+				if werr := ch.write(ctx, frame(kind, stream, buf[:n])); werr != nil {
+					return werr
+				}
+			}
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return ch.write(ctx, frame(end, stream, nil))
+}
+
+// ---- the server's side: requests in, responses out ----
+
+// responseWriter streams a handler's response back over the session.
+type responseWriter struct {
+	ctx    context.Context
+	ch     *channel
+	stream uint32
+	header http.Header
+	wrote  bool
+	err    error
+}
+
+func (w *responseWriter) Header() http.Header { return w.header }
+
+func (w *responseWriter) WriteHeader(status int) {
+	if w.wrote {
+		return
+	}
+	w.wrote = true
+	head, _ := json.Marshal(respHead{Status: status, Header: cleanHeader(w.header)})
+	w.err = w.ch.write(w.ctx, frame(frameRespHead, w.stream, head))
+}
+
+func (w *responseWriter) Write(b []byte) (int, error) {
+	if !w.wrote {
+		w.WriteHeader(http.StatusOK)
+	}
+	if w.err != nil {
+		return 0, w.err
+	}
+	n := 0
+	for len(b) > 0 {
+		part := b[:min(len(b), chunk)]
+		if err := w.ch.write(w.ctx, frame(frameRespBody, w.stream, part)); err != nil {
+			w.err = err
+			return n, err
+		}
+		n += len(part)
+		b = b[len(part):]
+	}
+	return n, nil
+}
+
+func (w *responseWriter) Flush() {}
+
+func (w *responseWriter) finish() {
+	if !w.wrote {
+		w.WriteHeader(http.StatusOK)
+	}
+	if w.err == nil {
+		_ = w.ch.write(w.ctx, frame(frameRespEnd, w.stream, nil))
+	}
+}
+
+// ---- the client's side: a RoundTripper over the session ----
+
+type pending struct {
+	head chan respHead
+	body *io.PipeWriter
+	read *io.PipeReader
+	once sync.Once
+}
+
+type clientMux struct {
+	ch *channel
+
+	mu      sync.Mutex
+	next    uint32
+	streams map[uint32]*pending
+	closed  error
+	pongs   chan struct{}
+	rotated chan error
+}
+
+func newClientMux(ch *channel) *clientMux {
+	return &clientMux{ch: ch, streams: map[uint32]*pending{}, pongs: make(chan struct{}, 1), rotated: make(chan error, 1)}
+}
+
+// run reads the session until it ends, handing each frame to its stream.
+func (m *clientMux) run(ctx context.Context) error {
+	for {
+		msg, err := m.ch.read(ctx)
+		if err != nil {
+			m.fail(err)
+			return err
+		}
+		kind, stream, payload, err := parseFrame(msg)
+		if err != nil {
+			m.fail(err)
+			return err
+		}
+		switch kind {
+		case framePong:
+			select {
+			case m.pongs <- struct{}{}:
+			default:
+			}
+		case frameRotated:
+			var r struct {
+				Error string `json:"error"`
+			}
+			_ = json.Unmarshal(payload, &r)
+			var rerr error
+			if r.Error != "" {
+				rerr = errors.New(r.Error)
+			}
+			select {
+			case m.rotated <- rerr:
+			default:
+			}
+		case frameRespHead:
+			var h respHead
+			if json.Unmarshal(payload, &h) != nil {
+				continue
+			}
+			if p := m.get(stream); p != nil {
+				p.head <- h
+			}
+		case frameRespBody:
+			if p := m.get(stream); p != nil {
+				_, _ = p.body.Write(payload)
+			}
+		case frameRespEnd:
+			if p := m.get(stream); p != nil {
+				_ = p.body.Close()
+				m.drop(stream)
+			}
+		}
+	}
+}
+
+func (m *clientMux) get(stream uint32) *pending {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.streams[stream]
+}
+
+func (m *clientMux) drop(stream uint32) {
+	m.mu.Lock()
+	delete(m.streams, stream)
+	m.mu.Unlock()
+}
+
+func (m *clientMux) fail(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.closed == nil {
+		m.closed = err
+	}
+	for id, p := range m.streams {
+		_ = p.body.CloseWithError(errClosed)
+		close(p.head)
+		delete(m.streams, id)
+	}
+}
+
+// RoundTrip sends one request over the session and returns its response,
+// whose body streams in as it arrives.
+func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
+	m.mu.Lock()
+	if m.closed != nil {
+		m.mu.Unlock()
+		return nil, errClosed
+	}
+	m.next++
+	stream := m.next
+	r, w := io.Pipe()
+	p := &pending{head: make(chan respHead, 1), body: w, read: r}
+	m.streams[stream] = p
+	m.mu.Unlock()
+
+	ctx := req.Context()
+	path := req.URL.RequestURI()
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	head, _ := json.Marshal(reqHead{Method: req.Method, Path: path, Header: cleanHeader(req.Header)})
+	if err := m.ch.write(ctx, frame(frameReqHead, stream, head)); err != nil {
+		m.drop(stream)
+		return nil, err
+	}
+	var body io.Reader
+	if req.Body != nil {
+		body = req.Body
+		defer req.Body.Close()
+	}
+	if err := sendBody(ctx, m.ch, frameReqBody, frameReqEnd, stream, body); err != nil {
+		m.drop(stream)
+		return nil, err
+	}
+	select {
+	case h, ok := <-p.head:
+		if !ok {
+			return nil, errClosed
+		}
+		resp := &http.Response{StatusCode: h.Status, Status: http.StatusText(h.Status), Header: h.Header,
+			Body: r, Request: req, Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1, ContentLength: -1}
+		if resp.Header == nil {
+			resp.Header = http.Header{}
+		}
+		return resp, nil
+	case <-ctx.Done():
+		_ = m.ch.write(context.Background(), frame(frameCancel, stream, nil))
+		m.drop(stream)
+		return nil, ctx.Err()
+	}
+}

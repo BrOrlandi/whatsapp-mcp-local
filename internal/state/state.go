@@ -74,6 +74,10 @@ func Open(dir string) (*State, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := st.migrateRemote(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return st, nil
 }
 
