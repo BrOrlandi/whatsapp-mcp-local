@@ -191,3 +191,61 @@ func Start() error {
 	}
 	return fmt.Errorf("no service support on %s", runtime.GOOS)
 }
+
+// Installed reports whether the service is installed for this user.
+func Installed() bool {
+	path := ""
+	switch runtime.GOOS {
+	case "darwin":
+		path = launchdPath()
+	case "linux":
+		path = systemdPath()
+	default:
+		return false
+	}
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// Restart stops the daemon and starts it again, for a new version or a
+// changed setting to take effect.
+func Restart() error {
+	switch runtime.GOOS {
+	case "darwin":
+		target := "gui/" + strconv.Itoa(os.Getuid()) + "/" + label
+		if out, err := exec.Command("launchctl", "kickstart", "-k", target).CombinedOutput(); err != nil {
+			return fmt.Errorf("launchctl kickstart: %v: %s", err, strings.TrimSpace(string(out)))
+		}
+		return nil
+	case "linux":
+		if out, err := exec.Command("systemctl", "--user", "restart", "whatsapp-mcp.service").CombinedOutput(); err != nil {
+			return fmt.Errorf("systemctl --user restart: %v: %s", err, strings.TrimSpace(string(out)))
+		}
+		return nil
+	}
+	return fmt.Errorf("no service support on %s", runtime.GOOS)
+}
+
+// Lingering reports whether systemd keeps this user's services running
+// with nobody logged in. Without it, a service on a server stops when the
+// last SSH session ends. Elsewhere it is always true.
+func Lingering() bool {
+	if runtime.GOOS != "linux" {
+		return true
+	}
+	out, err := exec.Command("loginctl", "show-user", strconv.Itoa(os.Getuid()), "--property=Linger").Output()
+	if err != nil {
+		// No logind (a container, a minimal system): nothing to change.
+		return true
+	}
+	return strings.TrimSpace(string(out)) != "Linger=no"
+}
+
+// Linger asks systemd to keep this user's services running with nobody
+// logged in. Most systems allow it for one's own user without sudo.
+func Linger() error {
+	if out, err := exec.Command("loginctl", "enable-linger").CombinedOutput(); err != nil {
+		return fmt.Errorf("loginctl enable-linger: %v: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}

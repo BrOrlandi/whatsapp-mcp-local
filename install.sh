@@ -123,7 +123,31 @@ fi
 
 WACLI_BIN="$(command -v wacli || echo "$BIN_DIR/wacli")"
 say "starting the service"
-WACLI_BIN="$WACLI_BIN" WHATSAPP_MCP_PORT="$PORT" "$BIN_DIR/whatsapp-mcp" service install
+# The port is passed on only when given: running this again keeps one
+# changed with `whatsapp-mcp port`.
+if [ -n "${WHATSAPP_MCP_PORT:-}" ]; then
+  WACLI_BIN="$WACLI_BIN" "$BIN_DIR/whatsapp-mcp" service install
+else
+  env -u WHATSAPP_MCP_PORT WACLI_BIN="$WACLI_BIN" "$BIN_DIR/whatsapp-mcp" service install
+fi
+PORT="$("$BIN_DIR/whatsapp-mcp" port 2>/dev/null || echo "$PORT")"
+
+# A server has no screen to open the panel on: WhatsApp is connected from
+# the terminal instead (docs/servidor.md).
+if [ -n "${SSH_CONNECTION:-}" ] || { [ "$OS" = linux ] && [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; }; then
+  cat <<EOF
+
+  Pronto. O serviço está rodando em http://127.0.0.1:$PORT/
+
+  1. Conecte o WhatsApp por aqui: whatsapp-mcp pair
+     (o QR code aparece no terminal; com --phone, um código para digitar
+     no celular).
+  2. Confira com: whatsapp-mcp status
+  3. Configure as ferramentas de IA: whatsapp-mcp config
+
+EOF
+  exit 0
+fi
 
 cat <<EOF
 
@@ -135,5 +159,6 @@ cat <<EOF
   3. Conecte o Claude Desktop ou o Claude Code com um clique.
 
   Para abrir o painel de novo: whatsapp-mcp open
+  Sem navegador, pelo terminal: whatsapp-mcp pair, whatsapp-mcp status
 
 EOF
