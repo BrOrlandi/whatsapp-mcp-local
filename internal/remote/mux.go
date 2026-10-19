@@ -73,14 +73,20 @@ func cleanHeader(h http.Header) http.Header {
 	return out
 }
 
-// sendBody streams r as body frames of a stream, then the end frame.
+// sendBody streams r as body frames of a stream, then the end frame. The
+// frames are written with the session's own context: a request cancelled
+// midway stops sending (ctx), it must not close the session, which a write
+// with a cancelled context would.
 func sendBody(ctx context.Context, ch *channel, kind, end byte, stream uint32, r io.Reader) error {
 	if r != nil {
 		buf := make([]byte, chunk)
 		for {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
 			n, err := r.Read(buf)
 			if n > 0 {
-				if werr := ch.write(ctx, frame(kind, stream, buf[:n])); werr != nil {
+				if werr := ch.write(context.Background(), frame(kind, stream, buf[:n])); werr != nil {
 					return werr
 				}
 			}
@@ -92,14 +98,20 @@ func sendBody(ctx context.Context, ch *channel, kind, end byte, stream uint32, r
 			}
 		}
 	}
-	return ch.write(ctx, frame(end, stream, nil))
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return ch.write(context.Background(), frame(end, stream, nil))
 }
 
 // ---- the server's side: requests in, responses out ----
 
 // responseWriter streams a handler's response back over the session.
 type responseWriter struct {
+	// ctx is the session's: writes never close the session. stop is the
+	// request's: once it is cancelled, nothing more is sent for it.
 	ctx    context.Context
+	stop   context.Context
 	ch     *channel
 	stream uint32
 	header http.Header
@@ -114,6 +126,9 @@ func (w *responseWriter) WriteHeader(status int) {
 		return
 	}
 	w.wrote = true
+	if w.stopped() {
+		return
+	}
 	head, _ := json.Marshal(respHead{Status: status, Header: cleanHeader(w.header)})
 	w.err = w.ch.write(w.ctx, frame(frameRespHead, w.stream, head))
 }
@@ -127,6 +142,9 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 	}
 	n := 0
 	for len(b) > 0 {
+		if w.stopped() {
+			return n, w.err
+		}
 		part := b[:min(len(b), chunk)]
 		if err := w.ch.write(w.ctx, frame(frameRespBody, w.stream, part)); err != nil {
 			w.err = err
@@ -140,11 +158,23 @@ func (w *responseWriter) Write(b []byte) (int, error) {
 
 func (w *responseWriter) Flush() {}
 
+// stopped reports whether the request was cancelled, which ends its
+// response quietly.
+func (w *responseWriter) stopped() bool {
+	if w.stop != nil && w.stop.Err() != nil {
+		if w.err == nil {
+			w.err = w.stop.Err()
+		}
+		return true
+	}
+	return false
+}
+
 func (w *responseWriter) finish() {
 	if !w.wrote {
 		w.WriteHeader(http.StatusOK)
 	}
-	if w.err == nil {
+	if w.err == nil && !w.stopped() {
 		_ = w.ch.write(w.ctx, frame(frameRespEnd, w.stream, nil))
 	}
 }
@@ -225,7 +255,10 @@ func (m *clientMux) run(ctx context.Context) error {
 				continue
 			}
 			if p := m.get(stream); p != nil {
-				p.head <- h
+				select {
+				case p.head <- h:
+				default: // a second head for the same stream: ignored
+				}
 			}
 		case frameRespBody:
 			if p := m.get(stream); p != nil && len(payload) > 0 {
@@ -285,7 +318,7 @@ func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
 		path = "/" + path
 	}
 	head, _ := json.Marshal(reqHead{Method: req.Method, Path: path, Header: cleanHeader(req.Header)})
-	if err := m.ch.write(ctx, frame(frameReqHead, stream, head)); err != nil {
+	if err := m.ch.write(context.Background(), frame(frameReqHead, stream, head)); err != nil {
 		m.drop(stream)
 		return nil, err
 	}
@@ -295,6 +328,9 @@ func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
 		defer req.Body.Close()
 	}
 	if err := sendBody(ctx, m.ch, frameReqBody, frameReqEnd, stream, body); err != nil {
+		if ctx.Err() != nil {
+			_ = m.ch.write(context.Background(), frame(frameCancel, stream, nil))
+		}
 		m.drop(stream)
 		return nil, err
 	}

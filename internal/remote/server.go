@@ -84,6 +84,9 @@ const (
 	idleTimeout = 90 * time.Second // a session with nothing, not even a ping
 	streamQueue = 64               // body frames queued for a request not read yet
 	maxNameLen  = 64
+	// firstFrame is how long a connection may wait before its first
+	// message, so idle connections cannot hold the handshake slots.
+	firstFrame = 5 * time.Second
 )
 
 // KeyFile is where the server keeps its static key pair, readable only by
@@ -320,7 +323,9 @@ func (s *Server) servePair(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	// The code's id comes in the first message, not in the address, which
 	// a proxy may log.
-	kind, idMsg, err := ws.Read(ctx)
+	fctx, fcancel := context.WithTimeout(ctx, firstFrame)
+	kind, idMsg, err := ws.Read(fctx)
+	fcancel()
 	if err != nil || kind != websocket.MessageBinary || len(idMsg) > 32 {
 		return
 	}
@@ -403,7 +408,9 @@ func (s *Server) serveSession(w http.ResponseWriter, r *http.Request) {
 	}
 	// IK: the device's first message carries its static key and a
 	// timestamp; check both before answering.
-	kind, first, err := ws.Read(hctx)
+	fctx, fcancel := context.WithTimeout(hctx, firstFrame)
+	kind, first, err := ws.Read(fctx)
+	fcancel()
 	if err != nil || kind != websocket.MessageBinary {
 		cancel()
 		return
@@ -550,7 +557,7 @@ func (s *Server) serve(ctx context.Context, ch *channel, device state.RemoteClie
 			mu.Unlock()
 			go func() {
 				defer scancel()
-				s.answer(sctx, ch, device, id, head, &bodyReader{ctx: sctx, frames: st.body})
+				s.answer(ctx, sctx, ch, device, id, head, &bodyReader{ctx: sctx, frames: st.body})
 				mu.Lock()
 				if streams[id] == st {
 					delete(streams, id)
@@ -615,8 +622,8 @@ func (b *bodyReader) Read(p []byte) (int, error) {
 func (b *bodyReader) Close() error { return nil }
 
 // answer runs one request through the handler the device's scope reaches.
-func (s *Server) answer(ctx context.Context, ch *channel, device state.RemoteClient, id uint32, head reqHead, body io.ReadCloser) {
-	w := &responseWriter{ctx: ctx, ch: ch, stream: id, header: http.Header{}}
+func (s *Server) answer(session, ctx context.Context, ch *channel, device state.RemoteClient, id uint32, head reqHead, body io.ReadCloser) {
+	w := &responseWriter{ctx: session, stop: ctx, ch: ch, stream: id, header: http.Header{}}
 	defer w.finish()
 	defer body.Close()
 	handler := s.Admin

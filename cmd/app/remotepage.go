@@ -12,6 +12,7 @@ const remotePageSource = `<!doctype html>
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}{{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
 {{if .Remote}}
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Modo remoto"}}</h2><span class="pill pill--accent pill--plain">{{.Server}}</span></div>
+<div class="card__body stack">
 <p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor. As ferramentas de IA deste computador continuam no mesmo endereço, e o app leva os pedidos até o servidor."}}</p>
 <ul class="list">
 <li class="list__row"><span><strong>{{t "App ↔ servidor"}}</strong><br><span class="note">{{t "a conexão cifrada deste app com o servidor, por HTTPS"}}</span></span><span class="pill pill--{{.LinkTone}}" data-remote-link>{{.LinkLabel}}</span></li>
@@ -22,14 +23,16 @@ const remotePageSource = `<!doctype html>
 <div class="actions">
 <form method="post" action="/__app/remoto/tentar"><button class="btn" type="submit">{{t "Tentar de novo agora"}}</button></form>
 <form method="post" action="/__app/remoto/girar"><button class="btn btn--quiet" type="submit">{{t "Trocar a chave deste app"}}</button></form>
-</div></section>
+</div></div></section>
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Voltar ao modo local"}}</h2></div>
+<div class="card__body stack">
 <p>{{t "O app volta a rodar o WhatsApp neste computador, com os dados que estão aqui. O servidor continua conectado: para não ter dois aparelhos com a mesma sessão, desconecte o WhatsApp no servidor antes de conectar este computador de novo."}}</p>
 <form method="post" action="/__app/remoto/local"><label class="check"><input type="checkbox" name="server_disconnected" value="1"><span>{{t "Já desconectei o WhatsApp no servidor (ou este computador tem outro número)"}}</span></label>
 <label class="check"><input type="checkbox" name="forget" value="1"><span>{{t "Apagar a chave deste app do Keychain (para usar o servidor de novo, será preciso parear)"}}</span></label>
-<div class="actions"><button class="btn btn--quiet" type="submit">{{t "Voltar ao modo local"}}</button></div></form></section>
+<div class="actions"><button class="btn btn--quiet" type="submit">{{t "Voltar ao modo local"}}</button></div></form></div></section>
 {{else}}
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Usar um servidor"}}</h2></div>
+<div class="card__body stack">
 <p>{{t "No servidor, gere um código de pareamento: whatsapp-mcp remote code, ou Configurações › Acesso remoto no painel dele. O código vale uma vez, por 10 minutos."}}</p>
 <p class="note">{{t "A conexão é só por HTTPS, com o certificado conferido, e cifrada de ponta a ponta entre este app e o servidor: um proxy no caminho não lê o conteúdo. A chave deste app fica no Keychain deste Mac."}}</p>
 <form method="post" action="/__app/remoto/parear" autocomplete="off">
@@ -38,6 +41,6 @@ const remotePageSource = `<!doctype html>
 <label class="field" for="name"><span class="field__label">{{t "Nome deste app no servidor"}}</span><input id="name" name="name" type="text" value="{{.Hostname}}"></label>
 <p class="note">{{t "Ao conectar, o app para de rodar o WhatsApp neste computador. Os dados daqui ficam onde estão."}}</p>
 <label class="check"><input type="checkbox" name="set_aside" value="1"><span>{{t "Levei os dados deste computador para o servidor: guardar a sessão do WhatsApp daqui numa pasta à parte, para este computador nunca abri-la de novo"}}</span></label>
-<div class="actions"><button class="btn" type="submit">{{t "Conectar ao servidor"}}</button></div></form></section>
+<div class="actions"><button class="btn" type="submit">{{t "Conectar ao servidor"}}</button></div></form></div></section>
 {{end}}
 </main></div></body></html>`
