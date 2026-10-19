@@ -163,8 +163,9 @@ com um código do servidor. Depois da troca:
   *Gerar código de pareamento*;
 - nenhum wacli roda no Mac.
 
-**Recebimento.** Ver a nota no PR: a primeira mensagem nova recebida pelo
-servidor depois da migração.
+**Recebimento.** Sem mandar nada a ninguém: a primeira mensagem nova chegou
+ao servidor cinco minutos depois da migração (o banco passou de 57.130 para
+57.134 mensagens), e o `last_message_at` lido pelo Mac acompanhou.
 
 **Para voltar ao estado anterior:** parar o contêiner (`docker compose stop`
 em `/opt/homeserver/whatsapp-mcp`), encerrar o app do Mac, devolver
