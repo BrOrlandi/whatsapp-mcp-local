@@ -47,6 +47,9 @@ type Remote struct {
 	ServerKey []byte `json:"server_key"`
 	DeviceID  string `json:"device_id"`
 	Scope     string `json:"scope"`
+	// LastStamp is the last handshake stamp sent to the server
+	// (remote.Client.LastStamp).
+	LastStamp int64 `json:"last_stamp,omitempty"`
 }
 
 // Defaults is the configuration of a first run.
