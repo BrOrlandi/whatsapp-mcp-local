@@ -14,7 +14,7 @@ go build -o bin/whatsapp-mcp-bridge ./cmd/whatsapp-mcp-bridge
 | Pasta | O que é |
 |---|---|
 | `cmd/app` | o app (Wails v3): janela, bandeja, ciclo de vida, migração, atualizações |
-| `cmd/whatsapp-mcp` | a linha de comando: `serve`, `service install`, `bridge`… |
+| `cmd/whatsapp-mcp` | a linha de comando: `serve`, `service install`, `pair`, `status`, `bridge`… ([Num servidor sem tela](servidor.md)) |
 | `cmd/whatsapp-mcp-bridge` | o stdio que o Claude Desktop inicia, dentro do app |
 | `internal/daemon` | o núcleo que o app e a linha de comando rodam: supervisor, índice, MCP, painel, HTTP |
 | `internal/platform` | o que muda por sistema: pastas, processos (grupos e sinais; Job Object e `CTRL_BREAK` no Windows) |
