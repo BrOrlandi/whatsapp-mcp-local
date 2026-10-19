@@ -20,6 +20,18 @@ import (
 	"github.com/flynn/noise"
 )
 
+// What can go wrong when pairing, for the app to say it in the person's
+// language.
+var (
+	ErrNotACode          = errors.New("this is not a pairing code: it starts with " + codePrefix)
+	ErrCodeIncomplete    = errors.New("the pairing code is incomplete: copy it again, whole")
+	ErrNotHTTPS          = errors.New("the server's address must start with https://: the remote connection is HTTPS only")
+	ErrRedirect          = errors.New("the server answered with a redirect, which the remote connection does not follow")
+	ErrProxyNotHTTPS     = errors.New("the server's proxy did not say the connection came over HTTPS: check the proxy's configuration")
+	ErrCodeRefused       = errors.New("the server refused the pairing code: it may have expired or been used; make a new one")
+	ErrServerKeyMismatch = errors.New("the server's key does not match the pairing code: this is not the server that made the code")
+)
+
 // ---- pairing codes ----
 
 const codePrefix = "wamcp1-"
@@ -37,11 +49,11 @@ func decodeCode(code string) (id string, secret, fingerprint []byte, err error) 
 	code = strings.Join(strings.Fields(code), "")
 	body, ok := strings.CutPrefix(strings.ToLower(code), codePrefix)
 	if !ok {
-		return "", nil, nil, errors.New("this is not a pairing code: it starts with " + codePrefix)
+		return "", nil, nil, ErrNotACode
 	}
 	raw, err := codeEncoding.DecodeString(strings.ToUpper(body))
 	if err != nil || len(raw) != 5+32+8 {
-		return "", nil, nil, errors.New("the pairing code is incomplete: copy it again, whole")
+		return "", nil, nil, ErrCodeIncomplete
 	}
 	return hex.EncodeToString(raw[:5]), raw[5:37], raw[37:], nil
 }
@@ -56,7 +68,7 @@ func ServerURL(raw string) (*url.URL, error) {
 		return nil, errors.New("the server's address must be a full https:// address, such as https://whatsapp.example.com")
 	}
 	if u.Scheme != "https" {
-		return nil, errors.New("the server's address must start with https://: the remote connection is HTTPS only")
+		return nil, ErrNotHTTPS
 	}
 	if u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 		return nil, errors.New("the server's address must be just https:// and the host (and a path, if any)")
@@ -72,7 +84,7 @@ func httpClient() *http.Client {
 	return &http.Client{
 		Transport: Transport,
 		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return errors.New("the server answered with a redirect, which the remote connection does not follow")
+			return ErrRedirect
 		},
 	}
 }
@@ -88,7 +100,7 @@ func dial(ctx context.Context, server *url.URL, path string) (*websocket.Conn, e
 		if resp != nil && resp.Body != nil {
 			body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 			if strings.Contains(string(body), HTTPSOnly) {
-				return nil, errors.New("the server's proxy did not say the connection came over HTTPS: check the proxy's configuration")
+				return nil, ErrProxyNotHTTPS
 			}
 		}
 		return nil, err
@@ -151,11 +163,11 @@ func Pair(ctx context.Context, serverURL, code, name string) (Device, []byte, er
 	hello, _ := json.Marshal(map[string]string{"name": name})
 	ch, _, err := handshake(ctx, ws, hs, true, [][]byte{nil, hello})
 	if err != nil {
-		return Device{}, nil, errors.New("the server refused the pairing code: it may have expired or been used; make a new one")
+		return Device{}, nil, ErrCodeRefused
 	}
 	serverKey := hs.PeerStatic()
 	if subtle.ConstantTimeCompare(serverKey[:8], fingerprint) != 1 {
-		return Device{}, nil, errors.New("the server's key does not match the pairing code: this is not the server that made the code")
+		return Device{}, nil, ErrServerKeyMismatch
 	}
 	if err := ch.write(ctx, []byte("confirm")); err != nil {
 		return Device{}, nil, err

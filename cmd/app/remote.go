@@ -382,7 +382,7 @@ func (a *App) remotePair(w http.ResponseWriter, r *http.Request) {
 	device, key, err := remote.Pair(ctx, server, code, name)
 	if err != nil {
 		a.logger.Warn("remote pairing failed", "server", hostOf(server), "error", err)
-		back(w, r, "", fmt.Errorf("%s: %v", i18n.T("o servidor não aceitou o pareamento"), err))
+		back(w, r, "", errors.New(pairingError(err)))
 		return
 	}
 	if err := saveDeviceKey(device.ID, key); err != nil {
@@ -515,3 +515,25 @@ func remoteKeyMissing() http.Handler {
 
 var remoteTemplate = template.Must(template.New("remote").Funcs(template.FuncMap{"t": i18n.T, "tf": i18n.Tf,
 	"moment": func(t time.Time) string { return t.Local().Format("15:04:05") }}).Parse(remotePageSource))
+
+// pairingError says what went wrong with a pairing, in the person's
+// language.
+func pairingError(err error) string {
+	switch {
+	case errors.Is(err, remote.ErrNotACode), errors.Is(err, remote.ErrCodeIncomplete):
+		return i18n.T("o código de pareamento está incompleto: copie de novo, inteiro (ele começa com wamcp1-)")
+	case errors.Is(err, remote.ErrCodeRefused):
+		return i18n.T("o servidor recusou o código: ele vale uma vez, por 10 minutos; gere outro no servidor")
+	case errors.Is(err, remote.ErrServerKeyMismatch):
+		return i18n.T("a chave do servidor não confere com o código: este não é o servidor que gerou o código")
+	case errors.Is(err, remote.ErrNotHTTPS):
+		return i18n.T("o endereço do servidor precisa começar com https:// (a conexão remota é só por HTTPS)")
+	case errors.Is(err, remote.ErrRedirect):
+		return i18n.T("o servidor respondeu com um redirecionamento, que a conexão remota não segue: confira o endereço")
+	case errors.Is(err, remote.ErrProxyNotHTTPS):
+		return i18n.T("o proxy do servidor não informou que a conexão chegou por HTTPS: confira a configuração dele")
+	case strings.Contains(err.Error(), "certificate"):
+		return i18n.T("o certificado HTTPS do servidor não é válido para este endereço; a conexão foi recusada")
+	}
+	return i18n.Tf("não foi possível falar com o servidor: %v", err)
+}
