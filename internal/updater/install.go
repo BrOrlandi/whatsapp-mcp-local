@@ -1,6 +1,8 @@
 package updater
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
@@ -98,6 +100,52 @@ func installAppImage(downloaded, appImage string) error {
 		return fmt.Errorf("%s: %w", i18n.T("não foi possível trocar o AppImage"), err)
 	}
 	return relaunch(`exec "$TARGET"`, map[string]string{"TARGET": appImage})
+}
+
+// installCLI takes the command line's program out of the release's archive
+// and puts it in place of exe. A running program keeps the file it started
+// from, so the swap is safe while the daemon runs; it takes the new version
+// when it restarts.
+func installCLI(archive, exe string) error {
+	f, err := os.Open(archive)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	tr := tar.NewReader(gz)
+	for {
+		h, err := tr.Next()
+		if err == io.EOF {
+			return errors.New(i18n.T("o arquivo da versão nova não traz o programa"))
+		}
+		if err != nil {
+			return err
+		}
+		if h.Typeflag != tar.TypeReg || filepath.Base(h.Name) != "whatsapp-mcp" {
+			continue
+		}
+		next := exe + ".new"
+		out, err := os.OpenFile(next, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(out, io.LimitReader(tr, 512<<20)); err != nil {
+			out.Close()
+			return errors.Join(err, os.Remove(next))
+		}
+		if err := out.Close(); err != nil {
+			return errors.Join(err, os.Remove(next))
+		}
+		if err := os.Rename(next, exe); err != nil {
+			os.Remove(next)
+			return fmt.Errorf("%s: %w", i18n.T("não foi possível trocar o programa"), err)
+		}
+		return nil
+	}
 }
 
 // relaunch starts a shell that waits for this process to end and then runs

@@ -129,9 +129,11 @@ func (u *Updater) Apply(ctx context.Context) error {
 // Target is the installed app this updater replaces.
 type Target struct {
 	// Kind is dmg (a macOS .app), setup (the Windows installer), appimage,
-	// or deb (installed by a package manager, updated by hand).
+	// deb (installed by a package manager, updated by hand), or cli (the
+	// command line's own program, on macOS and Linux).
 	Kind string
-	// Path is the .app bundle or the AppImage file; unused for setup.
+	// Path is the .app bundle, the AppImage file or the command line's
+	// program; unused for setup.
 	Path string
 }
 
@@ -166,6 +168,10 @@ func (t Target) assetName() string {
 			arch = "aarch64"
 		}
 		return "WhatsApp-MCP-" + arch + ".AppImage"
+	case "cli":
+		if runtime.GOOS == "darwin" || runtime.GOOS == "linux" {
+			return "whatsapp-mcp_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz"
+		}
 	}
 	return ""
 }
@@ -437,6 +443,8 @@ func (u *Updater) Install(ctx context.Context) error {
 		err = installSetup(path)
 	case "appimage":
 		err = installAppImage(path, u.Target.Path)
+	case "cli":
+		err = installCLI(path, u.Target.Path)
 	default:
 		err = errors.New(i18n.T("este jeito de instalar não se atualiza sozinho"))
 	}
