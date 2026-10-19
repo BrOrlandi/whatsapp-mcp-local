@@ -65,6 +65,9 @@ type App struct {
 	dmu    sync.Mutex
 	daemon *daemon.Daemon
 	follow context.CancelFunc
+	// remote is set in remote mode (remote.go), when the daemon runs on a
+	// server and not here.
+	remote *remoteMode
 
 	// canHide is false where there is no tray to hide the window into.
 	canHide  bool
@@ -184,8 +187,13 @@ func (a *App) run() error {
 	return a.wails.Run()
 }
 
-// prepare starts the gateway the window shows.
+// prepare starts the gateway the window shows: this computer's own, or, in
+// remote mode, the session with the server's.
 func (a *App) prepare() {
+	if a.remoteConfigured() {
+		a.startRemote()
+		return
+	}
 	a.startDaemon()
 }
 
@@ -200,7 +208,8 @@ func instanceID() string {
 	return bundleID + "." + hex.EncodeToString(sum[:4])
 }
 
-func (a *App) startDaemon() {
+// desktopCommand is what Claude Desktop runs to reach the MCP.
+func (a *App) desktopCommand() panel.DesktopCommand {
 	desktop := panel.DesktopCommand{Command: a.bridge}
 	if appImage := os.Getenv("APPIMAGE"); appImage != "" {
 		desktop = panel.DesktopCommand{Command: appImage, Args: []string{"bridge"}}
@@ -208,6 +217,11 @@ func (a *App) startDaemon() {
 		// A development build: the bridge is built beside the app.
 		desktop.Command = filepath.Join(filepath.Dir(platform.Executable()), platform.ExeName("whatsapp-mcp-bridge"))
 	}
+	return desktop
+}
+
+func (a *App) startDaemon() {
+	desktop := a.desktopCommand()
 	d, err := daemon.Start(daemon.Config{
 		Port: a.config().Port, Token: os.Getenv("WHATSAPP_MCP_TOKEN"),
 		WacliBin: a.wacliBin, StoreDir: a.storeDir, DataDir: a.dataDir,
@@ -224,7 +238,7 @@ func (a *App) startDaemon() {
 	ctx, cancel := context.WithCancel(context.Background())
 	a.follow = cancel
 	a.dmu.Unlock()
-	a.handler.set(d.AppHandler())
+	a.handler.set(a.withAppPages(d.AppHandler()))
 	go a.followStatus(ctx, d)
 }
 
@@ -467,6 +481,7 @@ func (a *App) shutdown() {
 		a.logger.Info("stopping the gateway")
 		d.Stop()
 	}
+	a.stopRemote()
 	a.logger.Info("stopped")
 }
 

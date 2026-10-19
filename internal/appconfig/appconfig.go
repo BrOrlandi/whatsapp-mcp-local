@@ -35,6 +35,18 @@ type Config struct {
 	// Seen records one-time notices already shown, such as "close" for the
 	// one explaining that closing the window keeps the app in the tray.
 	Seen []string `json:"seen,omitempty"`
+	// Remote, when set, makes the app the remote control of the daemon on a
+	// server (internal/remote) instead of running WhatsApp here. The
+	// device's private key is not here: it is in the system's keychain.
+	Remote *Remote `json:"remote,omitempty"`
+}
+
+// Remote is the server the app uses and how it knows it.
+type Remote struct {
+	Server    string `json:"server"`
+	ServerKey []byte `json:"server_key"`
+	DeviceID  string `json:"device_id"`
+	Scope     string `json:"scope"`
 }
 
 // Defaults is the configuration of a first run.
