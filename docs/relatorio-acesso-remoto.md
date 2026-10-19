@@ -128,4 +128,45 @@ Dispositivo revogado: ele perde o acesso na hora e precisa ser pareado de novo.
 
 ## Como o app do Mac foi validado com o HomeServer
 
-Ver a seção seguinte, preenchida depois da migração.
+Sem capturas: daqui para a frente os dados são reais. A validação usou a
+árvore de acessibilidade da janela e a API local, sem salvar imagem nem
+conteúdo de conversa.
+
+**Antes da troca.** A store do Mac foi conferida (`integrity_check` ok nos
+três bancos; 2.456 conversas, 57.130 mensagens), o app que segurava a sessão
+foi encerrado com o desligamento normal, e a pasta de dados inteira foi para
+um backup com sha256, fora dela. O app antigo de `/Applications` também foi
+para o backup, sem ser apagado.
+
+**No servidor** (`whatsapp-mcp.home.brorlandi.xyz`, Docker atrás do Traefik
+do HomeServer, só na LAN e no WireGuard). O contêiner parou, os dados dele
+foram para um backup, e a store do wacli, o `state.db` (com 224
+transcrições), a mídia e o modelo do Whisper vieram do Mac; o wacli é o mesmo
+nos dois lados (0.20.0). O contêiner subiu e conectou com a sessão migrada,
+sem QR code: `next: ready`, `health: ok`, as mesmas 57.130 mensagens. A
+transcrição foi instalada no servidor (só processador). Pela rede, só
+`/remote/v1/` responde, e só ao Traefik: outro contêiner da rede `proxy`
+recebe 403.
+
+**No Mac.** A store antiga foi guardada como `wacli.no-servidor-20261019`
+(nenhum app volta a abri-la), o app `1.6.0-remote` foi instalado e pareado
+com um código do servidor. Depois da troca:
+
+- `GET http://127.0.0.1:47821/api/status` no Mac responde com a versão e o
+  estado do servidor: WhatsApp conectado, pareado, `next: ready`, saúde ok;
+- pelo MCP do Mac (o mesmo endereço que o Claude Code já usava), `tools/list`
+  traz 40 ferramentas, `list_chats` e `search_messages` leem do servidor, e
+  `whatsapp_status` mostra o sync conectado e a transcrição pronta;
+- a janela mostra o aviso *Modo remoto* com o servidor, *App ↔ servidor:
+  Conectado* e *Servidor ↔ WhatsApp: Conectado*; em *Configurações › Acesso
+  remoto*, o aparelho "Mac do Bruno" marcado como *este app*, com *Revogar* e
+  *Gerar código de pareamento*;
+- nenhum wacli roda no Mac.
+
+**Recebimento.** Ver a nota no PR: a primeira mensagem nova recebida pelo
+servidor depois da migração.
+
+**Para voltar ao estado anterior:** parar o contêiner (`docker compose stop`
+em `/opt/homeserver/whatsapp-mcp`), encerrar o app do Mac, devolver
+`wacli.no-servidor-20261019` ao nome `wacli` (ou restaurar o `.tar` do
+backup) e o app 1.5.0 do backup para `/Applications`, e abrir o app.
