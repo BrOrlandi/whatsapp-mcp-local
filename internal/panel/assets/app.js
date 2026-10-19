@@ -314,7 +314,7 @@
   // the phone shows.
   var preview = document.querySelector("[data-chats]");
   if (preview) {
-    var palette = ["#128c7e", "#34b7f1", "#e0654a", "#8e5bd8", "#d6a01b", "#2c9f6a", "#c2477f", "#4a6fd6"];
+    var palette = ["#128c7e", "#b8860b", "#e0654a", "#8e5bd8", "#d6a01b", "#2c9f6a", "#c2477f", "#6b8e23"];
     var list = preview.querySelector("[data-chat-list]");
     var countPill = preview.querySelector("[data-chats-count]");
     var thread = preview.querySelector("[data-thread]");
