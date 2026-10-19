@@ -250,6 +250,7 @@ Environment (each one wins over what the commands saved):
   WHATSAPP_MCP_PORT    the port of the MCP and the panel (default 47821)
   WHATSAPP_MCP_TOKEN   the key the MCP asks for (see whatsapp-mcp token)
   WHATSAPP_MCP_REMOTE_LISTEN  host:port for the app's remote access, behind an HTTPS proxy
+  WHATSAPP_MCP_REMOTE_TRUSTED_PROXY  that proxy: names, IPs or CIDRs
   WHATSAPP_MCP_LANG    the language of the messages and the panel: pt-BR, es, en
   WHATSAPP_MCP_DATA    the data folder (default ~/.whatsapp-mcp)
   WACLI_BIN            the wacli program to run (default: the one beside this program, else PATH)
@@ -281,6 +282,7 @@ func fatal(err error) {
 }
 
 func serve(cfg config) error {
+	privateFiles()
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := appconfig.MarkNew(cfg.DataDir); err != nil {
 		logger.Warn("could not write config.json", "error", err)
@@ -290,6 +292,7 @@ func serve(cfg config) error {
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
 		LogPath: logPath(), Version: version, Logger: logger,
 		Desktop: desktopCommand(cfg), CommandLine: true, RemoteListen: os.Getenv("WHATSAPP_MCP_REMOTE_LISTEN"),
+		RemoteTrustedProxy: os.Getenv("WHATSAPP_MCP_REMOTE_TRUSTED_PROXY"),
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
 		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)

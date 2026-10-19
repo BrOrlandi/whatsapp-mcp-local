@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -79,10 +81,19 @@ func (a *App) startRemote() {
 		a.handler.set(panel.Internal(a.withAppPages(remoteKeyMissing())))
 		return
 	}
+	// A new key is kept only once the server has taken it.
+	client.OnKey = func(private []byte) {
+		if err := saveDeviceKey(cfg.DeviceID, private); err != nil {
+			a.logger.Error("the device's new key could not be kept in the keychain", "error", err)
+		}
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	rm := &remoteMode{client: client, cancel: cancel, server: cfg.Server}
 	go client.Run(ctx)
-	proxy := a.remoteProxy(rm)
+	// The window's requests are marked as the window's; what reaches the
+	// loopback port, from any program here, never is.
+	window := a.remoteProxy(rm, true)
+	proxy := a.remoteProxy(rm, false)
 
 	// What belongs to this computer, not to the server: its AI tools' setup
 	// and the app's window.
@@ -110,7 +121,7 @@ func (a *App) startRemote() {
 	a.dmu.Unlock()
 	// The window: the server's panel, with the app's own pages and the
 	// setup of this computer's AI tools.
-	a.handler.set(panel.Internal(a.withAppPages(withLocal(proxy))))
+	a.handler.set(panel.Internal(a.withAppPages(withLocal(window))))
 	a.logger.Info("remote mode", "server", cfg.Server, "device", cfg.DeviceID)
 	go a.followRemote(ctx, rm)
 }
@@ -136,11 +147,17 @@ func (a *App) localMCPURL() string {
 // remoteProxy sends a request to the server over the session. With the
 // session down, a page says so instead of the server's, and anything else
 // gets a 503.
-func (a *App) remoteProxy(rm *remoteMode) http.Handler {
+func (a *App) remoteProxy(rm *remoteMode, window bool) http.Handler {
 	return &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			r.Out.URL.Scheme, r.Out.URL.Host = "http", "remote"
 			r.Out.Header.Set(panel.ServerHeader, rm.server)
+			r.Out.Header.Del(remote.WindowHeader)
+			if window {
+				r.Out.Header.Set(remote.WindowHeader, "1")
+				// The window's own requests carry no credential of a program.
+				r.Out.Header.Del("Authorization")
+			}
 		},
 		Transport:     rm.client,
 		FlushInterval: -1,
@@ -383,13 +400,14 @@ func (a *App) remotePair(w http.ResponseWriter, r *http.Request) {
 		_ = deleteDeviceKey(old.DeviceID)
 	}
 	a.logger.Info("paired with a server; switching to remote mode", "server", hostOf(device.Server), "device", device.ID)
-	a.switchToRemote()
+	setAside := r.FormValue("set_aside") == "1"
+	a.switchToRemote(setAside)
 	back(w, r, i18n.Tf("Conectado ao servidor %s. O WhatsApp deste app agora é o do servidor.", hostOf(device.Server)), nil)
 }
 
 // switchToRemote stops the local gateway, so this computer never holds the
 // WhatsApp session too, and starts remote mode.
-func (a *App) switchToRemote() {
+func (a *App) switchToRemote(setAside bool) {
 	a.stopRemote()
 	a.dmu.Lock()
 	d, cancel := a.daemon, a.follow
@@ -402,11 +420,67 @@ func (a *App) switchToRemote() {
 		a.logger.Info("stopping the local gateway for remote mode")
 		d.Stop()
 	}
+	if setAside {
+		// The WhatsApp session of this computer went to the server: keep it
+		// aside, under another name, so this computer never opens it again.
+		aside := a.storeDir + ".no-servidor-" + time.Now().Format("20060102-150405")
+		if err := os.Rename(a.storeDir, aside); err != nil && !os.IsNotExist(err) {
+			a.logger.Error("could not set the local WhatsApp session aside", "error", err)
+		} else {
+			a.logger.Info("the local WhatsApp session was set aside", "to", aside)
+		}
+	}
 	a.startRemote()
+}
+
+// localPhone is the number whose WhatsApp session this computer's store
+// holds, "" when none.
+func (a *App) localPhone() string {
+	db, err := sql.Open("sqlite", "file:"+(&url.URL{Path: filepath.Join(a.storeDir, "session.db")}).EscapedPath()+"?mode=ro&_pragma=query_only(1)")
+	if err != nil {
+		return ""
+	}
+	defer db.Close()
+	var jid string
+	if db.QueryRow(`SELECT jid FROM whatsmeow_device LIMIT 1`).Scan(&jid) != nil {
+		return ""
+	}
+	user, _, _ := strings.Cut(jid, "@")
+	user, _, _ = strings.Cut(user, ":")
+	return digitsOf(user)
+}
+
+func digitsOf(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, s)
 }
 
 func (a *App) remoteToLocal(w http.ResponseWriter, r *http.Request) {
 	cfg := a.config().Remote
+	// The same WhatsApp session must never run here and on the server at
+	// once: with this computer holding the number the server has, or with
+	// the server out of reach to say, going back needs the person's word
+	// that the server was disconnected first.
+	if local := a.localPhone(); local != "" && r.FormValue("server_disconnected") != "1" {
+		server := ""
+		if rm := a.currentRemote(); rm != nil {
+			rm.mu.Lock()
+			if rm.whatsapp != nil && rm.whatsapp.Paired && rm.client.Status().State == remote.StateConnected {
+				server = digitsOf(rm.whatsapp.Phone)
+			} else if rm.whatsapp != nil && !rm.whatsapp.Paired && rm.client.Status().State == remote.StateConnected {
+				server = "none"
+			}
+			rm.mu.Unlock()
+		}
+		if server != "none" && (server == "" || server == local) {
+			back(w, r, "", errors.New(i18n.T("este computador guarda a mesma sessão do WhatsApp que pode estar conectada no servidor: desconecte o WhatsApp no servidor antes e marque a confirmação, ou as duas cópias brigam pela sessão")))
+			return
+		}
+	}
 	a.stopRemote()
 	_ = a.updateConfig(func(c *appconfig.Config) { c.Remote = nil })
 	if cfg != nil && r.FormValue("forget") == "1" {
@@ -425,11 +499,8 @@ func (a *App) remoteRotate(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	key, err := rm.client.Rotate(ctx)
-	if err == nil {
-		err = saveDeviceKey(cfg.DeviceID, key)
-	}
-	if err != nil {
+	// The new key is kept (OnKey) once the next session proves it.
+	if _, err := rm.client.Rotate(ctx); err != nil {
 		back(w, r, "", err)
 		return
 	}

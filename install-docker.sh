@@ -71,6 +71,8 @@ if [ -n "$WAMCP_HOST" ]; then
       ask WAMCP_TRAEFIK_NETWORK "Rede Docker do Traefik" "proxy"
       ask WAMCP_TRAEFIK_ENTRYPOINT "Entrypoint HTTPS do Traefik" "websecure"
       ask WAMCP_TRAEFIK_CERTRESOLVER "certresolver do Traefik (vazio se o certificado já vale para o domínio)" ""
+      default_traefik="$(docker ps --format '{{.Names}} {{.Image}}' 2>/dev/null | awk 'tolower($2) ~ /traefik/ {print $1; exit}')"
+      ask WAMCP_TRAEFIK_CONTAINER "Nome do contêiner do Traefik (só ele alcança o acesso remoto)" "${default_traefik:-traefik}"
       docker network inspect "$WAMCP_TRAEFIK_NETWORK" >/dev/null 2>&1 || die "the Docker network $WAMCP_TRAEFIK_NETWORK does not exist"
       ;;
     other)
@@ -139,6 +141,12 @@ EOF
       # the MCP stay on the container's loopback.
       WHATSAPP_MCP_REMOTE_LISTEN: "0.0.0.0:47822"
 EOF
+    if [ "$WAMCP_PROXY" = traefik ]; then
+      cat <<EOF
+      # Only the proxy: another container on its network is refused.
+      WHATSAPP_MCP_REMOTE_TRUSTED_PROXY: "$WAMCP_TRAEFIK_CONTAINER"
+EOF
+    fi
   fi
   cat <<'EOF'
     healthcheck:

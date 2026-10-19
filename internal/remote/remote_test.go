@@ -127,8 +127,10 @@ func TestPairAndUseTheServer(t *testing.T) {
 	if err != nil || code != 200 || out["path"] != "/api/status" || out["device"] != "Mac de teste" || out["body"] != `{"x":1}` {
 		t.Fatalf("a request over the session: %d %v %v", code, out, err)
 	}
-	if out["auth"] != "" {
-		t.Fatal("a credential from the local side must not cross to the server")
+	// A program on the app's computer presents the server's token as it
+	// would on the server: it crosses, for the server to check.
+	if out["auth"] != "Bearer from-the-local-side" {
+		t.Fatalf("the program's credential did not reach the server: %q", out["auth"])
 	}
 	devices, _ := f.st.RemoteClients(context.Background())
 	if len(devices) != 1 || devices[0].LastSeen == nil {
@@ -233,9 +235,9 @@ func TestTheRoutesRefusePlainHTTPAndPages(t *testing.T) {
 		headers map[string]string
 		want    int
 	}{
-		{nil, http.StatusUpgradeRequired},
-		{map[string]string{"X-Forwarded-Proto": "http"}, http.StatusUpgradeRequired},
-		{map[string]string{"X-Forwarded-Proto": "ws"}, http.StatusUpgradeRequired},
+		{nil, http.StatusForbidden},
+		{map[string]string{"X-Forwarded-Proto": "http"}, http.StatusForbidden},
+		{map[string]string{"X-Forwarded-Proto": "ws"}, http.StatusForbidden},
 		{map[string]string{"X-Forwarded-Proto": "wss"}, http.StatusOK}, // Traefik, for a WebSocket over TLS
 		{map[string]string{"X-Forwarded-Proto": "https", "Origin": "https://evil.example"}, http.StatusForbidden},
 		{map[string]string{"X-Forwarded-Proto": "https"}, http.StatusOK},
@@ -417,9 +419,9 @@ func TestTamperingAndReplaysAreRefused(t *testing.T) {
 
 // Both ends rekey after the same number of messages and stay in step.
 func TestRekeying(t *testing.T) {
-	old := rekeyEvery
-	rekeyEvery = 3
-	defer func() { rekeyEvery = old }()
+	old := rekeyEvery.Load()
+	rekeyEvery.Store(3)
+	defer rekeyEvery.Store(old)
 	f := newFixture(t)
 	d, key := f.pair(ScopeAdmin)
 	c, stop := connected(t, d, key)
@@ -447,4 +449,151 @@ func hexDecode(s string) ([]byte, error) {
 		b[i] = v
 	}
 	return b, nil
+}
+
+// Only the trusted proxy reaches the routes: a neighbour on its network,
+// with any X-Forwarded-Proto, is refused.
+func TestOnlyTheTrustedProxy(t *testing.T) {
+	st, _ := state.Open(t.TempDir())
+	defer st.Close()
+	srv, _ := NewServer(t.TempDir(), st, nil)
+	srv.TrustedProxy = TrustProxies("10.0.0.5, 172.18.0.0/30, localhost")
+	for _, c := range []struct {
+		from string
+		want int
+	}{
+		{"10.0.0.5:4000", http.StatusOK},
+		{"172.18.0.2:1", http.StatusOK},
+		{"127.0.0.1:9", http.StatusOK}, // localhost, by name
+		{"172.18.0.14:5555", http.StatusForbidden},
+		{"10.0.0.6:4000", http.StatusForbidden},
+	} {
+		r := httptest.NewRequest(http.MethodGet, "/remote/v1/health", nil)
+		r.RemoteAddr = c.from
+		r.Header.Set("X-Forwarded-Proto", "https")
+		w := httptest.NewRecorder()
+		srv.Handler().ServeHTTP(w, r)
+		if w.Code != c.want {
+			t.Errorf("from %s: %d, want %d", c.from, w.Code, c.want)
+		}
+	}
+	if TrustProxies(" , ") != nil {
+		t.Error("an empty list must trust whatever reaches the listener")
+	}
+}
+
+// Knowing a code's id (from a log, say) is not enough to spend it: only a
+// handshake that proves the secret does.
+func TestTheCodeIDAloneDoesNotSpendTheCode(t *testing.T) {
+	f := newFixture(t)
+	code := f.code(ScopeAdmin)
+	id, _, _, _ := decodeCode(code)
+	u, _ := url.Parse(f.url())
+	ws, err := dial(context.Background(), u, "/remote/v1/pair")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = ws.Write(context.Background(), websocket.MessageBinary, []byte(id))
+	_ = ws.Write(context.Background(), websocket.MessageBinary, []byte("junk"))
+	_, _, _ = ws.Read(context.Background())
+	ws.CloseNow()
+	time.Sleep(100 * time.Millisecond)
+	if _, _, err := Pair(context.Background(), f.url(), code, "a"); err != nil {
+		t.Fatalf("the code was spent by someone who knew only its id: %v", err)
+	}
+}
+
+func TestRevokingEndsTheOpenSessionAtOnce(t *testing.T) {
+	f := newFixture(t)
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	if err := f.srv.Revoke(context.Background(), d.ID); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for c.Status().State == StateConnected && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if c.Status().State == StateConnected {
+		t.Fatal("the session stayed open after the device was revoked")
+	}
+}
+
+// A new key the server lost (it restarted before the device proved it) is
+// dropped, and the current one still works; nothing is kept until a key is
+// proved.
+func TestARotationTheServerLostFallsBack(t *testing.T) {
+	f := newFixture(t)
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	kept := 0
+	c.OnKey = func([]byte) { kept++ }
+	stranger, _ := suite.GenerateKeypair(rand.Reader)
+	c.mu.Lock()
+	c.next = &stranger
+	m := c.mux
+	c.mu.Unlock()
+	m.ch.close("reconnect")
+	time.Sleep(200 * time.Millisecond)
+	waitState(t, c, StateConnected)
+	if code, _, err := get(t, c, "/api/status"); err != nil || code != 200 {
+		t.Fatalf("after the fallback: %d %v", code, err)
+	}
+	if kept != 0 {
+		t.Fatal("a key the server never took was kept")
+	}
+}
+
+// A request whose handler does not read its body does not hold up the
+// others in the same session.
+func TestABodyNobodyReadsDoesNotBlockTheSession(t *testing.T) {
+	f := newFixture(t)
+	release := make(chan struct{})
+	f.srv.Admin = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/slow" {
+			<-release // never reads the body
+		}
+		_, _ = io.WriteString(w, "ok")
+	})
+	defer close(release)
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	go func() {
+		req, _ := http.NewRequest(http.MethodPost, "http://local/slow", strings.NewReader(strings.Repeat("x", 8<<20)))
+		if resp, err := c.RoundTrip(req); err == nil {
+			resp.Body.Close()
+		}
+	}()
+	time.Sleep(300 * time.Millisecond)
+	done := make(chan error, 1)
+	go func() {
+		req, _ := http.NewRequest(http.MethodGet, "http://local/fast", nil)
+		resp, err := c.RoundTrip(req)
+		if err == nil {
+			resp.Body.Close()
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("a body nobody reads blocked the whole session")
+	}
+}
+
+func TestADeviceNameIsCut(t *testing.T) {
+	f := newFixture(t)
+	if _, _, err := Pair(context.Background(), f.url(), f.code(ScopeAdmin), strings.Repeat("Mac ", 100)); err != nil {
+		t.Fatal(err)
+	}
+	devices, _ := f.st.RemoteClients(context.Background())
+	if len([]rune(devices[0].Name)) > maxNameLen {
+		t.Fatalf("a %d-character name was kept", len([]rune(devices[0].Name)))
+	}
 }

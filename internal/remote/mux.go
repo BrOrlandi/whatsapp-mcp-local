@@ -55,10 +55,12 @@ func parseFrame(b []byte) (byte, uint32, []byte, error) {
 	return b[0], binary.BigEndian.Uint32(b[1:5]), b[5:], nil
 }
 
-// hopHeaders never cross: they belong to one connection, or carry a
-// credential the session replaces.
+// hopHeaders never cross: they belong to one connection, or to the
+// computer the request came from. Authorization does cross: a program on
+// the app's computer presents the server's token as it would on the
+// server, and the server checks it.
 var hopHeaders = []string{"Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization", "Te", "Trailer",
-	"Transfer-Encoding", "Upgrade", "Authorization", "Cookie", "Host"}
+	"Transfer-Encoding", "Upgrade", "Cookie", "Host"}
 
 func cleanHeader(h http.Header) http.Header {
 	out := h.Clone()
@@ -151,9 +153,7 @@ func (w *responseWriter) finish() {
 
 type pending struct {
 	head chan respHead
-	body *io.PipeWriter
-	read *io.PipeReader
-	once sync.Once
+	body chan []byte // nil ends the body
 }
 
 type clientMux struct {
@@ -169,6 +169,22 @@ type clientMux struct {
 
 func newClientMux(ch *channel) *clientMux {
 	return &clientMux{ch: ch, streams: map[uint32]*pending{}, pongs: make(chan struct{}, 1), rotated: make(chan error, 1)}
+}
+
+// deliver queues part of a response body; a reader that falls too far
+// behind loses its response, not the session.
+func (m *clientMux) deliver(stream uint32, p *pending, part []byte) {
+	select {
+	case p.body <- part:
+	default:
+		_ = m.ch.write(context.Background(), frame(frameCancel, stream, nil))
+		m.mu.Lock()
+		if m.streams[stream] == p {
+			delete(m.streams, stream)
+			close(p.body)
+		}
+		m.mu.Unlock()
+	}
 }
 
 // run reads the session until it ends, handing each frame to its stream.
@@ -212,12 +228,12 @@ func (m *clientMux) run(ctx context.Context) error {
 				p.head <- h
 			}
 		case frameRespBody:
-			if p := m.get(stream); p != nil {
-				_, _ = p.body.Write(payload)
+			if p := m.get(stream); p != nil && len(payload) > 0 {
+				m.deliver(stream, p, append([]byte{}, payload...))
 			}
 		case frameRespEnd:
 			if p := m.get(stream); p != nil {
-				_ = p.body.Close()
+				m.deliver(stream, p, nil)
 				m.drop(stream)
 			}
 		}
@@ -243,7 +259,7 @@ func (m *clientMux) fail(err error) {
 		m.closed = err
 	}
 	for id, p := range m.streams {
-		_ = p.body.CloseWithError(errClosed)
+		close(p.body)
 		close(p.head)
 		delete(m.streams, id)
 	}
@@ -259,8 +275,7 @@ func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	m.next++
 	stream := m.next
-	r, w := io.Pipe()
-	p := &pending{head: make(chan respHead, 1), body: w, read: r}
+	p := &pending{head: make(chan respHead, 1), body: make(chan []byte, streamQueue)}
 	m.streams[stream] = p
 	m.mu.Unlock()
 
@@ -289,7 +304,7 @@ func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
 			return nil, errClosed
 		}
 		resp := &http.Response{StatusCode: h.Status, Status: http.StatusText(h.Status), Header: h.Header,
-			Body: r, Request: req, Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1, ContentLength: -1}
+			Body: &responseBody{ctx: ctx, frames: p.body}, Request: req, Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1, ContentLength: -1}
 		if resp.Header == nil {
 			resp.Header = http.Header{}
 		}
@@ -300,3 +315,38 @@ func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, ctx.Err()
 	}
 }
+
+// responseBody is a response's body, from the frames the mux queued; a nil
+// frame ends it, and a closed queue means the session or the stream ended.
+type responseBody struct {
+	ctx    context.Context
+	frames chan []byte
+	cur    []byte
+	done   bool
+}
+
+func (b *responseBody) Read(p []byte) (int, error) {
+	for len(b.cur) == 0 {
+		if b.done {
+			return 0, io.EOF
+		}
+		select {
+		case part, ok := <-b.frames:
+			if !ok {
+				return 0, errClosed
+			}
+			if part == nil {
+				b.done = true
+				continue
+			}
+			b.cur = part
+		case <-b.ctx.Done():
+			return 0, b.ctx.Err()
+		}
+	}
+	n := copy(p, b.cur)
+	b.cur = b.cur[n:]
+	return n, nil
+}
+
+func (b *responseBody) Close() error { return nil }
