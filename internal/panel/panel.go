@@ -178,6 +178,7 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/pair/qr.png", p.qr)
 	mux.HandleFunc("POST /api/pair", p.api(p.apiPair))
 	mux.HandleFunc("POST /api/pair/cancel", p.api(p.apiCancelPair))
+	mux.HandleFunc("POST /api/logout", p.api(p.apiLogout))
 	mux.HandleFunc("POST /api/clients/{client}", p.api(p.apiAddClient))
 	mux.HandleFunc("POST /api/idioma", p.api(p.apiLanguage))
 	if p.Host != nil {
@@ -1120,12 +1121,36 @@ func (p *Panel) apiPair(r *http.Request) (any, error) {
 	if err := p.Supervisor.StartPairing(phone); err != nil && !errors.Is(err, wacli.ErrPairingRunning) {
 		return nil, err
 	}
-	return p.Supervisor.Pairing(), nil
+	return p.pairResponse(), nil
+}
+
+// pairResponse is the pairing as the API gives it: with the QR code's text
+// and image while there is one.
+func (p *Panel) pairResponse() any {
+	pairing := p.Supervisor.Pairing()
+	out := struct {
+		wacli.Pairing
+		QR    string `json:"qr,omitempty"`
+		QRPNG string `json:"qr_png,omitempty"`
+	}{Pairing: pairing}
+	if pairing.State == "qr" {
+		out.QR, out.QRPNG = pairing.QR, p.qrURL()
+	}
+	return out
 }
 
 func (p *Panel) apiCancelPair(r *http.Request) (any, error) {
 	p.Supervisor.CancelPairing()
-	return p.Supervisor.Pairing(), nil
+	return p.pairResponse(), nil
+}
+
+// apiLogout unlinks this computer from WhatsApp, as the WhatsApp tab's
+// button does.
+func (p *Panel) apiLogout(r *http.Request) (any, error) {
+	if _, err := p.logout(r); err != nil {
+		return nil, err
+	}
+	return map[string]bool{"ok": true}, nil
 }
 
 func (p *Panel) apiAddClient(r *http.Request) (any, error) {
