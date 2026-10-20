@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -536,6 +537,10 @@ func TestOnlyTheTrustedProxy(t *testing.T) {
 	if TrustProxies(" , ") != nil {
 		t.Error("an empty list must trust whatever reaches the listener")
 	}
+	// A list with nothing valid in it is a mistake, and trusts nothing.
+	if trust := TrustProxies("172.18.0.0/33"); trust == nil || trust("172.18.0.2:1234") {
+		t.Error("an invalid list must trust nothing")
+	}
 }
 
 // Knowing a code's id (from a log, say) is not enough to spend it: only a
@@ -711,4 +716,112 @@ func TestIdleConnectionsLetGoOfTheHandshakeSlots(t *testing.T) {
 	if _, _, err := Pair(context.Background(), f.url(), f.code(ScopeAdmin), "a"); err != nil {
 		t.Fatalf("idle connections still hold the slots: %v", err)
 	}
+}
+
+// Closing a response before its end stops the server's handler: an
+// interrupted download does not keep the tunnel busy.
+func TestClosingABodyStopsTheServer(t *testing.T) {
+	f := newFixture(t)
+	stopped := make(chan struct{})
+	f.srv.Admin = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer close(stopped)
+		// A slow stream: the client's queue would take long to fill, so only
+		// the cancel stops it soon.
+		chunk := []byte(strings.Repeat("x", 2048))
+		for r.Context().Err() == nil {
+			if _, err := w.Write(chunk); err != nil {
+				return
+			}
+			w.(http.Flusher).Flush()
+			time.Sleep(100 * time.Millisecond)
+		}
+	})
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	req, _ := http.NewRequest(http.MethodGet, "http://local/media/big", nil)
+	resp, err := c.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.ReadFull(resp.Body, make([]byte, 1024)); err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	select {
+	case <-stopped:
+	case <-time.After(3 * time.Second):
+		t.Fatal("the server kept sending after the body was closed")
+	}
+	if code, _, err := get(t, c, "/api/status"); err == nil && code == 0 {
+		t.Fatal("the session should still answer")
+	}
+}
+
+// Once the new key is taken, a session still open with the old one (a copy
+// of the key elsewhere) ends: the old key keeps nothing alive.
+func TestRotatingEndsTheOldKeysSessions(t *testing.T) {
+	f := newFixture(t)
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	copied, stopCopy := connected(t, d, append([]byte{}, key...))
+	defer stopCopy()
+	since := copied.Status().Since
+	if _, err := c.Rotate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	waitState(t, c, StateConnected)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if st := copied.Status(); st.State != StateConnected || !st.Since.Equal(since) {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if st := copied.Status(); st.State == StateConnected && st.Since.Equal(since) {
+		t.Fatal("the session opened with the old key is still up")
+	}
+	waitState(t, copied, StateRefused) // and it cannot come back
+	if code, _, err := get(t, c, "/api/status"); err != nil || code != 200 {
+		t.Fatalf("the device with the new key: %d %v", code, err)
+	}
+}
+
+// A new key that cannot be kept is never sent; one that was kept brings
+// the device back after a restart even if replacing the current key failed.
+func TestARotatedKeyIsNeverOnlyInMemory(t *testing.T) {
+	f := newFixture(t)
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	c.OnNextKey = func([]byte) error { return errors.New("keychain locked") }
+	if _, err := c.Rotate(context.Background()); err == nil {
+		t.Fatal("a rotation whose key could not be kept went ahead")
+	}
+	stored, _ := f.st.RemoteClient(context.Background(), d.ID)
+	if pub, _ := publicKey(key); string(stored.PublicKey) != string(pub) {
+		t.Fatal("the server took a key the app could not keep")
+	}
+
+	var kept []byte
+	c.OnNextKey = func(k []byte) error { kept = append([]byte{}, k...); return nil }
+	c.OnKey = func([]byte) {} // replacing the current key "fails": nothing saved
+	if _, err := c.Rotate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	waitState(t, c, StateConnected)
+	stop()
+	// The app starts again with the old key and the kept one.
+	again, err := NewClient(d, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := again.SetNext(kept); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go again.Run(ctx)
+	waitState(t, again, StateConnected)
 }

@@ -15,11 +15,19 @@ import (
 // loopback port, so another program cannot pass for the window.
 const WindowHeader = "X-WhatsApp-MCP-Window"
 
+// LocalBaseHeader is the address the app serves the server at on its own
+// computer (http://127.0.0.1:<port>), which the app sets on everything it
+// sends: the links the server hands out (download_media's) must point
+// there, not at the server's own loopback.
+const LocalBaseHeader = "X-WhatsApp-MCP-Local-Base"
+
 // TrustProxies is TrustedProxy for a list of IPs, CIDRs or host names (a
 // container's name on a Docker network, such as traefik), comma separated.
 // Names are looked up again every 30 seconds, so a proxy recreated with
 // another address stays trusted. An empty list returns nil: anything that
-// reaches the listener is trusted.
+// reaches the listener is trusted. A list with nothing valid in it (a typo
+// such as 172.18.0.0/33) trusts nothing: a mistake in it must not open the
+// listener to everyone.
 func TrustProxies(spec string) func(remoteAddr string) bool {
 	var prefixes []netip.Prefix
 	var names []string
@@ -40,6 +48,9 @@ func TrustProxies(spec string) func(remoteAddr string) bool {
 		}
 	}
 	if len(prefixes) == 0 && len(names) == 0 {
+		if strings.Trim(spec, " ,") != "" {
+			return func(string) bool { return false }
+		}
 		return nil
 	}
 	var mu sync.Mutex

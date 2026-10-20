@@ -340,7 +340,10 @@ func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
 			return nil, errClosed
 		}
 		resp := &http.Response{StatusCode: h.Status, Status: http.StatusText(h.Status), Header: h.Header,
-			Body: &responseBody{ctx: ctx, frames: p.body}, Request: req, Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1, ContentLength: -1}
+			Body: &responseBody{ctx: ctx, frames: p.body, cancel: func() {
+				_ = m.ch.write(context.Background(), frame(frameCancel, stream, nil))
+				m.drop(stream)
+			}}, Request: req, Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1, ContentLength: -1}
 		if resp.Header == nil {
 			resp.Header = http.Header{}
 		}
@@ -359,6 +362,10 @@ type responseBody struct {
 	frames chan []byte
 	cur    []byte
 	done   bool
+	// cancel tells the server to stop sending: closed before its end, the
+	// body is not wanted any more.
+	cancel func()
+	closed sync.Once
 }
 
 func (b *responseBody) Read(p []byte) (int, error) {
@@ -385,4 +392,9 @@ func (b *responseBody) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-func (b *responseBody) Close() error { return nil }
+func (b *responseBody) Close() error {
+	if !b.done && b.cancel != nil {
+		b.closed.Do(b.cancel)
+	}
+	return nil
+}

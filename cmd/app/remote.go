@@ -56,6 +56,10 @@ type serverWhatsApp struct {
 	Version   string `json:"version,omitempty"`
 }
 
+// nextKeyAccount is where a rotation's new key waits until it replaces the
+// device's current one.
+func nextKeyAccount(deviceID string) string { return deviceID + ".next" }
+
 func (a *App) remoteConfigured() bool {
 	r := a.config().Remote
 	return r != nil && r.Server != "" && r.DeviceID != ""
@@ -71,21 +75,37 @@ func (a *App) currentRemote() *remoteMode {
 func (a *App) startRemote() {
 	cfg := a.config().Remote
 	device := remote.Device{Server: cfg.Server, ServerKey: cfg.ServerKey, ID: cfg.DeviceID, Scope: cfg.Scope}
+	// A rotation's new key is kept apart (nextKeyAccount) until the
+	// server has taken it and it replaced the current one here.
+	next, nextErr := loadDeviceKey(nextKeyAccount(cfg.DeviceID))
 	key, err := loadDeviceKey(cfg.DeviceID)
+	if err != nil && nextErr == nil {
+		key, err, next, nextErr = next, nil, nil, errors.New("promoted") // replacing the current key failed midway
+	}
 	var client *remote.Client
 	if err == nil {
 		client, err = remote.NewClient(device, key)
+	}
+	if err == nil && nextErr == nil {
+		err = client.SetNext(next)
 	}
 	if err != nil {
 		a.logger.Error("remote mode cannot start: the device's key is missing", "error", err)
 		a.handler.set(panel.Internal(a.withAppPages(remoteKeyMissing())))
 		return
 	}
-	// A new key is kept only once the server has taken it.
+	// A new key is kept apart before the server is asked to take it, and
+	// replaces the current one once the server has: if that replacing
+	// fails, the kept one is still there for the next start.
+	client.OnNextKey = func(private []byte) error {
+		return saveDeviceKey(nextKeyAccount(cfg.DeviceID), private)
+	}
 	client.OnKey = func(private []byte) {
 		if err := saveDeviceKey(cfg.DeviceID, private); err != nil {
-			a.logger.Error("the device's new key could not be kept in the keychain", "error", err)
+			a.logger.Error("the device's new key could not replace the current one; it stays kept apart", "error", err)
+			return
 		}
+		_ = deleteDeviceKey(nextKeyAccount(cfg.DeviceID))
 	}
 	client.LastStamp = cfg.LastStamp
 	client.OnStamp = func(stamp int64) {
@@ -111,9 +131,21 @@ func (a *App) startRemote() {
 	// What belongs to this computer, not to the server: its AI tools' setup
 	// and the app's window.
 	local := (&panel.Panel{Endpoint: a.localMCPURL, Desktop: a.desktopCommand(), Host: a}).LocalHandler()
+	// Connecting an AI tool here writes the server's token into it when the
+	// server has one: the tool's requests reach the server as a program's.
+	connect := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token, err := serverToken(r.Context(), rm)
+		if err != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": i18n.T("o app não conseguiu falar com o servidor para configurar a ferramenta; tente de novo em instantes")})
+			return
+		}
+		(&panel.Panel{Endpoint: a.localMCPURL, Desktop: a.desktopCommand(), Host: a, Token: token}).LocalHandler().ServeHTTP(w, r)
+	})
 	withLocal := func(next http.Handler) http.Handler {
 		mux := http.NewServeMux()
-		mux.Handle("POST /api/clients/{client}", local)
+		mux.Handle("POST /api/clients/{client}", connect)
 		mux.Handle("POST /api/app/open", local)
 		mux.Handle("/", next)
 		return mux
@@ -166,6 +198,9 @@ func (a *App) remoteProxy(rm *remoteMode, window bool) http.Handler {
 			r.Out.URL.Scheme, r.Out.URL.Host = "http", "remote"
 			r.Out.Header.Set(panel.ServerHeader, rm.server)
 			r.Out.Header.Del(remote.WindowHeader)
+			// Where this computer reaches the server, for the links it hands
+			// out (download_media's) to open here.
+			r.Out.Header.Set(remote.LocalBaseHeader, "http://"+net.JoinHostPort("127.0.0.1", strconv.Itoa(a.config().Port)))
 			if window {
 				r.Out.Header.Set(remote.WindowHeader, "1")
 				// The window's own requests carry no credential of a program.
@@ -184,6 +219,28 @@ func (a *App) remoteProxy(rm *remoteMode, window bool) http.Handler {
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": i18n.T("o app está sem conexão com o servidor agora; tente de novo em instantes")})
 		},
 	}
+}
+
+// serverToken is the server's token (empty when it has none), which it
+// gives only to this app's window over the session.
+func serverToken(ctx context.Context, rm *remoteMode) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://remote/api/remote/token", nil)
+	req.Header.Set(remote.WindowHeader, "1")
+	resp, err := rm.client.RoundTrip(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("the server answered %s", resp.Status)
+	}
+	var body struct {
+		Token string `json:"token"`
+	}
+	err = json.NewDecoder(resp.Body).Decode(&body)
+	return body.Token, err
 }
 
 // followRemote asks the server how its WhatsApp is, every few seconds,
@@ -216,11 +273,17 @@ func (a *App) pollServer(ctx context.Context, rm *remoteMode) daemon.Status {
 	rctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	req, _ := http.NewRequestWithContext(rctx, http.MethodGet, "http://remote/api/status", nil)
+	// The app itself asks, as its window would: with a token on the server,
+	// a program's request without it is refused.
+	req.Header.Set(remote.WindowHeader, "1")
 	resp, err := rm.client.RoundTrip(req)
 	if err != nil {
 		return daemon.Status{Tone: "warn", Title: i18n.T("Servidor sem resposta"), Detail: hostOf(rm.server)}
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return daemon.Status{Tone: "warn", Title: i18n.T("Servidor sem resposta"), Detail: hostOf(rm.server)}
+	}
 	var body struct {
 		Version  string         `json:"version"`
 		WhatsApp serverWhatsApp `json:"whatsapp"`
@@ -504,6 +567,7 @@ func (a *App) remoteToLocal(w http.ResponseWriter, r *http.Request) {
 	a.stopRemote()
 	if cfg != nil && r.FormValue("forget") == "1" {
 		_ = deleteDeviceKey(cfg.DeviceID)
+		_ = deleteDeviceKey(nextKeyAccount(cfg.DeviceID))
 	}
 	a.logger.Info("back to local mode")
 	a.startDaemon()

@@ -47,6 +47,23 @@ func (p *Panel) registerRemote(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/remote/codigo", p.api(p.apiRemoteCode))
 	mux.HandleFunc("GET /api/remote/dispositivos", p.api(p.apiRemoteDevices))
 	mux.HandleFunc("DELETE /api/remote/dispositivos/{id}", p.api(p.apiRemoteRevoke))
+	mux.HandleFunc("GET /api/remote/token", p.remoteToken)
+}
+
+// apiRemoteToken gives the server's token to the window of a paired admin
+// app, and to nothing else: the app writes it into the AI tools it connects
+// on its own computer, whose requests reach the server as a program's and
+// need it, as a program here would.
+func (p *Panel) remoteToken(w http.ResponseWriter, r *http.Request) {
+	d, ok := remote.DeviceFrom(r.Context())
+	internal, _ := r.Context().Value(internalKey{}).(bool)
+	if !ok || d.Scope != remote.ScopeAdmin || !internal {
+		http.Error(w, "only the window of a paired app", http.StatusForbidden)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{"token": p.Token})
 }
 
 func (p *Panel) apiRemoteCode(r *http.Request) (any, error) {
