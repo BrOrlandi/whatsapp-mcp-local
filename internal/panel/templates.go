@@ -83,8 +83,10 @@ refreshes when it has passed. */}}
 </form>
 </div></div></div>{{end}}
 
-{{define "autostartcheck"}}{{if .App}}<div class="wizard__escape"><label class="check check--inline"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span>{{t "Abrir o WhatsApp MCP quando o computador ligar"}}</span></label></div>
-<p class="busy" data-setting-note role="status" hidden></p>{{end}}{{end}}
+{{/* Offered once everything works: the last step of the first run. */}}
+{{define "autostartcheck"}}{{if .App}}<div class="stack" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+<label class="check"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span><strong>{{t "Abrir o WhatsApp MCP quando o computador ligar"}}</strong><span class="check__hint">{{t "Recomendado: assim as suas ferramentas de IA encontram o WhatsApp sempre que o computador ligar. Se preferir deixar para depois, a opção fica em Configurações."}}</span></span></label>
+<p class="busy" data-setting-note role="status" hidden></p></div>{{end}}{{end}}
 
 {{/* Connecting an AI tool is a flow of its own: the tool first, then the
 steps for that one, which end when it connects. No tabs on the way. */}}
@@ -478,7 +480,6 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="muted" style="text-align:center">{{t "Tudo roda neste computador: as mensagens ficam aqui, e nada passa por servidor de terceiros."}}</p>
 {{if and .App (not .Remote)}}<p class="muted" style="text-align:center">{{t "Quer deixar o WhatsApp num servidor seu, ligado o tempo todo?"}} <a href="#usar-servidor">{{t "Usar um servidor"}}</a></p>
 {{template "servergate" .}}{{end}}
-{{template "autostartcheck" .}}
 {{end}}
 
 {{if eq .Step 2}}
@@ -498,6 +499,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="lead">{{if eq .LiveCount 1}}{{tf "%s já está usando o seu WhatsApp." (liveTools .Connections)}}{{else}}{{tf "%s já estão usando o seu WhatsApp." (liveTools .Connections)}}{{end}}</p>
 <p class="muted">{{t "Para testar, mande isto no chat:"}}</p>
 <div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
+{{template "autostartcheck" .}}
 <form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done">
 <div class="actions" style="margin-top:14px"><button class="btn btn--block" type="submit">{{t "Ir para o painel"}}</button></div></form>
 </div></section>
@@ -511,7 +513,6 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done">
 <div class="wizard__escape"><button class="btn btn--quiet" type="submit">{{t "Pular por enquanto"}}</button></div></form>
 {{end}}
-{{template "autostartcheck" .}}
 {{end}}
 </div>
 {{template "foot" .}}{{end}}
@@ -610,10 +611,28 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div>
 {{template "foot" .}}{{end}}
 
+{{/* Remote access comes first while the app uses a server, last otherwise. */}}
+{{define "remotecard"}}<section class="card" id="remoto" data-remote-card>
+<div class="card__head"><h2 class="card__title">{{icon "globe"}}{{t "Acesso remoto"}}</h2>{{if .Remote}}<span class="pill pill--accent pill--plain">{{t "Modo remoto"}}</span>{{end}}</div>
+<div class="card__body stack">
+{{if .Remote}}<p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor, por uma conexão cifrada de ponta a ponta dentro do HTTPS."}}</p>
+<div class="actions"><a class="btn" href="/__app/remoto">{{t "Gerenciar a conexão com o servidor"}}</a></div>
+{{else if .App}}<p>{{t "O WhatsApp pode rodar num servidor que fica ligado o tempo todo, e este app passa a ser o controle dele: as ferramentas de IA deste computador continuam no mesmo endereço."}}</p>
+<div class="actions"><a class="btn btn--quiet" href="#usar-servidor">{{t "Usar um servidor"}}</a></div>
+{{template "servergate" .}}
+{{else}}<p>{{t "O app de outro computador pode usar e controlar este WhatsApp MCP. Gere um código de pareamento aqui e cole no app, em Configurações › Acesso remoto. O código vale uma vez, por 10 minutos."}}</p>{{end}}
+{{if not .App}}{{if .Devices}}<ul class="rows" data-remote-devices>{{range .Devices}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}{{if .This}} <span class="pill pill--accent pill--plain">{{t "este app"}}</span>{{end}}</span><span class="row__meta">{{.Scope}} · {{if .RevokedAt}}{{t "revogado"}}{{else if .LastSeen}}{{tf "visto em %s" (moment .LastSeen)}}{{else}}{{t "nunca conectado"}}{{end}}</span></span>
+{{if not .RevokedAt}}<button class="btn btn--quiet btn--small" type="button" data-remote-revoke="{{.ID}}">{{t "Revogar"}}</button>{{end}}</li>{{end}}</ul>{{end}}
+<div class="actions"><button class="btn" type="button" data-remote-code>{{t "Gerar código de pareamento"}}</button></div>
+<div data-remote-code-out hidden><p class="note">{{t "Copie agora: o código não aparece de novo."}}</p><p><code data-remote-code-value></code></p><p class="note" data-remote-code-note></p></div>{{end}}
+</div></section>
+{{end}}
+
 {{define "configuracoes"}}{{template "head" .}}{{template "nav" .}}
 <h1>{{t "Configurações"}}</h1>
 <p class="lead">{{t "Como o WhatsApp MCP roda neste computador."}}</p>
 {{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
+{{if .Remote}}{{template "remotecard" .}}{{end}}
 
 {{if and .App .PortChanged}}
 <section class="card card--accent">
@@ -670,21 +689,6 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div></div></div>
 
 {{end}}
-
-<section class="card" id="remoto" data-remote-card>
-<div class="card__head"><h2 class="card__title">{{icon "globe"}}{{t "Acesso remoto"}}</h2>{{if .Remote}}<span class="pill pill--accent pill--plain">{{t "Modo remoto"}}</span>{{end}}</div>
-<div class="card__body stack">
-{{if .Remote}}<p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor, por uma conexão cifrada de ponta a ponta dentro do HTTPS."}}</p>
-<div class="actions"><a class="btn" href="/__app/remoto">{{t "Gerenciar a conexão com o servidor"}}</a></div>
-{{else if .App}}<p>{{t "O WhatsApp pode rodar num servidor que fica ligado o tempo todo, e este app passa a ser o controle dele: as ferramentas de IA deste computador continuam no mesmo endereço."}}</p>
-<div class="actions"><a class="btn btn--quiet" href="#usar-servidor">{{t "Usar um servidor"}}</a></div>
-{{template "servergate" .}}
-{{else}}<p>{{t "O app de outro computador pode usar e controlar este WhatsApp MCP. Gere um código de pareamento aqui e cole no app, em Configurações › Acesso remoto. O código vale uma vez, por 10 minutos."}}</p>{{end}}
-{{if not .App}}{{if .Devices}}<ul class="rows" data-remote-devices>{{range .Devices}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}{{if .This}} <span class="pill pill--accent pill--plain">{{t "este app"}}</span>{{end}}</span><span class="row__meta">{{.Scope}} · {{if .RevokedAt}}{{t "revogado"}}{{else if .LastSeen}}{{tf "visto em %s" (moment .LastSeen)}}{{else}}{{t "nunca conectado"}}{{end}}</span></span>
-{{if not .RevokedAt}}<button class="btn btn--quiet btn--small" type="button" data-remote-revoke="{{.ID}}">{{t "Revogar"}}</button>{{end}}</li>{{end}}</ul>{{end}}
-<div class="actions"><button class="btn" type="button" data-remote-code>{{t "Gerar código de pareamento"}}</button></div>
-<div data-remote-code-out hidden><p class="note">{{t "Copie agora: o código não aparece de novo."}}</p><p><code data-remote-code-value></code></p><p class="note" data-remote-code-note></p></div>{{end}}
-</div></section>
 
 <section class="card" id="webhooks" data-webhooks>
 <div class="card__head"><h2 class="card__title">{{icon "code"}}Webhooks</h2><a class="btn btn--ghost btn--small" href="/webhooks/documentacao">{{icon "book"}}{{t "Documentação"}}</a></div>
@@ -808,6 +812,8 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </form>
 </div></div></div>
 {{end}}
+
+{{if not .Remote}}{{template "remotecard" .}}{{end}}
 {{template "foot" .}}{{end}}
 
 {{define "encerrado"}}{{template "head" .}}
