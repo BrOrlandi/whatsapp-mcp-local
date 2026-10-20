@@ -256,8 +256,18 @@ func fatal(err error) {
 	os.Exit(code)
 }
 
+// remoteSetting is a remote access setting: the environment's, else the
+// one `service install` kept in config.json.
+func remoteSetting(name, kept string) string {
+	if v, ok := os.LookupEnv(name); ok {
+		return v
+	}
+	return kept
+}
+
 func serve(cfg config) error {
 	privateFiles()
+	saved, _ := appconfig.Load(cfg.DataDir)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := appconfig.MarkNew(cfg.DataDir); err != nil {
 		logger.Warn("could not write config.json", "error", err)
@@ -266,8 +276,8 @@ func serve(cfg config) error {
 		Port: cfg.Port, RequirePort: true, Token: cfg.Token,
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
 		LogPath: logPath(), Version: version, Logger: logger,
-		Desktop: desktopCommand(cfg), RemoteListen: os.Getenv("WHATSAPP_MCP_REMOTE_LISTEN"),
-		RemoteTrustedProxy: os.Getenv("WHATSAPP_MCP_REMOTE_TRUSTED_PROXY"),
+		Desktop: desktopCommand(cfg), RemoteListen: remoteSetting("WHATSAPP_MCP_REMOTE_LISTEN", saved.RemoteListen),
+		RemoteTrustedProxy: remoteSetting("WHATSAPP_MCP_REMOTE_TRUSTED_PROXY", saved.RemoteTrustedProxy),
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
 		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)
@@ -296,16 +306,38 @@ func desktopCommand(cfg config) panel.DesktopCommand {
 	return c
 }
 
+// keepSettings writes into config.json what the service must find there:
+// the port, and the remote access settings when the environment gives them.
+func keepSettings(cfg config) error {
+	listen, proxy := os.LookupEnv("WHATSAPP_MCP_REMOTE_LISTEN")
+	trusted, trust := os.LookupEnv("WHATSAPP_MCP_REMOTE_TRUSTED_PROXY")
+	if cfg.PortSource != "config" || proxy || trust {
+		c, _ := appconfig.Load(cfg.DataDir)
+		if cfg.PortSource != "config" {
+			c.Port = cfg.Port
+		}
+		// Remote access, when given, is kept too: the service does not
+		// carry the shell's environment, and a later reinstall (a new port,
+		// a new token) must not lose it. An empty value turns it off.
+		if proxy {
+			c.RemoteListen = listen
+		}
+		if trust {
+			c.RemoteTrustedProxy = trusted
+		}
+		if err := appconfig.Save(cfg.DataDir, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // installService writes the login service for this program and (re)starts
 // it. The port goes into config.json, where every command finds it; the
 // token stays in its file, unless it came from the environment.
 func installService(cfg config) (string, error) {
-	if cfg.PortSource != "config" {
-		c, _ := appconfig.Load(cfg.DataDir)
-		c.Port = cfg.Port
-		if err := appconfig.Save(cfg.DataDir, c); err != nil {
-			return "", err
-		}
+	if err := keepSettings(cfg); err != nil {
+		return "", err
 	}
 	env := map[string]string{"WACLI_BIN": cfg.WacliBin, "WACLI_STORE_DIR": cfg.StoreDir,
 		"WHATSAPP_MCP_DATA": cfg.DataDir}

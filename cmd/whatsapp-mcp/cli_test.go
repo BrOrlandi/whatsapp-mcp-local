@@ -424,3 +424,35 @@ func TestFlagsAnywhere(t *testing.T) {
 		t.Fatalf("--json then an unknown flag: exit %d, json %v", exitCode(err), jsonOutput)
 	}
 }
+
+func TestLogsRefusesANegativeCount(t *testing.T) {
+	cfg, _ := load()
+	if _, err := run(t, logsCmd, cfg, "-n", "-1"); exitCode(err) != exitUsage {
+		t.Fatalf("logs -n -1: exit %d, %v", exitCode(err), err)
+	}
+}
+
+// service install keeps the remote access settings it was given, for the
+// service (which does not get the shell's environment) and later reinstalls.
+func TestServiceKeepsTheRemoteSettings(t *testing.T) {
+	t.Setenv("WHATSAPP_MCP_DATA", t.TempDir())
+	t.Setenv("WHATSAPP_MCP_REMOTE_LISTEN", "127.0.0.1:47822")
+	t.Setenv("WHATSAPP_MCP_REMOTE_TRUSTED_PROXY", "127.0.0.1")
+	cfg, _ := load()
+	if err := keepSettings(cfg); err != nil {
+		t.Fatal(err)
+	}
+	os.Unsetenv("WHATSAPP_MCP_REMOTE_LISTEN")
+	os.Unsetenv("WHATSAPP_MCP_REMOTE_TRUSTED_PROXY")
+	cfg, _ = load()
+	if err := keepSettings(cfg); err != nil { // a later reinstall, without them
+		t.Fatal(err)
+	}
+	c, _ := appconfig.Load(cfg.DataDir)
+	if c.RemoteListen != "127.0.0.1:47822" || c.RemoteTrustedProxy != "127.0.0.1" {
+		t.Fatalf("kept %q %q", c.RemoteListen, c.RemoteTrustedProxy)
+	}
+	if remoteSetting("WHATSAPP_MCP_REMOTE_LISTEN", c.RemoteListen) != "127.0.0.1:47822" {
+		t.Fatal("serve does not find the kept setting")
+	}
+}
