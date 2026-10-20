@@ -175,11 +175,11 @@ Para o app do seu computador alcançar este servidor, o serviço precisa ouvir o
 acesso remoto no `127.0.0.1`, para o Caddy encaminhar:
 
 ```sh
-mkdir -p ~/.config/systemd/user/whatsapp-mcp.service.d
-printf '[Service]\nEnvironment=WHATSAPP_MCP_REMOTE_LISTEN=127.0.0.1:47822\n' \
-  > ~/.config/systemd/user/whatsapp-mcp.service.d/remoto.conf
-systemctl --user daemon-reload && systemctl --user restart whatsapp-mcp.service
+WHATSAPP_MCP_REMOTE_LISTEN=127.0.0.1:47822 whatsapp-mcp service install
 ```
+
+O serviço guarda essa configuração e a mantém nas próximas reinstalações (uma
+porta nova, um token novo).
 
 O Caddy é o mesmo do caminho com Docker, acima.
 

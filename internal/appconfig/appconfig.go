@@ -39,6 +39,12 @@ type Config struct {
 	// server (internal/remote) instead of running WhatsApp here. The
 	// device's private key is not here: it is in the system's keychain.
 	Remote *Remote `json:"remote,omitempty"`
+	// RemoteListen and RemoteTrustedProxy are the command line's remote
+	// access settings (WHATSAPP_MCP_REMOTE_LISTEN and
+	// WHATSAPP_MCP_REMOTE_TRUSTED_PROXY), kept by `service install` so the
+	// service has them, as the port is kept; the environment still wins.
+	RemoteListen       string `json:"remote_listen,omitempty"`
+	RemoteTrustedProxy string `json:"remote_trusted_proxy,omitempty"`
 }
 
 // Remote is the server the app uses and how it knows it.
