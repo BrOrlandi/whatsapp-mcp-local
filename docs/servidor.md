@@ -11,6 +11,9 @@ O MCP continua respondendo só em `127.0.0.1`: quem usa o WhatsApp é um
 programa no próprio servidor (o Claude Code, um agente, um script), ou o app
 de outro computador, pelo [acesso remoto](#usar-pelo-app-de-outro-computador).
 
+Primeira vez montando um servidor? O [Modo servidor](modo-servidor.md) é o
+passo a passo, da contratação da máquina ao app conectado.
+
 ## Sem Docker
 
 No macOS e no Linux, sem `sudo`:
