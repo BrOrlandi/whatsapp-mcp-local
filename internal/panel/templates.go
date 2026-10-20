@@ -633,10 +633,28 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div>
 {{template "foot" .}}{{end}}
 
+{{/* Remote access comes first while the app uses a server, last otherwise. */}}
+{{define "remotecard"}}<section class="card" id="remoto" data-remote-card>
+<div class="card__head"><h2 class="card__title">{{icon "globe"}}{{t "Acesso remoto"}}</h2>{{if .Remote}}<span class="pill pill--accent pill--plain">{{t "Modo remoto"}}</span>{{end}}</div>
+<div class="card__body stack">
+{{if .Remote}}<p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor, por uma conexão cifrada de ponta a ponta dentro do HTTPS."}}</p>
+<div class="actions"><a class="btn" href="/__app/remoto">{{t "Gerenciar a conexão com o servidor"}}</a></div>
+{{else if .App}}<p>{{t "O WhatsApp pode rodar num servidor que fica ligado o tempo todo, e este app passa a ser o controle dele: as ferramentas de IA deste computador continuam no mesmo endereço."}}</p>
+<div class="actions"><a class="btn btn--quiet" href="#usar-servidor">{{t "Usar um servidor"}}</a></div>
+{{template "servergate" .}}
+{{else}}<p>{{t "O app de outro computador pode usar e controlar este WhatsApp MCP. Gere um código de pareamento aqui e cole no app, em Configurações › Acesso remoto. O código vale uma vez, por 10 minutos."}}</p>{{end}}
+{{if not .App}}{{if .Devices}}<ul class="rows" data-remote-devices>{{range .Devices}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}{{if .This}} <span class="pill pill--accent pill--plain">{{t "este app"}}</span>{{end}}</span><span class="row__meta">{{.Scope}} · {{if .RevokedAt}}{{t "revogado"}}{{else if .LastSeen}}{{tf "visto em %s" (moment .LastSeen)}}{{else}}{{t "nunca conectado"}}{{end}}</span></span>
+{{if not .RevokedAt}}<button class="btn btn--quiet btn--small" type="button" data-remote-revoke="{{.ID}}">{{t "Revogar"}}</button>{{end}}</li>{{end}}</ul>{{end}}
+<div class="actions"><button class="btn" type="button" data-remote-code>{{t "Gerar código de pareamento"}}</button></div>
+<div data-remote-code-out hidden><p class="note">{{t "Copie agora: o código não aparece de novo."}}</p><p><code data-remote-code-value></code></p><p class="note" data-remote-code-note></p></div>{{end}}
+</div></section>
+{{end}}
+
 {{define "configuracoes"}}{{template "head" .}}{{template "nav" .}}
 <h1>{{t "Configurações"}}</h1>
 <p class="lead">{{t "Como o WhatsApp MCP roda neste computador."}}</p>
 {{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
+{{if .Remote}}{{template "remotecard" .}}{{end}}
 
 {{if and .App .PortChanged}}
 <section class="card card--accent">
@@ -693,21 +711,6 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div></div></div>
 
 {{end}}
-
-<section class="card" id="remoto" data-remote-card>
-<div class="card__head"><h2 class="card__title">{{icon "globe"}}{{t "Acesso remoto"}}</h2>{{if .Remote}}<span class="pill pill--accent pill--plain">{{t "Modo remoto"}}</span>{{end}}</div>
-<div class="card__body stack">
-{{if .Remote}}<p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor, por uma conexão cifrada de ponta a ponta dentro do HTTPS."}}</p>
-<div class="actions"><a class="btn" href="/__app/remoto">{{t "Gerenciar a conexão com o servidor"}}</a></div>
-{{else if .App}}<p>{{t "O WhatsApp pode rodar num servidor que fica ligado o tempo todo, e este app passa a ser o controle dele: as ferramentas de IA deste computador continuam no mesmo endereço."}}</p>
-<div class="actions"><a class="btn btn--quiet" href="#usar-servidor">{{t "Usar um servidor"}}</a></div>
-{{template "servergate" .}}
-{{else}}<p>{{t "O app de outro computador pode usar e controlar este WhatsApp MCP. Gere um código de pareamento aqui e cole no app, em Configurações › Acesso remoto. O código vale uma vez, por 10 minutos."}}</p>{{end}}
-{{if not .App}}{{if .Devices}}<ul class="rows" data-remote-devices>{{range .Devices}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}{{if .This}} <span class="pill pill--accent pill--plain">{{t "este app"}}</span>{{end}}</span><span class="row__meta">{{.Scope}} · {{if .RevokedAt}}{{t "revogado"}}{{else if .LastSeen}}{{tf "visto em %s" (moment .LastSeen)}}{{else}}{{t "nunca conectado"}}{{end}}</span></span>
-{{if not .RevokedAt}}<button class="btn btn--quiet btn--small" type="button" data-remote-revoke="{{.ID}}">{{t "Revogar"}}</button>{{end}}</li>{{end}}</ul>{{end}}
-<div class="actions"><button class="btn" type="button" data-remote-code>{{t "Gerar código de pareamento"}}</button></div>
-<div data-remote-code-out hidden><p class="note">{{t "Copie agora: o código não aparece de novo."}}</p><p><code data-remote-code-value></code></p><p class="note" data-remote-code-note></p></div>{{end}}
-</div></section>
 
 <section class="card" id="webhooks" data-webhooks>
 <div class="card__head"><h2 class="card__title">{{icon "code"}}Webhooks</h2><a class="btn btn--ghost btn--small" href="/webhooks/documentacao">{{icon "book"}}{{t "Documentação"}}</a></div>
@@ -834,6 +837,8 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </form>
 </div></div></div>
 {{end}}
+
+{{if not .Remote}}{{template "remotecard" .}}{{end}}
 {{template "foot" .}}{{end}}
 
 {{define "encerrado"}}{{template "head" .}}
