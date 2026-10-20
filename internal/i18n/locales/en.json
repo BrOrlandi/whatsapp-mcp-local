@@ -931,5 +931,7 @@
  "Quer deixar o WhatsApp num servidor seu, ligado o tempo todo?": "Want to keep WhatsApp on a server of yours, always on?",
  "Quero usar a versão local": "I want to use the local version",
  "Usar um servidor?": "Use a server?",
- "Recomendado: assim as suas ferramentas de IA encontram o WhatsApp sempre que o computador ligar. Se preferir deixar para depois, a opção fica em Configurações.": "Recommended: this way your AI tools find WhatsApp whenever the computer starts. If you would rather leave it for later, the option is in Settings."
+ "Recomendado: assim as suas ferramentas de IA encontram o WhatsApp sempre que o computador ligar. Se preferir deixar para depois, a opção fica em Configurações.": "Recommended: this way your AI tools find WhatsApp whenever the computer starts. If you would rather leave it for later, the option is in Settings.",
+ "o app não conseguiu falar com o servidor para configurar a ferramenta; tente de novo em instantes": "the app could not reach the server to set up the tool; try again in a moment",
+ "-n é um número de linhas, 0 ou mais": "-n is a number of lines, 0 or more"
 }

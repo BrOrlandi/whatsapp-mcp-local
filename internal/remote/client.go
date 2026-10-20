@@ -224,6 +224,11 @@ type Client struct {
 	// OnKey is told the device's private key once the server has taken a
 	// new one, for the app to keep it (in the keychain).
 	OnKey func(private []byte)
+	// OnNextKey keeps a new key before the server is asked to take it, so
+	// a key the server has taken is never only in memory: if keeping it
+	// fails, the rotation does not happen. A kept next key goes back in
+	// with SetNext when the app starts again.
+	OnNextKey func(private []byte) error
 	// LastStamp is the handshake stamp the device sent last, kept by the
 	// app (OnStamp) so the next one is larger even if the clock went back:
 	// the server refuses a stamp that is not.
@@ -253,6 +258,20 @@ func NewClient(device Device, private []byte) (*Client, error) {
 	}
 	return &Client{device: device, server: server, key: noise.DHKey{Private: private, Public: pub}, Now: time.Now,
 		status: Status{State: StateConnecting, Server: server.Host, Since: time.Now()}, wake: make(chan struct{}, 1), ready: make(chan struct{})}, nil
+}
+
+// SetNext gives the client a key from a rotation that may not have
+// finished (OnNextKey kept it): the next session tries it first, and falls
+// back to the current key if the server never took it.
+func (c *Client) SetNext(private []byte) error {
+	pub, err := publicKey(private)
+	if err != nil {
+		return err
+	}
+	c.mu.Lock()
+	c.next = &noise.DHKey{Private: private, Public: pub}
+	c.mu.Unlock()
+	return nil
 }
 
 // Device is the paired device the client speaks for.
@@ -440,6 +459,11 @@ func (c *Client) Rotate(ctx context.Context) ([]byte, error) {
 	next, err := suite.GenerateKeypair(rand.Reader)
 	if err != nil {
 		return nil, err
+	}
+	if c.OnNextKey != nil {
+		if err := c.OnNextKey(next.Private); err != nil {
+			return nil, fmt.Errorf("the new key could not be kept, so it was not sent: %w", err)
+		}
 	}
 	raw, _ := json.Marshal(map[string][]byte{"key": next.Public})
 	if err := m.ch.write(ctx, frame(frameRotate, 0, raw)); err != nil {

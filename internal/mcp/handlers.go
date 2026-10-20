@@ -986,7 +986,7 @@ func (s *Server) downloadMedia(ctx context.Context, a arguments) map[string]any 
 		"media_type": m.MediaType, "mime_type": m.MimeType, "filename": m.Filename}
 	if a.Link {
 		token := s.links.add(d.Path, m.MimeType, 10*time.Minute)
-		url := s.base() + "/media/" + token
+		url := s.linkBase(ctx) + "/media/" + token
 		result["url"] = url
 		result["expires_in_seconds"] = 600
 		result["curl"] = fmt.Sprintf("curl -sSf -o %q %q", filepath.Base(d.Path), url)
@@ -995,7 +995,7 @@ func (s *Server) downloadMedia(ctx context.Context, a arguments) map[string]any 
 	if d.Bytes > 20<<20 {
 		// Too large to travel inside a tool result: hand out a link instead.
 		token := s.links.add(d.Path, m.MimeType, 10*time.Minute)
-		url := s.base() + "/media/" + token
+		url := s.linkBase(ctx) + "/media/" + token
 		result["url"], result["expires_in_seconds"] = url, 600
 		result["curl"] = fmt.Sprintf("curl -sSf -o %q %q", filepath.Base(d.Path), url)
 		result["note"] = "the file is larger than 20 MiB, so it is not inlined: read it from path, or download it from url"

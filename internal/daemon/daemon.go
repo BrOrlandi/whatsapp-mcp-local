@@ -157,6 +157,17 @@ func Start(cfg Config) (*Daemon, error) {
 	return d, nil
 }
 
+// localBase reports whether base is an app's loopback address, the only
+// kind a link may be rebased to: http://127.0.0.1 and a port.
+func localBase(base string) bool {
+	port, ok := strings.CutPrefix(base, "http://127.0.0.1:")
+	if !ok {
+		return false
+	}
+	n, err := strconv.Atoi(port)
+	return err == nil && n > 0 && n < 65536 && strconv.Itoa(n) == port
+}
+
 // startRemote prepares remote access: the server's key and the paired
 // devices, always (so a code can be made before the listener is up), and the
 // listener when RemoteListen is set.
@@ -174,6 +185,10 @@ func (d *Daemon) startRemote(cfg Config, primary *Account) error {
 	routes := func(w http.ResponseWriter, r *http.Request, admin bool) {
 		window := admin && r.Header.Get(remote.WindowHeader) == "1"
 		r.Header.Del(remote.WindowHeader)
+		if base := r.Header.Get(remote.LocalBaseHeader); localBase(base) {
+			r = r.WithContext(mcp.WithLinkBase(r.Context(), base))
+		}
+		r.Header.Del(remote.LocalBaseHeader)
 		r.Host = addr(d.Port())
 		if !window {
 			d.routes.ServeHTTP(w, r)

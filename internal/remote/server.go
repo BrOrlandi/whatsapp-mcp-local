@@ -470,6 +470,14 @@ func (s *Server) identify(ctx context.Context, key []byte, stamp int64) (state.R
 		if err := s.state.RotateRemoteClient(ctx, id, key); err != nil {
 			return device, err
 		}
+		// The old key stops working now, sessions opened with it included:
+		// a stolen old key must not keep an open session alive.
+		s.mu.Lock()
+		for ref := range s.sessions[id] {
+			ref.cancel()
+		}
+		s.mu.Unlock()
+		s.logger.Info("a remote device took its new key; its old sessions end", "device", id)
 		device, err = s.state.RemoteClient(ctx, id)
 	}
 	if err != nil {
@@ -542,7 +550,7 @@ func (s *Server) serve(ctx context.Context, ch *channel, device state.RemoteClie
 				return
 			}
 			current, err := s.state.RemoteClient(ctx, device.ID)
-			if err != nil || current.RevokedAt != nil {
+			if err != nil || current.RevokedAt != nil || subtle.ConstantTimeCompare(current.PublicKey, device.PublicKey) != 1 {
 				ch.close("revoked")
 				return
 			}
