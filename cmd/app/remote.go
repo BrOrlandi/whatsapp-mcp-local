@@ -364,7 +364,7 @@ func (a *App) renderUnavailable(w http.ResponseWriter, rm *remoteMode) {
 	w.WriteHeader(http.StatusServiceUnavailable)
 	req, _ := http.NewRequest(http.MethodGet, "/__app/remoto", nil)
 	v := a.remoteView(req)
-	v.Error = i18n.T("O app está sem conexão com o servidor agora. Ele tenta de novo sozinho; esta página se atualiza.")
+	v.Error = i18n.T("O app está sem conexão com o servidor agora. Ele tenta de novo sozinho; esta página se atualiza. Para usar o WhatsApp sem o servidor, volte ao modo local, mais abaixo.")
 	_ = remoteTemplate.Execute(w, v)
 }
 
