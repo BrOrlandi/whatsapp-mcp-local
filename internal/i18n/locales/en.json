@@ -920,5 +920,15 @@
  "+55 11 91234-5678": "+1 415 555 0123",
  "Português do Brasil": "Brazilian Portuguese",
  "Espanhol": "Spanish",
- "Inglês": "English"
+ "Inglês": "English",
+ "Ainda não tem o servidor?": "Don't have the server yet?",
+ "Veja o passo a passo para montar o servidor": "See the step-by-step guide to set up the server",
+ "Continuar para configurar o servidor": "Continue to set up the server",
+ "Ele vale a pena para conectar agentes autônomos, que trabalham sozinhos a qualquer hora, como o OpenClaw e o Hermes Agent, entre outros, mesmo com este computador desligado.": "It is worth it to connect autonomous agents, which work on their own at any time, such as OpenClaw and Hermes Agent, among others, even with this computer off.",
+ "Entendo que é um uso avançado e que vou cuidar do servidor.": "I understand this is an advanced use and that I will look after the server.",
+ "O modo servidor é um uso avançado: o WhatsApp MCP passa a rodar num servidor seu, ligado o tempo todo, e manter esse servidor (atualizações, backup, HTTPS) pede conhecimento técnico.": "Server mode is an advanced use: WhatsApp MCP runs on a server of yours that is always on, and maintaining that server (updates, backups, HTTPS) takes technical knowledge.",
+ "Para o Claude Code, o Cursor, o Codex e outras ferramentas deste computador, a versão local atende perfeitamente.": "For Claude Code, Cursor, Codex and other tools on this computer, the local version does the job perfectly.",
+ "Quer deixar o WhatsApp num servidor seu, ligado o tempo todo?": "Want to keep WhatsApp on a server of yours, always on?",
+ "Quero usar a versão local": "I want to use the local version",
+ "Usar um servidor?": "Use a server?"
 }

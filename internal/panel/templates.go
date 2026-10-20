@@ -69,6 +69,20 @@ way out is one click away. */}}
 refreshes when it has passed. */}}
 {{define "syncpill"}}<span class="pill pill--{{.SyncTone}}{{if .SyncBusy}} pill--busy{{end}}" data-sync>{{if .SyncBusy}}<span class="spinner" aria-hidden="true"></span>{{end}}{{t .SyncLabel}}</span>{{end}}
 
+{{define "servergate"}}<div class="overlay" id="usar-servidor" role="dialog" aria-modal="true" aria-labelledby="usar-servidor-titulo">
+<div class="dialog">
+<div class="dialog__head"><h2 id="usar-servidor-titulo">{{t "Usar um servidor?"}}</h2><a class="dialog__close" href="#" aria-label="{{t "Fechar"}}">&times;</a></div>
+<div class="dialog__body stack">
+<p>{{t "O modo servidor é um uso avançado: o WhatsApp MCP passa a rodar num servidor seu, ligado o tempo todo, e manter esse servidor (atualizações, backup, HTTPS) pede conhecimento técnico."}}</p>
+<p>{{t "Ele vale a pena para conectar agentes autônomos, que trabalham sozinhos a qualquer hora, como o OpenClaw e o Hermes Agent, entre outros, mesmo com este computador desligado."}}</p>
+<p>{{t "Para o Claude Code, o Cursor, o Codex e outras ferramentas deste computador, a versão local atende perfeitamente."}}</p>
+<p><a href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/docs/modo-servidor.md" target="_blank" rel="noopener">{{t "Veja o passo a passo para montar o servidor"}}</a></p>
+<form method="get" action="/__app/remoto" class="stack">
+<label class="check"><input type="checkbox" name="avancado" value="1" required><span>{{t "Entendo que é um uso avançado e que vou cuidar do servidor."}}</span></label>
+<div class="actions actions--end"><a class="btn btn--quiet" href="#">{{t "Quero usar a versão local"}}</a><button class="btn" type="submit">{{t "Continuar para configurar o servidor"}}</button></div>
+</form>
+</div></div></div>{{end}}
+
 {{define "autostartcheck"}}{{if .App}}<div class="wizard__escape"><label class="check check--inline"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span>{{t "Abrir o WhatsApp MCP quando o computador ligar"}}</span></label></div>
 <p class="busy" data-setting-note role="status" hidden></p>{{end}}{{end}}
 
@@ -462,6 +476,8 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div>
 </div></section>
 <p class="muted" style="text-align:center">{{t "Tudo roda neste computador: as mensagens ficam aqui, e nada passa por servidor de terceiros."}}</p>
+{{if and .App (not .Remote)}}<p class="muted" style="text-align:center">{{t "Quer deixar o WhatsApp num servidor seu, ligado o tempo todo?"}} <a href="#usar-servidor">{{t "Usar um servidor"}}</a></p>
+{{template "servergate" .}}{{end}}
 {{template "autostartcheck" .}}
 {{end}}
 
@@ -661,7 +677,8 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{if .Remote}}<p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor, por uma conexão cifrada de ponta a ponta dentro do HTTPS."}}</p>
 <div class="actions"><a class="btn" href="/__app/remoto">{{t "Gerenciar a conexão com o servidor"}}</a></div>
 {{else if .App}}<p>{{t "O WhatsApp pode rodar num servidor que fica ligado o tempo todo, e este app passa a ser o controle dele: as ferramentas de IA deste computador continuam no mesmo endereço."}}</p>
-<div class="actions"><a class="btn" href="/__app/remoto">{{t "Usar um servidor"}}</a></div>
+<div class="actions"><a class="btn btn--quiet" href="#usar-servidor">{{t "Usar um servidor"}}</a></div>
+{{template "servergate" .}}
 {{else}}<p>{{t "O app de outro computador pode usar e controlar este WhatsApp MCP. Gere um código de pareamento aqui e cole no app, em Configurações › Acesso remoto. O código vale uma vez, por 10 minutos."}}</p>{{end}}
 {{if not .App}}{{if .Devices}}<ul class="rows" data-remote-devices>{{range .Devices}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}{{if .This}} <span class="pill pill--accent pill--plain">{{t "este app"}}</span>{{end}}</span><span class="row__meta">{{.Scope}} · {{if .RevokedAt}}{{t "revogado"}}{{else if .LastSeen}}{{tf "visto em %s" (moment .LastSeen)}}{{else}}{{t "nunca conectado"}}{{end}}</span></span>
 {{if not .RevokedAt}}<button class="btn btn--quiet btn--small" type="button" data-remote-revoke="{{.ID}}">{{t "Revogar"}}</button>{{end}}</li>{{end}}</ul>{{end}}

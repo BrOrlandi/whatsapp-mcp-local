@@ -920,5 +920,15 @@
  "+55 11 91234-5678": "+52 55 1234 5678",
  "Português do Brasil": "Portugués de Brasil",
  "Espanhol": "Español",
- "Inglês": "Inglés"
+ "Inglês": "Inglés",
+ "Ainda não tem o servidor?": "¿Todavía no tienes el servidor?",
+ "Veja o passo a passo para montar o servidor": "Mira el paso a paso para montar el servidor",
+ "Continuar para configurar o servidor": "Continuar para configurar el servidor",
+ "Ele vale a pena para conectar agentes autônomos, que trabalham sozinhos a qualquer hora, como o OpenClaw e o Hermes Agent, entre outros, mesmo com este computador desligado.": "Vale la pena para conectar agentes autónomos, que trabajan solos a cualquier hora, como OpenClaw y Hermes Agent, entre otros, incluso con esta computadora apagada.",
+ "Entendo que é um uso avançado e que vou cuidar do servidor.": "Entiendo que es un uso avanzado y que voy a cuidar del servidor.",
+ "O modo servidor é um uso avançado: o WhatsApp MCP passa a rodar num servidor seu, ligado o tempo todo, e manter esse servidor (atualizações, backup, HTTPS) pede conhecimento técnico.": "El modo servidor es un uso avanzado: WhatsApp MCP pasa a correr en un servidor tuyo, siempre encendido, y mantener ese servidor (actualizaciones, copias de seguridad, HTTPS) requiere conocimiento técnico.",
+ "Para o Claude Code, o Cursor, o Codex e outras ferramentas deste computador, a versão local atende perfeitamente.": "Para Claude Code, Cursor, Codex y otras herramientas de esta computadora, la versión local funciona perfectamente.",
+ "Quer deixar o WhatsApp num servidor seu, ligado o tempo todo?": "¿Quieres dejar WhatsApp en un servidor tuyo, siempre encendido?",
+ "Quero usar a versão local": "Quiero usar la versión local",
+ "Usar um servidor?": "¿Usar un servidor?"
 }
