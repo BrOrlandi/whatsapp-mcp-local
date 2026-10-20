@@ -8,7 +8,7 @@ const remotePageSource = `<!doctype html>
 <body><div class="shell"><header class="masthead"><a class="brand" href="/"><span class="brand__name">WhatsApp MCP</span></a></header>
 <main class="page">
 <p><a class="flow__back" href="/configuracoes#remoto">← {{t "Voltar ao painel"}}</a></p>
-<h1>{{t "Servidor remoto"}}</h1>
+<h1 class="flow__title">{{t "Servidor remoto"}}</h1>
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}{{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
 {{if .Remote}}
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Modo remoto"}}</h2><span class="pill pill--accent pill--plain">{{.Server}}</span></div>
@@ -33,8 +33,9 @@ const remotePageSource = `<!doctype html>
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Usar um servidor"}}</h2></div>
 <div class="card__body stack">
 <p>{{t "No servidor, gere um código de pareamento: whatsapp-mcp remote code, ou Configurações › Acesso remoto no painel dele. O código vale uma vez, por 10 minutos."}}</p>
+<p class="muted">{{t "Ainda não tem o servidor?"}} <a href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/docs/modo-servidor.md" target="_blank" rel="noopener">{{t "Veja o passo a passo para montar o servidor"}}</a></p>
 <p class="note">{{t "A conexão é só por HTTPS, com o certificado conferido, e cifrada de ponta a ponta entre este app e o servidor: um proxy no caminho não lê o conteúdo. A chave deste app fica no Keychain deste Mac."}}</p>
-<form method="post" action="/__app/remoto/parear" autocomplete="off">
+<form class="stack" method="post" action="/__app/remoto/parear" autocomplete="off">
 <label class="field" for="server"><span class="field__label">{{t "Endereço do servidor"}}</span><input id="server" name="server" type="url" required pattern="https://.+" placeholder="{{t "https://whatsapp.exemplo.com"}}" title="{{t "Só endereços https://"}}"></label>
 <label class="field" for="code"><span class="field__label">{{t "Código de pareamento"}}</span><input id="code" name="code" type="text" required placeholder="{{t "wamcp1-…"}}" spellcheck="false"></label>
 <label class="field" for="name"><span class="field__label">{{t "Nome deste app no servidor"}}</span><input id="name" name="name" type="text" value="{{.Hostname}}"></label>
