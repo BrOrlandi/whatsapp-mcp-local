@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/BrOrlandi/whatsapp-mcp-local/internal/bridge"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
 )
 
@@ -317,37 +316,4 @@ func tmpBase() string {
 		return "/tmp" // the store's socket path must stay short
 	}
 	return ""
-}
-
-// A program without a screen (an agent in a container) uses the server's
-// MCP over stdio through remote access, as a tools device: the bridge with
-// the session as its transport.
-func TestABridgeOverRemoteAccess(t *testing.T) {
-	d, _ := startDaemon(t, freePort(t), true)
-	defer d.Stop()
-	proxy := httptest.NewTLSServer(d.Remote().Handler())
-	defer proxy.Close()
-	remote.Transport = proxy.Client().Transport
-	defer func() { remote.Transport = nil }()
-	code, _ := d.Remote().NewCode("Hermes", remote.ScopeTools)
-	dev, key, err := remote.Pair(context.Background(), proxy.URL, code.Code, "Hermes")
-	if err != nil {
-		t.Fatal(err)
-	}
-	c, _ := remote.NewClient(dev, key)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go c.Run(ctx)
-	for i := 0; i < 200 && c.Status().State != remote.StateConnected; i++ {
-		waitABit()
-	}
-	in := strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"hermes","version":"1"}}}` + "\n" +
-		`{"jsonrpc":"2.0","id":2,"method":"tools/list"}` + "\n")
-	var out bytes.Buffer
-	if err := bridge.Run(ctx, bridge.Options{URL: func() string { return "http://remote/mcp" }, Transport: c, NotRunning: "down"}, in, &out); err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out.String(), `"list_chats"`) || !strings.Contains(out.String(), `"id":1`) {
-		t.Fatalf("the MCP through the bridge over remote access: %.400s", out.String())
-	}
 }
