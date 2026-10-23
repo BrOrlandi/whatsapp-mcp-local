@@ -41,6 +41,10 @@ type Server struct {
 	state  *state.State
 	key    noise.DHKey
 	logger *slog.Logger
+	// MCP serves /mcp for API keys; APIKey says whether a key is valid, and
+	// whether any key exists (none: /mcp is off). Either nil turns it off.
+	MCP    http.Handler
+	APIKey func(key string) (valid, on bool, err error)
 	// Admin answers a paired app's requests: the panel, the API and the
 	// MCP, as the daemon serves them on its loopback port.
 	Admin http.Handler
@@ -260,6 +264,29 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /remote/v1/session", s.guard(s.serveSession))
 	mux.HandleFunc("GET /remote/v1/health", s.guard(func(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "ok\n")
+	}))
+	// The MCP for services that reach it by URL with an API key, only when
+	// keys exist (APIKey): off by default.
+	mux.HandleFunc("/mcp", s.guard(func(w http.ResponseWriter, r *http.Request) {
+		if s.MCP == nil || s.APIKey == nil {
+			http.NotFound(w, r)
+			return
+		}
+		key, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+		switch has, on, err := s.APIKey(strings.TrimSpace(key)); {
+		case !on:
+			http.NotFound(w, r) // no keys: the MCP by URL is off
+			return
+		case err != nil:
+			s.logger.Error("the API keys could not be read", "error", err)
+			http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			return
+		case !ok || !has:
+			w.Header().Set("WWW-Authenticate", `Bearer realm="whatsapp-mcp"`)
+			http.Error(w, "missing or wrong API key", http.StatusUnauthorized)
+			return
+		}
+		s.MCP.ServeHTTP(w, r)
 	}))
 	return mux
 }
