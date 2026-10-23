@@ -142,6 +142,10 @@ func main() {
 	case "serve":
 		err = serve(cfg)
 	case "bridge":
+		if len(args) > 0 && args[0] == "--remote" {
+			err = bridgeRemote(cfg)
+			break
+		}
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		err = bridge.Run(ctx, bridge.Options{
@@ -222,6 +226,8 @@ Settings:
   open                      open the control panel in the browser
 
   bridge                    stdio MCP server for Claude Desktop that forwards to the daemon
+  bridge --remote           the same, to another daemon's MCP over its remote access (after remote pair)
+  remote pair https://server <code> [--name N]   pair this command line with a server (a code from: remote code --scope tools)
   version                   print the version
 
 status, pair, logout, port, token, webhooks, update and remote take --json: one JSON object

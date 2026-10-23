@@ -933,5 +933,9 @@
  "Usar um servidor?": "¿Usar un servidor?",
  "Recomendado: assim as suas ferramentas de IA encontram o WhatsApp sempre que o computador ligar. Se preferir deixar para depois, a opção fica em Configurações.": "Recomendado: así tus herramientas de IA encuentran WhatsApp siempre que la computadora se encienda. Si prefieres dejarlo para después, la opción está en Configuración.",
  "o app não conseguiu falar com o servidor para configurar a ferramenta; tente de novo em instantes": "la app no pudo hablar con el servidor para configurar la herramienta; inténtalo de nuevo en unos instantes",
- "-n é um número de linhas, 0 ou mais": "-n es un número de líneas, 0 o más"
+ "-n é um número de linhas, 0 ou mais": "-n es un número de líneas, 0 o más",
+ "a chave deste aparelho não está aqui: pareie de novo (whatsapp-mcp remote pair)": "la clave de este dispositivo no está aquí: vuelve a emparejar (whatsapp-mcp remote pair)",
+ "esta linha de comando não está pareada com um servidor: whatsapp-mcp remote pair https://servidor <código>": "esta línea de comandos no está emparejada con un servidor: whatsapp-mcp remote pair https://servidor <código>",
+ "o pareamento não deu certo: %v": "el emparejamiento falló: %v",
+ "Pareado com %s (escopo %s, aparelho %s). O MCP do servidor fica em: whatsapp-mcp bridge --remote": "Emparejado con %s (alcance %s, dispositivo %s). El MCP del servidor está en: whatsapp-mcp bridge --remote"
 }

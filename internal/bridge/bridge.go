@@ -28,13 +28,16 @@ type Options struct {
 	// NotRunning is the error a client gets when nothing answers, written
 	// for the model to relay: how to start the daemon.
 	NotRunning string
+	// Transport carries the requests; nil is the network. Through remote
+	// access it is the session with the server (remote.Client).
+	Transport http.RoundTripper
 }
 
 // Run copies newline-delimited JSON-RPC from in to the daemon, and the
 // answers back to out. Requests run concurrently, so a long tool call does not
 // hold up a ping.
 func Run(ctx context.Context, opts Options, in io.Reader, out io.Writer) error {
-	httpClient := &http.Client{Timeout: 15 * time.Minute}
+	httpClient := &http.Client{Timeout: 15 * time.Minute, Transport: opts.Transport}
 	var writeMu sync.Mutex
 	write := func(line []byte) {
 		writeMu.Lock()
