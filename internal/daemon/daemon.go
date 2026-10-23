@@ -6,6 +6,7 @@ package daemon
 
 import (
 	"context"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
@@ -54,7 +55,16 @@ type Config struct {
 	// comma separated); the remote routes refuse anything else. Empty, the
 	// listener must be one only the proxy reaches.
 	RemoteTrustedProxy string
+	// AgentListen, when set (host:port), serves the MCP there, and only the
+	// MCP (and its media links), for AI agents on a private network, such
+	// as other containers on a Docker network. Every request must carry
+	// AgentToken, which must be set: there is no unauthenticated way in.
+	AgentListen string
+	AgentToken  string
 }
+
+// minAgentToken is the shortest token the agents' listener accepts.
+const minAgentToken = 32
 
 // Daemon is a running gateway.
 type Daemon struct {
@@ -78,6 +88,7 @@ type Daemon struct {
 
 	remote    *remote.Server
 	remoteSrv *http.Server
+	agentSrv  *http.Server
 
 	watch watchers
 }
@@ -154,7 +165,85 @@ func Start(cfg Config) (*Daemon, error) {
 		d.Stop()
 		return nil, err
 	}
+	if err := d.startAgents(cfg); err != nil {
+		d.Stop()
+		return nil, err
+	}
 	return d, nil
+}
+
+// startAgents serves the MCP for agents on a private network, when
+// AgentListen is set: POST /mcp and the media links, with AgentToken
+// required on every request; nothing else (the panel, the API) is there.
+func (d *Daemon) startAgents(cfg Config) error {
+	if cfg.AgentListen == "" {
+		return nil
+	}
+	if len(cfg.AgentToken) < minAgentToken {
+		return fmt.Errorf("WHATSAPP_MCP_AGENT_LISTEN needs WHATSAPP_MCP_AGENT_TOKEN, of at least %d characters: the agents' MCP never runs without a token", minAgentToken)
+	}
+	ln, err := net.Listen("tcp", cfg.AgentListen)
+	if err != nil {
+		return fmt.Errorf("cannot listen for agents on %s: %w", cfg.AgentListen, err)
+	}
+	hs := httpserver.NewServer(d.agentHandler(cfg))
+	d.mu.Lock()
+	d.agentSrv = hs
+	d.mu.Unlock()
+	go func() {
+		if err := hs.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			d.logger.Error("the agents' listener stopped", "error", err)
+		}
+	}()
+	d.logger.Info("serving the MCP for agents", "listen", cfg.AgentListen)
+	return nil
+}
+
+func (d *Daemon) agentHandler(cfg Config) http.Handler {
+	want := []byte("Bearer " + cfg.AgentToken)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mcpCall := r.URL.Path == "/mcp"
+		if !mcpCall && !(r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/media/")) {
+			http.NotFound(w, r)
+			return
+		}
+		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), want) != 1 {
+			w.Header().Set("WWW-Authenticate", `Bearer realm="whatsapp-mcp-agents"`)
+			http.Error(w, "missing or wrong bearer token", http.StatusUnauthorized)
+			return
+		}
+		// Media links open where the agent reached the MCP.
+		if host := r.Host; agentHost(host) {
+			r = r.WithContext(mcp.WithLinkBase(r.Context(), "http://"+host))
+		}
+		r.Header.Del("Authorization")
+		if cfg.Token != "" {
+			r.Header.Set("Authorization", "Bearer "+cfg.Token)
+		}
+		r.Header.Del("Origin")
+		r.Header.Del(remote.WindowHeader)
+		r.Header.Del(remote.LocalBaseHeader)
+		r.Host = addr(d.Port())
+		d.routes.ServeHTTP(w, r)
+	})
+}
+
+// agentHost reports whether host is a plain name or IP and a port, the
+// only kind a media link may be rebased to for an agent.
+func agentHost(host string) bool {
+	name, port, err := net.SplitHostPort(host)
+	if err != nil || name == "" {
+		return false
+	}
+	if n, err := strconv.Atoi(port); err != nil || n <= 0 || n > 65535 {
+		return false
+	}
+	for _, c := range name {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '.' || c == '-' || c == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 // localBase reports whether base is an app's loopback address, the only
@@ -268,14 +357,13 @@ func (d *Daemon) Stop() {
 	wg.Wait()
 	<-d.watchDone
 	d.mu.Lock()
-	srv, rsrv := d.srv, d.remoteSrv
-	d.srv, d.remoteSrv = nil, nil
+	srv, rsrv, asrv := d.srv, d.remoteSrv, d.agentSrv
+	d.srv, d.remoteSrv, d.agentSrv = nil, nil, nil
 	d.mu.Unlock()
-	if srv != nil {
-		httpserver.Shutdown(srv)
-	}
-	if rsrv != nil {
-		httpserver.Shutdown(rsrv)
+	for _, s := range []*http.Server{srv, rsrv, asrv} {
+		if s != nil {
+			httpserver.Shutdown(s)
+		}
 	}
 	for _, a := range accounts {
 		a.stop()
