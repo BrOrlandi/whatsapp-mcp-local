@@ -660,9 +660,6 @@ func remoteCmd(cfg config, args []string) error {
 	if len(rest) > 0 {
 		action, rest = rest[0], rest[1:]
 	}
-	if action == "pair" {
-		return remotePairCmd(cfg, rest, *name)
-	}
 	a := newAPI(cfg)
 	ctx := context.Background()
 	switch action {
