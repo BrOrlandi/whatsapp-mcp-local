@@ -8,3 +8,6 @@ dist/
 # (docs/plano-multiplas-contas.md).
 internal/pro/
 cmd/*/zz_pro.go
+
+# Local notes
+.private/

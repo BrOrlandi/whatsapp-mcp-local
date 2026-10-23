@@ -314,7 +314,7 @@
   // the phone shows.
   var preview = document.querySelector("[data-chats]");
   if (preview) {
-    var palette = ["#128c7e", "#34b7f1", "#e0654a", "#8e5bd8", "#d6a01b", "#2c9f6a", "#c2477f", "#4a6fd6"];
+    var palette = ["#128c7e", "#b8860b", "#e0654a", "#8e5bd8", "#d6a01b", "#2c9f6a", "#c2477f", "#6b8e23"];
     var list = preview.querySelector("[data-chat-list]");
     var countPill = preview.querySelector("[data-chats-count]");
     var thread = preview.querySelector("[data-thread]");
@@ -817,4 +817,66 @@
     });
   }
   poll();
+})();
+
+// Remote access: the pairing code, shown once and never put in an address;
+// revoking a device; and, in the app on another computer, the live state of
+// its connection with the server (the app answers /__app/remote/status).
+(function () {
+  var out = document.querySelector("[data-remote-code-out]");
+  var make = document.querySelector("[data-remote-code]");
+  if (make && out) {
+    make.addEventListener("click", function () {
+      make.disabled = true;
+      fetch("/api/remote/codigo", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          make.disabled = false;
+          if (d.error) { window.alert(d.error); return; }
+          out.hidden = false;
+          out.querySelector("[data-remote-code-value]").textContent = d.code;
+          out.querySelector("[data-remote-code-note]").textContent = t("Impressão digital do servidor:") + " " + d.server_fingerprint;
+        })
+        .catch(function () { make.disabled = false; });
+    });
+  }
+  document.querySelectorAll("[data-remote-revoke]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (!window.confirm(t("Revogar este dispositivo? Ele perde o acesso na hora e precisa ser pareado de novo."))) return;
+      fetch("/api/remote/dispositivos/" + encodeURIComponent(b.getAttribute("data-remote-revoke")),
+        { method: "DELETE", credentials: "same-origin", headers: { "Content-Type": "application/json" } })
+        .then(function () { window.location.reload(); });
+    });
+  });
+  var link = document.querySelector("[data-remote-link]");
+  if (!link) return;
+  var whatsapp = document.querySelector("[data-remote-whatsapp]");
+  var labels = { connected: t("Conectado"), connecting: t("Conectando"), reconnecting: t("Reconectando"), unavailable: t("Indisponível"), refused: t("Recusado pelo servidor") };
+  var tones = { connected: "ok", connecting: "warn", reconnecting: "warn", unavailable: "fail", refused: "fail" };
+  // The server's WhatsApp, as far as the app knows: nothing is known while
+  // the app cannot reach the server, and the page must not keep saying
+  // what it said before.
+  function whatsappState(d) {
+    if (!d.link || d.link.state !== "connected" || !d.whatsapp) return [t("Desconhecido"), "off"];
+    switch (d.whatsapp.next) {
+      case "ready": return [t("Conectado"), "ok"];
+      case "syncing": case "wait": return [t("Sincronizando"), "warn"];
+      case "pair": case "scan": return [t("Desconectado"), "fail"];
+    }
+    return [t("A sincronização parou"), "fail"];
+  }
+  function poll() {
+    fetch("/__app/remote/status", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
+      var state = d.link && d.link.state;
+      link.textContent = labels[state] || state;
+      link.className = "pill pill--" + (tones[state] || "warn");
+      if (whatsapp) {
+        var w = whatsappState(d);
+        whatsapp.textContent = w[0];
+        whatsapp.className = "pill pill--" + w[1];
+      }
+    }).catch(function () {});
+  }
+  poll();
+  setInterval(poll, 3000);
 })();

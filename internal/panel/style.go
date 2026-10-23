@@ -10,7 +10,7 @@ const darkPalette = `
 --bg:#0a1513;--surface:#11211d;--surface-soft:#152b26;--surface-sunken:#0d1b18;--border:#23413a;--border-strong:#2f544b;
 --text:#e4f1ec;--text-soft:#cbe0d8;--muted:#a7c0b8;
 --brand:#2fc9a0;--brand-strong:#4adcb4;--brand-ink:#04211b;--brand-soft:#123029;
---accent:#93b4ff;--accent-soft:#16224a;
+--accent:#e8c860;--accent-soft:#2d2610;
 --danger:#ffaea7;--danger-bg:#361917;--danger-border:#67312e;
 --ok:#6fdcaa;--ok-bg:#0f3526;--ok-border:#1d5a40;
 --warn:#f2ce85;--warn-bg:#352a10;--off:#a4b9bf;--off-bg:#1a292d;
@@ -28,7 +28,7 @@ color-scheme:light dark;
 --bg:#eef3f1;--surface:#fff;--surface-soft:#f4f9f7;--surface-sunken:#e9f0ed;--border:#dbe6e1;--border-strong:#c3d5cd;
 --text:#10241c;--text-soft:#2c443d;--muted:#54695f;
 --brand:#0b6b5d;--brand-strong:#0a8172;--brand-ink:#fff;--brand-soft:#e3f3ef;
---accent:#1d4ed8;--accent-soft:#e8eeff;
+--accent:#7d5e00;--accent-soft:#f8eec4;
 --danger:#96201f;--danger-bg:#fdeceb;--danger-border:#f0c6c3;
 --ok:#0b6b45;--ok-bg:#e1f4ea;--ok-border:#b6e0c9;
 --warn:#7a5200;--warn-bg:#fbf0d6;--off:#4f646b;--off-bg:#e8eef0;
@@ -143,6 +143,10 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .pill--off{background:var(--off-bg);color:var(--off)}
 .pill--plain::before{display:none}
 .pill--accent{background:var(--accent-soft);color:var(--accent)}
+.pill--fail{background:var(--danger-bg);color:var(--danger);border-color:var(--danger-border)}
+.remote-banner{margin:0 0 18px;padding:12px 14px;border-radius:var(--radius-sm);border:1px solid var(--accent-soft);background:var(--accent-soft)}
+.remote-banner p{margin:0}
+.remote-banner__links{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;margin-top:8px!important;font-size:.9rem}
 
 /* ---- buttons ---- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-size:.94rem;font-weight:600;text-decoration:none;padding:10px 16px;border:1px solid transparent;border-radius:var(--radius-sm);cursor:pointer;background:var(--brand);color:var(--brand-ink);white-space:nowrap}
@@ -180,8 +184,8 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .field{display:block;margin:0 0 7px}
 .field__label{display:block;font-weight:600;font-size:.9rem}
 .field__hint{display:block;font-weight:400;color:var(--muted);font-size:.84rem;margin-top:3px}
-input[type=text],input[type=email],input[type=password]{width:100%;font:inherit;padding:10px 12px;color:var(--text);background:var(--surface-soft);border:1px solid var(--border-strong);border-radius:var(--radius-sm)}
-input[type=text]:hover,input[type=email]:hover,input[type=password]:hover{border-color:var(--brand-strong)}
+input[type=text],input[type=url],input[type=email],input[type=password]{width:100%;font:inherit;padding:10px 12px;color:var(--text);background:var(--surface-soft);border:1px solid var(--border-strong);border-radius:var(--radius-sm)}
+input[type=text]:hover,input[type=url]:hover,input[type=email]:hover,input[type=password]:hover{border-color:var(--brand-strong)}
 input[type=radio]{accent-color:var(--brand-strong);width:18px;height:18px;flex:none;margin:0}
 /* Anything after a control opens a new block. .reveal is that same control
    once password.js has wrapped it with the show/hide button, so both spellings
@@ -541,3 +545,6 @@ input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:v
 .update-banner__close{position:absolute;top:8px;right:10px;background:none;border:0;font-size:1.2rem;line-height:1;color:var(--muted);cursor:pointer;padding:4px}
 .btn .spinner{width:13px;height:13px}
 `
+
+// Stylesheet is the panel's stylesheet, for the app's own pages.
+func Stylesheet() string { return stylesheet }

@@ -1,0 +1,22 @@
+# WhatsApp MCP on a server (docs/servidor.md). The daemon answers only on
+# 127.0.0.1, so the container shares the host's network: the MCP is at
+# http://127.0.0.1:47821/mcp on the server itself.
+services:
+  whatsapp-mcp:
+    build:
+      context: ../..
+      dockerfile: build/docker/Dockerfile
+    image: whatsapp-mcp-local
+    container_name: whatsapp-mcp
+    restart: unless-stopped
+    network_mode: host
+    # ./data must exist and belong to the container's user before the
+    # first up, or Docker creates it as root and the daemon cannot write:
+    #   mkdir -p data && sudo chown 1000:1000 data
+    volumes:
+      - ./data:/data
+    environment:
+      TZ: America/Sao_Paulo
+      WHATSAPP_MCP_LANG: pt-BR
+      # WHATSAPP_MCP_PORT: "47821"
+      # WHATSAPP_MCP_TOKEN: ""  # or whatsapp-mcp token new, which keeps it in ./data

@@ -69,6 +69,11 @@ type agentPairing struct {
 	State string `json:"state"`
 	// QRPNG is the QR code to read with the phone, while State is qr.
 	QRPNG string `json:"qr_png,omitempty"`
+	// QR is the text that QR code encodes, for a terminal or another
+	// program to draw it; QRVersion counts the codes, which WhatsApp
+	// replaces every 20 seconds or so.
+	QR        string `json:"qr,omitempty"`
+	QRVersion int    `json:"qr_version,omitempty"`
 	// Code is what to type on the phone, while State is code.
 	Code  string `json:"code,omitempty"`
 	Error string `json:"error,omitempty"`
@@ -99,10 +104,13 @@ func (p *Panel) apiStatus(r *http.Request) (any, error) {
 		st.WhatsApp.LastMessageAt = t
 	}
 	if s.Pairing.State == "qr" {
-		st.Pairing.QRPNG = strings.TrimSuffix(p.endpoint(), "/mcp") + "/api/pair/qr.png"
+		st.Pairing.QRPNG = p.qrURL()
+		st.Pairing.QR, st.Pairing.QRVersion = s.Pairing.QR, s.Pairing.QRVersion
 	}
 	return st, nil
 }
+
+func (p *Panel) qrURL() string { return strings.TrimSuffix(p.endpoint(), "/mcp") + "/api/pair/qr.png" }
 
 // nextStep is what an agent does next:
 //

@@ -166,6 +166,23 @@ func (s *Server) base() string {
 	return s.baseURL
 }
 
+type linkBaseKey struct{}
+
+// WithLinkBase gives the address a caller reaches this server at, when it
+// is not this server's own: the app in remote mode serves the server's MCP
+// on its own computer's port, and download_media's links must point there.
+func WithLinkBase(ctx context.Context, base string) context.Context {
+	return context.WithValue(ctx, linkBaseKey{}, base)
+}
+
+// linkBase is where the caller of a request opens the links handed out.
+func (s *Server) linkBase(ctx context.Context) string {
+	if b, _ := ctx.Value(linkBaseKey{}).(string); b != "" {
+		return b
+	}
+	return s.base()
+}
+
 // ASR is the local transcription engine, when there is one.
 func (s *Server) ASR() *localasr.Engine { return s.asr }
 

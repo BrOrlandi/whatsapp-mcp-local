@@ -32,9 +32,13 @@ precisar da janela. O app e a versão de linha de comando têm a mesma API; só
 | Método e caminho | O que faz |
 |---|---|
 | `GET /api/status` | Onde as coisas estão e o que fazer em seguida (abaixo) |
-| `POST /api/pair` | Começa a conectar o WhatsApp com um QR code. Com `{"phone": "+55 11 91234-5678"}`, pede um código para digitar no celular (e troca o QR code por ele) |
+| `POST /api/pair` | Começa a conectar o WhatsApp com um QR code. Com `{"phone": "+55 11 91234-5678"}`, pede um código para digitar no celular (e troca o QR code por ele). Devolve a conexão, com `qr` e `qr_png` enquanto há um QR code |
 | `GET /api/pair/qr.png` | O QR code da vez, em PNG, enquanto `pairing.state` é `qr` |
 | `POST /api/pair/cancel` | Cancela a conexão em andamento |
+| `POST /api/logout` | Desconecta o WhatsApp deste computador, como o botão da aba WhatsApp |
+| `POST /api/remote/codigo` | Um código de pareamento para o app de outro computador ([Acesso remoto](acesso-remoto.md)): `{"name": "Mac", "scope": "admin"}`; aparece só nesta resposta |
+| `GET /api/remote/dispositivos` | Os aparelhos pareados e a impressão digital da chave do servidor |
+| `DELETE /api/remote/dispositivos/{id}` | Revoga um aparelho na hora |
 | `POST /api/clients/claude-code` | Configura o MCP no Claude Code deste computador. `{"replace": true}` substitui uma configuração antiga |
 | `POST /api/clients/claude-desktop` | O mesmo no Claude Desktop (chat e Cowork), que precisa ser reiniciado |
 | `POST /api/clients/codex` | O mesmo no Codex (o do app do ChatGPT, o app do Codex, o terminal e o editor), pelo comando `codex mcp add` |
@@ -79,13 +83,29 @@ algo a resolver (por exemplo, um WhatsApp já conectado).
 ```
 
 `whatsapp.connected` é verdadeiro quando o WhatsApp está recebendo e pronto para
-enviar. `next` diz o que fazer:
+enviar.
+
+Enquanto o QR code está na tela, `pairing` traz também o texto que ele
+codifica, para outro programa desenhar o código (um terminal, uma página, um
+bot), e `qr_version`, que muda a cada vez que o WhatsApp troca o código:
+
+```json
+"pairing": {
+  "state": "qr",
+  "qr_png": "http://127.0.0.1:47821/api/pair/qr.png",
+  "qr": "https://wa.me/settings/linked_devices#2@…",
+  "qr_version": 2
+}
+```
+
+O texto liga a conta de quem ler o código a este computador: passe-o só para
+quem vai ler. `next` diz o que fazer:
 
 | `next` | Significa | O que fazer |
 |---|---|---|
 | `ready` | Conectado, recebendo e pronto para enviar | Usar o MCP |
-| `pair` | Nenhum WhatsApp conectado | Abrir o app (a primeira tela já mostra o QR code) ou chamar `POST /api/pair` |
-| `scan` | Esperando a pessoa no celular | Ler o QR code (`pairing.qr_png`, também na janela do app) ou digitar `pairing.code` |
+| `pair` | Nenhum WhatsApp conectado | Abrir o app (a primeira tela já mostra o QR code), chamar `POST /api/pair` ou, no terminal, `whatsapp-mcp pair` |
+| `scan` | Esperando a pessoa no celular | Ler o QR code (`pairing.qr_png` ou `pairing.qr`, também na janela do app) ou digitar `pairing.code` |
 | `syncing` | Conectado; o celular está mandando o histórico | Esperar alguns minutos |
 | `wait` | Abrindo, reconectando ou pausado por instantes | Perguntar de novo em alguns segundos |
 | `error` | A sincronização parou | Ler `health.checks`: cada verificação que falha diz o que fazer |
@@ -172,6 +192,12 @@ um receptor mínimo em Python.
 Os webhooks precisam de um wacli que entregue mensagens novas (o que vem com o
 app entrega); com um mais antigo, `GET /api/webhooks` responde
 `"available": false`.
+
+## Pela linha de comando
+
+A versão de linha de comando tem um comando para cada coisa desta API, com
+saída em JSON e códigos de saída para scripts: `whatsapp-mcp status`, `pair`,
+`logout`, `webhooks`… Veja [Num servidor sem tela](servidor.md).
 
 ## Exemplos
 

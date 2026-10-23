@@ -6,14 +6,19 @@ package daemon
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,6 +50,14 @@ type Config struct {
 	// Panel adjusts the control panel before it is served, for the app to
 	// plug in what only it can do.
 	Panel func(*panel.Panel)
+	// RemoteListen, when set (host:port), serves the app's remote access
+	// there (internal/remote): two routes, for an HTTPS proxy on a private
+	// network to reach. Everything else stays on the loopback port.
+	RemoteListen string
+	// RemoteTrustedProxy names the HTTPS proxy (IPs, CIDRs or host names,
+	// comma separated); the remote routes refuse anything else. Empty, the
+	// listener must be one only the proxy reaches.
+	RemoteTrustedProxy string
 }
 
 // Daemon is a running gateway.
@@ -66,6 +79,9 @@ type Daemon struct {
 	port      int
 	srv       *http.Server
 	listenErr *PortProblem
+
+	remote    *remote.Server
+	remoteSrv *http.Server
 
 	watch watchers
 }
@@ -138,8 +154,129 @@ func Start(cfg Config) (*Daemon, error) {
 		logger.Info("serving MCP", "url", d.MCPURL(), "wacli", cfg.WacliBin, "store", cfg.StoreDir, "token", cfg.Token != "")
 	}
 	go d.watchLoop(ctx)
+	if err := d.startRemote(cfg, primary); err != nil {
+		d.Stop()
+		return nil, err
+	}
 	return d, nil
 }
+
+// APIKeysFile, in the data folder, holds the SHA-256 (hex) of each API key
+// that may use the MCP by URL, one per line, with an optional name after a
+// space; # starts a comment. No file, or no key in it, and the MCP is not
+// served by URL. The keys themselves are never kept: they are long random
+// secrets, shown once when made.
+const APIKeysFile = "api-keys"
+
+// apiKeyValid reports whether key is one of the API keys, and whether there
+// is any (none: the MCP by URL is off). The file is read
+// on every call, so removing a line revokes a key at once.
+func apiKeyValid(path, key string) (valid, on bool, err error) {
+	raw, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return false, false, nil
+	}
+	if err != nil {
+		return false, true, err
+	}
+	sum := sha256.Sum256([]byte(key))
+	want := hex.EncodeToString(sum[:])
+	found := 0
+	for _, line := range strings.Split(string(raw), "\n") {
+		line, _, _ = strings.Cut(line, "#")
+		fields := strings.Fields(line)
+		if len(fields) > 0 {
+			on = true
+			found |= subtle.ConstantTimeCompare([]byte(strings.ToLower(fields[0])), []byte(want))
+		}
+	}
+	return found == 1 && len(key) >= 32, on, nil
+}
+
+// localBase reports whether base is an app's loopback address, the only
+// kind a link may be rebased to: http://127.0.0.1 and a port.
+func localBase(base string) bool {
+	port, ok := strings.CutPrefix(base, "http://127.0.0.1:")
+	if !ok {
+		return false
+	}
+	n, err := strconv.Atoi(port)
+	return err == nil && n > 0 && n < 65536 && strconv.Itoa(n) == port
+}
+
+// startRemote prepares remote access: the server's key and the paired
+// devices, always (so a code can be made before the listener is up), and the
+// listener when RemoteListen is set.
+func (d *Daemon) startRemote(cfg Config, primary *Account) error {
+	srv, err := remote.NewServer(cfg.DataDir, primary.st, d.logger)
+	if err != nil {
+		return err
+	}
+	// A device's requests come through its session, already authenticated
+	// as that device, and not through the loopback guard. What the app's own
+	// window sent (remote.WindowHeader, which the app sets for its window
+	// only) is served as the panel serves its window, with the token; every
+	// other request, from a program on the app's computer, gets the same
+	// checks as a program on this one: sameOrigin, the agent rules, the token.
+	routes := func(w http.ResponseWriter, r *http.Request, admin bool) {
+		window := admin && r.Header.Get(remote.WindowHeader) == "1"
+		r.Header.Del(remote.WindowHeader)
+		if base := r.Header.Get(remote.LocalBaseHeader); localBase(base) {
+			r = r.WithContext(mcp.WithLinkBase(r.Context(), base))
+		}
+		r.Header.Del(remote.LocalBaseHeader)
+		r.Host = addr(d.Port())
+		if !window {
+			d.routes.ServeHTTP(w, r)
+			return
+		}
+		if cfg.Token != "" {
+			r.Header.Set("Authorization", "Bearer "+cfg.Token)
+		}
+		panel.Internal(d.routes).ServeHTTP(w, r)
+	}
+	srv.Admin = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { routes(w, r, true) })
+	srv.Tools = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { routes(w, r, false) })
+	srv.TrustedProxy = remote.TrustProxies(cfg.RemoteTrustedProxy)
+	// The MCP by URL, for services with an API key (APIKeysFile). The key
+	// proved who calls; the request then goes on as a program's here would.
+	srv.APIKey = func(key string) (bool, bool, error) {
+		return apiKeyValid(filepath.Join(cfg.DataDir, APIKeysFile), key)
+	}
+	srv.MCP = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Del("Authorization")
+		if cfg.Token != "" {
+			r.Header.Set("Authorization", "Bearer "+cfg.Token)
+		}
+		r.Header.Del(remote.WindowHeader)
+		r.Header.Del(remote.LocalBaseHeader)
+		r.Host = addr(d.Port())
+		d.routes.ServeHTTP(w, r)
+	})
+	d.remote = srv
+	d.panel.Remote = srv
+	if cfg.RemoteListen == "" {
+		return nil
+	}
+	ln, err := net.Listen("tcp", cfg.RemoteListen)
+	if err != nil {
+		return fmt.Errorf("cannot listen for remote access on %s: %w", cfg.RemoteListen, err)
+	}
+	hs := httpserver.NewServer(srv.Handler())
+	d.mu.Lock()
+	d.remoteSrv = hs
+	d.mu.Unlock()
+	go func() {
+		if err := hs.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			d.logger.Error("the remote listener stopped", "error", err)
+		}
+	}()
+	d.logger.Info("serving remote access", "listen", cfg.RemoteListen, "server_key", remote.Fingerprint(srv.PublicKey()))
+	return nil
+}
+
+// Remote is the daemon's remote access.
+func (d *Daemon) Remote() *remote.Server { return d.remote }
 
 func addr(port int) string    { return net.JoinHostPort("127.0.0.1", strconv.Itoa(port)) }
 func baseURL(port int) string { return "http://" + addr(port) }
@@ -182,11 +319,14 @@ func (d *Daemon) Stop() {
 	wg.Wait()
 	<-d.watchDone
 	d.mu.Lock()
-	srv := d.srv
-	d.srv = nil
+	srv, rsrv := d.srv, d.remoteSrv
+	d.srv, d.remoteSrv = nil, nil
 	d.mu.Unlock()
 	if srv != nil {
 		httpserver.Shutdown(srv)
+	}
+	if rsrv != nil {
+		httpserver.Shutdown(rsrv)
 	}
 	for _, a := range accounts {
 		a.stop()

@@ -618,6 +618,9 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 			draft["reply_to"] = reply.quoted
 		}
 		if src := strings.TrimPrefix(strings.TrimSpace(a.URL), "file://"); filepath.IsAbs(src) {
+			if fromRemote(ctx) {
+				return toolError("%v", errRemotePath)
+			}
 			info, err := os.Stat(src)
 			if err != nil || info.IsDir() || info.Size() > maxMedia {
 				return toolError("%s is not a readable file of at most 100 MiB", src)
@@ -681,6 +684,9 @@ func (s *Server) fetchFile(ctx context.Context, source, filename string) (string
 		source = p
 	}
 	if filepath.IsAbs(source) {
+		if fromRemote(ctx) {
+			return "", nothing, errRemotePath
+		}
 		info, err := os.Stat(source)
 		if err != nil {
 			return "", nothing, fmt.Errorf("cannot read %s: %v", source, err)
@@ -699,7 +705,7 @@ func (s *Server) fetchFile(ctx context.Context, source, filename string) (string
 	if err != nil {
 		return "", nothing, err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := downloadClient(ctx).Do(req)
 	if err != nil {
 		return "", nothing, fmt.Errorf("could not download %s: %v", source, err)
 	}
@@ -980,7 +986,7 @@ func (s *Server) downloadMedia(ctx context.Context, a arguments) map[string]any 
 		"media_type": m.MediaType, "mime_type": m.MimeType, "filename": m.Filename}
 	if a.Link {
 		token := s.links.add(d.Path, m.MimeType, 10*time.Minute)
-		url := s.base() + "/media/" + token
+		url := s.linkBase(ctx) + "/media/" + token
 		result["url"] = url
 		result["expires_in_seconds"] = 600
 		result["curl"] = fmt.Sprintf("curl -sSf -o %q %q", filepath.Base(d.Path), url)
@@ -989,7 +995,7 @@ func (s *Server) downloadMedia(ctx context.Context, a arguments) map[string]any 
 	if d.Bytes > 20<<20 {
 		// Too large to travel inside a tool result: hand out a link instead.
 		token := s.links.add(d.Path, m.MimeType, 10*time.Minute)
-		url := s.base() + "/media/" + token
+		url := s.linkBase(ctx) + "/media/" + token
 		result["url"], result["expires_in_seconds"] = url, 600
 		result["curl"] = fmt.Sprintf("curl -sSf -o %q %q", filepath.Base(d.Path), url)
 		result["note"] = "the file is larger than 20 MiB, so it is not inlined: read it from path, or download it from url"
