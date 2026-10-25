@@ -212,6 +212,15 @@ O app passa a mostrar, no topo de cada tela, que está no modo remoto, qual
 servidor usa e como estão as duas conexões: a do app com o servidor e a do
 servidor com o WhatsApp.
 
+O código só serve para esse primeiro pareamento. Depois, o app conecta sozinho
+toda vez, com a chave que guardou no Keychain do computador.
+
+**Outro computador também vai gerenciar o servidor?** No app que já está
+conectado: *Configurações › Acesso remoto › Gerenciar a conexão com o servidor
+› Parear outro computador como gerenciador*. O código aparece ali, e o outro
+computador o usa como acima. Pelo terminal do servidor também dá:
+`remote code`, como no começo deste passo.
+
 ## 5. Ligar os agentes do próprio servidor
 
 Um agente que roda no servidor usa o MCP de lá, sem passar pelo app:
@@ -232,6 +241,38 @@ e no topo das telas, e tenta de novo sozinho. Enquanto isso, o WhatsApp
 continua conectado no servidor e nada se perde. Para usar o WhatsApp sem o
 servidor, a tela de conexão do app tem *Voltar ao modo local*.
 
+## Perdi ou formatei o computador
+
+O WhatsApp e as conversas continuam no servidor: não é preciso ler o QR code
+de novo nem migrar nada. O que se perdeu foi a chave do app daquele
+computador, que ficava no Keychain dele. Para gerenciar o servidor de outro
+computador:
+
+1. **Entre no terminal do servidor**, por SSH ou pelo console do provedor. Se
+   outro computador seu já gerencia o servidor, pode pular para o passo 3 e
+   gerar o código nele.
+2. **Gere um código de pareamento:**
+   ```sh
+   docker exec whatsapp-mcp whatsapp-mcp remote code --name "Mac novo"
+   # sem Docker: whatsapp-mcp remote code --name "Mac novo"
+   ```
+3. **No computador novo**, instale o app e vá em *Configurações › Acesso
+   remoto › Usar um servidor*, com o endereço `https://` do servidor e o
+   código.
+4. **Revogue o computador antigo.** Veja a lista com os ids e corte o antigo:
+   ```sh
+   docker exec whatsapp-mcp whatsapp-mcp remote
+   docker exec whatsapp-mcp whatsapp-mcp remote revoke <id>
+   ```
+   ou, no app novo, *Gerenciar a conexão com o servidor › Revogar* ao lado do
+   nome dele. Se o computador foi **perdido ou roubado**, faça isso primeiro:
+   a chave continua no Keychain dele até ser revogada. Se foi formatado,
+   revogar só limpa a lista.
+
+Sem acesso ao terminal do servidor e sem outro computador pareado, não há como
+parear um novo: guarde o acesso SSH do servidor junto com as outras senhas
+importantes.
+
 ## Manter
 
 - **Atualizar:** com Docker, rode o `install-docker.sh` de novo; sem Docker,
@@ -242,4 +283,6 @@ servidor, a tela de conexão do app tem *Voltar ao modo local*.
 - **Ver o que acontece:** `docker exec whatsapp-mcp whatsapp-mcp status` e
   `docker compose logs -f`.
 - **Cortar um app:** `whatsapp-mcp remote revoke <id>` (a lista sai em
-  `whatsapp-mcp remote`).
+  `whatsapp-mcp remote`), ou *Revogar* na tela *Gerenciar a conexão com o
+  servidor* de outro app. Trocar de computador:
+  [Perdi ou formatei o computador](#perdi-ou-formatei-o-computador).
