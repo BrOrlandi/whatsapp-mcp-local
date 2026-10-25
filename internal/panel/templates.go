@@ -120,9 +120,59 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <a class="flow__back" href="{{if .InSetup}}/instalacao{{else}}/{{end}}">{{icon "back"}}{{t "Voltar"}}</a>
 <h1>{{t "Conectar ferramenta de IA ao MCP"}}</h1>
 <p class="lead">{{t "Onde você vai usar o seu WhatsApp?"}}</p>
+<h2 class="flow__section">{{t "Ferramentas neste computador"}}</h2>
 {{template "toolpicks" .Tools}}
 <p class="muted flow__note">{{t "Não funciona no Claude pelo navegador ou pelo celular, nem no ChatGPT na web: só em programas instalados neste computador."}}</p>
+<h2 class="flow__section">{{t "Agentes remotos"}}</h2>
+<p class="muted">{{t "Agentes que rodam fora deste computador, como num servidor ou na nuvem, usam o MCP pelo endereço do servidor, com uma chave. Precisa do modo servidor."}}</p>
+{{template "toolpicks" .Agents}}
 </div>
+{{template "foot" .}}{{end}}
+
+{{define "conectaragente"}}{{template "head" .}}{{template "flowhead" .}}
+<a class="flow__back" href="/conectar">{{icon "back"}}{{t "Escolher outra ferramenta"}}</a>
+<div class="flow__title"><span class="toolpick__icon">{{toolmark .Tool.Mark}}</span><h1>{{t .Tool.Title}}</h1></div>
+{{if .Local}}
+<section class="card"><div class="card__body stack">
+<p>{{tf "%s roda fora deste computador e alcança o MCP pelo endereço de um servidor. Este app roda o WhatsApp aqui, no modo local: não há servidor para ele alcançar." (t .Tool.Who)}}</p>
+<p class="muted">{{t "O modo servidor é um uso avançado: o WhatsApp MCP passa a rodar num servidor seu, ligado o tempo todo, e manter esse servidor (atualizações, backup, HTTPS) pede conhecimento técnico."}}</p>
+<div class="actions"><a class="btn" href="/configuracoes#remoto">{{t "Usar um servidor"}}</a><a class="btn btn--quiet" href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/docs/modo-servidor.md" target="_blank" rel="noopener">{{t "Veja o passo a passo para montar o servidor"}}</a></div>
+</div></section>
+{{else}}
+<section class="card"><div class="card__body">
+<p class="muted">{{tf "%s usa o MCP do servidor pela internet ou pela sua rede, no endereço abaixo, com uma chave só dele. As ferramentas deste computador continuam no endereço local." (t .Tool.Who)}}</p>
+<ol class="flowsteps">
+<li class="flowstep"><h2 class="flowstep__title">{{t "Crie uma chave para o agente"}}</h2>
+<p class="muted">{{t "A chave aparece uma vez só. Guarde no lugar de segredos do agente e não a cole em conversas."}}</p>
+<div class="actions"><button class="btn" type="button" data-api-key-new="{{t .Tool.Name}}">{{t "Criar chave"}}</button></div>
+<p class="busy" data-api-key-note role="status" hidden></p>
+<div class="snippet" data-api-key-out hidden><div class="snippet__head"><span class="snippet__title">{{t "Chave de API"}}</span></div><pre data-copy><code data-api-key-value></code></pre></div></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Configure o agente"}}</h2>
+{{if not .URL}}<p class="note">{{t "Troque o endereço abaixo pelo endereço HTTPS do seu servidor."}}</p>{{end}}
+<p class="muted">{{t "Mande este texto no chat do agente, para ele se configurar:"}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Copie e mande para o agente"}}</span></div>
+<pre class="plain" data-copy><code data-api-key-slot>{{tf "Configure um servidor MCP chamado whatsapp, por HTTP, no endereço %s, mandando o cabeçalho Authorization: Bearer %s. Guarde a chave como segredo: não a mostre em respostas nem em logs. Depois, para testar, liste as minhas conversas do WhatsApp, sem mandar mensagem." (or .URL "https://<endereço do servidor>/mcp") "<chave>"}}</code></pre></div>
+<details class="resend"><summary>{{t "Prefiro configurar à mão"}}</summary>
+<p class="muted">{{t "Na configuração de servidores MCP do agente, com o endereço e o cabeçalho:"}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">JSON</span></div>
+<pre data-copy><code data-api-key-slot>{
+  "mcpServers": {
+    "whatsapp": {
+      "url": "{{or .URL "https://<endereço do servidor>/mcp"}}",
+      "headers": { "Authorization": "Bearer &lt;chave&gt;" }
+    }
+  }
+}</code></pre></div></details></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Confira a conexão"}}</h2>
+<p class="muted">{{t "Quando o agente usar o MCP, ele aparece no painel, em Conexões, como direto no servidor, pelo endereço com chave."}} <span class="tip" tabindex="0" aria-describedby="tip-proxy"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-proxy">{{t "O proxy HTTPS do servidor precisa encaminhar o caminho /mcp, além do acesso remoto do app. Sem chave criada, o servidor não atende o MCP pelo endereço."}}</span></span></p></li>
+</ol></div></section>
+{{if .Keys}}<section class="card"><div class="card__head"><h2>{{t "Chaves criadas"}}</h2></div><div class="card__body">
+<ul class="rows">{{range .Keys}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}</span><span class="row__meta">{{if not .Created.IsZero}}{{tf "criada em %s" (moment .Created)}}{{else}}{{.ID}}{{end}}</span></span>
+<button class="btn btn--quiet btn--small" type="button" data-api-key-revoke="{{.ID}}">{{t "Revogar"}}</button></li>{{end}}</ul>
+</div></section>{{end}}
+{{end}}
+</div>
+<script src="/assets/agents.js" defer></script>
 {{template "foot" .}}{{end}}
 
 {{define "conectarferramenta"}}{{template "head" .}}{{template "flowhead" .}}

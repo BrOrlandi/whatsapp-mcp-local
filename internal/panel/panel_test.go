@@ -178,7 +178,7 @@ func TestToolState(t *testing.T) {
 		{Key: "client:windsurf", Live: true},
 	}
 	want := map[string]string{"claude-desktop": "", "claude-code": "live", "codex": "configured", "cursor": "", "outra": "live"}
-	for _, c := range toolChoices(conns) {
+	for _, c := range toolChoices(guides, conns) {
 		if c.State != want[c.Key] {
 			t.Errorf("%s is %q, want %q", c.Key, c.State, want[c.Key])
 		}
