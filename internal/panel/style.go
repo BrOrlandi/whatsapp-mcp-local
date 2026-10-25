@@ -142,6 +142,7 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .pill--warn{background:var(--warn-bg);color:var(--warn)}
 .pill--off{background:var(--off-bg);color:var(--off)}
 .pill--plain::before{display:none}
+.rows__group{list-style:none;padding:14px 0 6px;font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border:0}
 .pill--accent{background:var(--accent-soft);color:var(--accent)}
 .pill--fail{background:var(--danger-bg);color:var(--danger);border-color:var(--danger-border)}
 .remote-banner{margin:0 0 18px;padding:12px 14px;border-radius:var(--radius-sm);border:1px solid var(--accent-soft);background:var(--accent-soft)}

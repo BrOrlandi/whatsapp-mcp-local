@@ -179,6 +179,11 @@ type Client struct {
 	Version   string    `json:"version,omitempty"`
 	FirstSeen time.Time `json:"first_seen"`
 	LastSeen  time.Time `json:"last_seen"`
+	// Via is the way its last call came: "local" (a program on this
+	// machine), "app:<device>" (through a paired app, on that computer's
+	// localhost), "url" (straight to the server with a key); empty for a
+	// client last seen before this was recorded.
+	Via string `json:"via,omitempty"`
 }
 
 func (s *State) migrateClients() error {
@@ -186,6 +191,14 @@ func (s *State) migrateClients() error {
 		name TEXT PRIMARY KEY, version TEXT NOT NULL DEFAULT '', first_seen INTEGER NOT NULL, last_seen INTEGER NOT NULL)`)
 	if err != nil {
 		return err
+	}
+	// via arrived with remote access.
+	var v int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('clients') WHERE name = 'via'`).Scan(&v)
+	if v == 0 {
+		if _, err := s.db.Exec(`ALTER TABLE clients ADD COLUMN via TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
 	}
 	// raw_text arrived after the first release of the table.
 	var n int
@@ -222,15 +235,21 @@ func (s *State) TranscriptCount(ctx context.Context) (total, corrected int, err 
 
 // SeeClient records that a client connected or made a call.
 func (s *State) SeeClient(ctx context.Context, name, version string, at time.Time) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO clients (name, version, first_seen, last_seen) VALUES (?, ?, ?, ?)
+	return s.SeeClientVia(ctx, name, version, "", at)
+}
+
+// SeeClientVia is SeeClient with the way the call came (Client.Via).
+func (s *State) SeeClientVia(ctx context.Context, name, version, via string, at time.Time) error {
+	_, err := s.db.ExecContext(ctx, `INSERT INTO clients (name, version, first_seen, last_seen, via) VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT (name) DO UPDATE SET last_seen = excluded.last_seen,
-			version = CASE WHEN excluded.version != '' THEN excluded.version ELSE clients.version END`,
-		name, version, at.Unix(), at.Unix())
+			version = CASE WHEN excluded.version != '' THEN excluded.version ELSE clients.version END,
+			via = CASE WHEN excluded.via != '' THEN excluded.via ELSE clients.via END`,
+		name, version, at.Unix(), at.Unix(), via)
 	return err
 }
 
 func (s *State) Clients(ctx context.Context) ([]Client, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT name, version, first_seen, last_seen FROM clients ORDER BY last_seen DESC`)
+	rows, err := s.db.QueryContext(ctx, `SELECT name, version, first_seen, last_seen, via FROM clients ORDER BY last_seen DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +258,7 @@ func (s *State) Clients(ctx context.Context) ([]Client, error) {
 	for rows.Next() {
 		var c Client
 		var first, last int64
-		if err := rows.Scan(&c.Name, &c.Version, &first, &last); err != nil {
+		if err := rows.Scan(&c.Name, &c.Version, &first, &last, &c.Via); err != nil {
 			return nil, err
 		}
 		c.FirstSeen, c.LastSeen = time.Unix(first, 0), time.Unix(last, 0)

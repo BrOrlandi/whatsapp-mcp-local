@@ -933,5 +933,11 @@
  "Usar um servidor?": "Use a server?",
  "Recomendado: assim as suas ferramentas de IA encontram o WhatsApp sempre que o computador ligar. Se preferir deixar para depois, a opção fica em Configurações.": "Recommended: this way your AI tools find WhatsApp whenever the computer starts. If you would rather leave it for later, the option is in Settings.",
  "o app não conseguiu falar com o servidor para configurar a ferramenta; tente de novo em instantes": "the app could not reach the server to set up the tool; try again in a moment",
- "-n é um número de linhas, 0 ou mais": "-n is a number of lines, 0 or more"
+ "-n é um número de linhas, 0 ou mais": "-n is a number of lines, 0 or more",
+ "No servidor": "On the server",
+ "Neste computador": "On this computer",
+ "No computador %s, pelo app": "On the computer %s, through the app",
+ "Direto no servidor, pelo endereço com chave": "Straight to the server, by its address with a key",
+ "Caminho ainda não registrado (aparece no próximo uso)": "Way not recorded yet (it shows on the next use)",
+ "Todas usam a mesma sessão do WhatsApp, a do servidor. Desconectar uma não mexe nas outras.": "They all use the same WhatsApp session, the server's. Disconnecting one does not touch the others."
 }

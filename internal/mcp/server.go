@@ -14,6 +14,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
@@ -75,7 +76,26 @@ func (s *Server) seeClient(ctx context.Context, name, version string) {
 	}
 	s.touched[name] = time.Now()
 	s.clientsMu.Unlock()
-	_ = s.state.SeeClient(context.WithoutCancel(ctx), name, version, time.Now())
+	_ = s.state.SeeClientVia(context.WithoutCancel(ctx), name, version, via(ctx), time.Now())
+}
+
+type viaKey struct{}
+
+// WithVia marks how a request reached the MCP, when the request itself
+// cannot tell: "url" for a service with an API key.
+func WithVia(ctx context.Context, v string) context.Context {
+	return context.WithValue(ctx, viaKey{}, v)
+}
+
+// via is how a call reached the MCP (state.Client.Via).
+func via(ctx context.Context) string {
+	if v, _ := ctx.Value(viaKey{}).(string); v != "" {
+		return v
+	}
+	if d, ok := remote.DeviceFrom(ctx); ok {
+		return "app:" + d.Name
+	}
+	return "local"
 }
 
 func (s *Server) noteInitialize(ctx context.Context, params json.RawMessage) {

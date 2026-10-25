@@ -279,7 +279,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="card__body">
 {{if .Connections}}
 <ul class="rows">
-{{range $i, $c := .Connections}}<li class="row{{if not .Live}} row--waiting{{end}}">
+{{range $i, $c := .Connections}}{{if .GroupStart}}<li class="rows__group">{{.Group}}</li>{{end}}<li class="row{{if not .Live}} row--waiting{{end}}">
 {{if .Mark}}<span class="tool-mark tool-mark--logo" aria-hidden="true">{{toolmark .Mark}}</span>{{else}}<span class="tool-mark" aria-hidden="true">{{initial .Tool}}</span>{{end}}
 <span class="row__main"><span class="row__title">{{.Tool}}</span>
 <span class="row__meta">{{if .Live}}{{tf "Funcionando · usada %s" (relativeSince .LastUsed)}}{{else if .Configured}}{{t "Configurada · ainda não se conectou; reinicie a ferramenta"}}{{else}}{{tf "Usada %s" (relativeSince .LastUsed)}}{{end}}{{with .Version}} <span class="tip tip--quiet" tabindex="0" aria-describedby="tip-versao-{{$i}}"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-versao-{{$i}}">{{$c.Tool}} {{.}}</span></span>{{end}}</span></span>
@@ -288,7 +288,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <a class="btn btn--danger btn--small" href="#desconectar-{{$i}}">{{t "Desconectar"}}</a>
 </li>{{end}}
 </ul>
-<p class="muted">{{t "Todas usam a mesma sessão do WhatsApp neste computador. Desconectar uma não mexe nas outras."}}</p>
+<p class="muted">{{if .Remote}}{{t "Todas usam a mesma sessão do WhatsApp, a do servidor. Desconectar uma não mexe nas outras."}}{{else}}{{t "Todas usam a mesma sessão do WhatsApp neste computador. Desconectar uma não mexe nas outras."}}{{end}}</p>
 {{else}}
 <div class="empty"><p class="empty__title">{{t "Nenhuma ferramenta de IA conectada ainda"}}</p>
 <p class="muted">{{t "Clique no botão acima, escolha onde você vai usar e siga o passo a passo. Leva menos de um minuto."}}</p></div>

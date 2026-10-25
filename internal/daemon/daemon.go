@@ -251,7 +251,7 @@ func (d *Daemon) startRemote(cfg Config, primary *Account) error {
 		r.Header.Del(remote.WindowHeader)
 		r.Header.Del(remote.LocalBaseHeader)
 		r.Host = addr(d.Port())
-		d.routes.ServeHTTP(w, r)
+		d.routes.ServeHTTP(w, r.WithContext(mcp.WithVia(r.Context(), "url")))
 	})
 	d.remote = srv
 	d.panel.Remote = srv

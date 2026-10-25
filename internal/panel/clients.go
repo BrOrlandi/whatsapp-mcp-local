@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
 	"net/url"
 	"os"
 	"os/exec"
@@ -116,6 +117,12 @@ type Connection struct {
 	Configured bool
 	Live       bool
 	LastUsed   time.Time
+	// Via is the way its last call came (state.Client.Via), and Group the
+	// heading it is listed under; GroupStart marks the first of a group,
+	// set only when there is more than one.
+	Via        string
+	Group      string
+	GroupStart bool
 }
 
 // clientNames turns what a client calls itself at initialize into what a
@@ -404,7 +411,7 @@ func (p *Panel) connections(ctx context.Context, s setup) []Connection {
 				delete(byName, name)
 			}
 		}
-		out = append(out, Connection{Key: key, Tool: tool, Mark: key, Version: c.Version, Configured: configured, Live: ok, LastUsed: c.LastSeen})
+		out = append(out, Connection{Key: key, Tool: tool, Mark: key, Version: c.Version, Configured: configured, Live: ok, LastUsed: c.LastSeen, Via: c.Via})
 	}
 	add("claude-desktop", "Claude Desktop", s.Desktop.Configured, "claude-ai")
 	add("claude-code", "Claude Code", s.Code.Configured, "claude-code")
@@ -415,10 +422,47 @@ func (p *Panel) connections(ctx context.Context, s setup) []Connection {
 		if label, _ := p.State.Setting(ctx, clientLabel+name); label != "" {
 			tool = label
 		}
-		out = append(out, Connection{Key: "client:" + name, Tool: tool, Version: c.Version, Live: true, LastUsed: c.LastSeen})
+		out = append(out, Connection{Key: "client:" + name, Tool: tool, Version: c.Version, Live: true, LastUsed: c.LastSeen, Via: c.Via})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].LastUsed.After(out[j].LastUsed) })
-	return out
+	return groupConnections(ctx, out)
+}
+
+// groupConnections lists the connections by the way they reach the MCP:
+// on this machine, through the app on another computer, or straight to the
+// server by its address; the most recently used way first.
+func groupConnections(ctx context.Context, list []Connection) []Connection {
+	_, remoteView := remote.DeviceFrom(ctx)
+	order := map[string]int{}
+	for i := range list {
+		c := &list[i]
+		via := c.Via
+		if via == "" && c.Configured && !c.Live {
+			via = "local" // configured here, not used yet
+		}
+		switch {
+		case via == "local" && remoteView:
+			c.Group = i18n.T("No servidor")
+		case via == "local":
+			c.Group = i18n.T("Neste computador")
+		case strings.HasPrefix(via, "app:"):
+			c.Group = i18n.Tf("No computador %s, pelo app", strings.TrimPrefix(via, "app:"))
+		case via == "url":
+			c.Group = i18n.T("Direto no servidor, pelo endereço com chave")
+		default:
+			c.Group = i18n.T("Caminho ainda não registrado (aparece no próximo uso)")
+		}
+		if _, ok := order[c.Group]; !ok {
+			order[c.Group] = len(order)
+		}
+	}
+	sort.SliceStable(list, func(i, j int) bool { return order[list[i].Group] < order[list[j].Group] })
+	if len(order) > 1 {
+		for i := range list {
+			list[i].GroupStart = i == 0 || list[i].Group != list[i-1].Group
+		}
+	}
+	return list
 }
 
 // describeEntry says where a Desktop server entry points.
