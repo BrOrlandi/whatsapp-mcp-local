@@ -95,6 +95,14 @@ func TestTheAppUsesTheDaemonRemotely(t *testing.T) {
 		t.Errorf("a local page shows the remote banner: %v", err)
 	}
 
+	// An agent elsewhere: its page names the server's address, and a key.
+	code, body = get(app, "/conectar/hermes", map[string]string{"X-WhatsApp-MCP-Server": "https://whatsapp.home.example"})
+	for _, want := range []string{"https://whatsapp.home.example/mcp", "data-api-key-new"} {
+		if code != 200 || !strings.Contains(body, want) {
+			t.Errorf("the agent's page over the session lacks %q (status %d)", want, code)
+		}
+	}
+
 	tools := pair(remote.ScopeTools)
 	if code, _ := get(tools, "/api/status", nil); code != http.StatusForbidden {
 		t.Errorf("a tools device read the API: %d", code)

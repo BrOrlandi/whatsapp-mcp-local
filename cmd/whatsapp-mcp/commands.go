@@ -735,3 +735,85 @@ func remoteCmd(cfg config, args []string) error {
 	}
 	return fail(exitUsage, "usage: whatsapp-mcp remote [devices|code [--name N] [--scope admin|tools]|revoke <id>]")
 }
+
+// ---- API keys ----
+
+// apikeyCmd manages the keys agents on other machines use the MCP by the
+// server's address with (internal/remote, docs/servidor.md).
+func apikeyCmd(cfg config, args []string) error {
+	f := newFlags("apikey")
+	rest, err := f.parse(args)
+	if err != nil {
+		return err
+	}
+	action := "list"
+	if len(rest) > 0 {
+		action, rest = rest[0], rest[1:]
+	}
+	a := newAPI(cfg)
+	ctx := context.Background()
+	switch action {
+	case "list":
+		var out struct {
+			Keys []struct {
+				ID      string    `json:"id"`
+				Name    string    `json:"name"`
+				Created time.Time `json:"created_at"`
+			} `json:"keys"`
+		}
+		var raw json.RawMessage
+		if err := a.call(ctx, http.MethodGet, "/api/chaves", nil, &raw); err != nil {
+			return err
+		}
+		if jsonOutput {
+			fmt.Fprintln(stdout, string(raw))
+			return nil
+		}
+		_ = json.Unmarshal(raw, &out)
+		if len(out.Keys) == 0 {
+			say("%s", i18n.T("Nenhuma chave de API: o MCP pelo endereço do servidor está desligado. Para criar uma: whatsapp-mcp apikey new <nome>"))
+		}
+		for _, k := range out.Keys {
+			created := ""
+			if !k.Created.IsZero() {
+				created = k.Created.Local().Format("2006-01-02 15:04")
+			}
+			say("%s  %-24s %s", k.ID, k.Name, created)
+		}
+		return nil
+	case "new":
+		if len(rest) == 0 {
+			return fail(exitUsage, "usage: whatsapp-mcp apikey new <name>")
+		}
+		var out struct {
+			Key  string `json:"key"`
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		var raw json.RawMessage
+		if err := a.call(ctx, http.MethodPost, "/api/chaves", map[string]string{"name": strings.Join(rest, " ")}, &raw); err != nil {
+			return err
+		}
+		if jsonOutput {
+			fmt.Fprintln(stdout, string(raw))
+			return nil
+		}
+		_ = json.Unmarshal(raw, &out)
+		say("%s\n\n  %s\n", i18n.T("Chave de API (aparece uma vez só; guarde no lugar de segredos do agente):"), out.Key)
+		say("%s", i18n.T("O agente usa o MCP em https://<endereço do servidor>/mcp, com o cabeçalho Authorization: Bearer <chave>."))
+		return nil
+	case "revoke":
+		if len(rest) != 1 {
+			return fail(exitUsage, "usage: whatsapp-mcp apikey revoke <id>")
+		}
+		if err := a.call(ctx, http.MethodDelete, "/api/chaves/"+url.PathEscape(rest[0]), nil, nil); err != nil {
+			return err
+		}
+		if jsonOutput {
+			printJSON(map[string]bool{"revoked": true})
+		}
+		say("%s", i18n.T("Chave revogada: o agente que a usava perde o acesso na hora."))
+		return nil
+	}
+	return fail(exitUsage, "usage: whatsapp-mcp apikey [list|new <name>|revoke <id>]")
+}

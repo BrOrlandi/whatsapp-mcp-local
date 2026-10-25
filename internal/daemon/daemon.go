@@ -6,9 +6,6 @@ package daemon
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/subtle"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
@@ -161,38 +158,6 @@ func Start(cfg Config) (*Daemon, error) {
 	return d, nil
 }
 
-// APIKeysFile, in the data folder, holds the SHA-256 (hex) of each API key
-// that may use the MCP by URL, one per line, with an optional name after a
-// space; # starts a comment. No file, or no key in it, and the MCP is not
-// served by URL. The keys themselves are never kept: they are long random
-// secrets, shown once when made.
-const APIKeysFile = "api-keys"
-
-// apiKeyValid reports whether key is one of the API keys, and whether there
-// is any (none: the MCP by URL is off). The file is read
-// on every call, so removing a line revokes a key at once.
-func apiKeyValid(path, key string) (valid, on bool, err error) {
-	raw, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return false, false, nil
-	}
-	if err != nil {
-		return false, true, err
-	}
-	sum := sha256.Sum256([]byte(key))
-	want := hex.EncodeToString(sum[:])
-	found := 0
-	for _, line := range strings.Split(string(raw), "\n") {
-		line, _, _ = strings.Cut(line, "#")
-		fields := strings.Fields(line)
-		if len(fields) > 0 {
-			on = true
-			found |= subtle.ConstantTimeCompare([]byte(strings.ToLower(fields[0])), []byte(want))
-		}
-	}
-	return found == 1 && len(key) >= 32, on, nil
-}
-
 // localBase reports whether base is an app's loopback address, the only
 // kind a link may be rebased to: http://127.0.0.1 and a port.
 func localBase(base string) bool {
@@ -255,6 +220,7 @@ func (d *Daemon) startRemote(cfg Config, primary *Account) error {
 	})
 	d.remote = srv
 	d.panel.Remote = srv
+	d.panel.APIKeys = &apiKeys{path: filepath.Join(cfg.DataDir, APIKeysFile), now: time.Now}
 	if cfg.RemoteListen == "" {
 		return nil
 	}

@@ -4,12 +4,16 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
 )
 
 const testAPIKey = "wamcp_key_0123456789abcdef0123456789abcdef"
@@ -74,5 +78,56 @@ func TestTheMCPByURLWithAnAPIKey(t *testing.T) {
 	_ = os.WriteFile(file, []byte("# keys\n0000000000000000000000000000000000000000000000000000000000000000 other\n"), 0o600)
 	if got := call(https.URL, testAPIKey); got != http.StatusUnauthorized {
 		t.Errorf("a removed key: %d", got)
+	}
+}
+
+// A key made by the panel works by URL, is listed by name only, and stops
+// when revoked; lines written by hand stay.
+func TestAPIKeysMadeAndRevoked(t *testing.T) {
+	path := filepath.Join(t.TempDir(), APIKeysFile)
+	sum := sha256.Sum256([]byte(testAPIKey))
+	hand := hex.EncodeToString(sum[:]) + " by hand"
+	if err := os.WriteFile(path, []byte("# mine\n"+hand+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	k := &apiKeys{path: path, now: time.Now}
+	if _, _, err := k.Add("  "); err == nil {
+		t.Error("a key with no name was made")
+	}
+	secret, key, err := k.Add("Hermes # Agent\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key.Name != "Hermes Agent" || len(key.ID) != 12 || !strings.HasPrefix(secret, "wamcp_") {
+		t.Fatalf("made %+v (%d chars)", key, len(secret))
+	}
+	if ok, on, _ := apiKeyValid(path, secret); !ok || !on {
+		t.Fatal("the new key is not valid")
+	}
+	raw, _ := os.ReadFile(path)
+	if strings.Contains(string(raw), secret) {
+		t.Fatal("the key itself was written")
+	}
+	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o600 {
+		t.Errorf("mode %v", fi.Mode().Perm())
+	}
+	list, _ := k.List()
+	if len(list) != 2 || list[0].Name != "by hand" || list[1].ID != key.ID || list[1].Created.IsZero() {
+		t.Fatalf("list %+v", list)
+	}
+	if err := k.Revoke("000000000000"); !errors.Is(err, panel.ErrNoAPIKey) {
+		t.Errorf("an unknown id: %v", err)
+	}
+	if err := k.Revoke(key.ID); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _, _ := apiKeyValid(path, secret); ok {
+		t.Error("a revoked key still works")
+	}
+	if ok, _, _ := apiKeyValid(path, testAPIKey); !ok {
+		t.Error("the hand-written key went too")
+	}
+	if raw, _ := os.ReadFile(path); !strings.Contains(string(raw), "# mine") {
+		t.Error("the comment went")
 	}
 }

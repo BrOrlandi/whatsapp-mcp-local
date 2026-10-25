@@ -65,6 +65,8 @@ type Panel struct {
 	// Remote is the daemon's remote access, which pairs and serves the app
 	// on another computer (internal/remote).
 	Remote *remote.Server
+	// APIKeys are the keys of the MCP by the server's address.
+	APIKeys APIKeys
 
 	pages *template.Template
 	code  codeCache
@@ -669,7 +671,7 @@ func (p *Panel) instalacao(w http.ResponseWriter, r *http.Request) (string, any)
 		LiveCount    int
 		Verification string
 		Tools        []toolChoice
-	}{l, s, step, steps(step), set, conns, live, verificationPrompt, toolChoices(conns)}
+	}{l, s, step, steps(step), set, conns, live, verificationPrompt, toolChoices(guides, conns)}
 }
 
 func (p *Panel) advance(r *http.Request) (string, error) {
@@ -764,15 +766,33 @@ var guides = []guide{
 		i18n.N("Conectar outra ferramenta"), i18n.N("a ferramenta"), i18n.N("Ferramenta conectada")},
 }
 
+// agentGuides are the agents that run outside this computer and reach the
+// MCP by the server's address, with an API key: the second part of the
+// connect flow.
+var agentGuides = []guide{
+	{"hermes", i18n.N("Hermes Agent"), i18n.N("O agente da Nous Research."), "hermesagent", "",
+		i18n.N("Conectar o Hermes Agent"), i18n.N("o Hermes Agent"), i18n.N("Hermes Agent conectado")},
+	{"openclaw", i18n.N("OpenClaw"), i18n.N("O assistente de IA open source."), "openclaw", "",
+		i18n.N("Conectar o OpenClaw"), i18n.N("o OpenClaw"), i18n.N("OpenClaw conectado")},
+	{"grok-bot", i18n.N("Grok Bot"), i18n.N("Agente de IA autônomo."), "grokbot", "",
+		i18n.N("Conectar o Grok Bot"), i18n.N("o Grok Bot"), i18n.N("Grok Bot conectado")},
+	{"mausbot", i18n.N("MausBot"), i18n.N("Uma equipe de bots de IA, open source."), "mausbot", "",
+		i18n.N("Conectar o MausBot"), i18n.N("o MausBot"), i18n.N("MausBot conectado")},
+	{"manus", i18n.N("Manus"), i18n.N("O agente autônomo da Manus."), "manus", "",
+		i18n.N("Conectar o Manus"), i18n.N("o Manus"), i18n.N("Manus conectado")},
+	{"outro-remoto", i18n.N("Outros remotos"), i18n.N("Qualquer agente ou serviço que aceite MCP por URL."), "globe", "",
+		i18n.N("Conectar outro agente remoto"), i18n.N("o agente"), i18n.N("Agente conectado")},
+}
+
 // toolChoice is a guide with where its tool stands: live, configured or "".
 type toolChoice struct {
 	guide
 	State string
 }
 
-func toolChoices(conns []Connection) []toolChoice {
-	out := make([]toolChoice, len(guides))
-	for i, g := range guides {
+func toolChoices(gs []guide, conns []Connection) []toolChoice {
+	out := make([]toolChoice, len(gs))
+	for i, g := range gs {
 		out[i] = toolChoice{guide: g, State: toolState(g, conns)}
 	}
 	return out
@@ -781,7 +801,8 @@ func toolChoices(conns []Connection) []toolChoice {
 func toolState(g guide, conns []Connection) string {
 	st := ""
 	for _, c := range conns {
-		if c.Key != g.Key && !(g.Key == "outra" && strings.HasPrefix(c.Key, "client:")) {
+		other := g.Key == "outra" && strings.HasPrefix(c.Key, "client:") && c.Via != "url"
+		if c.Key != g.Key && !other && !(g.Key == "outro-remoto" && c.Via == "url") {
 			continue
 		}
 		if c.Live {
@@ -808,8 +829,9 @@ func (p *Panel) connectChoose(w http.ResponseWriter, r *http.Request) (string, a
 	return "conectarescolha", struct {
 		layout
 		Tools   []toolChoice
+		Agents  []toolChoice
 		InSetup bool
-	}{l, toolChoices(conns), step == 2}
+	}{l, toolChoices(guides, conns), toolChoices(agentGuides, conns), step == 2}
 }
 
 // connectTool is the steps for one tool, which end when it connects.
@@ -818,6 +840,11 @@ func (p *Panel) connectTool(w http.ResponseWriter, r *http.Request) (string, any
 	for _, c := range guides {
 		if c.Key == r.PathValue("tool") {
 			g = c
+		}
+	}
+	for _, c := range agentGuides {
+		if c.Key == r.PathValue("tool") {
+			return p.connectAgent(r, c)
 		}
 	}
 	s := p.snapshot(r.Context())
@@ -855,6 +882,33 @@ func (p *Panel) connectTool(w http.ResponseWriter, r *http.Request) (string, any
 		Since        int64
 		Verification string
 	}{l, g, set, live, live && r.URL.Query().Get("conectado") == "1", step == 2, strings.Join(known, " "), time.Now().Unix(), verificationPrompt}
+}
+
+// connectAgent is the page for an agent outside this computer: it reaches
+// the MCP at the server's address with an API key made here.
+func (p *Panel) connectAgent(r *http.Request, g guide) (string, any) {
+	s := p.snapshot(r.Context())
+	l := p.layout(r, g.Title, "conectar", s)
+	l.LiveKey = ""
+	// The address the app reached this server at, when it is the app's
+	// window asking; on the server itself, the person knows it.
+	addr := ""
+	if u, err := url.Parse(r.Header.Get(ServerHeader)); err == nil && u.Scheme == "https" && u.Host != "" {
+		addr = "https://" + u.Host + strings.TrimSuffix(u.Path, "/") + "/mcp"
+	}
+	var keys []APIKey
+	if p.APIKeys != nil && !l.App {
+		keys, _ = p.APIKeys.List()
+	}
+	return "conectaragente", struct {
+		layout
+		Tool guide
+		// Local is the app running WhatsApp on this computer: there is no
+		// server for an agent elsewhere to reach.
+		Local bool
+		URL   string
+		Keys  []APIKey
+	}{l, g, l.App, addr, keys}
 }
 
 func (p *Panel) whatsapp(w http.ResponseWriter, r *http.Request) (string, any) {

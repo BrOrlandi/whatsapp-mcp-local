@@ -380,6 +380,7 @@ const extraCSS = `
 .flow__back .icon{width:16px;height:16px}
 .flow__title{display:flex;align-items:center;gap:12px;margin:0 0 20px}
 .flow__note{margin-top:18px}
+.flow__section{margin:28px 0 10px;font-size:1rem;font-weight:700}
 .toolpicks{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:10px}
 .toolpick{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);color:inherit;text-decoration:none}
 .toolpick:hover{border-color:var(--brand-strong);background:var(--surface-soft)}

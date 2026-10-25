@@ -48,6 +48,7 @@ func (p *Panel) registerRemote(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/remote/dispositivos", p.api(p.apiRemoteDevices))
 	mux.HandleFunc("DELETE /api/remote/dispositivos/{id}", p.api(p.apiRemoteRevoke))
 	mux.HandleFunc("GET /api/remote/token", p.remoteToken)
+	p.registerAPIKeys(mux)
 }
 
 // apiRemoteToken gives the server's token to the window of a paired admin

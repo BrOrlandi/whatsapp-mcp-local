@@ -169,6 +169,8 @@ func main() {
 		err = updateCmd(cfg, args)
 	case "remote":
 		err = remoteCmd(cfg, args)
+	case "apikey":
+		err = apikeyCmd(cfg, args)
 	case "config":
 		printConfig(cfg)
 	case "transcription":
@@ -217,6 +219,9 @@ Settings:
   remote [devices]          the devices (the app on another computer) that use this daemon remotely
   remote code [--name N]    a one-time pairing code for one more device (valid 10 minutes)
   remote revoke <id>        cut a device off at once
+  apikey [list]             the keys of the MCP by the server's address, for agents elsewhere
+  apikey new <name>         make a key for one agent (shown once)
+  apikey revoke <id>        cut a key off at once
   config                    print the configuration for Claude Code and Claude Desktop
   transcription install     set up voice-note transcription on this computer (whisper.cpp)
   open                      open the control panel in the browser

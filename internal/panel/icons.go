@@ -57,8 +57,16 @@ func toolmark(name string) template.HTML {
 	if m, ok := markOf[name]; ok {
 		name = m
 	}
-	if l, ok := logos[name]; ok {
-		return template.HTML(`<svg class="icon icon--logo" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">` + l + `</svg>`)
+	l, ok := logos[name]
+	if !ok {
+		l, ok = agentLogos[name]
+	}
+	if ok {
+		box := "0 0 24 24"
+		if b, has := logoBox[name]; has {
+			box = b
+		}
+		return template.HTML(`<svg class="icon icon--logo" viewBox="` + box + `" width="22" height="22" aria-hidden="true" focusable="false">` + l + `</svg>`)
 	}
 	return icon(name)
 }
