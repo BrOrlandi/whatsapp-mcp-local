@@ -20,7 +20,7 @@ const remotePageSource = `<!doctype html>
 </ul>
 <p class="muted">{{t "Servidor:"}} <strong>{{.Server}}</strong>{{if not .Checked.IsZero}} · {{tf "conferido às %s" (moment .Checked)}}{{end}} <span class="tip" tabindex="0" aria-describedby="tip-chaves"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-chaves">{{t "chave do servidor"}} {{.Finger}} · {{t "este app"}} {{.Device}}</span></span></p>
 <div class="actions">
-{{if ne .Link.State "connected"}}<form method="post" action="/__app/remoto/tentar"><button class="btn" type="submit">{{t "Tentar de novo agora"}}</button></form>{{end}}
+{{if not .AllOK}}<form method="post" action="/__app/remoto/tentar"><button class="btn" type="submit">{{t "Verificar a conexão agora"}}</button></form>{{end}}
 <form method="post" action="/__app/remoto/girar"><button class="btn btn--quiet" type="submit">{{t "Trocar a chave deste app"}}</button></form>
 </div></div></section>
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Computadores que gerenciam o servidor"}}</h2></div>
@@ -78,7 +78,7 @@ const remotePageSource = `<!doctype html>
     if (!form.checkValidity()) { event.preventDefault(); return; }
     submit.disabled = true;
   });
-  {{if ne .Link.State "connected"}}setInterval(function () {
+  {{if not .AllOK}}setInterval(function () {
     if (!dialog.open) window.location.reload();
   }, 5000);{{end}}
 })();
