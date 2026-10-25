@@ -416,7 +416,6 @@
  "No celular, abra o WhatsApp e vá em <strong>Dispositivos conectados</strong>.": "En el celular, abre WhatsApp y ve a <strong>Dispositivos vinculados</strong>.",
  "No celular, abra o WhatsApp › Configurações › Dispositivos conectados › Conectar dispositivo e leia este QR code:": "En el celular, abre WhatsApp › Ajustes › Dispositivos vinculados › Vincular un dispositivo y escanea este código QR:",
  "No celular, abra o WhatsApp › Configurações › Dispositivos conectados › Conectar dispositivo › Conectar com número de telefone, e digite:": "En el celular, abre WhatsApp › Ajustes › Dispositivos vinculados › Vincular un dispositivo › Vincular con el número de teléfono, y escribe:",
- "No servidor, gere um código de pareamento: whatsapp-mcp remote code, ou Configurações › Acesso remoto no painel dele. O código vale uma vez, por 10 minutos.": "En el servidor, genera un código de vinculación: whatsapp-mcp remote code, o Configuración › Acceso remoto en su panel. El código vale una vez, por 10 minutos.",
  "No terminal ou no editor de código.": "En la terminal o en el editor de código.",
  "Nome": "Nombre",
  "Nome deste app no servidor": "Nombre de esta app en el servidor",
@@ -939,5 +938,11 @@
  "No computador %s, pelo app": "En la computadora %s, a través de la app",
  "Direto no servidor, pelo endereço com chave": "Directo al servidor, por la dirección con clave",
  "Caminho ainda não registrado (aparece no próximo uso)": "Camino aún no registrado (aparece en el próximo uso)",
- "Todas usam a mesma sessão do WhatsApp, a do servidor. Desconectar uma não mexe nas outras.": "Todas usan la misma sesión de WhatsApp, la del servidor. Desconectar una no afecta a las demás."
+ "Todas usam a mesma sessão do WhatsApp, a do servidor. Desconectar uma não mexe nas outras.": "Todas usan la misma sesión de WhatsApp, la del servidor. Desconectar una no afecta a las demás.",
+ "Computadores que gerenciam o servidor": "Computadoras que gestionan el servidor",
+ "Este app já está conectado e não precisa de código. Para outro computador também gerenciar o servidor, gere um código aqui e cole no app dele, em Configurações › Acesso remoto › Usar um servidor. O código vale uma vez, por 10 minutos.": "Esta app ya está conectada y no necesita código. Para que otra computadora también gestione el servidor, genera un código aquí y pégalo en su app, en Configuración › Acceso remoto › Usar un servidor. El código vale una vez, por 10 minutos.",
+ "Gere um código de pareamento no servidor (whatsapp-mcp remote code) ou num computador que já o gerencia (Configurações › Acesso remoto › Gerenciar a conexão com o servidor). O código vale uma vez, por 10 minutos.": "Genera un código de emparejamiento en el servidor (whatsapp-mcp remote code) o en una computadora que ya lo gestiona (Configuración › Acceso remoto › Gestionar la conexión con el servidor). El código vale una vez, por 10 minutos.",
+ "Parear outro computador como gerenciador": "Emparejar otra computadora como gestora",
+ "este app não revoga a si mesmo: para deixar o servidor, volte ao modo local": "esta app no se revoca a sí misma: para dejar el servidor, vuelve al modo local",
+ "O computador foi revogado e não alcança mais o servidor.": "La computadora fue revocada y ya no llega al servidor."
 }

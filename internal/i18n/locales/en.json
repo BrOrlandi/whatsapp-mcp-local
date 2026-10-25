@@ -416,7 +416,6 @@
  "No celular, abra o WhatsApp e vá em <strong>Dispositivos conectados</strong>.": "On your phone, open WhatsApp and go to <strong>Linked devices</strong>.",
  "No celular, abra o WhatsApp › Configurações › Dispositivos conectados › Conectar dispositivo e leia este QR code:": "On the phone, open WhatsApp › Settings › Linked devices › Link a device and scan this QR code:",
  "No celular, abra o WhatsApp › Configurações › Dispositivos conectados › Conectar dispositivo › Conectar com número de telefone, e digite:": "On the phone, open WhatsApp › Settings › Linked devices › Link a device › Link with phone number instead, and type:",
- "No servidor, gere um código de pareamento: whatsapp-mcp remote code, ou Configurações › Acesso remoto no painel dele. O código vale uma vez, por 10 minutos.": "On the server, make a pairing code: whatsapp-mcp remote code, or Settings › Remote access in its panel. The code works once, for 10 minutes.",
  "No terminal ou no editor de código.": "In the terminal or in your code editor.",
  "Nome": "Name",
  "Nome deste app no servidor": "This app's name on the server",
@@ -939,5 +938,11 @@
  "No computador %s, pelo app": "On the computer %s, through the app",
  "Direto no servidor, pelo endereço com chave": "Straight to the server, by its address with a key",
  "Caminho ainda não registrado (aparece no próximo uso)": "Way not recorded yet (it shows on the next use)",
- "Todas usam a mesma sessão do WhatsApp, a do servidor. Desconectar uma não mexe nas outras.": "They all use the same WhatsApp session, the server's. Disconnecting one does not touch the others."
+ "Todas usam a mesma sessão do WhatsApp, a do servidor. Desconectar uma não mexe nas outras.": "They all use the same WhatsApp session, the server's. Disconnecting one does not touch the others.",
+ "Computadores que gerenciam o servidor": "Computers that manage the server",
+ "Este app já está conectado e não precisa de código. Para outro computador também gerenciar o servidor, gere um código aqui e cole no app dele, em Configurações › Acesso remoto › Usar um servidor. O código vale uma vez, por 10 minutos.": "This app is already connected and needs no code. For another computer to manage the server too, make a code here and paste it in that computer's app, under Settings › Remote access › Use a server. The code works once, for 10 minutes.",
+ "Gere um código de pareamento no servidor (whatsapp-mcp remote code) ou num computador que já o gerencia (Configurações › Acesso remoto › Gerenciar a conexão com o servidor). O código vale uma vez, por 10 minutos.": "Make a pairing code on the server (whatsapp-mcp remote code) or on a computer that already manages it (Settings › Remote access › Manage the connection with the server). The code works once, for 10 minutes.",
+ "Parear outro computador como gerenciador": "Pair another computer as a manager",
+ "este app não revoga a si mesmo: para deixar o servidor, volte ao modo local": "this app does not revoke itself: to leave the server, go back to local mode",
+ "O computador foi revogado e não alcança mais o servidor.": "The computer was revoked and no longer reaches the server."
 }
