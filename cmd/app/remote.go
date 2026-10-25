@@ -344,8 +344,14 @@ func (a *App) withAppPages(next http.Handler) http.Handler {
 	mux.HandleFunc("POST /__app/remoto/parear", a.remotePair)
 	mux.HandleFunc("POST /__app/remoto/local", a.remoteToLocal)
 	mux.HandleFunc("POST /__app/remoto/tentar", func(w http.ResponseWriter, r *http.Request) {
+		// Down, the session is retried now; up, the server is asked again
+		// how its WhatsApp is, so the page shows it fresh.
 		if rm := a.currentRemote(); rm != nil {
-			rm.client.Retry()
+			if rm.client.Status().State != remote.StateConnected {
+				rm.client.Retry()
+			} else if st := a.pollServer(r.Context(), rm); a.tray != nil {
+				a.tray.render(st)
+			}
 		}
 		http.Redirect(w, r, "/__app/remoto", http.StatusSeeOther)
 	})
@@ -371,6 +377,8 @@ type remoteView struct {
 	WATone    string
 	Checked   time.Time
 	Hostname  string
+	// AllOK is both connections up: nothing to retry, nothing to refresh.
+	AllOK bool
 	// Devices are the computers paired with the server, and Code a pairing
 	// code just made for another one, shown once on this page.
 	Devices []serverDevice
@@ -425,9 +433,13 @@ func (a *App) remoteView(r *http.Request) remoteView {
 		default:
 			v.WALabel, v.WATone = i18n.T("A sincronização parou"), "fail"
 		}
+	} else if v.Link.State == remote.StateConnected {
+		// Connected, and the server not asked yet (the app just started).
+		v.WALabel, v.WATone = i18n.T("Verificando…"), "warn"
 	} else {
 		v.WALabel, v.WATone = i18n.T("Desconhecido: sem conexão com o servidor"), "off"
 	}
+	v.AllOK = v.LinkTone == "ok" && v.WATone == "ok"
 	return v
 }
 

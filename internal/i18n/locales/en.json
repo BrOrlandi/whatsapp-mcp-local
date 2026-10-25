@@ -631,7 +631,6 @@
  "Só um instante…": "Just a moment…",
  "Tema": "Theme",
  "Tentar de novo": "Try again",
- "Tentar de novo agora": "Try again now",
  "Testar": "Test",
  "Teste": "Test",
  "Texto numa conversa": "Text in a chat",
@@ -944,5 +943,7 @@
  "Gere um código de pareamento no servidor (whatsapp-mcp remote code) ou num computador que já o gerencia (Configurações › Acesso remoto › Gerenciar a conexão com o servidor). O código vale uma vez, por 10 minutos.": "Make a pairing code on the server (whatsapp-mcp remote code) or on a computer that already manages it (Settings › Remote access › Manage the connection with the server). The code works once, for 10 minutes.",
  "Parear outro computador como gerenciador": "Pair another computer as a manager",
  "este app não revoga a si mesmo: para deixar o servidor, volte ao modo local": "this app does not revoke itself: to leave the server, go back to local mode",
- "O computador foi revogado e não alcança mais o servidor.": "The computer was revoked and no longer reaches the server."
+ "O computador foi revogado e não alcança mais o servidor.": "The computer was revoked and no longer reaches the server.",
+ "Verificando…": "Checking…",
+ "Verificar a conexão agora": "Check the connection now"
 }

@@ -631,7 +631,6 @@
  "Só um instante…": "Solo un momento…",
  "Tema": "Tema",
  "Tentar de novo": "Intentar de nuevo",
- "Tentar de novo agora": "Intentar de nuevo ahora",
  "Testar": "Probar",
  "Teste": "Prueba",
  "Texto numa conversa": "Texto en una conversación",
@@ -944,5 +943,7 @@
  "Gere um código de pareamento no servidor (whatsapp-mcp remote code) ou num computador que já o gerencia (Configurações › Acesso remoto › Gerenciar a conexão com o servidor). O código vale uma vez, por 10 minutos.": "Genera un código de emparejamiento en el servidor (whatsapp-mcp remote code) o en una computadora que ya lo gestiona (Configuración › Acceso remoto › Gestionar la conexión con el servidor). El código vale una vez, por 10 minutos.",
  "Parear outro computador como gerenciador": "Emparejar otra computadora como gestora",
  "este app não revoga a si mesmo: para deixar o servidor, volte ao modo local": "esta app no se revoca a sí misma: para dejar el servidor, vuelve al modo local",
- "O computador foi revogado e não alcança mais o servidor.": "La computadora fue revocada y ya no llega al servidor."
+ "O computador foi revogado e não alcança mais o servidor.": "La computadora fue revocada y ya no llega al servidor.",
+ "Verificando…": "Verificando…",
+ "Verificar a conexão agora": "Verificar la conexión ahora"
 }
