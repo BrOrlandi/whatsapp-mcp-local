@@ -4,14 +4,14 @@ package main
 // with a server, and how the two connections stand.
 const remotePageSource = `<!doctype html>
 <html lang="{{.Lang}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{{t "Servidor remoto"}} · WhatsApp MCP</title><style>{{.CSS}}</style>{{if and .Remote (ne .Link.State "connected")}}<meta http-equiv="refresh" content="5">{{end}}</head>
+<title>{{t "Servidor remoto"}} · WhatsApp MCP</title><style>{{.CSS}}</style></head>
 <body><div class="shell"><header class="masthead"><a class="brand" href="/"><span class="brand__name">WhatsApp MCP</span></a></header>
 <main class="page">
 <p><a class="flow__back" href="/configuracoes#remoto">← {{t "Voltar ao painel"}}</a></p>
 <h1 class="flow__title">{{t "Servidor remoto"}}</h1>
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}{{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
 {{if .Remote}}
-<section class="card"><div class="card__head"><h2 class="card__title">{{t "Modo remoto"}}</h2><span class="pill pill--accent pill--plain">{{.Server}}</span></div>
+<section class="card"><div class="card__head"><h2 class="card__title">{{t "Modo remoto"}}</h2><span class="pill pill--ok pill--plain">{{.Server}}</span></div>
 <div class="card__body stack">
 <p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor. As ferramentas de IA deste computador continuam no mesmo endereço, e o app leva os pedidos até o servidor."}}</p>
 <ul class="rows">
@@ -20,7 +20,7 @@ const remotePageSource = `<!doctype html>
 </ul>
 <p class="muted">{{t "Servidor:"}} <strong>{{.Server}}</strong>{{if not .Checked.IsZero}} · {{tf "conferido às %s" (moment .Checked)}}{{end}} <span class="tip" tabindex="0" aria-describedby="tip-chaves"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-chaves">{{t "chave do servidor"}} {{.Finger}} · {{t "este app"}} {{.Device}}</span></span></p>
 <div class="actions">
-<form method="post" action="/__app/remoto/tentar"><button class="btn" type="submit">{{t "Tentar de novo agora"}}</button></form>
+{{if ne .Link.State "connected"}}<form method="post" action="/__app/remoto/tentar"><button class="btn" type="submit">{{t "Tentar de novo agora"}}</button></form>{{end}}
 <form method="post" action="/__app/remoto/girar"><button class="btn btn--quiet" type="submit">{{t "Trocar a chave deste app"}}</button></form>
 </div></div></section>
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Computadores que gerenciam o servidor"}}</h2></div>
@@ -34,9 +34,16 @@ const remotePageSource = `<!doctype html>
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Voltar ao modo local"}}</h2></div>
 <div class="card__body stack">
 <p>{{t "O app volta a rodar o WhatsApp neste computador, com os dados que estão aqui. O servidor continua conectado: para não ter dois aparelhos com a mesma sessão, desconecte o WhatsApp no servidor antes de conectar este computador de novo."}}</p>
-<form method="post" action="/__app/remoto/local"><label class="check"><input type="checkbox" name="server_disconnected" value="1"><span>{{t "Já desconectei o WhatsApp no servidor (ou este computador tem outro número)"}}</span></label>
-<label class="check"><input type="checkbox" name="forget" value="1"><span>{{t "Apagar a chave deste app do Keychain (para usar o servidor de novo, será preciso parear)"}}</span></label>
-<div class="actions"><button class="btn btn--quiet" type="submit">{{t "Voltar ao modo local"}}</button></div></form></div></section>
+<div class="actions"><button class="btn" type="button" data-local-open>{{t "Voltar ao modo local"}}</button></div></div></section>
+<dialog class="dialog dialog--native" id="voltar-local" aria-labelledby="voltar-local-titulo">
+<div class="dialog__head"><h2 id="voltar-local-titulo">{{t "Voltar ao modo local"}}</h2><button class="dialog__close" type="button" data-local-close aria-label="{{t "Fechar"}}">&times;</button></div>
+<div class="dialog__body stack">
+<p>{{t "O app volta a rodar o WhatsApp neste computador, com os dados que estão aqui. O servidor continua conectado: para não ter dois aparelhos com a mesma sessão, desconecte o WhatsApp no servidor antes de conectar este computador de novo."}}</p>
+<form class="stack" method="post" action="/__app/remoto/local" data-local-form>
+<label class="check"><input type="checkbox" name="server_disconnected" value="1" required><span>{{t "Já desconectei o WhatsApp no servidor (ou este computador tem outro número)"}}</span></label>
+<label class="check"><input type="checkbox" name="forget" value="1" required><span>{{t "Apagar a chave deste app do Keychain (para usar o servidor de novo, será preciso parear)"}}</span></label>
+<div class="actions"><button class="btn" type="submit" data-local-submit disabled>{{t "Voltar ao modo local"}}</button><button class="btn btn--quiet" type="button" data-local-close>{{t "Cancelar"}}</button></div>
+</form></div></dialog>
 {{else}}
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Usar um servidor"}}</h2></div>
 <div class="card__body stack">
@@ -51,4 +58,28 @@ const remotePageSource = `<!doctype html>
 <label class="check"><input type="checkbox" name="set_aside" value="1"><span>{{t "Levei os dados deste computador para o servidor: guardar a sessão do WhatsApp daqui numa pasta à parte, para este computador nunca abri-la de novo"}}</span></label>
 <div class="actions"><button class="btn" type="submit">{{t "Conectar ao servidor"}}</button></div></form></div></section>
 {{end}}
-</main></div></body></html>`
+</main></div>
+{{if .Remote}}<script>
+(function () {
+  var dialog = document.getElementById("voltar-local");
+  var form = dialog.querySelector("[data-local-form]");
+  var submit = dialog.querySelector("[data-local-submit]");
+  function update() { submit.disabled = !form.checkValidity(); }
+  document.querySelector("[data-local-open]").addEventListener("click", function () {
+    form.reset();
+    update();
+    dialog.showModal();
+  });
+  dialog.querySelectorAll("[data-local-close]").forEach(function (button) {
+    button.addEventListener("click", function () { dialog.close(); });
+  });
+  form.addEventListener("change", update);
+  form.addEventListener("submit", function (event) {
+    if (!form.checkValidity()) { event.preventDefault(); return; }
+    submit.disabled = true;
+  });
+  {{if ne .Link.State "connected"}}setInterval(function () {
+    if (!dialog.open) window.location.reload();
+  }, 5000);{{end}}
+})();
+</script>{{end}}</body></html>`
