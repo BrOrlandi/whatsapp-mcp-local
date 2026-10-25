@@ -10,6 +10,12 @@ do seu computador a ela. Os detalhes de cada comando estão em
 > **Uso avançado.** O modo servidor pede conhecimento técnico para montar e
 > manter o servidor: atualizações, backup, HTTPS e a segurança da máquina
 > ficam com você. O app pede essa confirmação antes de seguir.
+>
+> Quer ajuda de um agente de IA para montar? A skill
+> [`skills/whatsapp-mcp-servidor`](../skills/whatsapp-mcp-servidor/SKILL.md)
+> guia o Claude Code, o Codex ou outro agente pelo passo a passo, com as
+> regras de segurança. Copie a pasta para as skills do seu agente, ou cole o
+> `SKILL.md` na conversa como instrução.
 
 ## Precisa mesmo de um servidor?
 
