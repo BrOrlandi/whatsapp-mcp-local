@@ -23,6 +23,14 @@ const remotePageSource = `<!doctype html>
 <form method="post" action="/__app/remoto/tentar"><button class="btn" type="submit">{{t "Tentar de novo agora"}}</button></form>
 <form method="post" action="/__app/remoto/girar"><button class="btn btn--quiet" type="submit">{{t "Trocar a chave deste app"}}</button></form>
 </div></div></section>
+<section class="card"><div class="card__head"><h2 class="card__title">{{t "Computadores que gerenciam o servidor"}}</h2></div>
+<div class="card__body stack">
+<p>{{t "Este app já está conectado e não precisa de código. Para outro computador também gerenciar o servidor, gere um código aqui e cole no app dele, em Configurações › Acesso remoto › Usar um servidor. O código vale uma vez, por 10 minutos."}}</p>
+{{if .Devices}}<ul class="rows">{{range .Devices}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}{{if .This}} <span class="pill pill--accent pill--plain">{{t "este app"}}</span>{{end}}</span><span class="row__meta">{{if .LastSeen}}{{tf "visto em %s" (moment .LastSeen)}}{{else}}{{t "nunca conectado"}}{{end}}</span></span>
+{{if not .This}}<form method="post" action="/__app/remoto/revogar"><input type="hidden" name="id" value="{{.ID}}"><button class="btn btn--quiet btn--small" type="submit">{{t "Revogar"}}</button></form>{{end}}</li>{{end}}</ul>{{end}}
+{{with .Code}}<div class="stack"><p class="note">{{t "Copie agora: o código não aparece de novo."}}</p><p><code>{{.Code}}</code></p><p class="note">{{t "Impressão digital do servidor:"}} {{.Fingerprint}}</p></div>{{end}}
+<form method="post" action="/__app/remoto/codigo"><div class="actions"><button class="btn btn--quiet" type="submit">{{t "Parear outro computador como gerenciador"}}</button></div></form>
+</div></section>
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Voltar ao modo local"}}</h2></div>
 <div class="card__body stack">
 <p>{{t "O app volta a rodar o WhatsApp neste computador, com os dados que estão aqui. O servidor continua conectado: para não ter dois aparelhos com a mesma sessão, desconecte o WhatsApp no servidor antes de conectar este computador de novo."}}</p>
@@ -32,7 +40,7 @@ const remotePageSource = `<!doctype html>
 {{else}}
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Usar um servidor"}}</h2></div>
 <div class="card__body stack">
-<p>{{t "No servidor, gere um código de pareamento: whatsapp-mcp remote code, ou Configurações › Acesso remoto no painel dele. O código vale uma vez, por 10 minutos."}}</p>
+<p>{{t "Gere um código de pareamento no servidor (whatsapp-mcp remote code) ou num computador que já o gerencia (Configurações › Acesso remoto › Gerenciar a conexão com o servidor). O código vale uma vez, por 10 minutos."}}</p>
 <p class="muted">{{t "Ainda não tem o servidor?"}} <a href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/docs/modo-servidor.md" target="_blank" rel="noopener">{{t "Veja o passo a passo para montar o servidor"}}</a></p>
 <p class="note">{{t "A conexão é só por HTTPS, com o certificado conferido, e cifrada de ponta a ponta entre este app e o servidor: um proxy no caminho não lê o conteúdo. A chave deste app fica no Keychain deste Mac."}}</p>
 <form class="stack" method="post" action="/__app/remoto/parear" autocomplete="off">

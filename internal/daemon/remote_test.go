@@ -77,9 +77,16 @@ func TestTheAppUsesTheDaemonRemotely(t *testing.T) {
 		t.Fatalf("/api/status over the session: %d %s", code, body)
 	}
 	code, body = get(app, "/configuracoes", map[string]string{"X-WhatsApp-MCP-Server": "https://whatsapp.home.example"})
-	for _, want := range []string{"data-remote-banner", "whatsapp.home.example", "data-remote-link", "data-remote-whatsapp", `id="remoto"`, "Mac do Bruno"} {
+	for _, want := range []string{"data-remote-banner", "whatsapp.home.example", "data-remote-link", "data-remote-whatsapp", `id="remoto"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the settings page over the session lacks %q (status %d)", want, code)
+		}
+	}
+	// Pairing another computer lives in the app's own page; the server's
+	// panel, seen through the app, does not offer it.
+	for _, unwanted := range []string{"data-remote-code", "data-remote-devices"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("the settings page over the session shows %q", unwanted)
 		}
 	}
 	// A page asked for directly on the loopback port has no banner.

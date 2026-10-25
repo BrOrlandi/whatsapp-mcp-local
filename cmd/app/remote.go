@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -349,6 +350,8 @@ func (a *App) withAppPages(next http.Handler) http.Handler {
 		http.Redirect(w, r, "/__app/remoto", http.StatusSeeOther)
 	})
 	mux.HandleFunc("POST /__app/remoto/girar", a.remoteRotate)
+	mux.HandleFunc("POST /__app/remoto/codigo", a.remoteCode)
+	mux.HandleFunc("POST /__app/remoto/revogar", a.remoteRevoke)
 	mux.Handle("/", next)
 	return mux
 }
@@ -368,6 +371,26 @@ type remoteView struct {
 	WATone    string
 	Checked   time.Time
 	Hostname  string
+	// Devices are the computers paired with the server, and Code a pairing
+	// code just made for another one, shown once on this page.
+	Devices []serverDevice
+	Code    *serverCode
+}
+
+// serverDevice is a computer paired with the server, as its API lists it.
+type serverDevice struct {
+	ID        string     `json:"id"`
+	Name      string     `json:"name"`
+	Scope     string     `json:"scope"`
+	LastSeen  *time.Time `json:"last_seen_at"`
+	RevokedAt *time.Time `json:"revoked_at"`
+	This      bool       `json:"this_device"`
+}
+
+// serverCode is a pairing code the server made.
+type serverCode struct {
+	Code        string `json:"code"`
+	Fingerprint string `json:"server_fingerprint"`
 }
 
 func (a *App) remoteView(r *http.Request) remoteView {
@@ -409,9 +432,96 @@ func (a *App) remoteView(r *http.Request) remoteView {
 }
 
 func (a *App) remotePage(w http.ResponseWriter, r *http.Request) {
+	a.renderRemote(w, r, nil)
+}
+
+// renderRemote shows the remote page, with the server's paired computers
+// when the session is up, and code when one was just made.
+func (a *App) renderRemote(w http.ResponseWriter, r *http.Request, code *serverCode) {
+	v := a.remoteView(r)
+	if rm := a.currentRemote(); rm != nil && v.Link.State == remote.StateConnected {
+		var list struct {
+			Devices []serverDevice `json:"devices"`
+		}
+		if err := serverCall(r.Context(), rm, http.MethodGet, "/api/remote/dispositivos", &list); err == nil {
+			for _, d := range list.Devices {
+				if d.RevokedAt == nil {
+					v.Devices = append(v.Devices, d)
+				}
+			}
+		}
+	}
+	v.Code = code
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
-	_ = remoteTemplate.Execute(w, a.remoteView(r))
+	_ = remoteTemplate.Execute(w, v)
+}
+
+// serverCall makes a request to the server's API as this app's window, and
+// decodes its answer into out.
+func serverCall(ctx context.Context, rm *remoteMode, method, path string, out any) error {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	var body io.Reader
+	if method == http.MethodPost {
+		body = strings.NewReader("{}")
+	}
+	req, _ := http.NewRequestWithContext(ctx, method, "http://remote"+path, body)
+	req.Header.Set(remote.WindowHeader, "1")
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := rm.client.RoundTrip(req)
+	if err != nil {
+		return errors.New(i18n.T("o app está sem conexão com o servidor agora; tente de novo em instantes"))
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		var e struct {
+			Error string `json:"error"`
+		}
+		if json.NewDecoder(resp.Body).Decode(&e) == nil && e.Error != "" {
+			return errors.New(e.Error)
+		}
+		return fmt.Errorf("the server answered %s", resp.Status)
+	}
+	if out == nil {
+		return nil
+	}
+	return json.NewDecoder(resp.Body).Decode(out)
+}
+
+// remoteCode makes a pairing code on the server for another computer, and
+// shows it on the page it answers with: never in an address or a log.
+func (a *App) remoteCode(w http.ResponseWriter, r *http.Request) {
+	rm := a.currentRemote()
+	if rm == nil {
+		back(w, r, "", errors.New(i18n.T("o app não está no modo remoto")))
+		return
+	}
+	var code serverCode
+	if err := serverCall(r.Context(), rm, http.MethodPost, "/api/remote/codigo", &code); err != nil {
+		back(w, r, "", err)
+		return
+	}
+	a.renderRemote(w, r, &code)
+}
+
+// remoteRevoke cuts another computer off the server.
+func (a *App) remoteRevoke(w http.ResponseWriter, r *http.Request) {
+	rm := a.currentRemote()
+	if rm == nil {
+		back(w, r, "", errors.New(i18n.T("o app não está no modo remoto")))
+		return
+	}
+	id := strings.TrimSpace(r.FormValue("id"))
+	if id == "" || id == a.config().Remote.DeviceID {
+		back(w, r, "", errors.New(i18n.T("este app não revoga a si mesmo: para deixar o servidor, volte ao modo local")))
+		return
+	}
+	if err := serverCall(r.Context(), rm, http.MethodDelete, "/api/remote/dispositivos/"+url.PathEscape(id), nil); err != nil {
+		back(w, r, "", err)
+		return
+	}
+	back(w, r, i18n.T("O computador foi revogado e não alcança mais o servidor."), nil)
 }
 
 func (a *App) remoteStatusAPI(w http.ResponseWriter, r *http.Request) {
@@ -597,7 +707,17 @@ func remoteKeyMissing() http.Handler {
 }
 
 var remoteTemplate = template.Must(template.New("remote").Funcs(template.FuncMap{"t": i18n.T, "tf": i18n.Tf,
-	"moment": func(t time.Time) string { return t.Local().Format("15:04:05") }}).Parse(remotePageSource))
+	"moment": func(v any) string {
+		switch t := v.(type) {
+		case time.Time:
+			return t.Local().Format("15:04:05")
+		case *time.Time:
+			if t != nil {
+				return t.Local().Format("02/01 15:04")
+			}
+		}
+		return ""
+	}}).Parse(remotePageSource))
 
 // pairingError says what went wrong with a pairing, in the person's
 // language.
