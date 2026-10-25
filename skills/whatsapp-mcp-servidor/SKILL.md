@@ -185,6 +185,15 @@ colar `https://<endereço>` e o código. A partir daí:
 - o MCP do computador continua em `http://127.0.0.1:47821/mcp`, e as
   ferramentas já configuradas não mudam nada.
 
+O código só serve para o primeiro pareamento; depois o app conecta sozinho.
+Outro computador que também vai gerenciar o servidor recebe um código pelo app
+já conectado (*Gerenciar a conexão com o servidor › Parear outro computador
+como gerenciador*) ou pelo mesmo `remote code`. Se a pessoa perder ou formatar
+o computador, siga `docs/modo-servidor.md#perdi-ou-formatei-o-computador`:
+código novo pelo terminal do servidor, e revogar o antigo. Lembre a pessoa de
+guardar o acesso SSH do servidor: sem ele e sem outro computador pareado, não
+há como parear um novo.
+
 Para outro computador que só deve usar o MCP, sem administrar o servidor, use
 `--scope tools`. A lista e a revogação: `whatsapp-mcp remote` e
 `whatsapp-mcp remote revoke <id>`.
