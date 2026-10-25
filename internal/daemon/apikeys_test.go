@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
@@ -50,10 +51,21 @@ func TestTheMCPByURLWithAnAPIKey(t *testing.T) {
 	if got := call(https.URL, testAPIKey); got != 200 {
 		t.Errorf("the right key: %d", got)
 	}
+	// The connection is listed as straight to the server.
+	req, _ := http.NewRequest(http.MethodPost, https.URL+"/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"hermes-agent","version":"1"}}}`))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+testAPIKey)
+	if resp, err := https.Client().Do(req); err == nil {
+		resp.Body.Close()
+	}
+	clients, _ := d.primary.st.Clients(context.Background())
+	if len(clients) == 0 || clients[0].Name != "hermes-agent" || clients[0].Via != "url" {
+		t.Errorf("the API key's client: %+v", clients)
+	}
 	// Plain HTTP, not through an HTTPS proxy, is refused even with the key.
 	plain := httptest.NewServer(d.Remote().Handler())
 	defer plain.Close()
-	req, _ := http.NewRequest(http.MethodPost, plain.URL+"/mcp", strings.NewReader(`{}`))
+	req, _ = http.NewRequest(http.MethodPost, plain.URL+"/mcp", strings.NewReader(`{}`))
 	req.Header.Set("Authorization", "Bearer "+testAPIKey)
 	if resp, err := http.DefaultClient.Do(req); err != nil || resp.StatusCode != http.StatusForbidden {
 		t.Errorf("plain HTTP: %v %v", resp, err)

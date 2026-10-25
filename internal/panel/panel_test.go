@@ -285,3 +285,30 @@ func TestRenameConnection(t *testing.T) {
 		t.Errorf("the name did not come back: %q", tool)
 	}
 }
+
+// The connections are listed by the way they reach the MCP.
+func TestConnectionsAreGroupedByTheirWay(t *testing.T) {
+	list := groupConnections(context.Background(), []Connection{
+		{Tool: "hermes-agent", Live: true, Via: "url"},
+		{Tool: "Claude Code", Live: true, Via: "app:Mac do Bruno"},
+		{Tool: "Codex", Live: true, Via: "app:Mac do Bruno"},
+		{Tool: "t", Live: true, Via: ""},
+	})
+	var got []string
+	for _, c := range list {
+		if c.GroupStart {
+			got = append(got, "["+c.Group+"]")
+		}
+		got = append(got, c.Tool)
+	}
+	want := "[Direto no servidor, pelo endereço com chave] hermes-agent [No computador Mac do Bruno, pelo app] Claude Code Codex [Caminho ainda não registrado (aparece no próximo uso)] t"
+	if strings.Join(got, " ") != want {
+		t.Fatalf("groups:\n%s\nwant\n%s", strings.Join(got, " "), want)
+	}
+	// One way only: no headings.
+	for _, c := range groupConnections(context.Background(), []Connection{{Tool: "a", Via: "local", Live: true}, {Tool: "b", Via: "local", Live: true}}) {
+		if c.GroupStart {
+			t.Fatal("a single group needs no heading")
+		}
+	}
+}
