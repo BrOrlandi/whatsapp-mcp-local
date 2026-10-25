@@ -4,7 +4,8 @@ O WhatsApp MCP pode rodar num servidor que fica ligado o tempo todo, e o app
 de um computador vira o controle dele: o painel, o pareamento do WhatsApp, as
 configurações e o MCP das ferramentas de IA desse computador passam a ser os
 do servidor. Este documento diz como a conexão funciona, o que ela garante e o
-que não garante. Para instalar, veja [Num servidor sem tela](servidor.md).
+que não garante. Para instalar, veja [Num servidor sem tela](servidor.md); o
+mapa das peças está em [Arquitetura do modo servidor](arquitetura-servidor.md).
 
 ## Em uma frase
 
@@ -30,8 +31,10 @@ caminho só repassa bytes que não consegue ler nem alterar.
 - em `127.0.0.1:47821`, como sempre: o painel, a API e o MCP, só para
   programas do próprio servidor;
 - com `WHATSAPP_MCP_REMOTE_LISTEN`, num endereço da rede privada do proxy:
-  só três rotas, `/remote/v1/pair`, `/remote/v1/session` e
-  `/remote/v1/health`. O painel, a API e o MCP nunca respondem ali.
+  só `/remote/v1/pair`, `/remote/v1/session` e `/remote/v1/health`, e o
+  `/mcp` para serviços com chave de API, desligado enquanto não houver chave
+  ([Arquitetura do modo servidor](arquitetura-servidor.md#o-mcp-por-url-com-chave-de-api)).
+  O painel e a API nunca respondem ali.
 
 **No Mac**, o app no modo remoto não roda o wacli. Ele mantém uma sessão com
 o servidor e serve, no seu próprio `127.0.0.1:47821`, o que o servidor serve:

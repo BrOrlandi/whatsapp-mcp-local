@@ -4,7 +4,8 @@ Um passo a passo para quem nunca montou um servidor: contratar a máquina,
 instalar o WhatsApp MCP nela (com Docker, o recomendado, ou sem) e ligar o app
 do seu computador a ela. Os detalhes de cada comando estão em
 [Num servidor sem tela](servidor.md), e os de segurança, em
-[Acesso remoto](acesso-remoto.md).
+[Acesso remoto](acesso-remoto.md), e o mapa das peças, em
+[Arquitetura do modo servidor](arquitetura-servidor.md).
 
 > **Uso avançado.** O modo servidor pede conhecimento técnico para montar e
 > manter o servidor: atualizações, backup, HTTPS e a segurança da máquina
