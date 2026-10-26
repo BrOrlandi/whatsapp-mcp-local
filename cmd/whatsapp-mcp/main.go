@@ -277,12 +277,19 @@ func serve(cfg config) error {
 	if err := appconfig.MarkNew(cfg.DataDir); err != nil {
 		logger.Warn("could not write config.json", "error", err)
 	}
+	restart := make(chan struct{}, 1)
 	d, err := daemon.Start(daemon.Config{
 		Port: cfg.Port, RequirePort: true, Token: cfg.Token,
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
 		LogPath: logPath(), Version: version, Logger: logger,
 		Desktop: desktopCommand(cfg), RemoteListen: remoteSetting("WHATSAPP_MCP_REMOTE_LISTEN", saved.RemoteListen),
 		RemoteTrustedProxy: remoteSetting("WHATSAPP_MCP_REMOTE_TRUSTED_PROXY", saved.RemoteTrustedProxy),
+		Restart: func() {
+			select {
+			case restart <- struct{}{}:
+			default:
+			}
+		},
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
 		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)
@@ -293,9 +300,18 @@ func serve(cfg config) error {
 	fmt.Fprintf(os.Stderr, "\n  Panel:  %s/\n  MCP:    %s/mcp\n\n", cfg.baseURL(), cfg.baseURL())
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	<-ctx.Done()
-	d.Stop()
-	return nil
+	select {
+	case <-ctx.Done():
+		d.Stop()
+		return nil
+	case <-restart:
+		// A transfer of the number's data: the service, or Docker, starts
+		// this process again, which opens the data now in place.
+		d.Stop()
+		logger.Info("exiting for the service to start again")
+		os.Exit(75)
+		return nil
+	}
 }
 
 // desktopCommand is how Claude Desktop reaches this daemon: this program's

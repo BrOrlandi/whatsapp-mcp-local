@@ -174,8 +174,8 @@ Dispositivos conectados › Conectar um dispositivo*. Prefere digitar um código
 no celular? `docker exec -it whatsapp-mcp whatsapp-mcp pair --phone '+55 11 91234-5678'`.
 
 Já usa o WhatsApp MCP no seu computador e quer levar as conversas e a conexão
-para o servidor? Antes de conectar, siga
-[Trazer os dados de outro computador](servidor.md#trazer-os-dados-de-outro-computador).
+para o servidor? **Não conecte o WhatsApp aqui:** o app leva tudo no passo 4,
+sem ler o QR code de novo.
 
 ## 3. (alternativa) Instalar sem Docker
 
@@ -209,6 +209,22 @@ docker exec whatsapp-mcp whatsapp-mcp remote code --name "Meu Mac"
 No app: *Configurações › Acesso remoto › Usar um servidor* (ou, na primeira
 vez que abre o app, *Usar um servidor* abaixo do QR code). Confirme o aviso de
 uso avançado, informe `https://whatsapp.seudominio.com` e o código, e conecte.
+
+**Levar as conversas deste computador.** Se o app já tem o WhatsApp
+conectado, o formulário traz marcada a opção *Levar as conversas deste
+computador para o servidor*. Ao conectar, o app:
+
+1. confere que o servidor está sem WhatsApp e usa a mesma versão do wacli;
+2. para o WhatsApp deste computador e envia, pela conexão cifrada, a sessão,
+   as conversas, as transcrições, os webhooks e as mídias baixadas;
+3. espera o servidor reiniciar e conectar ao WhatsApp com essa sessão, sem
+   QR code;
+4. só então apaga a cópia deste computador.
+
+A tela mostra o andamento; não feche o app até terminar. Se algo falhar antes
+do passo 4, as conversas continuam neste computador, e *Voltar ao modo local*
+volta a usá-las. O servidor precisa rodar no Docker ou como serviço: ele
+reinicia sozinho para abrir os dados recebidos.
 
 Se o WhatsApp do servidor ainda não estiver conectado, o app mostra a
 instalação do servidor, com o QR code dele: leia com o celular, como na
@@ -272,6 +288,20 @@ As chaves aparecem em *Configurações › Acesso remoto › Gerenciar a conexã
 o servidor › Chaves de agentes remotos*, com o agente de cada uma, quando foi
 criada e se já está em uso. *Revogar* corta a chave na hora; o agente que a
 usava precisa de uma chave nova para voltar.
+
+## Voltar a usar só o computador
+
+Para o WhatsApp voltar a rodar no computador, no app: *Configurações › Acesso
+remoto › Gerenciar a conexão com o servidor › Trazer as conversas para este
+computador*. O app traz a sessão e os dados do servidor, o servidor guarda a
+sessão dele numa pasta à parte (`data/wacli.levado-…`), que não conecta mais,
+e o app volta ao modo local, já conectado, sem QR code.
+
+Depois, se não vai mais usar o servidor, desligue o WhatsApp MCP lá
+(`docker compose down` em `/opt/whatsapp-mcp`, ou
+`whatsapp-mcp service uninstall` sem Docker) e apague a pasta
+`wacli.levado-…` quando tiver certeza de que está tudo no computador. Os
+agentes que usavam o servidor perdem o WhatsApp.
 
 ## Se o servidor ficar fora de alcance
 

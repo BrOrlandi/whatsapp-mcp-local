@@ -65,6 +65,9 @@ type App struct {
 	// remote is set in remote mode (remote.go), when the daemon runs on a
 	// server and not here.
 	remote *remoteMode
+	// transfer is the last move of the number to or from the server
+	// (transfer.go).
+	transfer *transferJob
 
 	// canHide is false where there is no tray to hide the window into.
 	canHide  bool

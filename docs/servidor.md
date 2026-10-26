@@ -247,7 +247,13 @@ duas conexões: a do app com o servidor e a do servidor com o WhatsApp.
 
 ## Trazer os dados de outro computador
 
-Para levar a conexão do WhatsApp, as conversas já sincronizadas, as
+O app faz isso sozinho ao parear, com *Levar as conversas deste computador
+para o servidor* marcado ([Modo servidor](modo-servidor.md#4-ligar-o-app-do-seu-computador)),
+e o caminho de volta também (*Trazer as conversas para este computador*).
+Para o servidor reiniciar com os dados que chegam, ele precisa rodar no
+Docker ou como serviço (`service install`).
+
+À mão, para levar a conexão do WhatsApp, as conversas já sincronizadas, as
 transcrições, os webhooks e a mídia baixada de um computador para o
 servidor, sem conectar o celular de novo:
 
@@ -268,9 +274,10 @@ servidor, sem conectar o celular de novo:
 5. **Suba o contêiner** e espere `whatsapp-mcp status` dizer que está
    conectado, sem pedir QR code. As conversas recentes devem bater com as do
    celular.
-6. **No computador**, pareie o app com o servidor marcando *Levei os dados
-   deste computador para o servidor*: o app guarda a pasta `wacli/` antiga com
-   outro nome (não apaga), para nunca abrir aquela sessão de novo.
+6. **No computador**, pareie o app com o servidor sem marcar *Levar as
+   conversas deste computador para o servidor* e, com o app já no modo remoto,
+   tire a pasta `wacli/` antiga da pasta de dados (guarde-a com outro nome ou
+   apague): este computador nunca deve abrir aquela sessão de novo.
 
 **Para voltar:** pare o contêiner, devolva a pasta guardada ao nome original
 (ou restaure o backup) e, no app, *Voltar ao modo local*, confirmando que o

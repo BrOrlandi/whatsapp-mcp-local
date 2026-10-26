@@ -351,6 +351,8 @@ func (a *App) withAppPages(next http.Handler) http.Handler {
 	mux.HandleFunc("GET /__app/remote/status", a.remoteStatusAPI)
 	mux.HandleFunc("POST /__app/remoto/parear", a.remotePair)
 	mux.HandleFunc("POST /__app/remoto/local", a.remoteToLocal)
+	mux.HandleFunc("POST /__app/remoto/trazer", a.remoteBring)
+	mux.HandleFunc("GET /__app/remoto/transferencia", a.transferStatusAPI)
 	mux.HandleFunc("POST /__app/remoto/tentar", func(w http.ResponseWriter, r *http.Request) {
 		// Down, the session is retried now; up, the server is asked again
 		// how its WhatsApp is, so the page shows it fresh.
@@ -394,6 +396,18 @@ type remoteView struct {
 	Code    *serverCode
 	// Keys are the API keys of the agents outside this computer.
 	Keys []keyView
+	// Transfer is a move of the number to or from the server, under way or
+	// just ended; LocalData is a WhatsApp session on this computer, which
+	// pairing can take along to the server.
+	Transfer  *transferView
+	LocalData bool
+}
+
+// transferView is a transfer as the remote page shows it.
+type transferView struct {
+	Kind, Step, Error, Server string
+	Done                      bool
+	Percent                   int64
 }
 
 // keyView is an API key as the remote page lists it.
@@ -423,9 +437,18 @@ func (a *App) remoteView(r *http.Request) remoteView {
 	v := remoteView{Lang: template.CSS(i18n.Lang()), CSS: template.CSS(panel.Stylesheet()), OK: r.URL.Query().Get("ok"), Error: r.URL.Query().Get("erro")}
 	v.Hostname, _ = os.Hostname()
 	v.Hostname = strings.TrimSuffix(v.Hostname, ".local")
+	if j := a.currentTransfer(); j != nil {
+		transferMu.Lock()
+		v.Transfer = &transferView{Kind: j.Kind, Step: j.Step, Error: j.Error, Server: j.Server, Done: j.Done}
+		if j.Total > 0 {
+			v.Transfer.Percent = min(100, j.moved.Load()*100/j.Total)
+		}
+		transferMu.Unlock()
+	}
 	cfg := a.config().Remote
 	rm := a.currentRemote()
 	if cfg == nil || rm == nil {
+		v.LocalData = a.localPhone() != ""
 		return v
 	}
 	v.Remote, v.Server, v.Device = true, hostOf(cfg.Server), cfg.DeviceID
@@ -619,6 +642,11 @@ func (a *App) remotePair(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name, _ = os.Hostname()
 	}
+	move := r.FormValue("move") == "1"
+	if move && a.running() {
+		back(w, r, "", errors.New(i18n.T("uma transferência já está em andamento")))
+		return
+	}
 	if _, err := remote.ServerURL(server); err != nil {
 		back(w, r, "", errors.New(i18n.T("o endereço do servidor precisa começar com https:// (a conexão remota é só por HTTPS)")))
 		return
@@ -646,14 +674,21 @@ func (a *App) remotePair(w http.ResponseWriter, r *http.Request) {
 		_ = deleteDeviceKey(old.DeviceID)
 	}
 	a.logger.Info("paired with a server; switching to remote mode", "server", hostOf(device.Server), "device", device.ID)
-	setAside := r.FormValue("set_aside") == "1"
-	a.switchToRemote(setAside)
+	phone := a.localPhone()
+	a.switchToRemote()
+	if move {
+		if rm := a.currentRemote(); rm != nil {
+			go a.moveToServer(rm, phone)
+		}
+		http.Redirect(w, r, "/__app/remoto", http.StatusSeeOther)
+		return
+	}
 	back(w, r, i18n.Tf("Conectado ao servidor %s. O WhatsApp deste app agora é o do servidor.", hostOf(device.Server)), nil)
 }
 
 // switchToRemote stops the local gateway, so this computer never holds the
 // WhatsApp session too, and starts remote mode.
-func (a *App) switchToRemote(setAside bool) {
+func (a *App) switchToRemote() {
 	a.stopRemote()
 	a.dmu.Lock()
 	d, cancel := a.daemon, a.follow
@@ -665,16 +700,6 @@ func (a *App) switchToRemote(setAside bool) {
 	if d != nil {
 		a.logger.Info("stopping the local gateway for remote mode")
 		d.Stop()
-	}
-	if setAside {
-		// The WhatsApp session of this computer went to the server: keep it
-		// aside, under another name, so this computer never opens it again.
-		aside := a.storeDir + ".no-servidor-" + time.Now().Format("20060102-150405")
-		if err := os.Rename(a.storeDir, aside); err != nil && !os.IsNotExist(err) {
-			a.logger.Error("could not set the local WhatsApp session aside", "error", err)
-		} else {
-			a.logger.Info("the local WhatsApp session was set aside", "to", aside)
-		}
 	}
 	a.startRemote()
 }
@@ -706,6 +731,10 @@ func digitsOf(s string) string {
 }
 
 func (a *App) remoteToLocal(w http.ResponseWriter, r *http.Request) {
+	if a.running() {
+		back(w, r, "", errors.New(i18n.T("uma transferência já está em andamento")))
+		return
+	}
 	cfg := a.config().Remote
 	// The same WhatsApp session must never run here and on the server at
 	// once: with this computer holding the number the server has, or with

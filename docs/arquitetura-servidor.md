@@ -203,6 +203,48 @@ linha no servidor.
 Aqui não há Noise: a proteção é o HTTPS até o proxy e a chave. Entre o proxy e
 o contêiner o conteúdo anda em claro, na rede privada.
 
+## Levar o número entre o computador e o servidor
+
+O app move a sessão do WhatsApp e os dados do número (`internal/transfer`):
+a pasta do wacli inteira (sem `LOCK`, `HEARTBEAT` e sockets) e, da pasta de
+dados, só `state.db` (copiado com `VACUUM INTO`), `media/` e `exports/`. O
+que é da máquina fica: `remote-server.key`, `api-keys`, `token`,
+`config.json`, os modelos de transcrição, e os dispositivos pareados
+(`remote_clients`), que o lado que recebe mantém os seus. Vai como um `.tar`
+gzip, dentro da sessão Noise, por rotas que só a janela do app alcança
+(`/api/transferencia…`, nem o loopback nem outro programa do computador):
+
+| Rota | O que faz |
+|---|---|
+| `GET /api/transferencia` | se o servidor sabe reiniciar, a versão do wacli e se tem WhatsApp |
+| `POST /api/transferencia/receber` | recebe o número do app; recusa se o servidor já tem WhatsApp ou o wacli é outro |
+| `POST /api/transferencia/enviar` | para o sync e manda o número ao app; o sync fica parado até `concluir`, `cancelar` ou 15 minutos |
+| `POST /api/transferencia/concluir` | a sessão é do app agora: o servidor a guarda em `wacli.levado-<data>` e reinicia sem WhatsApp |
+
+```mermaid
+sequenceDiagram
+  participant A as App (computador)
+  participant D as Daemon (servidor)
+  Note over A: pareado, com "Levar as conversas" marcado
+  A->>A: para o WhatsApp local
+  A->>D: GET /api/transferencia (sem WhatsApp? mesmo wacli?)
+  A->>D: POST receber: .tar.gz do número
+  D->>D: desempacota em wacli.recebendo e .recebendo
+  D-->>A: ok
+  D->>D: fecha, troca as pastas (as antigas vão para .antes-<data>), sai
+  Note over D: Docker ou o serviço o sobem de novo
+  D->>D: sync conecta com a sessão recebida
+  A->>D: /api/status até mostrar o mesmo número
+  A->>A: apaga a cópia local
+```
+
+Os dados chegam numa pasta ao lado da final e só trocam de lugar com o
+daemon fechado: o processo sai (código 75) e o Docker (`restart:
+unless-stopped`), o systemd (`Restart=always`) ou o launchd (`KeepAlive`) o
+sobem de novo. Um daemon rodado à mão não reinicia, e a transferência se
+recusa (`Config.Restart`). Nada é apagado no servidor: o que estava lá vai
+para `.antes-<data>`, e a sessão que voltou ao app, para `.levado-<data>`.
+
 ## Defesas do servidor para pedidos remotos
 
 - **`send_media_message`** chamado por um dispositivo remoto não aceita
@@ -253,4 +295,5 @@ tabela `clients` do `state.db`), e o painel os agrupa:
 | Páginas dos agentes remotos, `/api/chaves` | `internal/panel/apikeys.go`, `internal/panel/panel.go` (`agentGuides`) |
 | Modo remoto do app, tela do servidor com as chaves | `cmd/app/remote.go`, `cmd/app/remotepage.go` |
 | Downloads de um pedido remoto | `internal/mcp/remotefetch.go` |
+| Transferência do número | `internal/transfer`, `internal/daemon/transfer.go`, `cmd/app/transfer.go` |
 | Instalação com Docker e proxy | `install-docker.sh` |

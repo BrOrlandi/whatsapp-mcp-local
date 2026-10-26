@@ -55,12 +55,18 @@ type Config struct {
 	// comma separated); the remote routes refuse anything else. Empty, the
 	// listener must be one only the proxy reaches.
 	RemoteTrustedProxy string
+	// Restart, when set, ends this process for its service manager (the
+	// service, Docker) to start it again. A transfer of the number's data to
+	// or from the app needs it: the data is put in place with the gateway
+	// closed (transfer.go).
+	Restart func()
 }
 
 // Daemon is a running gateway.
 type Daemon struct {
 	cfg    Config
 	logger *slog.Logger
+	ctx    context.Context
 	cancel context.CancelFunc
 
 	// primary is the main number, the one the panel and the tray show.
@@ -79,6 +85,9 @@ type Daemon struct {
 
 	remote    *remote.Server
 	remoteSrv *http.Server
+	transfers *transfers
+	// afterStop runs at the end of Stop, with everything closed.
+	afterStop []func()
 
 	watch watchers
 }
@@ -123,7 +132,7 @@ func Start(cfg Config) (*Daemon, error) {
 
 	d := &Daemon{cfg: cfg, logger: logger, port: cfg.Port, listenErr: problem, watchDone: make(chan struct{})}
 	ctx, cancel := context.WithCancel(context.Background())
-	d.cancel = cancel
+	d.ctx, d.cancel = ctx, cancel
 
 	// Transcription models and programs are shared by every number.
 	asr := localasr.New(cfg.DataDir)
@@ -191,6 +200,10 @@ func (d *Daemon) startRemote(cfg Config, primary *Account) error {
 		}
 		r.Header.Del(remote.LocalBaseHeader)
 		r.Host = addr(d.Port())
+		if window && isTransfer(r.URL.Path) {
+			d.transfers.routes().ServeHTTP(w, r)
+			return
+		}
 		if !window {
 			d.routes.ServeHTTP(w, r)
 			return
@@ -218,6 +231,7 @@ func (d *Daemon) startRemote(cfg Config, primary *Account) error {
 		d.routes.ServeHTTP(w, r.WithContext(mcp.WithVia(r.Context(), "url")))
 	})
 	d.remote = srv
+	d.transfers = &transfers{d: d}
 	d.panel.Remote = srv
 	d.panel.APIKeys = keys
 	if cfg.RemoteListen == "" {
@@ -295,6 +309,13 @@ func (d *Daemon) Stop() {
 	}
 	for _, a := range accounts {
 		a.stop()
+	}
+	d.mu.Lock()
+	after := d.afterStop
+	d.afterStop = nil
+	d.mu.Unlock()
+	for _, f := range after {
+		f()
 	}
 }
 
