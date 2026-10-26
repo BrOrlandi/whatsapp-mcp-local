@@ -19,31 +19,67 @@ const remotePageSource = `<!doctype html>
 <li class="row"><span class="row__main"><span class="row__title">{{t "Servidor ↔ WhatsApp"}}</span><span class="row__meta">{{t "o WhatsApp conectado no servidor"}}{{if .WhatsApp}}{{with .WhatsApp.Name}} · {{.}}{{end}}{{with .WhatsApp.Phone}} · {{.}}{{end}}{{end}}</span></span><span class="pill pill--{{.WATone}}">{{.WALabel}}</span></li>
 </ul>
 <p class="muted">{{t "Servidor:"}} <strong>{{.Server}}</strong>{{if not .Checked.IsZero}} · {{tf "conferido às %s" (moment .Checked)}}{{end}} <span class="tip" tabindex="0" aria-describedby="tip-chaves"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-chaves">{{t "chave do servidor"}} {{.Finger}} · {{t "este app"}} {{.Device}}</span></span></p>
-<div class="actions">
-{{if not .AllOK}}<form method="post" action="/__app/remoto/tentar"><button class="btn" type="submit">{{t "Verificar a conexão agora"}}</button></form>{{end}}
-<form method="post" action="/__app/remoto/girar"><button class="btn btn--quiet" type="submit">{{t "Trocar a chave deste app"}}</button></form>
-</div></div></section>
+{{if not .AllOK}}<div class="actions"><form method="post" action="/__app/remoto/tentar"><button class="btn" type="submit">{{t "Verificar a conexão agora"}}</button></form></div>{{end}}</div></section>
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Computadores que gerenciam o servidor"}}</h2></div>
 <div class="card__body stack">
 <p>{{t "Este app já está conectado e não precisa de código. Para outro computador também gerenciar o servidor, gere um código aqui e cole no app dele, em Configurações › Acesso remoto › Usar um servidor. O código vale uma vez, por 10 minutos."}}</p>
 {{if .Devices}}<ul class="rows">{{range .Devices}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}{{if .This}} <span class="pill pill--accent pill--plain">{{t "este app"}}</span>{{end}}</span><span class="row__meta">{{if .LastSeen}}{{tf "visto em %s" (moment .LastSeen)}}{{else}}{{t "nunca conectado"}}{{end}}</span></span>
 {{if not .This}}<form method="post" action="/__app/remoto/revogar"><input type="hidden" name="id" value="{{.ID}}"><button class="btn btn--quiet btn--small" type="submit">{{t "Revogar"}}</button></form>{{end}}</li>{{end}}</ul>{{end}}
 {{with .Code}}<div class="stack"><p class="note">{{t "Copie agora: o código não aparece de novo."}}</p><p><code>{{.Code}}</code></p><p class="note">{{t "Impressão digital do servidor:"}} {{.Fingerprint}}</p></div>{{end}}
-<form method="post" action="/__app/remoto/codigo"><div class="actions"><button class="btn btn--quiet" type="submit">{{t "Parear outro computador como gerenciador"}}</button></div></form>
+<div class="actions"><form method="post" action="/__app/remoto/codigo"><button class="btn btn--quiet" type="submit">{{t "Parear outro computador como gerenciador"}}</button></form>
+<button class="btn btn--quiet" type="button" data-rotate-open>{{t "Trocar a chave deste app"}}</button>
+</div>
 </div></section>
+<dialog class="dialog dialog--native" id="trocar-chave" aria-labelledby="trocar-chave-titulo" aria-describedby="trocar-chave-descricao">
+<div class="dialog__head"><h2 id="trocar-chave-titulo">{{t "Trocar a chave deste app"}}</h2><button class="dialog__close" type="button" data-rotate-close aria-label="{{t "Fechar"}}">&times;</button></div>
+<div class="dialog__body stack">
+<p id="trocar-chave-descricao">{{t "A chave identifica este app no servidor. Ao trocá-la, o app se desconecta por um instante e tenta conectar de novo automaticamente. Pedidos das ferramentas de IA que passam por este app podem falhar nesse intervalo e precisar ser repetidos."}}</p>
+<p>{{t "O WhatsApp no servidor e os outros computadores continuam funcionando. A chave anterior só deixa de valer depois que a conexão com a nova chave é estabelecida."}}</p>
+<form method="post" action="/__app/remoto/girar" data-rotate-form><div class="actions"><button class="btn" type="submit">{{t "Trocar a chave deste app"}}</button><button class="btn btn--quiet" type="button" data-rotate-close>{{t "Cancelar"}}</button></div></form>
+</div></dialog>
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Chaves de agentes remotos"}}</h2></div>
 <div class="card__body stack">
 <p>{{t "Agentes fora deste computador usam o MCP do servidor com uma chave. Para criar uma, escolha o agente em Conectar ferramenta de IA › Agentes remotos."}}</p>
 {{if .Keys}}<ul class="rows">{{range .Keys}}<li class="row keyrow"><span class="toolpick__icon">{{.Mark}}</span><span class="row__main"><span class="row__title">{{.Name}}</span><span class="row__meta">{{.Meta}}</span></span>
 {{if .Used}}<span class="pill pill--ok">{{t "Em uso"}}</span>{{else}}<span class="pill pill--warn">{{t "Aguardando o primeiro uso"}}</span>{{end}}
-<form method="post" action="/__app/remoto/chaves/revogar"><input type="hidden" name="id" value="{{.ID}}"><button class="btn btn--quiet btn--small" type="submit">{{t "Revogar"}}</button></form></li>{{end}}</ul>
+<button class="btn btn--quiet btn--small" type="button" data-key-revoke="{{.ID}}">{{t "Revogar"}}</button></li>{{end}}</ul>
 {{else}}<p class="muted">{{t "Nenhuma chave criada."}}</p>{{end}}
 <div class="actions"><a class="btn btn--quiet" href="/conectar#agentes-remotos">{{t "Conectar um agente remoto"}}</a></div>
 </div></section>
+{{if .Keys}}<dialog class="dialog keydialog" id="revogar-chave" aria-labelledby="revogar-chave-titulo">
+<div class="dialog__head"><h2 id="revogar-chave-titulo">{{t "Revogar a chave?"}}</h2><button class="dialog__close" type="button" data-key-close aria-label="{{t "Fechar"}}">&times;</button></div>
+<div class="dialog__body stack">
+<ul class="rows"><li class="row keyrow" data-key-preview></li></ul>
+<p>{{t "O agente que usa esta chave perde o acesso ao WhatsApp na hora. Para conectá-lo de novo, será preciso criar outra chave."}}</p>
+<form method="post" action="/__app/remoto/chaves/revogar"><input type="hidden" name="id" data-key-id>
+<div class="actions"><button class="btn btn--danger" type="submit">{{t "Revogar a chave"}}</button><button class="btn btn--quiet" type="button" data-key-close>{{t "Cancelar"}}</button></div></form>
+</div></dialog>
+<script>
+(function () {
+  var dialog = document.getElementById("revogar-chave");
+  var preview = dialog.querySelector("[data-key-preview]");
+  document.querySelectorAll("[data-key-revoke]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var row = button.closest(".keyrow");
+      preview.innerHTML = "";
+      preview.appendChild(row.querySelector(".toolpick__icon").cloneNode(true));
+      var main = preview.appendChild(row.querySelector(".row__main").cloneNode(true));
+      var pill = main.appendChild(row.querySelector(".pill").cloneNode(true));
+      pill.style.alignSelf = "flex-start";
+      pill.style.marginTop = "6px";
+      dialog.querySelector("[data-key-id]").value = button.getAttribute("data-key-revoke");
+      dialog.showModal();
+    });
+  });
+  dialog.querySelectorAll("[data-key-close]").forEach(function (button) {
+    button.addEventListener("click", function () { dialog.close(); });
+  });
+})();
+</script>{{end}}
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Voltar ao modo local"}}</h2></div>
 <div class="card__body stack">
 <p>{{t "O app volta a rodar o WhatsApp neste computador, com os dados que estão aqui. O servidor continua conectado: para não ter dois aparelhos com a mesma sessão, desconecte o WhatsApp no servidor antes de conectar este computador de novo."}}</p>
-<div class="actions"><button class="btn" type="button" data-local-open>{{t "Voltar ao modo local"}}</button></div></div></section>
+<div class="actions"><button class="btn btn--ghost" type="button" data-local-open>{{t "Voltar ao modo local"}}</button></div></div></section>
 <dialog class="dialog dialog--native" id="voltar-local" aria-labelledby="voltar-local-titulo">
 <div class="dialog__head"><h2 id="voltar-local-titulo">{{t "Voltar ao modo local"}}</h2><button class="dialog__close" type="button" data-local-close aria-label="{{t "Fechar"}}">&times;</button></div>
 <div class="dialog__body stack">
@@ -67,9 +103,20 @@ const remotePageSource = `<!doctype html>
 <label class="check"><input type="checkbox" name="set_aside" value="1"><span>{{t "Levei os dados deste computador para o servidor: guardar a sessão do WhatsApp daqui numa pasta à parte, para este computador nunca abri-la de novo"}}</span></label>
 <div class="actions"><button class="btn" type="submit">{{t "Conectar ao servidor"}}</button></div></form></div></section>
 {{end}}
+<p><a class="flow__back" href="/configuracoes#remoto">← {{t "Voltar ao painel"}}</a></p>
 </main></div>
 {{if .Remote}}<script>
 (function () {
+  var rotation = document.getElementById("trocar-chave");
+  document.querySelector("[data-rotate-open]").addEventListener("click", function () {
+    rotation.showModal();
+  });
+  rotation.querySelectorAll("[data-rotate-close]").forEach(function (button) {
+    button.addEventListener("click", function () { rotation.close(); });
+  });
+  rotation.querySelector("[data-rotate-form]").addEventListener("submit", function () {
+    rotation.querySelector("button[type=submit]").disabled = true;
+  });
   var dialog = document.getElementById("voltar-local");
   var form = dialog.querySelector("[data-local-form]");
   var submit = dialog.querySelector("[data-local-submit]");
@@ -88,7 +135,7 @@ const remotePageSource = `<!doctype html>
     submit.disabled = true;
   });
   {{if not .AllOK}}setInterval(function () {
-    if (!dialog.open) window.location.reload();
+    if (!dialog.open && !rotation.open) window.location.reload();
   }, 5000);{{end}}
 })();
 </script>{{end}}</body></html>`

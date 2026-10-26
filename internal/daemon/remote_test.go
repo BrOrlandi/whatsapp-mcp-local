@@ -77,7 +77,7 @@ func TestTheAppUsesTheDaemonRemotely(t *testing.T) {
 		t.Fatalf("/api/status over the session: %d %s", code, body)
 	}
 	code, body = get(app, "/configuracoes", map[string]string{"X-WhatsApp-MCP-Server": "https://whatsapp.home.example"})
-	for _, want := range []string{"data-remote-banner", "whatsapp.home.example", "data-remote-link", "data-remote-whatsapp", `id="remoto"`} {
+	for _, want := range []string{"data-remote-status", "whatsapp.home.example", "MCP Remoto", `href="/__app/remoto"`, `id="remoto"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the settings page over the session lacks %q (status %d)", want, code)
 		}
@@ -89,10 +89,10 @@ func TestTheAppUsesTheDaemonRemotely(t *testing.T) {
 			t.Errorf("the settings page over the session shows %q", unwanted)
 		}
 	}
-	// A page asked for directly on the loopback port has no banner.
+	// A page asked for directly on the loopback port has no remote status card.
 	_, local, err := get2(d.MCPURL(), "/configuracoes")
-	if err != nil || strings.Contains(local, "data-remote-banner") {
-		t.Errorf("a local page shows the remote banner: %v", err)
+	if err != nil || strings.Contains(local, "data-remote-status") {
+		t.Errorf("a local page shows the remote status card: %v", err)
 	}
 
 	// An agent elsewhere: its page names the server's address, and a key.
