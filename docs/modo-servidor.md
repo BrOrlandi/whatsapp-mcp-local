@@ -46,9 +46,10 @@ todo. Assim:
   de sempre (`http://127.0.0.1:47821/mcp`), agora lendo do servidor.
 
 O MCP do servidor não fica aberto na internet: ele atende os programas do
-próprio servidor e os apps pareados com ele, por uma conexão HTTPS cifrada de
-ponta a ponta. O modo servidor é opcional; sem ele, o app continua rodando
-tudo no seu computador.
+próprio servidor, os apps pareados com ele, por uma conexão HTTPS cifrada de
+ponta a ponta, e os agentes de fora a quem você der uma chave (passo 6). Sem
+nenhuma chave criada, o endereço do MCP responde 404. O modo servidor é
+opcional; sem ele, o app continua rodando tudo no seu computador.
 
 ## Do que você precisa
 
@@ -122,7 +123,8 @@ Troque `whatsapp.seudominio.com` pelo seu endereço e grave o
 
 ```
 whatsapp.seudominio.com {
-	handle /remote/v1/* {
+	@whatsapp path /remote/v1/* /mcp
+	handle @whatsapp {
 		reverse_proxy 127.0.0.1:47822
 	}
 	respond 404
@@ -133,8 +135,9 @@ whatsapp.seudominio.com {
 sudo systemctl reload caddy
 ```
 
-Só o caminho do acesso remoto passa pelo Caddy; o resto responde 404. A porta
-47822 fica só no `127.0.0.1` do servidor, e o Caddy é quem a alcança.
+Só dois caminhos passam pelo Caddy: o do app (`/remote/v1/`) e o dos agentes
+de fora (`/mcp`, que só responde a quem tem uma chave). O resto responde 404.
+A porta 47822 fica só no `127.0.0.1` do servidor, e o Caddy é quem a alcança.
 
 **Rode o instalador do WhatsApp MCP:**
 
@@ -150,6 +153,10 @@ Ele pergunta:
   (`whatsapp.seudominio.com`).
 - **Quem faz o HTTPS:** `other` para o Caddy. Se o servidor já tem um
   Traefik no Docker, responda `traefik`, e o script liga o contêiner a ele.
+  A regra que ele gera só leva o caminho do app; para os agentes de fora do
+  passo 6, troque a regra no `compose.yaml` por
+  ``Host(`whatsapp.seudominio.com`) && (PathPrefix(`/remote/v1/`) || Path(`/mcp`))``
+  e rode `docker compose up -d`.
 - **Porta para o seu proxy:** aceite `47822`, a mesma do Caddyfile.
 - **Idioma e fuso horário:** aceite ou ajuste.
 
@@ -234,6 +241,38 @@ Um agente que roda no servidor usa o MCP de lá, sem passar pelo app:
   claude mcp add whatsapp -- docker exec -i whatsapp-mcp whatsapp-mcp bridge
   ```
 
+## 6. Ligar agentes de fora do servidor
+
+Um agente que roda em outro lugar, como o OpenClaw, o Hermes Agent ou um
+agente na nuvem, usa o MCP pelo endereço do servidor
+(`https://whatsapp.seudominio.com/mcp`), com uma chave de API só dele. Pelo
+app:
+
+1. Abra *Conectar ferramenta de IA* e desça até *Agentes remotos*. Escolha o
+   agente; se ele não está na lista, *Conectar outro agente remoto*.
+2. **Crie uma chave para o agente.** O nome já vem preenchido com o do
+   agente. A chave aparece uma vez só: depois que a tela muda, não há como
+   vê-la de novo.
+3. **Configure o agente.** A tela mostra um texto para mandar no chat do
+   agente, para ele mesmo se configurar, ou o endereço e o cabeçalho para pôr
+   na configuração de servidores MCP dele. Guarde a chave no lugar de segredos
+   do agente e não a cole em outras conversas.
+4. **Confira a conexão.** Clique em *Já configurei no agente*: a tela espera
+   o primeiro uso do MCP com essa chave e avisa quando ele chega.
+
+Pelo terminal do servidor, a mesma chave sai de
+`docker exec whatsapp-mcp whatsapp-mcp apikey new "Hermes"` (sem Docker,
+`whatsapp-mcp apikey new "Hermes"`).
+
+Uma chave que nenhum agente usar em 24 horas deixa de valer sozinha, para não
+sobrar chave esquecida. Depois do primeiro uso, ela vale até ser revogada.
+Dê uma chave a cada agente: assim dá para cortar um só.
+
+As chaves aparecem em *Configurações › Acesso remoto › Gerenciar a conexão com
+o servidor › Chaves de agentes remotos*, com o agente de cada uma, quando foi
+criada e se já está em uso. *Revogar* corta a chave na hora; o agente que a
+usava precisa de uma chave nova para voltar.
+
 ## Se o servidor ficar fora de alcance
 
 O app mostra *Reconectando* e, depois de um minuto, *Indisponível*, na bandeja
@@ -286,3 +325,6 @@ importantes.
   `whatsapp-mcp remote`), ou *Revogar* na tela *Gerenciar a conexão com o
   servidor* de outro app. Trocar de computador:
   [Perdi ou formatei o computador](#perdi-ou-formatei-o-computador).
+- **Cortar um agente de fora:** *Revogar* ao lado da chave dele, em
+  *Gerenciar a conexão com o servidor › Chaves de agentes remotos*, ou
+  `whatsapp-mcp apikey revoke <id>` (a lista sai em `whatsapp-mcp apikey`).

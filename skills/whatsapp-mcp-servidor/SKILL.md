@@ -206,11 +206,25 @@ pasta de dados (`data/mcp/api-keys`), com um nome depois de um espaço. Ele lê
 o arquivo a cada pedido: não precisa reiniciar, e apagar a linha revoga na
 hora.
 
-Gere a chave sem mostrá-la:
+Se a pessoa tem o app pareado, o caminho mais simples é ela mesma: *Conectar
+ferramenta de IA › Agentes remotos*, escolher o agente e seguir a tela, que
+cria a chave, mostra o texto para o agente e espera o primeiro uso.
+
+Pelo terminal, gere a chave sem mostrá-la:
 
 ```sh
 umask 077
-openssl rand -hex 32 > hermes-api-key            # a chave, só para o agente
+docker exec whatsapp-mcp whatsapp-mcp apikey new hermes --json \
+  | grep -o '"key":"[^"]*"' | cut -d'"' -f4 > hermes-api-key   # a chave, só para o agente
+```
+
+Uma chave feita assim (ou pela tela) que ninguém usar em 24 horas deixa de
+valer sozinha; o teste do passo 7 já conta como uso. Para uma chave que nunca
+expira, escreva a linha à mão, sem a marca `unused`:
+
+```sh
+umask 077
+openssl rand -hex 32 > hermes-api-key
 printf '%s hermes\n' "$(sha256sum < hermes-api-key | cut -d' ' -f1)" >> data/mcp/api-keys
 ```
 
