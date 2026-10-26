@@ -140,14 +140,14 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="actions"><a class="btn" href="/configuracoes#remoto">{{t "Usar um servidor"}}</a><a class="btn btn--quiet" href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/docs/modo-servidor.md" target="_blank" rel="noopener">{{t "Veja o passo a passo para montar o servidor"}}</a></div>
 </div></section>
 {{else}}
-<section class="card"><div class="card__body">
+<section class="card" data-api-key-flow><div class="card__body">
 <p class="muted">{{tf "%s usa o MCP do servidor pela internet ou pela sua rede, no endereço abaixo, com uma chave só dele. As ferramentas deste computador continuam no endereço local." (t .Tool.Who)}}</p>
 <ol class="flowsteps">
 <li class="flowstep"><h2 class="flowstep__title">{{t "Crie uma chave para o agente"}}</h2>
 <p class="muted">{{t "A chave aparece uma vez só e deixa de valer se o agente não a usar em 24 horas. Guarde no lugar de segredos do agente e não a cole em conversas."}}</p>
 <div class="actions" data-api-key-start><button class="btn" type="button" data-api-key-open>{{t "Criar chave"}}</button></div>
 <p class="note" data-api-key-note role="status" hidden></p>
-<div class="snippet" data-api-key-out hidden><div class="snippet__head"><span class="snippet__title">{{t "Chave de API"}}</span></div><pre data-copy><code data-api-key-value></code></pre></div></li>
+<div class="snippet snippet--key" data-api-key-out hidden><div class="snippet__head"><span class="snippet__title">{{t "Chave de API"}}</span></div><pre data-copy><code data-api-key-value></code></pre></div></li>
 <li class="flowstep" data-api-key-after hidden><h2 class="flowstep__title">{{t "Configure o agente"}}</h2>
 {{if not .URL}}<p class="note">{{t "Troque o endereço abaixo pelo endereço HTTPS do seu servidor."}}</p>{{end}}
 <p class="muted">{{t "Mande este texto no chat do agente, para ele se configurar:"}}</p>
@@ -163,10 +163,18 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
       "headers": { "Authorization": "Bearer &lt;chave&gt;" }
     }
   }
-}</code></pre></div></details></li>
-<li class="flowstep" data-api-key-after hidden><h2 class="flowstep__title">{{t "Confira a conexão"}}</h2>
-<p class="muted">{{t "Quando o agente usar o MCP, ele aparece no painel, em Conexões, como direto no servidor, pelo endereço com chave."}} <span class="tip" tabindex="0" aria-describedby="tip-proxy"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-proxy">{{t "O proxy HTTPS do servidor precisa encaminhar o caminho /mcp, além do acesso remoto do app. Sem chave criada, o servidor não atende o MCP pelo endereço."}}</span></span></p></li>
+}</code></pre></div></details>
+<div class="actions" data-api-key-configured><button class="btn" type="button" data-api-key-ready>{{t "Já configurei no agente"}}</button></div></li>
+<li class="flowstep" data-api-key-wait hidden><h2 class="flowstep__title">{{t "Confira a conexão"}}</h2>
+<p class="busy"><span class="spinner" aria-hidden="true"></span><span>{{tf "Esperando %s usar o MCP pela primeira vez…" (t .Tool.Who)}}</span></p>
+<p class="muted" data-api-key-slow hidden>{{t "Ainda não chegou nada. Confira se o agente recebeu o texto e terminou de se configurar."}} <span class="tip" tabindex="0" aria-describedby="tip-proxy"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-proxy">{{t "O proxy HTTPS do servidor precisa encaminhar o caminho /mcp, além do acesso remoto do app. Sem chave criada, o servidor não atende o MCP pelo endereço."}}</span></span></p></li>
 </ol></div></section>
+<section class="card card--accent" data-api-key-done hidden>
+<div class="card__head"><h2>{{t .Tool.Connected}}</h2><span class="pill pill--ok">{{t "Conectado"}}</span></div>
+<div class="card__body stack">
+<p>{{tf "Tudo certo: %s já usa o seu WhatsApp pelo servidor, com a chave dele." (t .Tool.Who)}}</p>
+<div class="actions"><a class="btn" href="/">{{t "Voltar ao painel"}}</a><a class="btn btn--quiet" href="/conectar">{{t "Conectar outra ferramenta"}}</a></div>
+</div></section>
 <dialog class="dialog keydialog" data-api-key-dialog aria-labelledby="chave-titulo">
 <div class="dialog__head"><h2 id="chave-titulo">{{t "Criar chave"}}</h2><button class="dialog__close" type="button" data-api-key-close aria-label="{{t "Fechar"}}">&times;</button></div>
 <form class="dialog__body stack" data-api-key-form data-api-key-tool="{{.Tool.Key}}">
