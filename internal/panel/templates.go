@@ -120,12 +120,13 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <a class="flow__back" href="{{if .InSetup}}/instalacao{{else}}/{{end}}">{{icon "back"}}{{t "Voltar"}}</a>
 <h1>{{t "Conectar ferramenta de IA ao MCP"}}</h1>
 <p class="lead">{{t "Onde você vai usar o seu WhatsApp?"}}</p>
-<h2 class="flow__section">{{t "Ferramentas neste computador"}}</h2>
+<h2 class="flow__section flow__section--big">{{t "Ferramentas neste computador"}}</h2>
 {{template "toolpicks" .Tools}}
 <p class="muted flow__note">{{t "Não funciona no Claude pelo navegador ou pelo celular, nem no ChatGPT na web: só em programas instalados neste computador."}}</p>
-<h2 class="flow__section">{{t "Agentes remotos"}}</h2>
+<h2 class="flow__section flow__section--big" id="agentes-remotos">{{t "Agentes remotos"}}</h2>
 <p class="muted">{{t "Agentes que rodam fora deste computador, como num servidor ou na nuvem, usam o MCP pelo endereço do servidor, com uma chave. Precisa do modo servidor."}}</p>
 {{template "toolpicks" .Agents}}
+<a class="morehint" href="#agentes-remotos" data-more-hint hidden>{{t "Mais conexões"}}{{icon "chevron"}}</a>
 </div>
 {{template "foot" .}}{{end}}
 
