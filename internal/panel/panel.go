@@ -896,10 +896,6 @@ func (p *Panel) connectAgent(r *http.Request, g guide) (string, any) {
 	if u, err := url.Parse(r.Header.Get(ServerHeader)); err == nil && u.Scheme == "https" && u.Host != "" {
 		addr = "https://" + u.Host + strings.TrimSuffix(u.Path, "/") + "/mcp"
 	}
-	var keys []APIKey
-	if p.APIKeys != nil && !l.App {
-		keys, _ = p.APIKeys.List()
-	}
 	return "conectaragente", struct {
 		layout
 		Tool guide
@@ -907,8 +903,7 @@ func (p *Panel) connectAgent(r *http.Request, g guide) (string, any) {
 		// server for an agent elsewhere to reach.
 		Local bool
 		URL   string
-		Keys  []keyRow
-	}{l, g, l.App, addr, keyRows(keys)}
+	}{l, g, l.App, addr}
 }
 
 func (p *Panel) whatsapp(w http.ResponseWriter, r *http.Request) (string, any) {

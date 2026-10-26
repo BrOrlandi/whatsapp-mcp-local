@@ -723,6 +723,8 @@
           window.clearInterval(syncWatch);
           syncing.textContent = t("Histórico recebido.");
           syncing.classList.remove("busy");
+          // The pill said "Sincronizando": the page shows the state now.
+          if (document.querySelector("[data-sync-arriving]")) window.location.reload();
         }
       }).catch(function () {});
     }, 3000);

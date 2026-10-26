@@ -194,7 +194,7 @@ func (a *App) localMCPURL() string {
 // session down, a page says so instead of the server's, and anything else
 // gets a 503.
 func (a *App) remoteProxy(rm *remoteMode, window bool) http.Handler {
-	return &httputil.ReverseProxy{
+	proxy := &httputil.ReverseProxy{
 		Rewrite: func(r *httputil.ProxyRequest) {
 			r.Out.URL.Scheme, r.Out.URL.Host = "http", "remote"
 			r.Out.Header.Set(panel.ServerHeader, rm.server)
@@ -220,6 +220,14 @@ func (a *App) remoteProxy(rm *remoteMode, window bool) http.Handler {
 			_ = json.NewEncoder(w).Encode(map[string]string{"error": i18n.T("o app está sem conexão com o servidor agora; tente de novo em instantes")})
 		},
 	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// The window's requests can come with a body and no length, which
+		// the proxy would take for none: the server got an empty POST.
+		if r.ContentLength == 0 && r.Body != nil && r.Body != http.NoBody && r.Method != http.MethodGet && r.Method != http.MethodHead {
+			r.ContentLength = -1
+		}
+		proxy.ServeHTTP(w, r)
+	})
 }
 
 // serverToken is the server's token (empty when it has none), which it
@@ -358,6 +366,7 @@ func (a *App) withAppPages(next http.Handler) http.Handler {
 	mux.HandleFunc("POST /__app/remoto/girar", a.remoteRotate)
 	mux.HandleFunc("POST /__app/remoto/codigo", a.remoteCode)
 	mux.HandleFunc("POST /__app/remoto/revogar", a.remoteRevoke)
+	mux.HandleFunc("POST /__app/remoto/chaves/revogar", a.remoteKeyRevoke)
 	mux.Handle("/", next)
 	return mux
 }
@@ -383,6 +392,15 @@ type remoteView struct {
 	// code just made for another one, shown once on this page.
 	Devices []serverDevice
 	Code    *serverCode
+	// Keys are the API keys of the agents outside this computer.
+	Keys []keyView
+}
+
+// keyView is an API key as the remote page lists it.
+type keyView struct {
+	ID, Name, Meta string
+	Used           bool
+	Mark           template.HTML
 }
 
 // serverDevice is a computer paired with the server, as its API lists it.
@@ -462,6 +480,21 @@ func (a *App) renderRemote(w http.ResponseWriter, r *http.Request, code *serverC
 				}
 			}
 		}
+		var keys struct {
+			Keys []panel.APIKey `json:"keys"`
+		}
+		if err := serverCall(r.Context(), rm, http.MethodGet, "/api/chaves", &keys); err == nil {
+			for _, k := range keys.Keys {
+				kv := keyView{ID: k.ID, Name: k.Name, Used: k.Used, Mark: panel.KeyMark(k), Meta: k.ID}
+				if !k.Created.IsZero() {
+					kv.Meta = i18n.Tf("criada em %s", k.Created.Local().Format("02/01/2006 15:04"))
+				}
+				if !k.Used && !k.Expires.IsZero() {
+					kv.Meta += " · " + i18n.Tf("vale até %s se não for usada", k.Expires.Local().Format("02/01/2006 15:04"))
+				}
+				v.Keys = append(v.Keys, kv)
+			}
+		}
 	}
 	v.Code = code
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -534,6 +567,21 @@ func (a *App) remoteRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	back(w, r, i18n.T("O computador foi revogado e não alcança mais o servidor."), nil)
+}
+
+// remoteKeyRevoke revokes an agent's API key on the server.
+func (a *App) remoteKeyRevoke(w http.ResponseWriter, r *http.Request) {
+	rm := a.currentRemote()
+	if rm == nil {
+		back(w, r, "", errors.New(i18n.T("o app não está no modo remoto")))
+		return
+	}
+	id := strings.TrimSpace(r.FormValue("id"))
+	if err := serverCall(r.Context(), rm, http.MethodDelete, "/api/chaves/"+url.PathEscape(id), nil); err != nil {
+		back(w, r, "", err)
+		return
+	}
+	back(w, r, i18n.T("A chave foi revogada: o agente que a usava perdeu o acesso."), nil)
 }
 
 func (a *App) remoteStatusAPI(w http.ResponseWriter, r *http.Request) {
