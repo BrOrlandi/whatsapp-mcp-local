@@ -31,6 +31,7 @@
   var note = document.querySelector("[data-api-key-note]");
   var out = document.querySelector("[data-api-key-out]");
   var name = input.value;
+  var keyID = "";
   var busy = function (on) {
     submit.disabled = on;
     input.disabled = on;
@@ -63,13 +64,40 @@
       });
       note.textContent = t("Chave criada. Copie agora: ela não aparece de novo.");
       note.hidden = false;
-      var after = document.querySelectorAll("[data-api-key-after]");
-      after.forEach(function (step) { step.hidden = false; });
-      if (after.length) after[0].scrollIntoView({ behavior: "smooth", block: "start" });
+      keyID = d.id;
+      var after = document.querySelector("[data-api-key-after]");
+      after.hidden = false;
+      after.scrollIntoView({ behavior: "smooth", block: "start" });
     }).catch(function (err) {
       busy(false);
       error.textContent = err.message;
       error.hidden = false;
     });
+  });
+
+  // Step 3: once the person says the agent is set up, wait for the key's
+  // first use, then say it worked.
+  var ready = document.querySelector("[data-api-key-ready]");
+  var wait = document.querySelector("[data-api-key-wait]");
+  ready.addEventListener("click", function () {
+    document.querySelector("[data-api-key-configured]").hidden = true;
+    wait.hidden = false;
+    wait.scrollIntoView({ behavior: "smooth", block: "start" });
+    var started = Date.now();
+    var check = function () {
+      call("GET", "/api/chaves").then(function (d) {
+        var used = (d.keys || []).some(function (k) { return k.id === keyID && k.used; });
+        if (used) {
+          document.querySelector("[data-api-key-flow]").hidden = true;
+          var done = document.querySelector("[data-api-key-done]");
+          done.hidden = false;
+          done.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+        if (Date.now() - started > 60000) wait.querySelector("[data-api-key-slow]").hidden = false;
+        window.setTimeout(check, 3000);
+      }).catch(function () { window.setTimeout(check, 5000); });
+    };
+    check();
   });
 })();

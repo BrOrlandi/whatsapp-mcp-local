@@ -406,7 +406,10 @@ const extraCSS = `
 .toolpick__go{color:var(--muted)}
 .toolpick:hover .toolpick__go{color:var(--brand-strong)}
 .flowsteps{list-style:none;counter-reset:flowstep;margin:0;padding:0;display:grid;gap:22px}
-.flowstep{position:relative;counter-increment:flowstep;padding-left:44px}
+.flowstep{position:relative;counter-increment:flowstep;padding-left:44px;min-width:0}
+.flowstep pre.plain{overflow-wrap:anywhere}
+.snippet--key pre{white-space:pre-wrap;word-break:break-all}
+.flowstep [data-api-key-configured]{margin-top:18px}
 .flowstep::before{content:counter(flowstep);position:absolute;left:0;top:-2px;width:30px;height:30px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:700;font-size:.9rem}
 .flowstep+.flowstep{padding-top:22px;border-top:1px solid var(--border)}
 .flowstep+.flowstep::before{top:20px}
