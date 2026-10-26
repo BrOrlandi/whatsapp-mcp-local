@@ -119,16 +119,32 @@
 
   // ---- waiting for a client ----
   // The daemon stamps every client that talks to it, so the page only has to
-  // ask. Polling stops after about ten minutes: by then a reload is honest.
+  // ask. Setting a tool up can take a while: after ten minutes the page asks
+  // less often, but it never stops.
+  function keepAsking(check) {
+    var started = Date.now();
+    var timer = null;
+    var stopped = false;
+    function next() {
+      if (stopped) return;
+      timer = window.setTimeout(function () {
+        check(stop);
+        next();
+      }, Date.now() - started > 600000 ? 15000 : 4000);
+    }
+    function stop() { stopped = true; window.clearTimeout(timer); }
+    // Back on the window, it asks at once.
+    window.addEventListener("focus", function () { if (!stopped) check(stop); });
+    next();
+    return stop;
+  }
   var waiting = document.querySelector("[data-wait-client='true']");
   if (waiting) {
-    var polls = 0;
-    var watch = window.setInterval(function () {
-      if (++polls > 150) { window.clearInterval(watch); return; }
+    keepAsking(function (stop) {
       api("/api/state").then(function (state) {
-        if (state.clients_live > 0) { window.clearInterval(watch); window.location.reload(); }
+        if (state.clients_live > 0) { stop(); window.location.reload(); }
       }).catch(function () {});
-    }, 4000);
+    });
   }
 
   // ---- not connecting ----
@@ -271,14 +287,16 @@
         });
         if (hit && !connected) {
           connected = true;
-          window.clearInterval(toolWatch);
+          stopWatch();
           window.clearTimeout(helpTimer);
           // The fanfare plays here, where the person already clicked:
           // a page that just loaded may not make sound yet.
           celebrate(true);
           try { window.sessionStorage.setItem("celebrate", "1"); } catch (e) {}
           window.setTimeout(function () {
-            window.location.replace(window.location.pathname + "?conectado=1");
+            var query = new URLSearchParams(window.location.search);
+            query.set("conectado", "1");
+            window.location.replace(window.location.pathname + "?" + query.toString());
           }, 1800);
         }
         return hit;
@@ -286,7 +304,7 @@
     };
     // It keeps asking while the page is open: asking the app on this
     // computer costs nothing, and a connection can take a while.
-    var toolWatch = window.setInterval(function () { checkTool().catch(function () {}); }, 4000);
+    var stopWatch = keepAsking(function () { checkTool().catch(function () {}); });
     var checkButton = document.querySelector("[data-wait-check]");
     if (checkButton) {
       checkButton.addEventListener("click", function () {
