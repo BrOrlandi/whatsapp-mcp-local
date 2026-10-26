@@ -381,6 +381,12 @@ const extraCSS = `
 .flow__title{display:flex;align-items:center;gap:12px;margin:0 0 20px}
 .flow__note{margin-top:18px}
 .flow__section{margin:28px 0 10px;font-size:1rem;font-weight:700}
+.flow__section--big{margin:36px 0 10px;font-size:1.3rem}
+.morehint{position:fixed;left:50%;bottom:20px;z-index:20;display:inline-flex;align-items:center;gap:6px;padding:8px 12px 8px 16px;border:1px solid var(--border-strong);border-radius:999px;background:var(--surface);color:var(--brand-strong);box-shadow:var(--shadow-lift);font-size:.9rem;font-weight:600;text-decoration:none;transform:translateX(-50%);animation:morehint 1.6s ease-in-out infinite}
+.morehint[hidden]{display:none}
+.morehint .icon{transform:rotate(90deg)}
+@keyframes morehint{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-6px)}}
+@media (prefers-reduced-motion:reduce){.morehint{animation:none}}
 .toolpicks{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:10px}
 .toolpick{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);color:inherit;text-decoration:none}
 .toolpick:hover{border-color:var(--brand-strong);background:var(--surface-soft)}

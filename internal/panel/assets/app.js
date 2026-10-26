@@ -607,6 +607,29 @@
   if (!progress.hidden) poll();
 })();
 
+// The connect page: the remote agents sit below the fold, so a floating hint
+// says there is more, until the page is scrolled.
+(function () {
+  var hint = document.querySelector("[data-more-hint]");
+  if (!hint) return;
+  var target = document.getElementById(hint.getAttribute("href").slice(1));
+  if (!target) return;
+  function seen() { return target.getBoundingClientRect().top < window.innerHeight - 40; }
+  if (seen()) return;
+  function done() {
+    hint.hidden = true;
+    window.removeEventListener("scroll", onScroll);
+  }
+  function onScroll() { if (window.scrollY > 24 || seen()) done(); }
+  hint.hidden = false;
+  window.addEventListener("scroll", onScroll, { passive: true });
+  hint.addEventListener("click", function (event) {
+    event.preventDefault();
+    done();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+})();
+
 // Inside the desktop app: links leave for the browser, settings save as they
 // change, and updates are looked for and installed from the Configurações page.
 (function () {
