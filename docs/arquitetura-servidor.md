@@ -144,18 +144,61 @@ Para um serviço que não roda o app (um agente na nuvem, outro servidor):
 
 - `api-keys`, na pasta de dados (`/data/mcp` no Docker), guarda o **SHA-256 em hex** de cada
   chave, uma por linha, com um nome opcional depois de um espaço; `#` comenta.
-  A chave em si não é guardada.
+  A chave em si não é guardada. Uma chave feita pelo painel ou pelo
+  `apikey new` vira a linha
+  `<sha256> <nome> # created <RFC 3339> tool <agente> unused`: `tool` diz de
+  qual agente da página *Agentes remotos* ela é (só quando foi feita lá), e
+  dá o logo dele nas listas.
 - O arquivo é lido a cada pedido: apagar a linha revoga na hora. Sem arquivo,
   ou sem linhas, o `/mcp` da escuta remota responde 404.
-- Uma chave feita pelo painel ou pelo `apikey new` entra marcada como
-  `unused`. O primeiro uso tira a marca; se ninguém a usar em 24 horas, ela
-  deixa de valer e sai do arquivo. Linhas escritas à mão não expiram.
+- `unused` marca a chave que ainda não foi usada. O primeiro pedido aceito
+  tira a marca; se ninguém a usar em 24 horas, ela deixa de valer e sai do
+  arquivo na próxima leitura. Linhas sem a marca, como as escritas à mão, não
+  expiram.
 - A chave precisa ter pelo menos 32 caracteres, e a comparação é em tempo
   constante.
 - Com a chave aceita, o pedido segue como o de um programa do servidor (com o
   token dele, se houver), marcado como "url" na lista de conexões do painel.
 - O proxy precisa rotear `/mcp` além de `/remote/v1/`. O `install-docker.sh`
   hoje gera só a regra de `/remote/v1/`.
+
+### Conectar um agente pelo app
+
+A página do agente, em *Conectar ferramenta de IA › Agentes remotos*, é do
+painel do servidor; o app a mostra pela sessão remota. A chave nasce no
+servidor e só passa pela tela uma vez.
+
+```mermaid
+sequenceDiagram
+  actor P as Pessoa
+  participant W as Janela do app
+  participant D as Daemon (servidor)
+  participant G as Agente remoto
+  P->>W: Crie uma chave para o agente
+  W->>D: POST /api/chaves {name, tool}
+  D->>D: grava sha256 + "tool <agente> unused"
+  D-->>W: a chave (só nesta resposta)
+  W-->>P: texto para o agente, com o endereço e a chave
+  P->>G: manda o texto no chat do agente
+  P->>W: Já configurei no agente
+  loop a cada 3 s
+    W->>D: GET /api/chaves
+    D-->>W: used: false
+  end
+  G->>D: POST /mcp, Authorization: Bearer
+  D->>D: chave válida: tira "unused"
+  W->>D: GET /api/chaves
+  D-->>W: used: true
+  W-->>P: Tudo certo: o agente já usa o seu WhatsApp
+```
+
+A espera vive só na página: recarregar a tela a perde, e a chave continua
+valendo pelas 24 horas.
+
+A tela do app *Gerenciar a conexão com o servidor* (`/__app/remoto`, servida
+pelo próprio app) lista as mesmas chaves, com o agente, a data, *Em uso* ou
+*Aguardando o primeiro uso*, e *Revogar*, que pede confirmação e apaga a
+linha no servidor.
 
 Aqui não há Noise: a proteção é o HTTPS até o proxy e a chave. Entre o proxy e
 o contêiner o conteúdo anda em claro, na rede privada.
@@ -192,7 +235,7 @@ tabela `clients` do `state.db`), e o painel os agrupa:
 | Sessão do WhatsApp, mensagens | pasta do wacli no servidor | nunca sai do servidor |
 | Chave estática do servidor | `remote-server.key` (0600) | apagar obriga a parear todos de novo |
 | Dispositivos pareados | `state.db`, só chaves públicas | com nome, escopo, último carimbo |
-| Chaves de API | `api-keys`, só SHA-256 | lido a cada pedido |
+| Chaves de API | `api-keys`, só SHA-256 | lido a cada pedido; nome, data, agente e a marca `unused` na mesma linha |
 | Token do daemon | arquivo `token` na pasta de dados (0600) | opcional; vale para o `/mcp`, o `/health` e as ações da API |
 | Chave privada do dispositivo | Keychain do computador | sem iCloud, só este aparelho |
 | Endereço do servidor e sua chave fixada | `config.json` do app | |
@@ -207,6 +250,7 @@ tabela `clients` do `state.db`), e o painel os agrupa:
 | Canal Noise | `internal/remote/channel.go` |
 | Proxy confiável, cabeçalhos da janela e da base | `internal/remote/trust.go` |
 | Ligação com o daemon, chaves de API | `internal/daemon/daemon.go` (`startRemote`), `internal/daemon/apikeys.go` |
-| Modo remoto do app | `cmd/app/remote.go` |
+| Páginas dos agentes remotos, `/api/chaves` | `internal/panel/apikeys.go`, `internal/panel/panel.go` (`agentGuides`) |
+| Modo remoto do app, tela do servidor com as chaves | `cmd/app/remote.go`, `cmd/app/remotepage.go` |
 | Downloads de um pedido remoto | `internal/mcp/remotefetch.go` |
 | Instalação com Docker e proxy | `install-docker.sh` |
