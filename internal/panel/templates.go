@@ -72,6 +72,8 @@ refreshes when it has passed. */}}
 <p>{{t "Ele vale a pena para conectar agentes autônomos, que trabalham sozinhos a qualquer hora, como o OpenClaw e o Hermes Agent, entre outros, mesmo com este computador desligado."}}</p>
 <p>{{t "Para o Claude Code, o Cursor, o Codex e outras ferramentas deste computador, a versão local atende perfeitamente."}}</p>
 <p><a href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/docs/modo-servidor.md" target="_blank" rel="noopener">{{t "Veja o passo a passo para montar o servidor"}}</a></p>
+<p class="muted">{{t "Um agente de IA, como o Claude Code ou o Codex, pode montar o servidor com você, seguindo a skill do projeto, que já sabe os comandos e as regras de segurança."}} <a href="https://github.com/BrOrlandi/whatsapp-mcp-local/tree/main/skills/whatsapp-mcp-servidor" target="_blank" rel="noopener">{{t "Ver a skill whatsapp-mcp-servidor"}}</a></p>
+<p>{{t "Com o servidor pronto, o app leva as conversas deste computador para lá ao conectar, sem ler o QR code de novo."}}</p>
 <form method="get" action="/__app/remoto" class="stack">
 <label class="check"><input type="checkbox" name="avancado" value="1" required><span>{{t "Entendo que é um uso avançado e que vou cuidar do servidor."}}</span></label>
 <div class="actions actions--end"><a class="btn btn--quiet" href="#">{{t "Quero usar a versão local"}}</a><button class="btn" type="submit">{{t "Continuar para configurar o servidor"}}</button></div>
@@ -90,10 +92,11 @@ button per language, each in its own language, pressed for the one shown. */}}
 {{/* A language's name in the panel's language, over its button on hover and
 focus. Hidden from screen readers, which read the name in itself, with lang. */}}
 {{define "hint"}}<span class="hint__body" aria-hidden="true" lang="{{lang}}">{{languageHint .}}</span>{{end}}
+{{/* The language, in the top bar beside the gear, while the person sets up:
+the first thing they may need to change. */}}
 {{define "langpick"}}<div class="langpick" role="group" aria-label="{{t "Idioma"}}">
 {{range languages}}<button class="langpick__btn hint" type="button" lang="{{.Code}}" data-language-pick="{{.Code}}" aria-pressed="{{if eq lang .Code}}true{{else}}false{{end}}">{{flag .Code}}<span>{{.Name}}</span>{{template "hint" .Code}}</button>
-{{end}}</div>
-<p class="busy langpick__note" data-language-note role="status" hidden></p>{{end}}
+{{end}}</div>{{end}}
 
 {{define "flowhead"}}
 <header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
@@ -132,8 +135,33 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p>{{tf "%s roda fora deste computador e alcança o MCP pelo endereço de um servidor. Este app roda o WhatsApp aqui, no modo local: não há servidor para ele alcançar." (t .Tool.Who)}}</p>
 <p class="muted">{{t "O modo servidor é um uso avançado: o WhatsApp MCP passa a rodar num servidor seu, ligado o tempo todo, e manter esse servidor (atualizações, backup, HTTPS) pede conhecimento técnico."}}</p>
 <div class="actions"><a class="btn" href="/configuracoes#remoto">{{t "Usar um servidor"}}</a><a class="btn btn--quiet" href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/docs/modo-servidor.md" target="_blank" rel="noopener">{{t "Veja o passo a passo para montar o servidor"}}</a></div>
+<p class="muted">{{tf "%s roda neste computador? Ele pode usar o endereço local do MCP, como as outras ferramentas daqui. Só funciona enquanto este computador estiver ligado." (t .Tool.Who)}}</p>
+<div class="actions"><a class="btn btn--ghost" href="?local=1">{{t "Seguir com a conexão local"}}</a></div>
+</div></section>
+{{else if .ViaLocal}}{{if .Done}}
+<section class="card card--accent">
+<div class="card__head"><h2>{{t .Tool.Connected}}</h2><span class="pill pill--ok">{{t "Conectado"}}</span></div>
+<div class="card__body stack">
+{{template "success" .Mark}}
+<p class="muted">{{t "Já pode pedir coisas do seu WhatsApp para a sua IA. Para testar, mande isto no chat:"}}</p>
+<div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
+<div class="actions"><a class="btn" href="/">{{t "Voltar ao painel"}}</a><a class="btn btn--quiet" href="/conectar">{{t "Conectar outra ferramenta"}}</a></div>
 </div></section>
 {{else}}
+<section class="card"><div class="card__body">
+<p class="muted">{{tf "%s usa o endereço local do MCP, como as outras ferramentas deste computador. Ele precisa rodar aqui, e só alcança o WhatsApp enquanto este computador estiver ligado." (t .Tool.Who)}}</p>
+<ol class="flowsteps">
+<li class="flowstep"><h2 class="flowstep__title">{{t "Configure o agente"}}</h2>
+<p class="muted">{{t "Mande este texto no chat do agente, para ele se configurar:"}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Copie e mande para o agente"}}</span></div>
+<pre class="plain" data-copy><code>{{.Setup.AgentPrompt}}</code></pre></div>
+<details class="resend"><summary>{{t "Prefiro configurar à mão"}}</summary>
+<p class="muted">{{t "Na configuração de servidores MCP do agente, por HTTP, com este endereço:"}}</p>
+<div class="snippet"><pre data-copy><code>{{.Setup.Endpoint}}</code></pre></div></details></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Espere a conexão"}}</h2><p class="busy" role="status" data-wait-tool="" data-wait-known="{{.Known}}" data-wait-since="{{.Since}}"><span class="spinner" aria-hidden="true"></span>{{tf "Esta tela avisa quando %s se conectar." (t .Tool.Who)}}</p>
+<div class="actions"><a class="btn btn--ghost" href="/">{{t "Já me conectei"}}</a></div></li>
+</ol></div></section>
+{{end}}{{else}}
 <section class="card" data-api-key-flow><div class="card__body">
 <p class="muted">{{tf "%s usa o MCP do servidor pela internet ou pela sua rede, no endereço abaixo, com uma chave só dele. As ferramentas deste computador continuam no endereço local." (t .Tool.Who)}}</p>
 <ol class="flowsteps">
@@ -181,6 +209,14 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <script src="/assets/agents.js" defer></script>
 {{template "foot" .}}{{end}}
 
+{{/* A tool just connected: its logo pops in, a check lands on its corner,
+and a little confetti bursts out. Decoration only: the heading says it. */}}
+{{define "success"}}<div class="success" aria-hidden="true">
+<span class="success__burst"><i style="--a:0deg;--d:74px;--c:var(--brand)"></i><i style="--a:32deg;--d:62px;--c:var(--accent)"></i><i style="--a:64deg;--d:80px;--c:var(--brand-strong)"></i><i style="--a:98deg;--d:66px;--c:var(--accent)"></i><i style="--a:128deg;--d:78px;--c:var(--brand)"></i><i style="--a:160deg;--d:60px;--c:var(--brand-strong)"></i><i style="--a:192deg;--d:76px;--c:var(--accent)"></i><i style="--a:224deg;--d:64px;--c:var(--brand)"></i><i style="--a:256deg;--d:82px;--c:var(--brand-strong)"></i><i style="--a:290deg;--d:66px;--c:var(--accent)"></i><i style="--a:320deg;--d:76px;--c:var(--brand)"></i><i style="--a:344deg;--d:58px;--c:var(--accent)"></i></span>
+<span class="success__tool toolpick__icon">{{toolmark .}}</span>
+<span class="success__check"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span>
+</div>{{end}}
+
 {{define "conectarferramenta"}}{{template "head" .}}{{template "flowhead" .}}
 {{if not .Done}}<a class="flow__back" href="/conectar">{{icon "back"}}{{t "Escolher outra ferramenta"}}</a>{{end}}
 <div class="flow__title"><span class="toolpick__icon">{{toolmark .Tool.Mark}}</span><h1>{{t .Tool.Title}}</h1></div>
@@ -189,6 +225,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <section class="card card--accent">
 <div class="card__head"><h2>{{t .Tool.Connected}}</h2><span class="pill pill--ok">{{t "Conectado"}}</span></div>
 <div class="card__body stack">
+{{template "success" .Mark}}
 <p class="muted">{{t "Já pode pedir coisas do seu WhatsApp para a sua IA. Para testar, mande isto no chat:"}}</p>
 <div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
 {{if .InSetup}}<form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done"><div class="actions"><button class="btn" type="submit">{{t "Ir para o painel"}}</button></div></form>
@@ -256,7 +293,9 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Reinicie a ferramenta"}}</h2>
 <p class="muted">{{t "Quando ela terminar a configuração, feche e abra de novo, ou comece uma conversa nova."}}</p></li>
 {{end}}
-<li class="flowstep"><h2 class="flowstep__title">{{t "Espere a conexão"}}</h2><p class="busy" role="status" data-wait-tool="{{.Tool.Client}}" data-wait-known="{{.Known}}" data-wait-since="{{.Since}}"><span class="spinner" aria-hidden="true"></span>{{tf "Esta tela avisa quando %s se conectar." (t .Tool.Who)}}</p></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Espere a conexão"}}</h2><p class="busy" role="status" data-wait-tool="{{.Tool.Client}}" data-wait-known="{{.Known}}" data-wait-since="{{.Since}}"><span class="spinner" aria-hidden="true"></span>{{tf "Esta tela avisa quando %s se conectar." (t .Tool.Who)}}</p>
+{{if .InSetup}}<form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done"><div class="actions"><button class="btn btn--ghost" type="submit">{{t "Já me conectei"}}</button></div></form>
+{{else}}<div class="actions"><a class="btn btn--ghost" href="/">{{t "Já me conectei"}}</a></div>{{end}}</li>
 </ol>
 </div></section>
 {{end}}
@@ -482,9 +521,9 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 
 {{define "instalacao"}}{{template "head" .}}
 <header class="masthead"><a class="brand" href="/instalacao">{{template "brandmark"}}</a>
-<div class="masthead__tools">{{template "settingslink" .}}</div></header>
+<div class="masthead__tools">{{template "langpick" .}}{{template "settingslink" .}}</div></header>
 <div class="wizard-shell"{{if eq .Step 2}} style="max-width:620px"{{end}}>
-{{template "langpick" .}}
+<p class="busy langpick__note" data-language-note role="status" hidden></p>
 {{template "portbanner" .}}
 <ol class="wizard" aria-label="{{t "Etapas da instalação"}}" style="max-width:520px;margin-left:auto;margin-right:auto">
 {{range .Steps}}<li class="wizard__step wizard__step--{{.State}}"{{if eq .State "now"}} aria-current="step"{{end}}>
@@ -680,7 +719,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{if .Remote}}<p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor, por uma conexão cifrada de ponta a ponta dentro do HTTPS."}}</p>
 <div class="actions"><a class="btn" href="/__app/remoto">{{t "Gerenciar a conexão com o servidor"}}</a></div>
 {{else if .App}}<p>{{t "O WhatsApp pode rodar num servidor que fica ligado o tempo todo, e este app passa a ser o controle dele: as ferramentas de IA deste computador continuam no mesmo endereço."}}</p>
-<div class="actions"><a class="btn btn--quiet" href="#usar-servidor">{{t "Usar um servidor"}}</a></div>
+<div class="actions"><a class="btn btn--ghost" href="#usar-servidor">{{t "Usar um servidor"}}</a></div>
 {{template "servergate" .}}
 {{else}}<p>{{t "O app de outro computador pode usar e controlar este WhatsApp MCP. Gere um código de pareamento aqui e cole no app, em Configurações › Acesso remoto. O código vale uma vez, por 10 minutos."}}</p>{{end}}
 {{if not (or .App .Remote)}}{{if .Devices}}<ul class="rows" data-remote-devices>{{range .Devices}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}{{if .This}} <span class="pill pill--accent pill--plain">{{t "este app"}}</span>{{end}}</span><span class="row__meta">{{.Scope}} · {{if .RevokedAt}}{{t "revogado"}}{{else if .LastSeen}}{{tf "visto em %s" (moment .LastSeen)}}{{else}}{{t "nunca conectado"}}{{end}}</span></span>

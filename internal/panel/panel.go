@@ -869,6 +869,20 @@ func (p *Panel) connectTool(w http.ResponseWriter, r *http.Request) (string, any
 	l := p.layout(r, g.Title, "conectar", s)
 	l.LiveKey = ""
 	live := toolState(g, conns) == "live"
+	// The page comes back with conectado=1 once the tool connected. Any
+	// other tool may be one that has a page of its own (the Codex, set up
+	// by hand from here): any tool connected then.
+	done := r.URL.Query().Get("conectado") == "1" && (live || g.Client == "" && anyLive(conns))
+	// The good news shows the tool that connected: on the page for any
+	// other tool, the one that just did, when it has a logo.
+	mark := g.Mark
+	if done && g.Client == "" {
+		if c, ok := lastLive(conns); ok {
+			if _, logo := markOf[c.Key]; logo {
+				mark = c.Key
+			}
+		}
+	}
 	return "conectarferramenta", struct {
 		layout
 		Tool  guide
@@ -881,7 +895,30 @@ func (p *Panel) connectTool(w http.ResponseWriter, r *http.Request) (string, any
 		Known        string
 		Since        int64
 		Verification string
-	}{l, g, set, live, live && r.URL.Query().Get("conectado") == "1", step == 2, strings.Join(known, " "), time.Now().Unix(), verificationPrompt}
+		Mark         string
+	}{l, g, set, live, done, step == 2, strings.Join(known, " "), time.Now().Unix(), verificationPrompt, mark}
+}
+
+// lastLive is the tool on this computer that used the MCP last.
+func lastLive(conns []Connection) (Connection, bool) {
+	var last Connection
+	ok := false
+	for _, c := range conns {
+		if c.Live && c.Via != "url" && (!ok || c.LastUsed.After(last.LastUsed)) {
+			last, ok = c, true
+		}
+	}
+	return last, ok
+}
+
+// anyLive reports whether a tool on this computer has connected.
+func anyLive(conns []Connection) bool {
+	for _, c := range conns {
+		if c.Live && c.Via != "url" {
+			return true
+		}
+	}
+	return false
 }
 
 // connectAgent is the page for an agent outside this computer: it reaches
@@ -896,6 +933,27 @@ func (p *Panel) connectAgent(r *http.Request, g guide) (string, any) {
 	if u, err := url.Parse(r.Header.Get(ServerHeader)); err == nil && u.Scheme == "https" && u.Host != "" {
 		addr = "https://" + u.Host + strings.TrimSuffix(u.Path, "/") + "/mcp"
 	}
+	// In local mode the person may still connect the agent at this
+	// computer's own address, when the agent runs here too (local=1): the
+	// same steps as any other tool's.
+	viaLocal := l.App && r.URL.Query().Get("local") == "1"
+	var known []string
+	if seen, err := p.State.Clients(r.Context()); err == nil {
+		for _, c := range seen {
+			known = append(known, c.Name)
+		}
+	}
+	done := false
+	mark := g.Mark
+	if viaLocal && r.URL.Query().Get("conectado") == "1" {
+		conns := p.connections(r.Context(), p.setup(r.Context()))
+		done = anyLive(conns)
+		if c, ok := lastLive(conns); ok {
+			if _, logo := markOf[c.Key]; logo {
+				mark = c.Key
+			}
+		}
+	}
 	return "conectaragente", struct {
 		layout
 		Tool guide
@@ -903,7 +961,17 @@ func (p *Panel) connectAgent(r *http.Request, g guide) (string, any) {
 		// server for an agent elsewhere to reach.
 		Local bool
 		URL   string
-	}{l, g, l.App, addr}
+		// ViaLocal is the person going on with this computer's address;
+		// Setup has it, and Known and Since let the page see the agent
+		// connect, Done once it did.
+		ViaLocal     bool
+		Setup        setup
+		Known        string
+		Since        int64
+		Done         bool
+		Mark         string
+		Verification string
+	}{l, g, l.App && !viaLocal, addr, viaLocal, p.setup(r.Context()), strings.Join(known, " "), time.Now().Unix(), done, mark, verificationPrompt}
 }
 
 func (p *Panel) whatsapp(w http.ResponseWriter, r *http.Request) (string, any) {

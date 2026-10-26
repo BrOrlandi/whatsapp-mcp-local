@@ -312,3 +312,22 @@ func TestConnectionsAreGroupedByTheirWay(t *testing.T) {
 		}
 	}
 }
+
+// The page for any other tool says it connected when the tool was one with a
+// page of its own: the Codex, set up by hand from there.
+func TestAnyOtherToolCountsAKnownOne(t *testing.T) {
+	st, err := state.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	p := &Panel{State: st}
+	if anyLive(p.connections(ctx, setup{})) {
+		t.Fatal("live with no tool")
+	}
+	_ = st.SeeClient(ctx, "codex-mcp-client", "0.164.0", time.Now())
+	if !anyLive(p.connections(ctx, setup{})) {
+		t.Error("the Codex connected, and the page for any other tool does not see it")
+	}
+}

@@ -437,12 +437,25 @@ const extraCSS = `
 .flag{flex:none;width:20px;height:14px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
 .check__flag{display:inline-flex;align-items:center;gap:8px}
 /* The first screen's language buttons, each in its own language. */
-.langpick{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:0 0 18px}
-.langpick__btn{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:.9rem;font-weight:500;padding:7px 12px;border:1px solid var(--border-strong);border-radius:999px;background:var(--surface);color:var(--text-soft);cursor:pointer}
+.langpick{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.langpick__btn{display:inline-flex;align-items:center;gap:7px;height:38px;font:inherit;font-size:.86rem;font-weight:500;padding:0 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text-soft);cursor:pointer}
 .langpick__btn:hover{border-color:var(--brand-strong);color:var(--text)}
 .langpick__btn[aria-pressed=true]{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand);background:var(--brand-soft);color:var(--text);font-weight:600}
 .langpick__btn:disabled{cursor:progress;opacity:.7}
-.langpick__note{text-align:center;margin:-8px 0 14px}
+.success{position:relative;width:88px;height:88px;margin:10px auto 6px}
+.success .success__tool{width:88px;height:88px;border-radius:22px;animation:success-pop .5s cubic-bezier(.2,1.4,.4,1) both}
+.success .success__tool .icon{width:44px;height:44px}
+.success__check{position:absolute;right:-9px;bottom:-9px;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--brand);color:var(--brand-ink);box-shadow:0 0 0 4px var(--surface);animation:success-pop .45s .3s cubic-bezier(.2,1.6,.4,1) both}
+.success__check svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:22;stroke-dashoffset:22;animation:success-draw .3s .6s ease-out forwards}
+.success__burst{position:absolute;inset:0;pointer-events:none}
+.success__burst i{position:absolute;left:50%;top:50%;width:7px;height:7px;margin:-3.5px;border-radius:2px;background:var(--c);opacity:0;animation:success-burst .95s .4s cubic-bezier(.15,.7,.3,1) forwards}
+.success__burst i:nth-child(odd){border-radius:50%;width:6px;height:6px}
+@keyframes success-pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes success-draw{to{stroke-dashoffset:0}}
+@keyframes success-burst{0%{opacity:1;transform:rotate(var(--a)) translateY(-30px) scale(.5)}70%{opacity:1}100%{opacity:0;transform:rotate(var(--a)) translateY(calc(-30px - var(--d))) rotate(140deg) scale(1)}}
+@media (prefers-reduced-motion:reduce){.success *,.success{animation:none!important}.success__check svg{stroke-dashoffset:0}.success__burst{display:none}}
+.langpick__note{text-align:center;margin:0 0 14px}
+.langpick .hint__body{left:50%;top:calc(100% + 8px);bottom:auto;transform:translateX(-50%)}
 /* A short name over a control, shown on hover and on keyboard focus, in the
    tooltips' look: the language's name in the one the panel shows. */
 .hint{position:relative}
