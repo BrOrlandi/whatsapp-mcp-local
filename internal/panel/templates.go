@@ -145,7 +145,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <ol class="flowsteps">
 <li class="flowstep"><h2 class="flowstep__title">{{t "Crie uma chave para o agente"}}</h2>
 <p class="muted">{{t "A chave aparece uma vez só e deixa de valer se o agente não a usar em 24 horas. Guarde no lugar de segredos do agente e não a cole em conversas."}}</p>
-<div class="actions"><button class="btn" type="button" data-api-key-new="{{t .Tool.Name}}">{{t "Criar chave"}}</button></div>
+<div class="actions"><button class="btn" type="button" data-api-key-new="{{t .Tool.Name}}" data-api-key-tool="{{.Tool.Key}}">{{t "Criar chave"}}</button></div>
 <p class="busy" data-api-key-note role="status" hidden></p>
 <div class="snippet" data-api-key-out hidden><div class="snippet__head"><span class="snippet__title">{{t "Chave de API"}}</span></div><pre data-copy><code data-api-key-value></code></pre></div></li>
 <li class="flowstep"><h2 class="flowstep__title">{{t "Configure o agente"}}</h2>
@@ -168,7 +168,8 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="muted">{{t "Quando o agente usar o MCP, ele aparece no painel, em Conexões, como direto no servidor, pelo endereço com chave."}} <span class="tip" tabindex="0" aria-describedby="tip-proxy"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-proxy">{{t "O proxy HTTPS do servidor precisa encaminhar o caminho /mcp, além do acesso remoto do app. Sem chave criada, o servidor não atende o MCP pelo endereço."}}</span></span></p></li>
 </ol></div></section>
 {{if .Keys}}<section class="card"><div class="card__head"><h2>{{t "Chaves criadas"}}</h2></div><div class="card__body">
-<ul class="rows">{{range .Keys}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}</span><span class="row__meta">{{if not .Created.IsZero}}{{tf "criada em %s" (moment .Created)}}{{else}}{{.ID}}{{end}}</span></span>
+<ul class="rows">{{range .Keys}}<li class="row keyrow"><span class="toolpick__icon">{{toolmark .Mark}}</span><span class="row__main"><span class="row__title">{{.Name}}</span><span class="row__meta">{{if not .Created.IsZero}}{{tf "criada em %s" (moment .Created)}}{{else}}{{.ID}}{{end}}{{if not .Used}}{{if not .Expires.IsZero}} · {{tf "vale até %s se não for usada" (moment .Expires)}}{{end}}{{end}}</span></span>
+{{if .Used}}<span class="pill pill--ok">{{t "Em uso"}}</span>{{else}}<span class="pill pill--warn">{{t "Aguardando o primeiro uso"}}</span>{{end}}
 <button class="btn btn--quiet btn--small" type="button" data-api-key-revoke="{{.ID}}">{{t "Revogar"}}</button></li>{{end}}</ul>
 </div></section>{{end}}
 {{end}}
