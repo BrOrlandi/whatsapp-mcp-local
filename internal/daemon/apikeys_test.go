@@ -101,7 +101,7 @@ func TestAPIKeysMadeAndRevoked(t *testing.T) {
 	if key.Name != "Hermes Agent" || len(key.ID) != 12 || !strings.HasPrefix(secret, "wamcp_") {
 		t.Fatalf("made %+v (%d chars)", key, len(secret))
 	}
-	if ok, on, _ := apiKeyValid(path, secret); !ok || !on {
+	if ok, on, _ := k.Valid(secret); !ok || !on {
 		t.Fatal("the new key is not valid")
 	}
 	raw, _ := os.ReadFile(path)
@@ -121,13 +121,54 @@ func TestAPIKeysMadeAndRevoked(t *testing.T) {
 	if err := k.Revoke(key.ID); err != nil {
 		t.Fatal(err)
 	}
-	if ok, _, _ := apiKeyValid(path, secret); ok {
+	if ok, _, _ := k.Valid(secret); ok {
 		t.Error("a revoked key still works")
 	}
-	if ok, _, _ := apiKeyValid(path, testAPIKey); !ok {
+	if ok, _, _ := k.Valid(testAPIKey); !ok {
 		t.Error("the hand-written key went too")
 	}
 	if raw, _ := os.ReadFile(path); !strings.Contains(string(raw), "# mine") {
 		t.Error("the comment went")
+	}
+}
+
+// A key made here and never used stops working after a day and leaves the
+// list; a key used once, or written by hand, does not expire.
+func TestUnusedAPIKeysExpire(t *testing.T) {
+	path := filepath.Join(t.TempDir(), APIKeysFile)
+	sum := sha256.Sum256([]byte(testAPIKey))
+	if err := os.WriteFile(path, []byte(hex.EncodeToString(sum[:])+" by hand\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
+	k := &apiKeys{path: path, now: func() time.Time { return now }}
+	unused, _, err := k.Add("unused")
+	if err != nil {
+		t.Fatal(err)
+	}
+	used, _, err := k.Add("used")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(23 * time.Hour)
+	if ok, _, _ := k.Valid(used); !ok {
+		t.Fatal("a new key does not work")
+	}
+	now = now.Add(time.Hour)
+	if ok, _, _ := k.Valid(unused); ok {
+		t.Error("a key unused for a day still works")
+	}
+	if ok, _, _ := k.Valid(used); !ok {
+		t.Error("a key used within the day expired")
+	}
+	if ok, _, _ := k.Valid(testAPIKey); !ok {
+		t.Error("the hand-written key expired")
+	}
+	list, _ := k.List()
+	if len(list) != 2 || list[0].Name != "by hand" || list[1].Name != "used" {
+		t.Errorf("list %+v", list)
+	}
+	if raw, _ := os.ReadFile(path); strings.Contains(string(raw), "unused") {
+		t.Errorf("the file:\n%s", raw)
 	}
 }

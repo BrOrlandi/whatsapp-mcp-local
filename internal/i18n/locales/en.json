@@ -948,7 +948,7 @@
  "Verificar a conexão agora": "Check the connection now",
  "%s roda fora deste computador e alcança o MCP pelo endereço de um servidor. Este app roda o WhatsApp aqui, no modo local: não há servidor para ele alcançar.": "%s runs outside this computer and reaches the MCP at a server's address. This app runs WhatsApp here, in local mode: there is no server for it to reach.",
  "%s usa o MCP do servidor pela internet ou pela sua rede, no endereço abaixo, com uma chave só dele. As ferramentas deste computador continuam no endereço local.": "%s uses the server's MCP over the internet or your network, at the address below, with a key of its own. The tools on this computer stay on the local address.",
- "A chave aparece uma vez só. Guarde no lugar de segredos do agente e não a cole em conversas.": "The key is shown only once. Keep it where the agent keeps its secrets, and do not paste it into chats.",
+ "A chave aparece uma vez só e deixa de valer se o agente não a usar em 24 horas. Guarde no lugar de segredos do agente e não a cole em conversas.": "The key is shown only once, and stops working if the agent does not use it within 24 hours. Keep it where the agent keeps its secrets, and do not paste it into chats.",
  "Agente conectado": "Agent connected",
  "Agente de IA autônomo.": "An autonomous AI agent.",
  "Agentes que rodam fora deste computador, como num servidor ou na nuvem, usam o MCP pelo endereço do servidor, com uma chave. Precisa do modo servidor.": "Agents that run outside this computer, such as on a server or in the cloud, use the MCP at the server's address, with a key. Needs server mode.",
@@ -1003,7 +1003,7 @@
  "Troque o endereço abaixo pelo endereço HTTPS do seu servidor.": "Replace the address below with your server's HTTPS address.",
  "Uma equipe de bots de IA, open source.": "A team of AI bots, open source.",
  "Nenhuma chave de API: o MCP pelo endereço do servidor está desligado. Para criar uma: whatsapp-mcp apikey new <nome>": "No API keys: the MCP at the server's address is off. To make one: whatsapp-mcp apikey new <name>",
- "Chave de API (aparece uma vez só; guarde no lugar de segredos do agente):": "API key (shown only once; keep it where the agent keeps its secrets):",
+ "Chave de API (aparece uma vez só e deixa de valer se não for usada em 24 horas; guarde no lugar de segredos do agente):": "API key (shown only once, and it stops working if not used within 24 hours; keep it where the agent keeps its secrets):",
  "O agente usa o MCP em https://<endereço do servidor>/mcp, com o cabeçalho Authorization: Bearer <chave>.": "The agent uses the MCP at https://<server address>/mcp, with the header Authorization: Bearer <key>.",
  "Chave revogada: o agente que a usava perde o acesso na hora.": "Key revoked: the agent that used it loses access at once."
 }

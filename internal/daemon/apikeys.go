@@ -22,30 +22,10 @@ import (
 // secrets, shown once when made.
 const APIKeysFile = "api-keys"
 
-// apiKeyValid reports whether key is one of the API keys, and whether there
-// is any (none: the MCP by URL is off). The file is read
-// on every call, so removing a line revokes a key at once.
-func apiKeyValid(path, key string) (valid, on bool, err error) {
-	raw, err := os.ReadFile(path)
-	if errors.Is(err, os.ErrNotExist) {
-		return false, false, nil
-	}
-	if err != nil {
-		return false, true, err
-	}
-	sum := sha256.Sum256([]byte(key))
-	want := hex.EncodeToString(sum[:])
-	found := 0
-	for _, line := range strings.Split(string(raw), "\n") {
-		line, _, _ = strings.Cut(line, "#")
-		fields := strings.Fields(line)
-		if len(fields) > 0 {
-			on = true
-			found |= subtle.ConstantTimeCompare([]byte(strings.ToLower(fields[0])), []byte(want))
-		}
-	}
-	return found == 1 && len(key) >= 32, on, nil
-}
+// unusedFor is how long a key made here waits for its first use. A key
+// nobody used by then stops working and leaves the file, so a key made and
+// forgotten does not stay valid. Lines written by hand never expire.
+const unusedFor = 24 * time.Hour
 
 // apiKeys keeps the API keys for the panel and the command line: it makes
 // one, shown once, lists them by name and revokes one. Lines written by
@@ -79,31 +59,102 @@ func (k *apiKeys) write(lines []string) error {
 	return os.Rename(tmp, k.path)
 }
 
-// parseKeyLine reads "<hash> <name> # created <time>".
-func parseKeyLine(line string) (panel.APIKey, bool) {
+// keyLine is a line of the file: "<hash> <name> # created <time> unused".
+// "unused" goes at the key's first use; lines with no date (written by
+// hand, or before keys expired) are taken as used.
+type keyLine struct {
+	hash   string
+	key    panel.APIKey
+	unused bool
+}
+
+func parseKeyLine(line string) (keyLine, bool) {
 	body, comment, _ := strings.Cut(line, "#")
 	fields := strings.Fields(body)
 	if len(fields) == 0 {
-		return panel.APIKey{}, false
+		return keyLine{}, false
 	}
-	key := panel.APIKey{ID: apiKeyID(strings.ToLower(fields[0])), Name: strings.Join(fields[1:], " ")}
-	if at, ok := strings.CutPrefix(strings.TrimSpace(comment), "created "); ok {
-		key.Created, _ = time.Parse(time.RFC3339, strings.TrimSpace(at))
+	l := keyLine{hash: strings.ToLower(fields[0])}
+	l.key = panel.APIKey{ID: apiKeyID(l.hash), Name: strings.Join(fields[1:], " ")}
+	if c := strings.Fields(comment); len(c) >= 2 && c[0] == "created" {
+		l.key.Created, _ = time.Parse(time.RFC3339, c[1])
+		l.unused = len(c) >= 3 && c[2] == "unused" && !l.key.Created.IsZero()
 	}
-	return key, true
+	return l, true
+}
+
+// expired reports whether the key was never used within unusedFor.
+func (l keyLine) expired(now time.Time) bool {
+	return l.unused && now.Sub(l.key.Created) >= unusedFor
+}
+
+// current reads the file without the expired keys, and drops them from it.
+func (k *apiKeys) current() ([]string, error) {
+	lines, err := k.read()
+	if err != nil {
+		return nil, err
+	}
+	now := k.now()
+	kept := lines[:0:0]
+	for _, line := range lines {
+		if l, ok := parseKeyLine(line); ok && l.expired(now) {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	if len(kept) < len(lines) {
+		if err := k.write(kept); err != nil {
+			return nil, err
+		}
+	}
+	return kept, nil
+}
+
+// Valid reports whether key is one of the API keys, and whether there is
+// any (none: the MCP by URL is off). The file is read on every call, so
+// removing a line revokes a key at once. A key's first use is written down,
+// so it no longer expires.
+func (k *apiKeys) Valid(key string) (valid, on bool, err error) {
+	sum := sha256.Sum256([]byte(key))
+	want := hex.EncodeToString(sum[:])
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	lines, err := k.current()
+	if err != nil {
+		return false, true, err
+	}
+	match := -1
+	for i, line := range lines {
+		if l, ok := parseKeyLine(line); ok {
+			on = true
+			if subtle.ConstantTimeCompare([]byte(l.hash), []byte(want)) == 1 {
+				match = i
+			}
+		}
+	}
+	if match < 0 || len(key) < 32 {
+		return false, on, nil
+	}
+	if l, _ := parseKeyLine(lines[match]); l.unused {
+		lines[match] = strings.TrimSuffix(strings.TrimRight(lines[match], " \t\r"), " unused")
+		// The key works even if this cannot be written; it is tried
+		// again on the next request.
+		_ = k.write(lines)
+	}
+	return true, on, nil
 }
 
 func (k *apiKeys) List() ([]panel.APIKey, error) {
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	lines, err := k.read()
+	lines, err := k.current()
 	if err != nil {
 		return nil, err
 	}
 	out := []panel.APIKey{}
-	for _, l := range lines {
-		if key, ok := parseKeyLine(l); ok {
-			out = append(out, key)
+	for _, line := range lines {
+		if l, ok := parseKeyLine(line); ok {
+			out = append(out, l.key)
 		}
 	}
 	return out, nil
@@ -129,11 +180,11 @@ func (k *apiKeys) Add(name string) (string, panel.APIKey, error) {
 	created := k.now().UTC().Truncate(time.Second)
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	lines, err := k.read()
+	lines, err := k.current()
 	if err != nil {
 		return "", panel.APIKey{}, err
 	}
-	lines = append(lines, hash+" "+name+" # created "+created.Format(time.RFC3339))
+	lines = append(lines, hash+" "+name+" # created "+created.Format(time.RFC3339)+" unused")
 	if err := k.write(lines); err != nil {
 		return "", panel.APIKey{}, err
 	}
@@ -151,7 +202,7 @@ func (k *apiKeys) Revoke(id string) error {
 	}
 	kept, found := lines[:0:0], false
 	for _, l := range lines {
-		if key, ok := parseKeyLine(l); ok && len(id) == 12 && subtle.ConstantTimeCompare([]byte(key.ID), []byte(id)) == 1 {
+		if key, ok := parseKeyLine(l); ok && len(id) == 12 && subtle.ConstantTimeCompare([]byte(key.key.ID), []byte(id)) == 1 {
 			found = true
 			continue
 		}

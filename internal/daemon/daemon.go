@@ -205,9 +205,8 @@ func (d *Daemon) startRemote(cfg Config, primary *Account) error {
 	srv.TrustedProxy = remote.TrustProxies(cfg.RemoteTrustedProxy)
 	// The MCP by URL, for services with an API key (APIKeysFile). The key
 	// proved who calls; the request then goes on as a program's here would.
-	srv.APIKey = func(key string) (bool, bool, error) {
-		return apiKeyValid(filepath.Join(cfg.DataDir, APIKeysFile), key)
-	}
+	keys := &apiKeys{path: filepath.Join(cfg.DataDir, APIKeysFile), now: time.Now}
+	srv.APIKey = keys.Valid
 	srv.MCP = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.Header.Del("Authorization")
 		if cfg.Token != "" {
@@ -220,7 +219,7 @@ func (d *Daemon) startRemote(cfg Config, primary *Account) error {
 	})
 	d.remote = srv
 	d.panel.Remote = srv
-	d.panel.APIKeys = &apiKeys{path: filepath.Join(cfg.DataDir, APIKeysFile), now: time.Now}
+	d.panel.APIKeys = keys
 	if cfg.RemoteListen == "" {
 		return nil
 	}

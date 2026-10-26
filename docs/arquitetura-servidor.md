@@ -147,6 +147,9 @@ Para um serviço que não roda o app (um agente na nuvem, outro servidor):
   A chave em si não é guardada.
 - O arquivo é lido a cada pedido: apagar a linha revoga na hora. Sem arquivo,
   ou sem linhas, o `/mcp` da escuta remota responde 404.
+- Uma chave feita pelo painel ou pelo `apikey new` entra marcada como
+  `unused`. O primeiro uso tira a marca; se ninguém a usar em 24 horas, ela
+  deixa de valer e sai do arquivo. Linhas escritas à mão não expiram.
 - A chave precisa ter pelo menos 32 caracteres, e a comparação é em tempo
   constante.
 - Com a chave aceita, o pedido segue como o de um programa do servidor (com o
@@ -203,7 +206,7 @@ tabela `clients` do `state.db`), e o painel os agrupa:
 | Quadros de HTTP dentro da sessão | `internal/remote/mux.go` |
 | Canal Noise | `internal/remote/channel.go` |
 | Proxy confiável, cabeçalhos da janela e da base | `internal/remote/trust.go` |
-| Ligação com o daemon, chaves de API | `internal/daemon/daemon.go` (`startRemote`, `apiKeyValid`) |
+| Ligação com o daemon, chaves de API | `internal/daemon/daemon.go` (`startRemote`), `internal/daemon/apikeys.go` |
 | Modo remoto do app | `cmd/app/remote.go` |
 | Downloads de um pedido remoto | `internal/mcp/remotefetch.go` |
 | Instalação com Docker e proxy | `install-docker.sh` |

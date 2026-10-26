@@ -799,7 +799,7 @@ func apikeyCmd(cfg config, args []string) error {
 			return nil
 		}
 		_ = json.Unmarshal(raw, &out)
-		say("%s\n\n  %s\n", i18n.T("Chave de API (aparece uma vez só; guarde no lugar de segredos do agente):"), out.Key)
+		say("%s\n\n  %s\n", i18n.T("Chave de API (aparece uma vez só e deixa de valer se não for usada em 24 horas; guarde no lugar de segredos do agente):"), out.Key)
 		say("%s", i18n.T("O agente usa o MCP em https://<endereço do servidor>/mcp, com o cabeçalho Authorization: Bearer <chave>."))
 		return nil
 	case "revoke":

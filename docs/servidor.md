@@ -242,7 +242,7 @@ duas conexões: a do app com o servidor e a do servidor com o WhatsApp.
 | `remote code [--name N] [--scope admin\|tools]` | Um código para mais um aparelho; `tools` alcança só o MCP |
 | `remote revoke <id>` | Corta um aparelho na hora; ele precisa ser pareado de novo |
 | `apikey [list]` | As chaves de API dos agentes que usam o MCP pelo endereço do servidor |
-| `apikey new <nome>` | Uma chave para um agente; aparece uma vez só (também em *Conectar ferramenta de IA › Agentes remotos*) |
+| `apikey new <nome>` | Uma chave para um agente; aparece uma vez só e deixa de valer se não for usada em 24 horas (também em *Conectar ferramenta de IA › Agentes remotos*) |
 | `apikey revoke <id>` | Corta uma chave na hora |
 
 ## Trazer os dados de outro computador
