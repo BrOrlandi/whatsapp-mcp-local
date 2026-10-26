@@ -143,7 +143,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="muted">{{tf "%s usa o MCP do servidor pela internet ou pela sua rede, no endereço abaixo, com uma chave só dele. As ferramentas deste computador continuam no endereço local." (t .Tool.Who)}}</p>
 <ol class="flowsteps">
 <li class="flowstep"><h2 class="flowstep__title">{{t "Crie uma chave para o agente"}}</h2>
-<p class="muted">{{t "A chave aparece uma vez só. Guarde no lugar de segredos do agente e não a cole em conversas."}}</p>
+<p class="muted">{{t "A chave aparece uma vez só e deixa de valer se o agente não a usar em 24 horas. Guarde no lugar de segredos do agente e não a cole em conversas."}}</p>
 <div class="actions"><button class="btn" type="button" data-api-key-new="{{t .Tool.Name}}">{{t "Criar chave"}}</button></div>
 <p class="busy" data-api-key-note role="status" hidden></p>
 <div class="snippet" data-api-key-out hidden><div class="snippet__head"><span class="snippet__title">{{t "Chave de API"}}</span></div><pre data-copy><code data-api-key-value></code></pre></div></li>
