@@ -67,7 +67,7 @@ way out is one click away. */}}
 
 {{/* The connection's state; one that passes on its own spins, and the page
 refreshes when it has passed. */}}
-{{define "syncpill"}}<span class="pill pill--{{.SyncTone}}{{if .SyncBusy}} pill--busy{{end}}" data-sync>{{if .SyncBusy}}<span class="spinner" aria-hidden="true"></span>{{end}}{{t .SyncLabel}}</span>{{end}}
+{{define "syncpill"}}{{if and .Arriving (eq .SyncTone "ok")}}<span class="pill pill--warn pill--busy" data-sync data-sync-arriving><span class="spinner" aria-hidden="true"></span>{{t "Sincronizando"}}</span>{{else}}<span class="pill pill--{{.SyncTone}}{{if .SyncBusy}} pill--busy{{end}}" data-sync>{{if .SyncBusy}}<span class="spinner" aria-hidden="true"></span>{{end}}{{t .SyncLabel}}</span>{{end}}{{end}}
 
 {{define "servergate"}}<div class="overlay" id="usar-servidor" role="dialog" aria-modal="true" aria-labelledby="usar-servidor-titulo">
 <div class="dialog">
@@ -145,10 +145,10 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <ol class="flowsteps">
 <li class="flowstep"><h2 class="flowstep__title">{{t "Crie uma chave para o agente"}}</h2>
 <p class="muted">{{t "A chave aparece uma vez só e deixa de valer se o agente não a usar em 24 horas. Guarde no lugar de segredos do agente e não a cole em conversas."}}</p>
-<div class="actions"><button class="btn" type="button" data-api-key-new="{{t .Tool.Name}}" data-api-key-tool="{{.Tool.Key}}">{{t "Criar chave"}}</button></div>
-<p class="busy" data-api-key-note role="status" hidden></p>
+<div class="actions" data-api-key-start><button class="btn" type="button" data-api-key-open>{{t "Criar chave"}}</button></div>
+<p class="note" data-api-key-note role="status" hidden></p>
 <div class="snippet" data-api-key-out hidden><div class="snippet__head"><span class="snippet__title">{{t "Chave de API"}}</span></div><pre data-copy><code data-api-key-value></code></pre></div></li>
-<li class="flowstep"><h2 class="flowstep__title">{{t "Configure o agente"}}</h2>
+<li class="flowstep" data-api-key-after hidden><h2 class="flowstep__title">{{t "Configure o agente"}}</h2>
 {{if not .URL}}<p class="note">{{t "Troque o endereço abaixo pelo endereço HTTPS do seu servidor."}}</p>{{end}}
 <p class="muted">{{t "Mande este texto no chat do agente, para ele se configurar:"}}</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Copie e mande para o agente"}}</span></div>
@@ -164,14 +164,16 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
     }
   }
 }</code></pre></div></details></li>
-<li class="flowstep"><h2 class="flowstep__title">{{t "Confira a conexão"}}</h2>
+<li class="flowstep" data-api-key-after hidden><h2 class="flowstep__title">{{t "Confira a conexão"}}</h2>
 <p class="muted">{{t "Quando o agente usar o MCP, ele aparece no painel, em Conexões, como direto no servidor, pelo endereço com chave."}} <span class="tip" tabindex="0" aria-describedby="tip-proxy"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-proxy">{{t "O proxy HTTPS do servidor precisa encaminhar o caminho /mcp, além do acesso remoto do app. Sem chave criada, o servidor não atende o MCP pelo endereço."}}</span></span></p></li>
 </ol></div></section>
-{{if .Keys}}<section class="card"><div class="card__head"><h2>{{t "Chaves criadas"}}</h2></div><div class="card__body">
-<ul class="rows">{{range .Keys}}<li class="row keyrow"><span class="toolpick__icon">{{toolmark .Mark}}</span><span class="row__main"><span class="row__title">{{.Name}}</span><span class="row__meta">{{if not .Created.IsZero}}{{tf "criada em %s" (moment .Created)}}{{else}}{{.ID}}{{end}}{{if not .Used}}{{if not .Expires.IsZero}} · {{tf "vale até %s se não for usada" (moment .Expires)}}{{end}}{{end}}</span></span>
-{{if .Used}}<span class="pill pill--ok">{{t "Em uso"}}</span>{{else}}<span class="pill pill--warn">{{t "Aguardando o primeiro uso"}}</span>{{end}}
-<button class="btn btn--quiet btn--small" type="button" data-api-key-revoke="{{.ID}}">{{t "Revogar"}}</button></li>{{end}}</ul>
-</div></section>{{end}}
+<dialog class="dialog keydialog" data-api-key-dialog aria-labelledby="chave-titulo">
+<div class="dialog__head"><h2 id="chave-titulo">{{t "Criar chave"}}</h2><button class="dialog__close" type="button" data-api-key-close aria-label="{{t "Fechar"}}">&times;</button></div>
+<form class="dialog__body stack" data-api-key-form data-api-key-tool="{{.Tool.Key}}">
+<label class="field" for="chave-nome"><span class="field__label">{{t "Nome da chave"}}</span><input id="chave-nome" name="name" type="text" required maxlength="64" value="{{t .Tool.Name}}" autocomplete="off"></label>
+<p class="alert" data-api-key-error role="alert" hidden></p>
+<div class="actions"><button class="btn" type="submit" data-api-key-submit><span class="spinner" aria-hidden="true" hidden></span><span>{{t "Criar chave"}}</span></button><button class="btn btn--quiet" type="button" data-api-key-close>{{t "Cancelar"}}</button></div>
+</form></dialog>
 {{end}}
 </div>
 <script src="/assets/agents.js" defer></script>
@@ -441,6 +443,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <section class="card">
 <div class="card__head"><h2>WhatsApp</h2>{{template "syncpill" .}}</div>
 <div class="card__body stack">
+{{if .Arriving}}<p class="busy" data-sync-note><span class="spinner" aria-hidden="true"></span><span>{{tf "O celular está mandando o seu histórico: <span data-sync-count>%s</span> mensagens até agora. Pode seguir enquanto isso." (count .ArrivingCount)}}</span></p>{{end}}
 {{if eq .Tone "ok"}}<p class="alert alert--ok">{{t "Nenhum problema detectado. As mensagens estão sendo recebidas e guardadas."}}</p>
 {{else}}<ul class="problems">{{range .Checks}}{{if or (eq .Status "warn") (eq .Status "fail")}}<li{{if eq .Status "warn"}} class="problems__warn"{{end}}><strong>{{.Title}}:</strong> {{.Text}}</li>{{end}}{{end}}</ul>{{end}}
 <dl class="facts">

@@ -3,6 +3,7 @@ package panel
 import (
 	"encoding/json"
 	"errors"
+	"html/template"
 	"net/http"
 	"strings"
 	"time"
@@ -100,30 +101,21 @@ func agentGuide(key string) (guide, bool) {
 	return guide{}, false
 }
 
-// keyRow is a key as the agent page lists it: with the logo of the agent it
-// was made for. A key from before keys named their agent, or made by hand,
-// is matched by its name.
-type keyRow struct {
-	APIKey
-	Mark string
-}
-
-func keyRows(keys []APIKey) []keyRow {
-	out := make([]keyRow, len(keys))
-	for i, k := range keys {
-		g, ok := agentGuide(k.Tool)
-		if !ok {
-			for _, a := range agentGuides {
-				if strings.EqualFold(k.Name, a.Key) || strings.EqualFold(k.Name, i18n.T(a.Name)) || strings.EqualFold(k.Name, a.Name) {
-					g, ok = a, true
-					break
-				}
+// KeyMark is the logo of the agent a key was made for, as on the connect
+// page. A key from before keys named their agent, or made by hand, is
+// matched by its name; any other gets a globe.
+func KeyMark(k APIKey) template.HTML {
+	g, ok := agentGuide(k.Tool)
+	if !ok {
+		for _, a := range agentGuides {
+			if strings.EqualFold(k.Name, a.Key) || strings.EqualFold(k.Name, i18n.T(a.Name)) || strings.EqualFold(k.Name, a.Name) {
+				g, ok = a, true
+				break
 			}
 		}
-		out[i] = keyRow{APIKey: k, Mark: "globe"}
-		if ok {
-			out[i].Mark = g.Mark
-		}
 	}
-	return out
+	if !ok {
+		return toolmark("globe")
+	}
+	return toolmark(g.Mark)
 }

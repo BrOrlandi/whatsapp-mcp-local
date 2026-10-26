@@ -31,6 +31,15 @@ const remotePageSource = `<!doctype html>
 {{with .Code}}<div class="stack"><p class="note">{{t "Copie agora: o código não aparece de novo."}}</p><p><code>{{.Code}}</code></p><p class="note">{{t "Impressão digital do servidor:"}} {{.Fingerprint}}</p></div>{{end}}
 <form method="post" action="/__app/remoto/codigo"><div class="actions"><button class="btn btn--quiet" type="submit">{{t "Parear outro computador como gerenciador"}}</button></div></form>
 </div></section>
+<section class="card"><div class="card__head"><h2 class="card__title">{{t "Chaves de agentes remotos"}}</h2></div>
+<div class="card__body stack">
+<p>{{t "Agentes fora deste computador usam o MCP do servidor com uma chave. Para criar uma, escolha o agente em Conectar ferramenta de IA › Agentes remotos."}}</p>
+{{if .Keys}}<ul class="rows">{{range .Keys}}<li class="row keyrow"><span class="toolpick__icon">{{.Mark}}</span><span class="row__main"><span class="row__title">{{.Name}}</span><span class="row__meta">{{.Meta}}</span></span>
+{{if .Used}}<span class="pill pill--ok">{{t "Em uso"}}</span>{{else}}<span class="pill pill--warn">{{t "Aguardando o primeiro uso"}}</span>{{end}}
+<form method="post" action="/__app/remoto/chaves/revogar"><input type="hidden" name="id" value="{{.ID}}"><button class="btn btn--quiet btn--small" type="submit">{{t "Revogar"}}</button></form></li>{{end}}</ul>
+{{else}}<p class="muted">{{t "Nenhuma chave criada."}}</p>{{end}}
+<div class="actions"><a class="btn btn--quiet" href="/conectar#agentes-remotos">{{t "Conectar um agente remoto"}}</a></div>
+</div></section>
 <section class="card"><div class="card__head"><h2 class="card__title">{{t "Voltar ao modo local"}}</h2></div>
 <div class="card__body stack">
 <p>{{t "O app volta a rodar o WhatsApp neste computador, com os dados que estão aqui. O servidor continua conectado: para não ter dois aparelhos com a mesma sessão, desconecte o WhatsApp no servidor antes de conectar este computador de novo."}}</p>

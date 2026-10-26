@@ -393,6 +393,10 @@ const extraCSS = `
 .toolpick__icon{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:11px;background:var(--brand-soft);color:var(--brand)}
 .toolpick__icon .icon{width:22px;height:22px}
 .keyrow{gap:14px}
+.keydialog{padding:0;color:var(--text)}
+.keydialog::backdrop{background:rgba(6,20,16,.55)}
+.keydialog button.dialog__close{border:0;background:none;cursor:pointer;font:inherit;font-size:1.5rem}
+.keydialog .btn:disabled{cursor:progress;opacity:.7}
 .keyrow .row__main{flex:1;min-width:0}
 /* A logo keeps its own colours; the tile behind it stays neutral. */
 .toolpick__icon:has(.icon--logo){background:var(--surface-soft);border:1px solid var(--border);color:var(--text)}

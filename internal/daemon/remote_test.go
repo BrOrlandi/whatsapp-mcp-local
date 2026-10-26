@@ -97,7 +97,7 @@ func TestTheAppUsesTheDaemonRemotely(t *testing.T) {
 
 	// An agent elsewhere: its page names the server's address, and a key.
 	code, body = get(app, "/conectar/hermes", map[string]string{"X-WhatsApp-MCP-Server": "https://whatsapp.home.example"})
-	for _, want := range []string{"https://whatsapp.home.example/mcp", "data-api-key-new"} {
+	for _, want := range []string{"https://whatsapp.home.example/mcp", "data-api-key-open"} {
 		if code != 200 || !strings.Contains(body, want) {
 			t.Errorf("the agent's page over the session lacks %q (status %d)", want, code)
 		}
