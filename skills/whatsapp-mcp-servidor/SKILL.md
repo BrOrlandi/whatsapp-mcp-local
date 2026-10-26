@@ -77,10 +77,12 @@ Pergunte, uma coisa de cada vez, só o que ainda não souber:
 4. **Que proxy HTTPS já existe** no servidor (Caddy, Traefik, nginx, outro) ou
    se é preciso instalar um. O Caddy é o mais simples: pede e renova o
    certificado sozinho.
-5. **Se o WhatsApp já roda no app do computador** dela. Nesse caso, ofereça
-   levar as conversas e a conexão para o servidor
-   ([Trazer os dados de outro computador](../../docs/servidor.md#trazer-os-dados-de-outro-computador))
-   em vez de conectar de novo.
+5. **Se o WhatsApp já roda no app do computador** dela. Nesse caso, **não
+   conecte o WhatsApp no servidor**: ao parear (passo 5), o app leva a sessão
+   e as conversas para o servidor, com *Levar as conversas deste computador
+   para o servidor* marcado, e apaga a cópia do computador depois que o
+   servidor conecta. O servidor precisa estar sem WhatsApp, rodar no Docker
+   ou como serviço, e usar a mesma versão do wacli que o app.
 
 ## 2. Subir o contêiner
 
@@ -159,8 +161,9 @@ responde 404.
 
 ## 4. Conectar o WhatsApp
 
-Se não trouxe os dados de outro computador, conecte pelo app (passo 5 mostra
-o QR code do servidor) ou pelo terminal:
+Pule este passo se o WhatsApp já roda no app do computador da pessoa: o app
+leva a sessão no passo 5. Senão, conecte pelo app (passo 5 mostra o QR code
+do servidor) ou pelo terminal:
 
 ```sh
 docker compose exec whatsapp-mcp whatsapp-mcp pair
