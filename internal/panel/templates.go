@@ -32,7 +32,7 @@ const pageSource = `
 {{define "githubmark"}}<svg class="colophon__icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>{{end}}
 
 {{/* The way into Configurações, in the top right corner of every page. */}}
-{{define "settingslink"}}<a class="gear" href="/configuracoes" aria-label="{{t "Configurações"}}" title="{{t "Configurações"}}"{{if eq .Active "configuracoes"}} aria-current="page"{{end}}>{{icon "gear"}}</a>{{end}}
+{{define "settingslink"}}{{template "remotestatus" .}}<a class="gear" href="/configuracoes" aria-label="{{t "Configurações"}}" title="{{t "Configurações"}}"{{if eq .Active "configuracoes"}} aria-current="page"{{end}}>{{icon "gear"}}</a>{{end}}
 
 {{define "brandmark"}}<span class="brand__mark">{{logo}}</span><span class="brand__name">WhatsApp MCP</span>{{end}}
 
@@ -47,16 +47,11 @@ const pageSource = `
 <a href="/receitas"{{if eq .Active "receitas"}} aria-current="page"{{end}}>{{icon "book"}}<span>{{t "Receitas"}}</span></a>
 <a href="/ajuda"{{if eq .Active "ajuda"}} aria-current="page"{{end}}>{{icon "help"}}<span>{{t "Ajuda"}}</span></a>
 </nav>
-{{template "remotebanner" .}}
 {{template "portbanner" .}}
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
 {{end}}
 
-{{define "remotebanner"}}{{with .Remote}}<aside class="remote-banner" data-remote-banner aria-label="{{t "Modo remoto"}}">
-<p class="remote-banner__lead"><span class="pill pill--accent pill--plain">{{t "Modo remoto"}}</span> {{t "Este app usa o WhatsApp MCP do servidor"}} <strong data-remote-server>{{if .Server}}{{.Server}}{{else}}{{t "remoto"}}{{end}}</strong>.</p>
-<p class="remote-banner__links"><span>{{t "App ↔ servidor:"}} <span class="pill pill--ok" data-remote-link>{{t "Conectado"}}</span></span>
-<span>{{t "Servidor ↔ WhatsApp:"}} <span class="pill pill--{{.WhatsAppTone}}" data-remote-whatsapp>{{t .WhatsAppLabel}}</span></span>
-<a href="/__app/remoto">{{t "Gerenciar a conexão"}}</a></p></aside>{{end}}{{end}}
+{{define "remotestatus"}}{{with .Remote}}<a class="remote-status" data-remote-status href="/__app/remoto" title="{{.Server}}"><span class="remote-status__dot" aria-hidden="true"></span><span data-remote-status-label aria-live="polite">{{t "MCP Remoto"}}</span></a>{{end}}{{end}}
 
 {{/* The MCP's port taken by another program: WhatsApp keeps running, and the
 way out is one click away. */}}
@@ -103,7 +98,6 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{define "flowhead"}}
 <header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
 <div class="masthead__tools">{{template "settingslink" .}}</div></header>
-{{template "remotebanner" .}}
 <div class="flow">
 {{template "portbanner" .}}
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
@@ -489,7 +483,6 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{define "instalacao"}}{{template "head" .}}
 <header class="masthead"><a class="brand" href="/instalacao">{{template "brandmark"}}</a>
 <div class="masthead__tools">{{template "settingslink" .}}</div></header>
-{{template "remotebanner" .}}
 <div class="wizard-shell"{{if eq .Step 2}} style="max-width:620px"{{end}}>
 {{template "langpick" .}}
 {{template "portbanner" .}}
@@ -604,28 +597,34 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="card__head"><h2 class="card__title">{{icon "help"}}{{t "Perguntas frequentes"}}</h2></div>
 <div class="card__body">
 <div class="faq">
+<details class="faq__item"><summary>{{t "Tem risco de a Meta banir o meu número?"}}{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>{{t "Não há garantia contra banimento. O WhatsApp MCP é um projeto independente, sem vínculo com a Meta. Disparos em massa, mensagens repetidas para muitos contatos e automações que violem as regras do WhatsApp podem levar a restrições na conta."}}</p><p>{{t "Use para consultar e trabalhar com suas conversas, respeitando os <a href='https://www.whatsapp.com/legal/terms-of-service' target='_blank' rel='noopener noreferrer'>Termos de Serviço do WhatsApp</a>. O app não foi feito para disparos em massa."}}</p></div></details>
+<details class="faq__item"><summary>{{t "Funciona com o WhatsApp Business?"}}{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>{{t "Sim. Funciona com o WhatsApp comum e com o app WhatsApp Business: a conta é conectada como um dispositivo adicional, de forma semelhante ao WhatsApp Web."}}</p></div></details>
+<details class="faq__item"><summary>{{t "Com quais ferramentas de IA funciona?"}}{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>{{t "Com ferramentas que aceitam MCP e rodam no seu computador, como Claude Desktop (chat e Cowork), Claude Code, Codex, Cursor e Windsurf. Em <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>, escolha a sua ferramenta e siga o passo a passo."}}</p></div></details>
 <details class="faq__item"><summary>{{t "Funciona no Claude pelo navegador ou pelo celular?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Não. O WhatsApp MCP fica neste computador, e só programas instalados nele conseguem usá-lo, como o Claude Desktop, o Claude Code, o Codex e o Cursor. O Claude no navegador, o app do celular e o ChatGPT na web rodam na nuvem e não alcançam o seu computador."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "Este app conecta as ferramentas de IA deste computador ao servidor. Para usar uma ferramenta na web ou no celular, é preciso configurar uma conexão MCP remota compatível diretamente com o servidor; o pareamento deste app não faz essa configuração."}}</p>{{else}}<p>{{t "Não. O WhatsApp MCP fica neste computador, e só programas instalados nele conseguem usá-lo, como o Claude Desktop, o Claude Code, o Codex e o Cursor. O Claude no navegador, o app do celular e o ChatGPT na web rodam na nuvem e não alcançam o seu computador."}}</p>{{end}}</div></details>
 <details class="faq__item"><summary>{{t "A IA pode mandar mensagens sem eu pedir?"}}{{icon "chevron"}}</summary>
 <div class="faq__answer"><p>{{t "Não. Ler e procurar é seguro: mandar, reagir, editar ou apagar uma mensagem só acontece quando você pede."}}</p></div></details>
 <details class="faq__item"><summary>{{t "As minhas mensagens saem deste computador?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "O WhatsApp MCP guarda as mensagens só aqui e não manda nada para servidores de terceiros. Quando você pede algo à sua ferramenta de IA, ela lê as mensagens de que precisa para responder, e o que ela faz com elas segue as regras de privacidade dela."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "No modo remoto, as mensagens ficam no servidor que você configurou, e este app acessa esse servidor por uma conexão cifrada. Quando sua ferramenta de IA consulta mensagens, o tratamento dos dados segue as regras de privacidade dela."}}</p>{{else}}<p>{{t "O WhatsApp MCP guarda as mensagens só aqui e não manda nada para servidores de terceiros. Quando você pede algo à sua ferramenta de IA, ela lê as mensagens de que precisa para responder, e o que ela faz com elas segue as regras de privacidade dela."}}</p>{{end}}</div></details>
 <details class="faq__item"><summary>{{t "O computador precisa ficar ligado?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Sim, para receber as mensagens. Se ele ficar desligado ou dormindo por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele volta. Se ainda faltar alguma coisa, peça o histórico ao celular na aba <a href='/whatsapp'>WhatsApp</a>."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "No modo remoto, o servidor precisa ficar ligado para receber mensagens. Este computador pode ficar desligado; para usar o WhatsApp pela sua ferramenta de IA neste computador, abra o app e mantenha a conexão com o servidor."}}</p>{{else}}<p>{{t "Sim, para receber as mensagens. Se ele ficar desligado ou dormindo por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele volta. Se ainda faltar alguma coisa, peça o histórico ao celular na aba <a href='/whatsapp'>WhatsApp</a>."}}</p>{{end}}</div></details>
 <details class="faq__item"><summary>{{t "Como trazer mensagens mais antigas?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, use \"Buscar mensagens mais antigas\", para uma conversa ou para todas as recentes. Cada pedido traz mais histórico do celular para este computador, e ele fica disponível para a sua ferramenta de IA consultar. O celular precisa estar com internet."}}</p></div></details>
+<div class="faq__answer"><p>{{t "Ao conectar a conta, o WhatsApp envia parte do histórico recente. Daí em diante, as mensagens recebidas ficam guardadas onde o WhatsApp MCP está rodando: neste computador ou, no modo remoto, no servidor."}}</p><p>{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, use a opção de buscar mensagens mais antigas, para uma conversa ou para todas as recentes. O celular precisa estar com internet."}}</p><p>{{t "Você também pode pedir à IA para buscar mensagens mais antigas. Elas chegam aos poucos, e o próprio WhatsApp limita até onde é possível voltar. Como alternativa, exporte a conversa pelo celular e entregue o arquivo à sua IA."}}</p></div></details>
 <details class="faq__item"><summary>{{t "A IA consegue ouvir os meus áudios?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Sim, depois de instalar a <a href='/configuracoes#transcricao'>Transcrição de áudio</a> nas Configurações. Quando você pede, o áudio vira texto aqui mesmo, sem sair do computador. O nome da conversa e as últimas mensagens ajudam a acertar nomes e termos, e cada áudio é transcrito uma vez só."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "Sim, se a <a href='/configuracoes#transcricao'>Transcrição de áudio</a> estiver instalada no servidor. A conversão em texto acontece no servidor, e o resultado fica disponível para a sua ferramenta de IA."}}</p>{{else}}<p>{{t "Sim, depois de instalar a <a href='/configuracoes#transcricao'>Transcrição de áudio</a> nas Configurações. Quando você pede, o áudio vira texto aqui mesmo, sem sair do computador. O nome da conversa e as últimas mensagens ajudam a acertar nomes e termos, e cada áudio é transcrito uma vez só."}}</p>{{end}}</div></details>
 <details class="faq__item"><summary>{{t "Posso conectar mais de uma ferramenta de IA?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Pode. Todas usam o mesmo WhatsApp deste computador, e desconectar uma não mexe nas outras. Para adicionar outra, use <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "Pode. Todas usam a mesma sessão do WhatsApp no servidor, e desconectar uma não mexe nas outras. Para adicionar outra, use <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>."}}</p>{{else}}<p>{{t "Pode. Todas usam o mesmo WhatsApp deste computador, e desconectar uma não mexe nas outras. Para adicionar outra, use <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>."}}</p>{{end}}</div></details>
 <details class="faq__item"><summary>{{t "A minha ferramenta não aparece conectada. E agora?"}}{{icon "chevron"}}</summary>
 <div class="faq__answer"><p>{{t "Feche a ferramenta e abra de novo, ou comece uma conversa nova: ela só carrega o WhatsApp ao iniciar. Se continuar assim, refaça o passo a passo em <a href='/conectar'>Conectar ferramenta de IA ao MCP</a> e confira a aba <a href='/status'>Status</a>."}}</p></div></details>
 <details class="faq__item"><summary>{{t "O que a IA consegue fazer no meu WhatsApp?"}}{{icon "chevron"}}</summary>
 <div class="faq__answer"><p>{{t "Ler, procurar e resumir conversas, transcrever áudios, mandar mensagens, fotos, enquetes e localização, reagir, editar e apagar mensagens e organizar conversas. A lista completa está em <a href='/funcoes'>Funções</a>."}}</p></div></details>
 <details class="faq__item"><summary>{{t "Como desconectar este computador do WhatsApp?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, em Zona de risco. O computador sai dos dispositivos conectados do seu celular, e as mensagens já guardadas continuam aqui."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "Para este app voltar ao modo local, abra <a href='/__app/remoto'>Servidor remoto</a>. Desconectar o WhatsApp na aba <a href='/whatsapp'>WhatsApp</a> encerra a sessão do servidor e afeta todas as ferramentas que usam essa sessão."}}</p>{{else}}<p>{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, em Zona de risco. O computador sai dos dispositivos conectados do seu celular, e as mensagens já guardadas continuam aqui."}}</p>{{end}}</div></details>
 {{if .App}}<details class="faq__item"><summary>{{t "Onde ficam os meus dados?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Numa pasta deste computador, que aparece em <a href='/configuracoes#dados'>Configurações › Dados</a>. Lá também dá para abrir a pasta ou apagar tudo."}}</p></div></details>{{end}}
+<div class="faq__answer">{{if .Remote}}<p>{{t "As mensagens e os arquivos do WhatsApp ficam no servidor configurado. Este app guarda neste computador os dados necessários para se conectar a ele."}}</p>{{else}}<p>{{t "Numa pasta deste computador, que aparece em <a href='/configuracoes#dados'>Configurações › Dados</a>. Lá também dá para abrir a pasta ou apagar tudo."}}</p>{{end}}</div></details>{{end}}
 </div>
 </div></section>
 
