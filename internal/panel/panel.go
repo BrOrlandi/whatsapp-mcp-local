@@ -907,8 +907,8 @@ func (p *Panel) connectAgent(r *http.Request, g guide) (string, any) {
 		// server for an agent elsewhere to reach.
 		Local bool
 		URL   string
-		Keys  []APIKey
-	}{l, g, l.App, addr, keys}
+		Keys  []keyRow
+	}{l, g, l.App, addr, keyRows(keys)}
 }
 
 func (p *Panel) whatsapp(w http.ResponseWriter, r *http.Request) (string, any) {

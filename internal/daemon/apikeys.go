@@ -59,9 +59,10 @@ func (k *apiKeys) write(lines []string) error {
 	return os.Rename(tmp, k.path)
 }
 
-// keyLine is a line of the file: "<hash> <name> # created <time> unused".
-// "unused" goes at the key's first use; lines with no date (written by
-// hand, or before keys expired) are taken as used.
+// keyLine is a line of the file:
+// "<hash> <name> # created <time> tool <agent> unused". "unused" goes at the
+// key's first use; lines with no date (written by hand, or before keys
+// expired) are taken as used.
 type keyLine struct {
 	hash   string
 	key    panel.APIKey
@@ -78,7 +79,19 @@ func parseKeyLine(line string) (keyLine, bool) {
 	l.key = panel.APIKey{ID: apiKeyID(l.hash), Name: strings.Join(fields[1:], " ")}
 	if c := strings.Fields(comment); len(c) >= 2 && c[0] == "created" {
 		l.key.Created, _ = time.Parse(time.RFC3339, c[1])
-		l.unused = len(c) >= 3 && c[2] == "unused" && !l.key.Created.IsZero()
+		for i := 2; i < len(c); i++ {
+			switch {
+			case c[i] == "tool" && i+1 < len(c):
+				i++
+				l.key.Tool = c[i]
+			case c[i] == "unused":
+				l.unused = !l.key.Created.IsZero()
+			}
+		}
+	}
+	l.key.Used = !l.unused
+	if l.unused {
+		l.key.Expires = l.key.Created.Add(unusedFor)
 	}
 	return l, true
 }
@@ -162,7 +175,7 @@ func (k *apiKeys) List() ([]panel.APIKey, error) {
 
 // Add makes a key and keeps only its hash. The key is returned once, for
 // the person to hand to the agent; it is not kept anywhere.
-func (k *apiKeys) Add(name string) (string, panel.APIKey, error) {
+func (k *apiKeys) Add(name, tool string) (string, panel.APIKey, error) {
 	name = strings.Join(strings.Fields(strings.NewReplacer("#", " ").Replace(name)), " ")
 	if runes := []rune(name); len(runes) > 64 {
 		name = string(runes[:64])
@@ -184,11 +197,20 @@ func (k *apiKeys) Add(name string) (string, panel.APIKey, error) {
 	if err != nil {
 		return "", panel.APIKey{}, err
 	}
-	lines = append(lines, hash+" "+name+" # created "+created.Format(time.RFC3339)+" unused")
+	line := hash + " " + name + " # created " + created.Format(time.RFC3339)
+	if tool = strings.Map(func(r rune) rune {
+		if r == '-' || r >= 'a' && r <= 'z' || r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, tool); tool != "" {
+		line += " tool " + tool
+	}
+	lines = append(lines, line+" unused")
 	if err := k.write(lines); err != nil {
 		return "", panel.APIKey{}, err
 	}
-	return secret, panel.APIKey{ID: apiKeyID(hash), Name: name, Created: created}, nil
+	return secret, panel.APIKey{ID: apiKeyID(hash), Name: name, Created: created, Tool: tool, Expires: created.Add(unusedFor)}, nil
 }
 
 // Revoke removes a key: the next request with it is refused.

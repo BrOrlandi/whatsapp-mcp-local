@@ -19,13 +19,20 @@ type APIKey struct {
 	ID      string    `json:"id"`
 	Name    string    `json:"name"`
 	Created time.Time `json:"created_at,omitzero"`
+	// Tool is the agent's page the key was made on, as in agentGuides.
+	Tool string `json:"tool,omitempty"`
+	// Used: the key reached the MCP at least once. Until then it stops
+	// working at Expires.
+	Used    bool      `json:"used"`
+	Expires time.Time `json:"expires_at,omitzero"`
 }
 
 // APIKeys keeps the keys; the daemon provides it.
 type APIKeys interface {
 	List() ([]APIKey, error)
-	// Add makes a key named name and returns it, once.
-	Add(name string) (string, APIKey, error)
+	// Add makes a key named name, for the agent tool (or none), and
+	// returns it, once.
+	Add(name, tool string) (string, APIKey, error)
 	Revoke(id string) error
 }
 
@@ -55,9 +62,14 @@ func (p *Panel) apiKeysAdd(r *http.Request) (any, error) {
 	}
 	var body struct {
 		Name string `json:"name"`
+		Tool string `json:"tool"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	secret, key, err := p.APIKeys.Add(body.Name)
+	tool := ""
+	if g, ok := agentGuide(body.Tool); ok {
+		tool = g.Key
+	}
+	secret, key, err := p.APIKeys.Add(body.Name, tool)
 	if err != nil {
 		return nil, userError{err.Error()}
 	}
@@ -76,4 +88,42 @@ func (p *Panel) apiKeysRevoke(r *http.Request) (any, error) {
 		return nil, err
 	}
 	return map[string]bool{"revoked": true}, nil
+}
+
+// agentGuide finds an agent's guide by its key.
+func agentGuide(key string) (guide, bool) {
+	for _, g := range agentGuides {
+		if g.Key == key {
+			return g, true
+		}
+	}
+	return guide{}, false
+}
+
+// keyRow is a key as the agent page lists it: with the logo of the agent it
+// was made for. A key from before keys named their agent, or made by hand,
+// is matched by its name.
+type keyRow struct {
+	APIKey
+	Mark string
+}
+
+func keyRows(keys []APIKey) []keyRow {
+	out := make([]keyRow, len(keys))
+	for i, k := range keys {
+		g, ok := agentGuide(k.Tool)
+		if !ok {
+			for _, a := range agentGuides {
+				if strings.EqualFold(k.Name, a.Key) || strings.EqualFold(k.Name, i18n.T(a.Name)) || strings.EqualFold(k.Name, a.Name) {
+					g, ok = a, true
+					break
+				}
+			}
+		}
+		out[i] = keyRow{APIKey: k, Mark: "globe"}
+		if ok {
+			out[i].Mark = g.Mark
+		}
+	}
+	return out
 }

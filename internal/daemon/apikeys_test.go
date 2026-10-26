@@ -91,14 +91,17 @@ func TestAPIKeysMadeAndRevoked(t *testing.T) {
 		t.Fatal(err)
 	}
 	k := &apiKeys{path: path, now: time.Now}
-	if _, _, err := k.Add("  "); err == nil {
+	if _, _, err := k.Add("  ", ""); err == nil {
 		t.Error("a key with no name was made")
 	}
-	secret, key, err := k.Add("Hermes # Agent\n")
+	secret, key, err := k.Add("Hermes # Agent\n", "hermes")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if key.Name != "Hermes Agent" || len(key.ID) != 12 || !strings.HasPrefix(secret, "wamcp_") {
+	if fresh, _ := k.List(); fresh[1].Used || !fresh[1].Expires.Equal(key.Created.Add(unusedFor)) {
+		t.Errorf("a new key %+v", fresh[1])
+	}
+	if key.Name != "Hermes Agent" || key.Tool != "hermes" || len(key.ID) != 12 || !strings.HasPrefix(secret, "wamcp_") {
 		t.Fatalf("made %+v (%d chars)", key, len(secret))
 	}
 	if ok, on, _ := k.Valid(secret); !ok || !on {
@@ -112,7 +115,7 @@ func TestAPIKeysMadeAndRevoked(t *testing.T) {
 		t.Errorf("mode %v", fi.Mode().Perm())
 	}
 	list, _ := k.List()
-	if len(list) != 2 || list[0].Name != "by hand" || list[1].ID != key.ID || list[1].Created.IsZero() {
+	if len(list) != 2 || list[0].Name != "by hand" || list[1].ID != key.ID || list[1].Created.IsZero() || !list[1].Used || list[1].Tool != "hermes" {
 		t.Fatalf("list %+v", list)
 	}
 	if err := k.Revoke("000000000000"); !errors.Is(err, panel.ErrNoAPIKey) {
@@ -142,11 +145,11 @@ func TestUnusedAPIKeysExpire(t *testing.T) {
 	}
 	now := time.Date(2026, 10, 25, 12, 0, 0, 0, time.UTC)
 	k := &apiKeys{path: path, now: func() time.Time { return now }}
-	unused, _, err := k.Add("unused")
+	unused, _, err := k.Add("unused", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	used, _, err := k.Add("used")
+	used, _, err := k.Add("used", "openclaw")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +168,7 @@ func TestUnusedAPIKeysExpire(t *testing.T) {
 		t.Error("the hand-written key expired")
 	}
 	list, _ := k.List()
-	if len(list) != 2 || list[0].Name != "by hand" || list[1].Name != "used" {
+	if len(list) != 2 || list[0].Name != "by hand" || !list[0].Used || list[1].Name != "used" || list[1].Tool != "openclaw" || !list[1].Used {
 		t.Errorf("list %+v", list)
 	}
 	if raw, _ := os.ReadFile(path); strings.Contains(string(raw), "unused") {

@@ -24,7 +24,7 @@
     make.addEventListener("click", function () {
       make.disabled = true;
       note.hidden = true;
-      call("POST", "/api/chaves", { name: make.getAttribute("data-api-key-new") }).then(function (d) {
+      call("POST", "/api/chaves", { name: make.getAttribute("data-api-key-new"), tool: make.getAttribute("data-api-key-tool") }).then(function (d) {
         out.querySelector("[data-api-key-value]").textContent = d.key;
         out.hidden = false;
         document.querySelectorAll("[data-api-key-slot]").forEach(function (slot) {
