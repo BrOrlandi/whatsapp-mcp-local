@@ -123,6 +123,18 @@
   openFromHash();
   window.addEventListener("hashchange", openFromHash);
 
+  // Opening a question puts its link in the address bar, ready to share; closing it takes it out.
+  document.querySelectorAll("details.faq__item[id]").forEach((item) => {
+    item.addEventListener("toggle", () => {
+      const hash = "#" + item.id;
+      if (item.open && location.hash !== hash) {
+        history.replaceState(null, "", hash);
+      } else if (!item.open && location.hash === hash) {
+        history.replaceState(null, "", location.pathname + location.search);
+      }
+    });
+  });
+
   // The explainer plays muted by itself, with the browser's own controls to
   // seek, change the speed or go full screen; the button turns its narration on.
   const video = document.querySelector("[data-video]");

@@ -235,13 +235,17 @@
           <details class="faq__item" id="banimento">
             <summary><h3>Tem risco de a Meta banir o meu número?</h3><svg class="faq__icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-plus"/></svg></summary>
             <div class="faq__answer">
-              <p>O app, por si só, não causa banimento. O que leva a Meta a banir uma conta é o jeito como a conta envia mensagens:</p>
+              <p>O app, por si só, não causa banimento. Na prática, o banimento depende de duas coisas: o jeito como a conta envia mensagens e de onde ela se conecta ao WhatsApp.</p>
+              <p>O jeito de enviar é o primeiro ponto. O que leva a Meta a banir uma conta é:</p>
               <ul>
                 <li>disparar mensagens de forma automatizada e em massa;</li>
                 <li>mandar a mesma mensagem, repetida, para muitos contatos;</li>
                 <li>enviar num ritmo que nenhuma pessoa teria, com um comportamento que não parece humano.</li>
               </ul>
               <p>O WhatsApp MCP foi feito para levar o contexto das suas conversas, como os grupos de trabalho com clientes, para as ferramentas de IA. Ele não foi feito para disparo em massa nem para criar chatbots. Usado para o que foi feito, não deve causar banimento nem problemas com a Meta.</p>
+              <p>O segundo ponto é de onde a conta se conecta, e não tem a ver com este app. Muitos números são banidos porque foram ligados a soluções não oficiais hospedadas em servidores cujo endereço de internet (o IP) já tem histórico de automação no WhatsApp. O número acaba pagando pelo histórico desse endereço, mesmo sem ter feito nada de errado.</p>
+              <p>Por isso, o recomendado é rodar o WhatsApp MCP no seu computador. Assim ele usa a mesma internet de onde você já usa o WhatsApp, e para a Meta é só mais um dispositivo conectado, como o WhatsApp Web.</p>
+              <p>Se precisar dele ligado 24 horas, existe a <a href="/servidor">versão servidor</a>. Só use se souber o que está fazendo, e garanta que o servidor nunca rodou automações de WhatsApp antes: um IP com esse histórico pode levar ao banimento do número.</p>
               <p>Se ainda ficar alguma dúvida, leia os <a href="https://www.whatsapp.com/legal/terms-of-service?lang=pt_BR">Termos de Serviço do WhatsApp</a>.</p>
             </div>
           </details>
