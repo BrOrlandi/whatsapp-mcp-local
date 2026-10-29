@@ -10,7 +10,7 @@ const darkPalette = `
 --bg:#0a1513;--surface:#11211d;--surface-soft:#152b26;--surface-sunken:#0d1b18;--border:#23413a;--border-strong:#2f544b;
 --text:#e4f1ec;--text-soft:#cbe0d8;--muted:#a7c0b8;
 --brand:#2fc9a0;--brand-strong:#4adcb4;--brand-ink:#04211b;--brand-soft:#123029;
---accent:#93b4ff;--accent-soft:#16224a;
+--accent:#e8c860;--accent-soft:#2d2610;
 --danger:#ffaea7;--danger-bg:#361917;--danger-border:#67312e;
 --ok:#6fdcaa;--ok-bg:#0f3526;--ok-border:#1d5a40;
 --warn:#f2ce85;--warn-bg:#352a10;--off:#a4b9bf;--off-bg:#1a292d;
@@ -28,7 +28,7 @@ color-scheme:light dark;
 --bg:#eef3f1;--surface:#fff;--surface-soft:#f4f9f7;--surface-sunken:#e9f0ed;--border:#dbe6e1;--border-strong:#c3d5cd;
 --text:#10241c;--text-soft:#2c443d;--muted:#54695f;
 --brand:#0b6b5d;--brand-strong:#0a8172;--brand-ink:#fff;--brand-soft:#e3f3ef;
---accent:#1d4ed8;--accent-soft:#e8eeff;
+--accent:#7d5e00;--accent-soft:#f8eec4;
 --danger:#96201f;--danger-bg:#fdeceb;--danger-border:#f0c6c3;
 --ok:#0b6b45;--ok-bg:#e1f4ea;--ok-border:#b6e0c9;
 --warn:#7a5200;--warn-bg:#fbf0d6;--off:#4f646b;--off-bg:#e8eef0;
@@ -142,7 +142,15 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .pill--warn{background:var(--warn-bg);color:var(--warn)}
 .pill--off{background:var(--off-bg);color:var(--off)}
 .pill--plain::before{display:none}
+.rows__group{list-style:none;padding:14px 15px 6px;font-size:.78rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);border:0}
 .pill--accent{background:var(--accent-soft);color:var(--accent)}
+.pill--fail{background:var(--danger-bg);color:var(--danger);border-color:var(--danger-border)}
+.remote-status{display:inline-flex;align-items:center;gap:8px;min-height:38px;max-width:300px;padding:8px 12px;border:1px solid var(--ok-border);border-radius:var(--radius-sm);background:var(--ok-bg);color:var(--ok);box-shadow:var(--shadow);font-size:.82rem;font-weight:700;line-height:1.35;text-decoration:none}
+.remote-status__dot{width:8px;height:8px;flex:none;border-radius:50%;background:currentColor}
+.remote-status--fail{background:var(--danger-bg);border-color:var(--danger-border);color:var(--danger)}
+.remote-status:hover{filter:brightness(.96)}
+.masthead__tools{max-width:100%}
+.gear{flex:none}
 
 /* ---- buttons ---- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-size:.94rem;font-weight:600;text-decoration:none;padding:10px 16px;border:1px solid transparent;border-radius:var(--radius-sm);cursor:pointer;background:var(--brand);color:var(--brand-ink);white-space:nowrap}
@@ -180,8 +188,8 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .field{display:block;margin:0 0 7px}
 .field__label{display:block;font-weight:600;font-size:.9rem}
 .field__hint{display:block;font-weight:400;color:var(--muted);font-size:.84rem;margin-top:3px}
-input[type=text],input[type=email],input[type=password]{width:100%;font:inherit;padding:10px 12px;color:var(--text);background:var(--surface-soft);border:1px solid var(--border-strong);border-radius:var(--radius-sm)}
-input[type=text]:hover,input[type=email]:hover,input[type=password]:hover{border-color:var(--brand-strong)}
+input[type=text],input[type=url],input[type=email],input[type=password]{width:100%;font:inherit;padding:10px 12px;color:var(--text);background:var(--surface-soft);border:1px solid var(--border-strong);border-radius:var(--radius-sm)}
+input[type=text]:hover,input[type=url]:hover,input[type=email]:hover,input[type=password]:hover{border-color:var(--brand-strong)}
 input[type=radio]{accent-color:var(--brand-strong);width:18px;height:18px;flex:none;margin:0}
 /* Anything after a control opens a new block. .reveal is that same control
    once password.js has wrapped it with the show/hide button, so both spellings
@@ -286,6 +294,10 @@ input+.actions,.reveal+.actions,input+.muted,.reveal+.muted{margin-top:16px}
 .dialog__body{padding:20px}
 .dialog__close{text-decoration:none;color:var(--muted);font-size:1.5rem;line-height:1;padding:0 4px}
 .dialog__close:hover{color:var(--text)}
+.dialog--native{padding:0;color:var(--text)}
+.dialog--native::backdrop{background:rgba(6,20,16,.55)}
+.dialog--native button.dialog__close{border:0;background:none;cursor:pointer;font:inherit;font-size:1.5rem}
+.dialog--native .btn:disabled{cursor:not-allowed;opacity:.45}
 
 .prompts{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
 .prompt .snippet{margin:0}
@@ -375,20 +387,37 @@ const extraCSS = `
 .flow__back .icon{width:16px;height:16px}
 .flow__title{display:flex;align-items:center;gap:12px;margin:0 0 20px}
 .flow__note{margin-top:18px}
+.flow__section{margin:28px 0 10px;font-size:1rem;font-weight:700}
+.flow__section--big{margin:36px 0 10px;font-size:1.3rem}
+.morehint{position:fixed;left:50%;bottom:20px;z-index:20;display:inline-flex;align-items:center;gap:6px;padding:8px 12px 8px 16px;border:1px solid var(--border-strong);border-radius:999px;background:var(--surface);color:var(--brand-strong);box-shadow:var(--shadow-lift);font-size:.9rem;font-weight:600;text-decoration:none;transform:translateX(-50%);animation:morehint 1.6s ease-in-out infinite}
+.morehint[hidden]{display:none}
+.morehint .icon{transform:rotate(90deg)}
+@keyframes morehint{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,-6px)}}
+@media (prefers-reduced-motion:reduce){.morehint{animation:none}}
 .toolpicks{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:10px}
 .toolpick{display:flex;align-items:center;gap:14px;padding:14px 16px;border:1px solid var(--border-strong);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow);color:inherit;text-decoration:none}
 .toolpick:hover{border-color:var(--brand-strong);background:var(--surface-soft)}
 .toolpick__icon{display:grid;place-items:center;width:42px;height:42px;flex:none;border-radius:11px;background:var(--brand-soft);color:var(--brand)}
 .toolpick__icon .icon{width:22px;height:22px}
+.keyrow{gap:14px}
+.keydialog{padding:0;color:var(--text)}
+.keydialog::backdrop{background:rgba(6,20,16,.55)}
+.keydialog button.dialog__close{border:0;background:none;cursor:pointer;font:inherit;font-size:1.5rem}
+.keydialog .btn:disabled{cursor:progress;opacity:.7}
+.keyrow .row__main{flex:1;min-width:0}
 /* A logo keeps its own colours; the tile behind it stays neutral. */
 .toolpick__icon:has(.icon--logo){background:var(--surface-soft);border:1px solid var(--border);color:var(--text)}
+.toolpick__icon:has(.icon--hermesagent),.tool-mark:has(.icon--hermesagent){background:#fff;color:#000}
 .toolpick__text{flex:1;min-width:0;display:flex;flex-direction:column}
 .toolpick__name{font-weight:700}
 .toolpick__hint{color:var(--text-soft);font-size:.88rem;line-height:1.45}
 .toolpick__go{color:var(--muted)}
 .toolpick:hover .toolpick__go{color:var(--brand-strong)}
 .flowsteps{list-style:none;counter-reset:flowstep;margin:0;padding:0;display:grid;gap:22px}
-.flowstep{position:relative;counter-increment:flowstep;padding-left:44px}
+.flowstep{position:relative;counter-increment:flowstep;padding-left:44px;min-width:0}
+.flowstep pre.plain{overflow-wrap:anywhere}
+.snippet--key pre{white-space:pre-wrap;word-break:break-all}
+.flowstep [data-api-key-configured]{margin-top:18px}
 .flowstep::before{content:counter(flowstep);position:absolute;left:0;top:-2px;width:30px;height:30px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:700;font-size:.9rem}
 .flowstep+.flowstep{padding-top:22px;border-top:1px solid var(--border)}
 .flowstep+.flowstep::before{top:20px}
@@ -408,12 +437,25 @@ const extraCSS = `
 .flag{flex:none;width:20px;height:14px;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,.12)}
 .check__flag{display:inline-flex;align-items:center;gap:8px}
 /* The first screen's language buttons, each in its own language. */
-.langpick{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin:0 0 18px}
-.langpick__btn{display:inline-flex;align-items:center;gap:8px;font:inherit;font-size:.9rem;font-weight:500;padding:7px 12px;border:1px solid var(--border-strong);border-radius:999px;background:var(--surface);color:var(--text-soft);cursor:pointer}
+.langpick{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px}
+.langpick__btn{display:inline-flex;align-items:center;gap:7px;height:38px;font:inherit;font-size:.86rem;font-weight:500;padding:0 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);color:var(--text-soft);cursor:pointer}
 .langpick__btn:hover{border-color:var(--brand-strong);color:var(--text)}
 .langpick__btn[aria-pressed=true]{border-color:var(--brand);box-shadow:0 0 0 1px var(--brand);background:var(--brand-soft);color:var(--text);font-weight:600}
 .langpick__btn:disabled{cursor:progress;opacity:.7}
-.langpick__note{text-align:center;margin:-8px 0 14px}
+.success{position:relative;width:88px;height:88px;margin:10px auto 6px}
+.success .success__tool{width:88px;height:88px;border-radius:22px;animation:success-pop .5s cubic-bezier(.2,1.4,.4,1) both}
+.success .success__tool .icon{width:44px;height:44px}
+.success__check{position:absolute;right:-9px;bottom:-9px;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--brand);color:var(--brand-ink);box-shadow:0 0 0 4px var(--surface);animation:success-pop .45s .3s cubic-bezier(.2,1.6,.4,1) both}
+.success__check svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:22;stroke-dashoffset:22;animation:success-draw .3s .6s ease-out forwards}
+.success__burst{position:absolute;inset:0;pointer-events:none}
+.success__burst i{position:absolute;left:50%;top:50%;width:7px;height:7px;margin:-3.5px;border-radius:2px;background:var(--c);opacity:0;animation:success-burst .95s .4s cubic-bezier(.15,.7,.3,1) forwards}
+.success__burst i:nth-child(odd){border-radius:50%;width:6px;height:6px}
+@keyframes success-pop{from{transform:scale(.4);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes success-draw{to{stroke-dashoffset:0}}
+@keyframes success-burst{0%{opacity:1;transform:rotate(var(--a)) translateY(-30px) scale(.5)}70%{opacity:1}100%{opacity:0;transform:rotate(var(--a)) translateY(calc(-30px - var(--d))) rotate(140deg) scale(1)}}
+@media (prefers-reduced-motion:reduce){.success *,.success{animation:none!important}.success__check svg{stroke-dashoffset:0}.success__burst{display:none}}
+.langpick__note{text-align:center;margin:0 0 14px}
+.langpick .hint__body{left:50%;top:calc(100% + 8px);bottom:auto;transform:translateX(-50%)}
 /* A short name over a control, shown on hover and on keyboard focus, in the
    tooltips' look: the language's name in the one the panel shows. */
 .hint{position:relative}
@@ -541,3 +583,6 @@ input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:v
 .update-banner__close{position:absolute;top:8px;right:10px;background:none;border:0;font-size:1.2rem;line-height:1;color:var(--muted);cursor:pointer;padding:4px}
 .btn .spinner{width:13px;height:13px}
 `
+
+// Stylesheet is the panel's stylesheet, for the app's own pages.
+func Stylesheet() string { return stylesheet }

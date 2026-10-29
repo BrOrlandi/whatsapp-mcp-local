@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
 	"html/template"
 	"io"
 	"io/fs"
@@ -61,6 +62,11 @@ type Panel struct {
 	// DataDir is the data folder, whose config.json keeps the language
 	// picked on the command line, where there is no Host to keep it.
 	DataDir string
+	// Remote is the daemon's remote access, which pairs and serves the app
+	// on another computer (internal/remote).
+	Remote *remote.Server
+	// APIKeys are the keys of the MCP by the server's address.
+	APIKeys APIKeys
 
 	pages *template.Template
 	code  codeCache
@@ -178,6 +184,8 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/pair/qr.png", p.qr)
 	mux.HandleFunc("POST /api/pair", p.api(p.apiPair))
 	mux.HandleFunc("POST /api/pair/cancel", p.api(p.apiCancelPair))
+	mux.HandleFunc("POST /api/logout", p.api(p.apiLogout))
+	p.registerRemote(mux)
 	mux.HandleFunc("POST /api/clients/{client}", p.api(p.apiAddClient))
 	mux.HandleFunc("POST /api/idioma", p.api(p.apiLanguage))
 	if p.Host != nil {
@@ -325,6 +333,8 @@ type layout struct {
 	MCPProblem *PortProblem
 	Settings   HostSettings
 	Update     UpdateState
+	// Remote is set on a page shown by the app on another computer.
+	Remote *remoteBanner
 }
 
 // snapshot is what most pages need about the account, gathered once.
@@ -461,6 +471,7 @@ func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout
 		l.Settings = p.Host.Settings()
 		l.Update = p.Host.Update()
 	}
+	l.Remote = p.remoteBanner(r, s)
 	return l
 }
 
@@ -660,7 +671,7 @@ func (p *Panel) instalacao(w http.ResponseWriter, r *http.Request) (string, any)
 		LiveCount    int
 		Verification string
 		Tools        []toolChoice
-	}{l, s, step, steps(step), set, conns, live, verificationPrompt, toolChoices(conns)}
+	}{l, s, step, steps(step), set, conns, live, verificationPrompt, toolChoices(guides, conns)}
 }
 
 func (p *Panel) advance(r *http.Request) (string, error) {
@@ -755,15 +766,33 @@ var guides = []guide{
 		i18n.N("Conectar outra ferramenta"), i18n.N("a ferramenta"), i18n.N("Ferramenta conectada")},
 }
 
+// agentGuides are the agents that run outside this computer and reach the
+// MCP by the server's address, with an API key: the second part of the
+// connect flow.
+var agentGuides = []guide{
+	{"hermes", i18n.N("Hermes Agent"), i18n.N("O agente da Nous Research."), "hermesagent", "",
+		i18n.N("Conectar o Hermes Agent"), i18n.N("o Hermes Agent"), i18n.N("Hermes Agent conectado")},
+	{"openclaw", i18n.N("OpenClaw"), i18n.N("O assistente de IA open source."), "openclaw", "",
+		i18n.N("Conectar o OpenClaw"), i18n.N("o OpenClaw"), i18n.N("OpenClaw conectado")},
+	{"grok-bot", i18n.N("Grok Bot"), i18n.N("Agente de IA autônomo."), "grokbot", "",
+		i18n.N("Conectar o Grok Bot"), i18n.N("o Grok Bot"), i18n.N("Grok Bot conectado")},
+	{"mausbot", i18n.N("MausBot"), i18n.N("Uma equipe de bots de IA, open source."), "mausbot", "",
+		i18n.N("Conectar o MausBot"), i18n.N("o MausBot"), i18n.N("MausBot conectado")},
+	{"manus", i18n.N("Manus"), i18n.N("O agente autônomo da Manus."), "manus", "",
+		i18n.N("Conectar o Manus"), i18n.N("o Manus"), i18n.N("Manus conectado")},
+	{"outro-remoto", i18n.N("Outros remotos"), i18n.N("Qualquer agente ou serviço que aceite MCP por URL."), "globe", "",
+		i18n.N("Conectar outro agente remoto"), i18n.N("o agente"), i18n.N("Agente conectado")},
+}
+
 // toolChoice is a guide with where its tool stands: live, configured or "".
 type toolChoice struct {
 	guide
 	State string
 }
 
-func toolChoices(conns []Connection) []toolChoice {
-	out := make([]toolChoice, len(guides))
-	for i, g := range guides {
+func toolChoices(gs []guide, conns []Connection) []toolChoice {
+	out := make([]toolChoice, len(gs))
+	for i, g := range gs {
 		out[i] = toolChoice{guide: g, State: toolState(g, conns)}
 	}
 	return out
@@ -772,7 +801,8 @@ func toolChoices(conns []Connection) []toolChoice {
 func toolState(g guide, conns []Connection) string {
 	st := ""
 	for _, c := range conns {
-		if c.Key != g.Key && !(g.Key == "outra" && strings.HasPrefix(c.Key, "client:")) {
+		other := g.Key == "outra" && strings.HasPrefix(c.Key, "client:") && c.Via != "url"
+		if c.Key != g.Key && !other && !(g.Key == "outro-remoto" && c.Via == "url") {
 			continue
 		}
 		if c.Live {
@@ -799,8 +829,9 @@ func (p *Panel) connectChoose(w http.ResponseWriter, r *http.Request) (string, a
 	return "conectarescolha", struct {
 		layout
 		Tools   []toolChoice
+		Agents  []toolChoice
 		InSetup bool
-	}{l, toolChoices(conns), step == 2}
+	}{l, toolChoices(guides, conns), toolChoices(agentGuides, conns), step == 2}
 }
 
 // connectTool is the steps for one tool, which end when it connects.
@@ -809,6 +840,11 @@ func (p *Panel) connectTool(w http.ResponseWriter, r *http.Request) (string, any
 	for _, c := range guides {
 		if c.Key == r.PathValue("tool") {
 			g = c
+		}
+	}
+	for _, c := range agentGuides {
+		if c.Key == r.PathValue("tool") {
+			return p.connectAgent(r, c)
 		}
 	}
 	s := p.snapshot(r.Context())
@@ -833,6 +869,20 @@ func (p *Panel) connectTool(w http.ResponseWriter, r *http.Request) (string, any
 	l := p.layout(r, g.Title, "conectar", s)
 	l.LiveKey = ""
 	live := toolState(g, conns) == "live"
+	// The page comes back with conectado=1 once the tool connected. Any
+	// other tool may be one that has a page of its own (the Codex, set up
+	// by hand from here): any tool connected then.
+	done := r.URL.Query().Get("conectado") == "1" && (live || g.Client == "" && anyLive(conns))
+	// The good news shows the tool that connected: on the page for any
+	// other tool, the one that just did, when it has a logo.
+	mark := g.Mark
+	if done && g.Client == "" {
+		if c, ok := lastLive(conns); ok {
+			if _, logo := markOf[c.Key]; logo {
+				mark = c.Key
+			}
+		}
+	}
 	return "conectarferramenta", struct {
 		layout
 		Tool  guide
@@ -845,7 +895,83 @@ func (p *Panel) connectTool(w http.ResponseWriter, r *http.Request) (string, any
 		Known        string
 		Since        int64
 		Verification string
-	}{l, g, set, live, live && r.URL.Query().Get("conectado") == "1", step == 2, strings.Join(known, " "), time.Now().Unix(), verificationPrompt}
+		Mark         string
+	}{l, g, set, live, done, step == 2, strings.Join(known, " "), time.Now().Unix(), verificationPrompt, mark}
+}
+
+// lastLive is the tool on this computer that used the MCP last.
+func lastLive(conns []Connection) (Connection, bool) {
+	var last Connection
+	ok := false
+	for _, c := range conns {
+		if c.Live && c.Via != "url" && (!ok || c.LastUsed.After(last.LastUsed)) {
+			last, ok = c, true
+		}
+	}
+	return last, ok
+}
+
+// anyLive reports whether a tool on this computer has connected.
+func anyLive(conns []Connection) bool {
+	for _, c := range conns {
+		if c.Live && c.Via != "url" {
+			return true
+		}
+	}
+	return false
+}
+
+// connectAgent is the page for an agent outside this computer: it reaches
+// the MCP at the server's address with an API key made here.
+func (p *Panel) connectAgent(r *http.Request, g guide) (string, any) {
+	s := p.snapshot(r.Context())
+	l := p.layout(r, g.Title, "conectar", s)
+	l.LiveKey = ""
+	// The address the app reached this server at, when it is the app's
+	// window asking; on the server itself, the person knows it.
+	addr := ""
+	if u, err := url.Parse(r.Header.Get(ServerHeader)); err == nil && u.Scheme == "https" && u.Host != "" {
+		addr = "https://" + u.Host + strings.TrimSuffix(u.Path, "/") + "/mcp"
+	}
+	// In local mode the person may still connect the agent at this
+	// computer's own address, when the agent runs here too (local=1): the
+	// same steps as any other tool's.
+	viaLocal := l.App && r.URL.Query().Get("local") == "1"
+	var known []string
+	if seen, err := p.State.Clients(r.Context()); err == nil {
+		for _, c := range seen {
+			known = append(known, c.Name)
+		}
+	}
+	done := false
+	mark := g.Mark
+	if viaLocal && r.URL.Query().Get("conectado") == "1" {
+		conns := p.connections(r.Context(), p.setup(r.Context()))
+		done = anyLive(conns)
+		if c, ok := lastLive(conns); ok {
+			if _, logo := markOf[c.Key]; logo {
+				mark = c.Key
+			}
+		}
+	}
+	return "conectaragente", struct {
+		layout
+		Tool guide
+		// Local is the app running WhatsApp on this computer: there is no
+		// server for an agent elsewhere to reach.
+		Local bool
+		URL   string
+		// ViaLocal is the person going on with this computer's address;
+		// Setup has it, and Known and Since let the page see the agent
+		// connect, Done once it did.
+		ViaLocal     bool
+		Setup        setup
+		Known        string
+		Since        int64
+		Done         bool
+		Mark         string
+		Verification string
+	}{l, g, l.App && !viaLocal, addr, viaLocal, p.setup(r.Context()), strings.Join(known, " "), time.Now().Unix(), done, mark, verificationPrompt}
 }
 
 func (p *Panel) whatsapp(w http.ResponseWriter, r *http.Request) (string, any) {
@@ -885,7 +1011,8 @@ func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, a
 		Local       localasr.Status
 		Total       int
 		Corrected   int
-	}{p.layout(r, i18n.N("Configurações"), "configuracoes", s), p.setup(r.Context()), portOf(p.endpoint()), r.URL.Query().Get("porta") == "1", local, total, corrected}
+		Devices     []remoteDevice
+	}{p.layout(r, i18n.N("Configurações"), "configuracoes", s), p.setup(r.Context()), portOf(p.endpoint()), r.URL.Query().Get("porta") == "1", local, total, corrected, p.devices(r)}
 }
 
 func (p *Panel) apiASR(r *http.Request) (any, error) {
@@ -1120,12 +1247,36 @@ func (p *Panel) apiPair(r *http.Request) (any, error) {
 	if err := p.Supervisor.StartPairing(phone); err != nil && !errors.Is(err, wacli.ErrPairingRunning) {
 		return nil, err
 	}
-	return p.Supervisor.Pairing(), nil
+	return p.pairResponse(), nil
+}
+
+// pairResponse is the pairing as the API gives it: with the QR code's text
+// and image while there is one.
+func (p *Panel) pairResponse() any {
+	pairing := p.Supervisor.Pairing()
+	out := struct {
+		wacli.Pairing
+		QR    string `json:"qr,omitempty"`
+		QRPNG string `json:"qr_png,omitempty"`
+	}{Pairing: pairing}
+	if pairing.State == "qr" {
+		out.QR, out.QRPNG = pairing.QR, p.qrURL()
+	}
+	return out
 }
 
 func (p *Panel) apiCancelPair(r *http.Request) (any, error) {
 	p.Supervisor.CancelPairing()
-	return p.Supervisor.Pairing(), nil
+	return p.pairResponse(), nil
+}
+
+// apiLogout unlinks this computer from WhatsApp, as the WhatsApp tab's
+// button does.
+func (p *Panel) apiLogout(r *http.Request) (any, error) {
+	if _, err := p.logout(r); err != nil {
+		return nil, err
+	}
+	return map[string]bool{"ok": true}, nil
 }
 
 func (p *Panel) apiAddClient(r *http.Request) (any, error) {

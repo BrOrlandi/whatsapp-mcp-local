@@ -109,6 +109,7 @@ func TestLanguagePickers(t *testing.T) {
 		Local       localasr.Status
 		Total       int
 		Corrected   int
+		Devices     []remoteDevice
 	}{layout: layout{Title: "Configurações", Active: "configuracoes", Language: "es"}}); err != nil {
 		t.Fatal(err)
 	}

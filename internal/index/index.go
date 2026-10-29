@@ -379,8 +379,12 @@ type ChatPreview struct {
 }
 
 // displayText is what a message shows in a preview: its text, its caption, or
-// the kind of media it carries.
-const displayText = `COALESCE(NULLIF(m.media_caption,''), NULLIF(m.text,''), NULLIF(m.display_text,''), '')`
+// the kind of media it carries. wacli synthesizes "(message)" in display_text
+// when parsing yields no content. It is not evidence of a user-visible message:
+// ignore that fallback, but preserve real text/captions (even that literal
+// text) and media. The store does not retain the original protocol type, so
+// this identifies an empty parser fallback, not a specific WhatsApp event.
+const displayText = `COALESCE(NULLIF(m.media_caption,''), NULLIF(m.text,''), NULLIF(NULLIF(m.display_text,''),'(message)'), '')`
 
 // visible keeps out what the phone's chat list does not show: reactions,
 // content-free system rows, status broadcasts and channels.

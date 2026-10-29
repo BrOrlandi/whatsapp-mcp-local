@@ -1,0 +1,8 @@
+.git
+bin
+dist
+site
+video
+build/bin
+docs/assets
+build/docker/data

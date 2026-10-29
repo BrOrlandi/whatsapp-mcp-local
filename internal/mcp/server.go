@@ -14,6 +14,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
@@ -75,7 +76,26 @@ func (s *Server) seeClient(ctx context.Context, name, version string) {
 	}
 	s.touched[name] = time.Now()
 	s.clientsMu.Unlock()
-	_ = s.state.SeeClient(context.WithoutCancel(ctx), name, version, time.Now())
+	_ = s.state.SeeClientVia(context.WithoutCancel(ctx), name, version, via(ctx), time.Now())
+}
+
+type viaKey struct{}
+
+// WithVia marks how a request reached the MCP, when the request itself
+// cannot tell: "url" for a service with an API key.
+func WithVia(ctx context.Context, v string) context.Context {
+	return context.WithValue(ctx, viaKey{}, v)
+}
+
+// via is how a call reached the MCP (state.Client.Via).
+func via(ctx context.Context) string {
+	if v, _ := ctx.Value(viaKey{}).(string); v != "" {
+		return v
+	}
+	if d, ok := remote.DeviceFrom(ctx); ok {
+		return "app:" + d.Name
+	}
+	return "local"
 }
 
 func (s *Server) noteInitialize(ctx context.Context, params json.RawMessage) {
@@ -164,6 +184,23 @@ func (s *Server) base() string {
 	s.baseMu.RLock()
 	defer s.baseMu.RUnlock()
 	return s.baseURL
+}
+
+type linkBaseKey struct{}
+
+// WithLinkBase gives the address a caller reaches this server at, when it
+// is not this server's own: the app in remote mode serves the server's MCP
+// on its own computer's port, and download_media's links must point there.
+func WithLinkBase(ctx context.Context, base string) context.Context {
+	return context.WithValue(ctx, linkBaseKey{}, base)
+}
+
+// linkBase is where the caller of a request opens the links handed out.
+func (s *Server) linkBase(ctx context.Context) string {
+	if b, _ := ctx.Value(linkBaseKey{}).(string); b != "" {
+		return b
+	}
+	return s.base()
 }
 
 // ASR is the local transcription engine, when there is one.

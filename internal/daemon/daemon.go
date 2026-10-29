@@ -8,12 +8,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/remote"
 	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,12 +47,26 @@ type Config struct {
 	// Panel adjusts the control panel before it is served, for the app to
 	// plug in what only it can do.
 	Panel func(*panel.Panel)
+	// RemoteListen, when set (host:port), serves the app's remote access
+	// there (internal/remote): two routes, for an HTTPS proxy on a private
+	// network to reach. Everything else stays on the loopback port.
+	RemoteListen string
+	// RemoteTrustedProxy names the HTTPS proxy (IPs, CIDRs or host names,
+	// comma separated); the remote routes refuse anything else. Empty, the
+	// listener must be one only the proxy reaches.
+	RemoteTrustedProxy string
+	// Restart, when set, ends this process for its service manager (the
+	// service, Docker) to start it again. A transfer of the number's data to
+	// or from the app needs it: the data is put in place with the gateway
+	// closed (transfer.go).
+	Restart func()
 }
 
 // Daemon is a running gateway.
 type Daemon struct {
 	cfg    Config
 	logger *slog.Logger
+	ctx    context.Context
 	cancel context.CancelFunc
 
 	// primary is the main number, the one the panel and the tray show.
@@ -66,6 +82,12 @@ type Daemon struct {
 	port      int
 	srv       *http.Server
 	listenErr *PortProblem
+
+	remote    *remote.Server
+	remoteSrv *http.Server
+	transfers *transfers
+	// afterStop runs at the end of Stop, with everything closed.
+	afterStop []func()
 
 	watch watchers
 }
@@ -110,7 +132,7 @@ func Start(cfg Config) (*Daemon, error) {
 
 	d := &Daemon{cfg: cfg, logger: logger, port: cfg.Port, listenErr: problem, watchDone: make(chan struct{})}
 	ctx, cancel := context.WithCancel(context.Background())
-	d.cancel = cancel
+	d.ctx, d.cancel = ctx, cancel
 
 	// Transcription models and programs are shared by every number.
 	asr := localasr.New(cfg.DataDir)
@@ -138,8 +160,102 @@ func Start(cfg Config) (*Daemon, error) {
 		logger.Info("serving MCP", "url", d.MCPURL(), "wacli", cfg.WacliBin, "store", cfg.StoreDir, "token", cfg.Token != "")
 	}
 	go d.watchLoop(ctx)
+	if err := d.startRemote(cfg, primary); err != nil {
+		d.Stop()
+		return nil, err
+	}
 	return d, nil
 }
+
+// localBase reports whether base is an app's loopback address, the only
+// kind a link may be rebased to: http://127.0.0.1 and a port.
+func localBase(base string) bool {
+	port, ok := strings.CutPrefix(base, "http://127.0.0.1:")
+	if !ok {
+		return false
+	}
+	n, err := strconv.Atoi(port)
+	return err == nil && n > 0 && n < 65536 && strconv.Itoa(n) == port
+}
+
+// startRemote prepares remote access: the server's key and the paired
+// devices, always (so a code can be made before the listener is up), and the
+// listener when RemoteListen is set.
+func (d *Daemon) startRemote(cfg Config, primary *Account) error {
+	srv, err := remote.NewServer(cfg.DataDir, primary.st, d.logger)
+	if err != nil {
+		return err
+	}
+	// A device's requests come through its session, already authenticated
+	// as that device, and not through the loopback guard. What the app's own
+	// window sent (remote.WindowHeader, which the app sets for its window
+	// only) is served as the panel serves its window, with the token; every
+	// other request, from a program on the app's computer, gets the same
+	// checks as a program on this one: sameOrigin, the agent rules, the token.
+	routes := func(w http.ResponseWriter, r *http.Request, admin bool) {
+		window := admin && r.Header.Get(remote.WindowHeader) == "1"
+		r.Header.Del(remote.WindowHeader)
+		if base := r.Header.Get(remote.LocalBaseHeader); localBase(base) {
+			r = r.WithContext(mcp.WithLinkBase(r.Context(), base))
+		}
+		r.Header.Del(remote.LocalBaseHeader)
+		r.Host = addr(d.Port())
+		if window && isTransfer(r.URL.Path) {
+			d.transfers.routes().ServeHTTP(w, r)
+			return
+		}
+		if !window {
+			d.routes.ServeHTTP(w, r)
+			return
+		}
+		if cfg.Token != "" {
+			r.Header.Set("Authorization", "Bearer "+cfg.Token)
+		}
+		panel.Internal(d.routes).ServeHTTP(w, r)
+	}
+	srv.Admin = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { routes(w, r, true) })
+	srv.Tools = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { routes(w, r, false) })
+	srv.TrustedProxy = remote.TrustProxies(cfg.RemoteTrustedProxy)
+	// The MCP by URL, for services with an API key (APIKeysFile). The key
+	// proved who calls; the request then goes on as a program's here would.
+	keys := &apiKeys{path: filepath.Join(cfg.DataDir, APIKeysFile), now: time.Now}
+	srv.APIKey = keys.Valid
+	srv.MCP = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Header.Del("Authorization")
+		if cfg.Token != "" {
+			r.Header.Set("Authorization", "Bearer "+cfg.Token)
+		}
+		r.Header.Del(remote.WindowHeader)
+		r.Header.Del(remote.LocalBaseHeader)
+		r.Host = addr(d.Port())
+		d.routes.ServeHTTP(w, r.WithContext(mcp.WithVia(r.Context(), "url")))
+	})
+	d.remote = srv
+	d.transfers = &transfers{d: d}
+	d.panel.Remote = srv
+	d.panel.APIKeys = keys
+	if cfg.RemoteListen == "" {
+		return nil
+	}
+	ln, err := net.Listen("tcp", cfg.RemoteListen)
+	if err != nil {
+		return fmt.Errorf("cannot listen for remote access on %s: %w", cfg.RemoteListen, err)
+	}
+	hs := httpserver.NewServer(srv.Handler())
+	d.mu.Lock()
+	d.remoteSrv = hs
+	d.mu.Unlock()
+	go func() {
+		if err := hs.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			d.logger.Error("the remote listener stopped", "error", err)
+		}
+	}()
+	d.logger.Info("serving remote access", "listen", cfg.RemoteListen, "server_key", remote.Fingerprint(srv.PublicKey()))
+	return nil
+}
+
+// Remote is the daemon's remote access.
+func (d *Daemon) Remote() *remote.Server { return d.remote }
 
 func addr(port int) string    { return net.JoinHostPort("127.0.0.1", strconv.Itoa(port)) }
 func baseURL(port int) string { return "http://" + addr(port) }
@@ -182,14 +298,24 @@ func (d *Daemon) Stop() {
 	wg.Wait()
 	<-d.watchDone
 	d.mu.Lock()
-	srv := d.srv
-	d.srv = nil
+	srv, rsrv := d.srv, d.remoteSrv
+	d.srv, d.remoteSrv = nil, nil
 	d.mu.Unlock()
 	if srv != nil {
 		httpserver.Shutdown(srv)
 	}
+	if rsrv != nil {
+		httpserver.Shutdown(rsrv)
+	}
 	for _, a := range accounts {
 		a.stop()
+	}
+	d.mu.Lock()
+	after := d.afterStop
+	d.afterStop = nil
+	d.mu.Unlock()
+	for _, f := range after {
+		f()
 	}
 }
 

@@ -32,7 +32,7 @@ const pageSource = `
 {{define "githubmark"}}<svg class="colophon__icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>{{end}}
 
 {{/* The way into Configurações, in the top right corner of every page. */}}
-{{define "settingslink"}}<a class="gear" href="/configuracoes" aria-label="{{t "Configurações"}}" title="{{t "Configurações"}}"{{if eq .Active "configuracoes"}} aria-current="page"{{end}}>{{icon "gear"}}</a>{{end}}
+{{define "settingslink"}}{{template "remotestatus" .}}<a class="gear" href="/configuracoes" aria-label="{{t "Configurações"}}" title="{{t "Configurações"}}"{{if eq .Active "configuracoes"}} aria-current="page"{{end}}>{{icon "gear"}}</a>{{end}}
 
 {{define "brandmark"}}<span class="brand__mark">{{logo}}</span><span class="brand__name">WhatsApp MCP</span>{{end}}
 
@@ -51,6 +51,8 @@ const pageSource = `
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
 {{end}}
 
+{{define "remotestatus"}}{{with .Remote}}<a class="remote-status" data-remote-status href="/__app/remoto" title="{{.Server}}"><span class="remote-status__dot" aria-hidden="true"></span><span data-remote-status-label aria-live="polite">{{t "MCP Remoto"}}</span></a>{{end}}{{end}}
+
 {{/* The MCP's port taken by another program: WhatsApp keeps running, and the
 way out is one click away. */}}
 {{define "portbanner"}}{{with .MCPProblem}}<div class="alert" role="alert">
@@ -60,10 +62,28 @@ way out is one click away. */}}
 
 {{/* The connection's state; one that passes on its own spins, and the page
 refreshes when it has passed. */}}
-{{define "syncpill"}}<span class="pill pill--{{.SyncTone}}{{if .SyncBusy}} pill--busy{{end}}" data-sync>{{if .SyncBusy}}<span class="spinner" aria-hidden="true"></span>{{end}}{{t .SyncLabel}}</span>{{end}}
+{{define "syncpill"}}{{if and .Arriving (eq .SyncTone "ok")}}<span class="pill pill--warn pill--busy" data-sync data-sync-arriving><span class="spinner" aria-hidden="true"></span>{{t "Sincronizando"}}</span>{{else}}<span class="pill pill--{{.SyncTone}}{{if .SyncBusy}} pill--busy{{end}}" data-sync>{{if .SyncBusy}}<span class="spinner" aria-hidden="true"></span>{{end}}{{t .SyncLabel}}</span>{{end}}{{end}}
 
-{{define "autostartcheck"}}{{if .App}}<div class="wizard__escape"><label class="check check--inline"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span>{{t "Abrir o WhatsApp MCP quando o computador ligar"}}</span></label></div>
-<p class="busy" data-setting-note role="status" hidden></p>{{end}}{{end}}
+{{define "servergate"}}<div class="overlay" id="usar-servidor" role="dialog" aria-modal="true" aria-labelledby="usar-servidor-titulo">
+<div class="dialog">
+<div class="dialog__head"><h2 id="usar-servidor-titulo">{{t "Usar um servidor?"}}</h2><a class="dialog__close" href="#" aria-label="{{t "Fechar"}}">&times;</a></div>
+<div class="dialog__body stack">
+<p>{{t "O modo servidor é um uso avançado: o WhatsApp MCP passa a rodar num servidor seu, ligado o tempo todo, e manter esse servidor (atualizações, backup, HTTPS) pede conhecimento técnico."}}</p>
+<p>{{t "Ele vale a pena para conectar agentes autônomos, que trabalham sozinhos a qualquer hora, como o OpenClaw e o Hermes Agent, entre outros, mesmo com este computador desligado."}}</p>
+<p>{{t "Para o Claude Code, o Cursor, o Codex e outras ferramentas deste computador, a versão local atende perfeitamente."}}</p>
+<p><a href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/docs/modo-servidor.md" target="_blank" rel="noopener">{{t "Veja o passo a passo para montar o servidor"}}</a></p>
+<p class="muted">{{t "Um agente de IA, como o Claude Code ou o Codex, pode montar o servidor com você, seguindo a skill do projeto, que já sabe os comandos e as regras de segurança."}} <a href="https://github.com/BrOrlandi/whatsapp-mcp-local/tree/main/skills/whatsapp-mcp-servidor" target="_blank" rel="noopener">{{t "Ver a skill whatsapp-mcp-servidor"}}</a></p>
+<p>{{t "Com o servidor pronto, o app leva as conversas deste computador para lá ao conectar, sem ler o QR code de novo."}}</p>
+<form method="get" action="/__app/remoto" class="stack">
+<label class="check"><input type="checkbox" name="avancado" value="1" required><span>{{t "Entendo que é um uso avançado e que vou cuidar do servidor."}}</span></label>
+<div class="actions actions--end"><a class="btn btn--quiet" href="#">{{t "Quero usar a versão local"}}</a><button class="btn" type="submit">{{t "Continuar para configurar o servidor"}}</button></div>
+</form>
+</div></div></div>{{end}}
+
+{{/* Offered once everything works: the last step of the first run. */}}
+{{define "autostartcheck"}}{{if .App}}<div class="stack" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+<label class="check"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span><strong>{{t "Abrir o WhatsApp MCP quando o computador ligar"}}</strong><span class="check__hint">{{t "Recomendado: assim as suas ferramentas de IA encontram o WhatsApp sempre que o computador ligar. Se preferir deixar para depois, a opção fica em Configurações."}}</span></span></label>
+<p class="busy" data-setting-note role="status" hidden></p></div>{{end}}{{end}}
 
 {{/* Connecting an AI tool is a flow of its own: the tool first, then the
 steps for that one, which end when it connects. No tabs on the way. */}}
@@ -72,10 +92,11 @@ button per language, each in its own language, pressed for the one shown. */}}
 {{/* A language's name in the panel's language, over its button on hover and
 focus. Hidden from screen readers, which read the name in itself, with lang. */}}
 {{define "hint"}}<span class="hint__body" aria-hidden="true" lang="{{lang}}">{{languageHint .}}</span>{{end}}
+{{/* The language, in the top bar beside the gear, while the person sets up:
+the first thing they may need to change. */}}
 {{define "langpick"}}<div class="langpick" role="group" aria-label="{{t "Idioma"}}">
 {{range languages}}<button class="langpick__btn hint" type="button" lang="{{.Code}}" data-language-pick="{{.Code}}" aria-pressed="{{if eq lang .Code}}true{{else}}false{{end}}">{{flag .Code}}<span>{{.Name}}</span>{{template "hint" .Code}}</button>
-{{end}}</div>
-<p class="busy langpick__note" data-language-note role="status" hidden></p>{{end}}
+{{end}}</div>{{end}}
 
 {{define "flowhead"}}
 <header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
@@ -96,10 +117,105 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <a class="flow__back" href="{{if .InSetup}}/instalacao{{else}}/{{end}}">{{icon "back"}}{{t "Voltar"}}</a>
 <h1>{{t "Conectar ferramenta de IA ao MCP"}}</h1>
 <p class="lead">{{t "Onde você vai usar o seu WhatsApp?"}}</p>
+<h2 class="flow__section flow__section--big">{{t "Ferramentas neste computador"}}</h2>
 {{template "toolpicks" .Tools}}
 <p class="muted flow__note">{{t "Não funciona no Claude pelo navegador ou pelo celular, nem no ChatGPT na web: só em programas instalados neste computador."}}</p>
+<h2 class="flow__section flow__section--big" id="agentes-remotos">{{t "Agentes remotos"}}</h2>
+<p class="muted">{{t "Agentes que rodam fora deste computador, como num servidor ou na nuvem, usam o MCP pelo endereço do servidor, com uma chave. Precisa do modo servidor."}}</p>
+{{template "toolpicks" .Agents}}
+<a class="morehint" href="#agentes-remotos" data-more-hint hidden>{{t "Mais conexões"}}{{icon "chevron"}}</a>
 </div>
 {{template "foot" .}}{{end}}
+
+{{define "conectaragente"}}{{template "head" .}}{{template "flowhead" .}}
+<a class="flow__back" href="/conectar">{{icon "back"}}{{t "Escolher outra ferramenta"}}</a>
+<div class="flow__title"><span class="toolpick__icon">{{toolmark .Tool.Mark}}</span><h1>{{t .Tool.Title}}</h1></div>
+{{if .Local}}
+<section class="card"><div class="card__body stack">
+<p>{{tf "%s roda fora deste computador e alcança o MCP pelo endereço de um servidor. Este app roda o WhatsApp aqui, no modo local: não há servidor para ele alcançar." (t .Tool.Who)}}</p>
+<p class="muted">{{t "O modo servidor é um uso avançado: o WhatsApp MCP passa a rodar num servidor seu, ligado o tempo todo, e manter esse servidor (atualizações, backup, HTTPS) pede conhecimento técnico."}}</p>
+<div class="actions"><a class="btn" href="/configuracoes#remoto">{{t "Usar um servidor"}}</a><a class="btn btn--quiet" href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/docs/modo-servidor.md" target="_blank" rel="noopener">{{t "Veja o passo a passo para montar o servidor"}}</a></div>
+<p class="muted">{{tf "%s roda neste computador? Ele pode usar o endereço local do MCP, como as outras ferramentas daqui. Só funciona enquanto este computador estiver ligado." (t .Tool.Who)}}</p>
+<div class="actions"><a class="btn btn--ghost" href="?local=1">{{t "Seguir com a conexão local"}}</a></div>
+</div></section>
+{{else if .ViaLocal}}{{if .Done}}
+<section class="card card--accent">
+<div class="card__head"><h2>{{t .Tool.Connected}}</h2><span class="pill pill--ok">{{t "Conectado"}}</span></div>
+<div class="card__body stack">
+{{template "success" .Mark}}
+<p class="muted">{{t "Já pode pedir coisas do seu WhatsApp para a sua IA. Para testar, mande isto no chat:"}}</p>
+<div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
+<div class="actions"><a class="btn" href="/">{{t "Voltar ao painel"}}</a><a class="btn btn--quiet" href="/conectar">{{t "Conectar outra ferramenta"}}</a></div>
+</div></section>
+{{else}}
+<section class="card"><div class="card__body">
+<p class="muted">{{tf "%s usa o endereço local do MCP, como as outras ferramentas deste computador. Ele precisa rodar aqui, e só alcança o WhatsApp enquanto este computador estiver ligado." (t .Tool.Who)}}</p>
+<ol class="flowsteps">
+<li class="flowstep"><h2 class="flowstep__title">{{t "Configure o agente"}}</h2>
+<p class="muted">{{t "Mande este texto no chat do agente, para ele se configurar:"}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Copie e mande para o agente"}}</span></div>
+<pre class="plain" data-copy><code>{{.Setup.AgentPrompt}}</code></pre></div>
+<details class="resend"><summary>{{t "Prefiro configurar à mão"}}</summary>
+<p class="muted">{{t "Na configuração de servidores MCP do agente, por HTTP, com este endereço:"}}</p>
+<div class="snippet"><pre data-copy><code>{{.Setup.Endpoint}}</code></pre></div></details></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Espere a conexão"}}</h2><p class="busy" role="status" data-wait-tool="" data-wait-known="{{.Known}}" data-wait-since="{{.Since}}"><span class="spinner" aria-hidden="true"></span>{{tf "Esta tela avisa quando %s se conectar." (t .Tool.Who)}}</p>
+<div class="actions"><a class="btn btn--ghost" href="/">{{t "Já me conectei"}}</a></div></li>
+</ol></div></section>
+{{end}}{{else}}
+<section class="card" data-api-key-flow><div class="card__body">
+<p class="muted">{{tf "%s usa o MCP do servidor pela internet ou pela sua rede, no endereço abaixo, com uma chave só dele. As ferramentas deste computador continuam no endereço local." (t .Tool.Who)}}</p>
+<ol class="flowsteps">
+<li class="flowstep"><h2 class="flowstep__title">{{t "Crie uma chave para o agente"}}</h2>
+<p class="muted">{{t "A chave aparece uma vez só e deixa de valer se o agente não a usar em 24 horas. Guarde no lugar de segredos do agente e não a cole em conversas."}}</p>
+<div class="actions" data-api-key-start><button class="btn" type="button" data-api-key-open>{{t "Criar chave"}}</button></div>
+<p class="note" data-api-key-note role="status" hidden></p>
+<div class="snippet snippet--key" data-api-key-out hidden><div class="snippet__head"><span class="snippet__title">{{t "Chave de API"}}</span></div><pre data-copy><code data-api-key-value></code></pre></div></li>
+<li class="flowstep" data-api-key-after hidden><h2 class="flowstep__title">{{t "Configure o agente"}}</h2>
+{{if not .URL}}<p class="note">{{t "Troque o endereço abaixo pelo endereço HTTPS do seu servidor."}}</p>{{end}}
+<p class="muted">{{t "Mande este texto no chat do agente, para ele se configurar:"}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Copie e mande para o agente"}}</span></div>
+<pre class="plain" data-copy><code data-api-key-slot>{{tf "Configure um servidor MCP chamado whatsapp, por HTTP, no endereço %s, mandando o cabeçalho Authorization: Bearer %s. Guarde a chave como segredo: não a mostre em respostas nem em logs. Depois, para testar, liste as minhas conversas do WhatsApp, sem mandar mensagem." (or .URL "https://<endereço do servidor>/mcp") "<chave>"}}</code></pre></div>
+<details class="resend"><summary>{{t "Prefiro configurar à mão"}}</summary>
+<p class="muted">{{t "Na configuração de servidores MCP do agente, com o endereço e o cabeçalho:"}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">JSON</span></div>
+<pre data-copy><code data-api-key-slot>{
+  "mcpServers": {
+    "whatsapp": {
+      "url": "{{or .URL "https://<endereço do servidor>/mcp"}}",
+      "headers": { "Authorization": "Bearer &lt;chave&gt;" }
+    }
+  }
+}</code></pre></div></details>
+<div class="actions" data-api-key-configured><button class="btn" type="button" data-api-key-ready>{{t "Já configurei no agente"}}</button></div></li>
+<li class="flowstep" data-api-key-wait hidden><h2 class="flowstep__title">{{t "Confira a conexão"}}</h2>
+<p class="busy"><span class="spinner" aria-hidden="true"></span><span>{{tf "Esperando %s usar o MCP pela primeira vez…" (t .Tool.Who)}}</span></p>
+<p class="muted" data-api-key-slow hidden>{{t "Ainda não chegou nada. Confira se o agente recebeu o texto e terminou de se configurar."}} <span class="tip" tabindex="0" aria-describedby="tip-proxy"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-proxy">{{t "O proxy HTTPS do servidor precisa encaminhar o caminho /mcp, além do acesso remoto do app. Sem chave criada, o servidor não atende o MCP pelo endereço."}}</span></span></p></li>
+</ol></div></section>
+<section class="card card--accent" data-api-key-done hidden>
+<div class="card__head"><h2>{{t .Tool.Connected}}</h2><span class="pill pill--ok">{{t "Conectado"}}</span></div>
+<div class="card__body stack">
+<p>{{tf "Tudo certo: %s já usa o seu WhatsApp pelo servidor, com a chave dele." (t .Tool.Who)}}</p>
+<div class="actions"><a class="btn" href="/">{{t "Voltar ao painel"}}</a><a class="btn btn--quiet" href="/conectar">{{t "Conectar outra ferramenta"}}</a></div>
+</div></section>
+<dialog class="dialog keydialog" data-api-key-dialog aria-labelledby="chave-titulo">
+<div class="dialog__head"><h2 id="chave-titulo">{{t "Criar chave"}}</h2><button class="dialog__close" type="button" data-api-key-close aria-label="{{t "Fechar"}}">&times;</button></div>
+<form class="dialog__body stack" data-api-key-form data-api-key-tool="{{.Tool.Key}}">
+<label class="field" for="chave-nome"><span class="field__label">{{t "Nome da chave"}}</span><input id="chave-nome" name="name" type="text" required maxlength="64" value="{{t .Tool.Name}}" autocomplete="off"></label>
+<p class="alert" data-api-key-error role="alert" hidden></p>
+<div class="actions"><button class="btn" type="submit" data-api-key-submit><span class="spinner" aria-hidden="true" hidden></span><span>{{t "Criar chave"}}</span></button><button class="btn btn--quiet" type="button" data-api-key-close>{{t "Cancelar"}}</button></div>
+</form></dialog>
+{{end}}
+</div>
+<script src="/assets/agents.js" defer></script>
+{{template "foot" .}}{{end}}
+
+{{/* A tool just connected: its logo pops in, a check lands on its corner,
+and a little confetti bursts out. Decoration only: the heading says it. */}}
+{{define "success"}}<div class="success" aria-hidden="true">
+<span class="success__burst"><i style="--a:0deg;--d:74px;--c:var(--brand)"></i><i style="--a:32deg;--d:62px;--c:var(--accent)"></i><i style="--a:64deg;--d:80px;--c:var(--brand-strong)"></i><i style="--a:98deg;--d:66px;--c:var(--accent)"></i><i style="--a:128deg;--d:78px;--c:var(--brand)"></i><i style="--a:160deg;--d:60px;--c:var(--brand-strong)"></i><i style="--a:192deg;--d:76px;--c:var(--accent)"></i><i style="--a:224deg;--d:64px;--c:var(--brand)"></i><i style="--a:256deg;--d:82px;--c:var(--brand-strong)"></i><i style="--a:290deg;--d:66px;--c:var(--accent)"></i><i style="--a:320deg;--d:76px;--c:var(--brand)"></i><i style="--a:344deg;--d:58px;--c:var(--accent)"></i></span>
+<span class="success__tool toolpick__icon">{{toolmark .}}</span>
+<span class="success__check"><svg viewBox="0 0 24 24"><path d="M6 12.5l4 4 8-9"/></svg></span>
+</div>{{end}}
 
 {{define "conectarferramenta"}}{{template "head" .}}{{template "flowhead" .}}
 {{if not .Done}}<a class="flow__back" href="/conectar">{{icon "back"}}{{t "Escolher outra ferramenta"}}</a>{{end}}
@@ -109,6 +225,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <section class="card card--accent">
 <div class="card__head"><h2>{{t .Tool.Connected}}</h2><span class="pill pill--ok">{{t "Conectado"}}</span></div>
 <div class="card__body stack">
+{{template "success" .Mark}}
 <p class="muted">{{t "Já pode pedir coisas do seu WhatsApp para a sua IA. Para testar, mande isto no chat:"}}</p>
 <div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
 {{if .InSetup}}<form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done"><div class="actions"><button class="btn" type="submit">{{t "Ir para o painel"}}</button></div></form>
@@ -176,7 +293,9 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Reinicie a ferramenta"}}</h2>
 <p class="muted">{{t "Quando ela terminar a configuração, feche e abra de novo, ou comece uma conversa nova."}}</p></li>
 {{end}}
-<li class="flowstep"><h2 class="flowstep__title">{{t "Espere a conexão"}}</h2><p class="busy" role="status" data-wait-tool="{{.Tool.Client}}" data-wait-known="{{.Known}}" data-wait-since="{{.Since}}"><span class="spinner" aria-hidden="true"></span>{{tf "Esta tela avisa quando %s se conectar." (t .Tool.Who)}}</p></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Espere a conexão"}}</h2><p class="busy" role="status" data-wait-tool="{{.Tool.Client}}" data-wait-known="{{.Known}}" data-wait-since="{{.Since}}"><span class="spinner" aria-hidden="true"></span>{{tf "Esta tela avisa quando %s se conectar." (t .Tool.Who)}}</p>
+{{if .InSetup}}<form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done"><div class="actions"><button class="btn btn--ghost" type="submit">{{t "Já me conectei"}}</button></div></form>
+{{else}}<div class="actions"><a class="btn btn--ghost" href="/">{{t "Já me conectei"}}</a></div>{{end}}</li>
 </ol>
 </div></section>
 {{end}}
@@ -255,7 +374,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="card__body">
 {{if .Connections}}
 <ul class="rows">
-{{range $i, $c := .Connections}}<li class="row{{if not .Live}} row--waiting{{end}}">
+{{range $i, $c := .Connections}}{{if .GroupStart}}<li class="rows__group">{{.Group}}</li>{{end}}<li class="row{{if not .Live}} row--waiting{{end}}">
 {{if .Mark}}<span class="tool-mark tool-mark--logo" aria-hidden="true">{{toolmark .Mark}}</span>{{else}}<span class="tool-mark" aria-hidden="true">{{initial .Tool}}</span>{{end}}
 <span class="row__main"><span class="row__title">{{.Tool}}</span>
 <span class="row__meta">{{if .Live}}{{tf "Funcionando · usada %s" (relativeSince .LastUsed)}}{{else if .Configured}}{{t "Configurada · ainda não se conectou; reinicie a ferramenta"}}{{else}}{{tf "Usada %s" (relativeSince .LastUsed)}}{{end}}{{with .Version}} <span class="tip tip--quiet" tabindex="0" aria-describedby="tip-versao-{{$i}}"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-versao-{{$i}}">{{$c.Tool}} {{.}}</span></span>{{end}}</span></span>
@@ -264,7 +383,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <a class="btn btn--danger btn--small" href="#desconectar-{{$i}}">{{t "Desconectar"}}</a>
 </li>{{end}}
 </ul>
-<p class="muted">{{t "Todas usam a mesma sessão do WhatsApp neste computador. Desconectar uma não mexe nas outras."}}</p>
+<p class="muted">{{if .Remote}}{{t "Todas usam a mesma sessão do WhatsApp, a do servidor. Desconectar uma não mexe nas outras."}}{{else}}{{t "Todas usam a mesma sessão do WhatsApp neste computador. Desconectar uma não mexe nas outras."}}{{end}}</p>
 {{else}}
 <div class="empty"><p class="empty__title">{{t "Nenhuma ferramenta de IA conectada ainda"}}</p>
 <p class="muted">{{t "Clique no botão acima, escolha onde você vai usar e siga o passo a passo. Leva menos de um minuto."}}</p></div>
@@ -365,6 +484,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <section class="card">
 <div class="card__head"><h2>WhatsApp</h2>{{template "syncpill" .}}</div>
 <div class="card__body stack">
+{{if .Arriving}}<p class="busy" data-sync-note><span class="spinner" aria-hidden="true"></span><span>{{tf "O celular está mandando o seu histórico: <span data-sync-count>%s</span> mensagens até agora. Pode seguir enquanto isso." (count .ArrivingCount)}}</span></p>{{end}}
 {{if eq .Tone "ok"}}<p class="alert alert--ok">{{t "Nenhum problema detectado. As mensagens estão sendo recebidas e guardadas."}}</p>
 {{else}}<ul class="problems">{{range .Checks}}{{if or (eq .Status "warn") (eq .Status "fail")}}<li{{if eq .Status "warn"}} class="problems__warn"{{end}}><strong>{{.Title}}:</strong> {{.Text}}</li>{{end}}{{end}}</ul>{{end}}
 <dl class="facts">
@@ -401,9 +521,9 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 
 {{define "instalacao"}}{{template "head" .}}
 <header class="masthead"><a class="brand" href="/instalacao">{{template "brandmark"}}</a>
-<div class="masthead__tools">{{template "settingslink" .}}</div></header>
+<div class="masthead__tools">{{template "langpick" .}}{{template "settingslink" .}}</div></header>
 <div class="wizard-shell"{{if eq .Step 2}} style="max-width:620px"{{end}}>
-{{template "langpick" .}}
+<p class="busy langpick__note" data-language-note role="status" hidden></p>
 {{template "portbanner" .}}
 <ol class="wizard" aria-label="{{t "Etapas da instalação"}}" style="max-width:520px;margin-left:auto;margin-right:auto">
 {{range .Steps}}<li class="wizard__step wizard__step--{{.State}}"{{if eq .State "now"}} aria-current="step"{{end}}>
@@ -453,7 +573,8 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div>
 </div></section>
 <p class="muted" style="text-align:center">{{t "Tudo roda neste computador: as mensagens ficam aqui, e nada passa por servidor de terceiros."}}</p>
-{{template "autostartcheck" .}}
+{{if and .App (not .Remote)}}<p class="muted" style="text-align:center">{{t "Quer deixar o WhatsApp num servidor seu, ligado o tempo todo?"}} <a href="#usar-servidor">{{t "Usar um servidor"}}</a></p>
+{{template "servergate" .}}{{end}}
 {{end}}
 
 {{if eq .Step 2}}
@@ -473,6 +594,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="lead">{{if eq .LiveCount 1}}{{tf "%s já está usando o seu WhatsApp." (liveTools .Connections)}}{{else}}{{tf "%s já estão usando o seu WhatsApp." (liveTools .Connections)}}{{end}}</p>
 <p class="muted">{{t "Para testar, mande isto no chat:"}}</p>
 <div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
+{{template "autostartcheck" .}}
 <form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done">
 <div class="actions" style="margin-top:14px"><button class="btn btn--block" type="submit">{{t "Ir para o painel"}}</button></div></form>
 </div></section>
@@ -486,7 +608,6 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done">
 <div class="wizard__escape"><button class="btn btn--quiet" type="submit">{{t "Pular por enquanto"}}</button></div></form>
 {{end}}
-{{template "autostartcheck" .}}
 {{end}}
 </div>
 {{template "foot" .}}{{end}}
@@ -515,28 +636,34 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="card__head"><h2 class="card__title">{{icon "help"}}{{t "Perguntas frequentes"}}</h2></div>
 <div class="card__body">
 <div class="faq">
+<details class="faq__item"><summary>{{t "Tem risco de a Meta banir o meu número?"}}{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>{{t "Não há garantia contra banimento. O WhatsApp MCP é um projeto independente, sem vínculo com a Meta. Disparos em massa, mensagens repetidas para muitos contatos e automações que violem as regras do WhatsApp podem levar a restrições na conta."}}</p><p>{{t "Use para consultar e trabalhar com suas conversas, respeitando os <a href='https://www.whatsapp.com/legal/terms-of-service' target='_blank' rel='noopener noreferrer'>Termos de Serviço do WhatsApp</a>. O app não foi feito para disparos em massa."}}</p></div></details>
+<details class="faq__item"><summary>{{t "Funciona com o WhatsApp Business?"}}{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>{{t "Sim. Funciona com o WhatsApp comum e com o app WhatsApp Business: a conta é conectada como um dispositivo adicional, de forma semelhante ao WhatsApp Web."}}</p></div></details>
+<details class="faq__item"><summary>{{t "Com quais ferramentas de IA funciona?"}}{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>{{t "Com ferramentas que aceitam MCP e rodam no seu computador, como Claude Desktop (chat e Cowork), Claude Code, Codex, Cursor e Windsurf. Em <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>, escolha a sua ferramenta e siga o passo a passo."}}</p></div></details>
 <details class="faq__item"><summary>{{t "Funciona no Claude pelo navegador ou pelo celular?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Não. O WhatsApp MCP fica neste computador, e só programas instalados nele conseguem usá-lo, como o Claude Desktop, o Claude Code, o Codex e o Cursor. O Claude no navegador, o app do celular e o ChatGPT na web rodam na nuvem e não alcançam o seu computador."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "Este app conecta as ferramentas de IA deste computador ao servidor. Para usar uma ferramenta na web ou no celular, é preciso configurar uma conexão MCP remota compatível diretamente com o servidor; o pareamento deste app não faz essa configuração."}}</p>{{else}}<p>{{t "Não. O WhatsApp MCP fica neste computador, e só programas instalados nele conseguem usá-lo, como o Claude Desktop, o Claude Code, o Codex e o Cursor. O Claude no navegador, o app do celular e o ChatGPT na web rodam na nuvem e não alcançam o seu computador."}}</p>{{end}}</div></details>
 <details class="faq__item"><summary>{{t "A IA pode mandar mensagens sem eu pedir?"}}{{icon "chevron"}}</summary>
 <div class="faq__answer"><p>{{t "Não. Ler e procurar é seguro: mandar, reagir, editar ou apagar uma mensagem só acontece quando você pede."}}</p></div></details>
 <details class="faq__item"><summary>{{t "As minhas mensagens saem deste computador?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "O WhatsApp MCP guarda as mensagens só aqui e não manda nada para servidores de terceiros. Quando você pede algo à sua ferramenta de IA, ela lê as mensagens de que precisa para responder, e o que ela faz com elas segue as regras de privacidade dela."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "No modo remoto, as mensagens ficam no servidor que você configurou, e este app acessa esse servidor por uma conexão cifrada. Quando sua ferramenta de IA consulta mensagens, o tratamento dos dados segue as regras de privacidade dela."}}</p>{{else}}<p>{{t "O WhatsApp MCP guarda as mensagens só aqui e não manda nada para servidores de terceiros. Quando você pede algo à sua ferramenta de IA, ela lê as mensagens de que precisa para responder, e o que ela faz com elas segue as regras de privacidade dela."}}</p>{{end}}</div></details>
 <details class="faq__item"><summary>{{t "O computador precisa ficar ligado?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Sim, para receber as mensagens. Se ele ficar desligado ou dormindo por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele volta. Se ainda faltar alguma coisa, peça o histórico ao celular na aba <a href='/whatsapp'>WhatsApp</a>."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "No modo remoto, o servidor precisa ficar ligado para receber mensagens. Este computador pode ficar desligado; para usar o WhatsApp pela sua ferramenta de IA neste computador, abra o app e mantenha a conexão com o servidor."}}</p>{{else}}<p>{{t "Sim, para receber as mensagens. Se ele ficar desligado ou dormindo por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele volta. Se ainda faltar alguma coisa, peça o histórico ao celular na aba <a href='/whatsapp'>WhatsApp</a>."}}</p>{{end}}</div></details>
 <details class="faq__item"><summary>{{t "Como trazer mensagens mais antigas?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, use \"Buscar mensagens mais antigas\", para uma conversa ou para todas as recentes. Cada pedido traz mais histórico do celular para este computador, e ele fica disponível para a sua ferramenta de IA consultar. O celular precisa estar com internet."}}</p></div></details>
+<div class="faq__answer"><p>{{t "Ao conectar a conta, o WhatsApp envia parte do histórico recente. Daí em diante, as mensagens recebidas ficam guardadas onde o WhatsApp MCP está rodando: neste computador ou, no modo remoto, no servidor."}}</p><p>{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, use a opção de buscar mensagens mais antigas, para uma conversa ou para todas as recentes. O celular precisa estar com internet."}}</p><p>{{t "Você também pode pedir à IA para buscar mensagens mais antigas. Elas chegam aos poucos, e o próprio WhatsApp limita até onde é possível voltar. Como alternativa, exporte a conversa pelo celular e entregue o arquivo à sua IA."}}</p></div></details>
 <details class="faq__item"><summary>{{t "A IA consegue ouvir os meus áudios?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Sim, depois de instalar a <a href='/configuracoes#transcricao'>Transcrição de áudio</a> nas Configurações. Quando você pede, o áudio vira texto aqui mesmo, sem sair do computador. O nome da conversa e as últimas mensagens ajudam a acertar nomes e termos, e cada áudio é transcrito uma vez só."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "Sim, se a <a href='/configuracoes#transcricao'>Transcrição de áudio</a> estiver instalada no servidor. A conversão em texto acontece no servidor, e o resultado fica disponível para a sua ferramenta de IA."}}</p>{{else}}<p>{{t "Sim, depois de instalar a <a href='/configuracoes#transcricao'>Transcrição de áudio</a> nas Configurações. Quando você pede, o áudio vira texto aqui mesmo, sem sair do computador. O nome da conversa e as últimas mensagens ajudam a acertar nomes e termos, e cada áudio é transcrito uma vez só."}}</p>{{end}}</div></details>
 <details class="faq__item"><summary>{{t "Posso conectar mais de uma ferramenta de IA?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Pode. Todas usam o mesmo WhatsApp deste computador, e desconectar uma não mexe nas outras. Para adicionar outra, use <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "Pode. Todas usam a mesma sessão do WhatsApp no servidor, e desconectar uma não mexe nas outras. Para adicionar outra, use <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>."}}</p>{{else}}<p>{{t "Pode. Todas usam o mesmo WhatsApp deste computador, e desconectar uma não mexe nas outras. Para adicionar outra, use <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>."}}</p>{{end}}</div></details>
 <details class="faq__item"><summary>{{t "A minha ferramenta não aparece conectada. E agora?"}}{{icon "chevron"}}</summary>
 <div class="faq__answer"><p>{{t "Feche a ferramenta e abra de novo, ou comece uma conversa nova: ela só carrega o WhatsApp ao iniciar. Se continuar assim, refaça o passo a passo em <a href='/conectar'>Conectar ferramenta de IA ao MCP</a> e confira a aba <a href='/status'>Status</a>."}}</p></div></details>
 <details class="faq__item"><summary>{{t "O que a IA consegue fazer no meu WhatsApp?"}}{{icon "chevron"}}</summary>
 <div class="faq__answer"><p>{{t "Ler, procurar e resumir conversas, transcrever áudios, mandar mensagens, fotos, enquetes e localização, reagir, editar e apagar mensagens e organizar conversas. A lista completa está em <a href='/funcoes'>Funções</a>."}}</p></div></details>
 <details class="faq__item"><summary>{{t "Como desconectar este computador do WhatsApp?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, em Zona de risco. O computador sai dos dispositivos conectados do seu celular, e as mensagens já guardadas continuam aqui."}}</p></div></details>
+<div class="faq__answer">{{if .Remote}}<p>{{t "Para este app voltar ao modo local, abra <a href='/__app/remoto'>Servidor remoto</a>. Desconectar o WhatsApp na aba <a href='/whatsapp'>WhatsApp</a> encerra a sessão do servidor e afeta todas as ferramentas que usam essa sessão."}}</p>{{else}}<p>{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, em Zona de risco. O computador sai dos dispositivos conectados do seu celular, e as mensagens já guardadas continuam aqui."}}</p>{{end}}</div></details>
 {{if .App}}<details class="faq__item"><summary>{{t "Onde ficam os meus dados?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Numa pasta deste computador, que aparece em <a href='/configuracoes#dados'>Configurações › Dados</a>. Lá também dá para abrir a pasta ou apagar tudo."}}</p></div></details>{{end}}
+<div class="faq__answer">{{if .Remote}}<p>{{t "As mensagens e os arquivos do WhatsApp ficam no servidor configurado. Este app guarda neste computador os dados necessários para se conectar a ele."}}</p>{{else}}<p>{{t "Numa pasta deste computador, que aparece em <a href='/configuracoes#dados'>Configurações › Dados</a>. Lá também dá para abrir a pasta ou apagar tudo."}}</p>{{end}}</div></details>{{end}}
 </div>
 </div></section>
 
@@ -585,10 +712,28 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div>
 {{template "foot" .}}{{end}}
 
+{{/* Remote access comes first while the app uses a server, last otherwise. */}}
+{{define "remotecard"}}<section class="card" id="remoto" data-remote-card>
+<div class="card__head"><h2 class="card__title">{{icon "globe"}}{{t "Acesso remoto"}}</h2>{{if .Remote}}<span class="pill pill--accent pill--plain">{{t "Modo remoto"}}</span>{{end}}</div>
+<div class="card__body stack">
+{{if .Remote}}<p>{{t "Este app não roda o WhatsApp neste computador: ele mostra e controla o WhatsApp MCP do servidor, por uma conexão cifrada de ponta a ponta dentro do HTTPS."}}</p>
+<div class="actions"><a class="btn" href="/__app/remoto">{{t "Gerenciar a conexão com o servidor"}}</a></div>
+{{else if .App}}<p>{{t "O WhatsApp pode rodar num servidor que fica ligado o tempo todo, e este app passa a ser o controle dele: as ferramentas de IA deste computador continuam no mesmo endereço."}}</p>
+<div class="actions"><a class="btn btn--ghost" href="#usar-servidor">{{t "Usar um servidor"}}</a></div>
+{{template "servergate" .}}
+{{else}}<p>{{t "O app de outro computador pode usar e controlar este WhatsApp MCP. Gere um código de pareamento aqui e cole no app, em Configurações › Acesso remoto. O código vale uma vez, por 10 minutos."}}</p>{{end}}
+{{if not (or .App .Remote)}}{{if .Devices}}<ul class="rows" data-remote-devices>{{range .Devices}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}{{if .This}} <span class="pill pill--accent pill--plain">{{t "este app"}}</span>{{end}}</span><span class="row__meta">{{.Scope}} · {{if .RevokedAt}}{{t "revogado"}}{{else if .LastSeen}}{{tf "visto em %s" (moment .LastSeen)}}{{else}}{{t "nunca conectado"}}{{end}}</span></span>
+{{if not .RevokedAt}}<button class="btn btn--quiet btn--small" type="button" data-remote-revoke="{{.ID}}">{{t "Revogar"}}</button>{{end}}</li>{{end}}</ul>{{end}}
+<div class="actions"><button class="btn" type="button" data-remote-code>{{t "Gerar código de pareamento"}}</button></div>
+<div data-remote-code-out hidden><p class="note">{{t "Copie agora: o código não aparece de novo."}}</p><p><code data-remote-code-value></code></p><p class="note" data-remote-code-note></p></div>{{end}}
+</div></section>
+{{end}}
+
 {{define "configuracoes"}}{{template "head" .}}{{template "nav" .}}
 <h1>{{t "Configurações"}}</h1>
 <p class="lead">{{t "Como o WhatsApp MCP roda neste computador."}}</p>
 {{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
+{{if .Remote}}{{template "remotecard" .}}{{end}}
 
 {{if and .App .PortChanged}}
 <section class="card card--accent">
@@ -768,6 +913,8 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </form>
 </div></div></div>
 {{end}}
+
+{{if not .Remote}}{{template "remotecard" .}}{{end}}
 {{template "foot" .}}{{end}}
 
 {{define "encerrado"}}{{template "head" .}}
