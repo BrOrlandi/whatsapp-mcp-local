@@ -8,10 +8,8 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -362,17 +360,8 @@ func (s *Supervisor) record(ev Event) {
 	}
 }
 
-func (s *Supervisor) socketPath() string {
-	return filepath.Join(s.cli.StoreDir, ".send.sock")
-}
-
 func (s *Supervisor) socketReady() bool {
-	conn, err := net.DialTimeout("unix", s.socketPath(), 300*time.Millisecond)
-	if err != nil {
-		return false
-	}
-	_ = conn.Close()
-	return true
+	return sendSocketReady(s.cli.StoreDir)
 }
 
 // stopSync stops the sync process and keeps it down until startSync.
