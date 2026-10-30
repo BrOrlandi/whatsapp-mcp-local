@@ -757,5 +757,6 @@
  "+55 11 91234-5678": "+52 55 1234 5678",
  "Português do Brasil": "Portugués de Brasil",
  "Espanhol": "Español",
- "Inglês": "Inglés"
+ "Inglês": "Inglés",
+ "Com o wacli %s, o programa que conversa com o WhatsApp. Cada versão do app traz o wacli testado com ela.": "Con wacli %s, el programa que habla con WhatsApp. Cada versión de la app trae el wacli probado con ella."
 }

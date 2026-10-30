@@ -16,6 +16,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
 
 // The app is the panel's Host: what the Configurações page changes.
@@ -24,14 +25,26 @@ var _ panel.Host = (*App)(nil)
 func (a *App) Settings() panel.HostSettings {
 	c := a.config()
 	return panel.HostSettings{
-		Autostart:   c.Autostart,
-		CloseToTray: c.CloseToTray,
-		Language:    c.Language,
-		CanHide:     a.canHide,
-		PortLocked:  a.portLocked,
-		DataDir:     a.dataDir,
-		Version:     version,
+		Autostart:    c.Autostart,
+		CloseToTray:  c.CloseToTray,
+		Language:     c.Language,
+		CanHide:      a.canHide,
+		PortLocked:   a.portLocked,
+		DataDir:      a.dataDir,
+		Version:      version,
+		WacliVersion: a.wacliVersion(),
 	}
+}
+
+// wacliVersion asks the wacli inside the app for its version once: it only
+// changes with a new release of the app.
+func (a *App) wacliVersion() string {
+	a.wacliVersionOnce.Do(func() {
+		if a.wacliBin != "" {
+			a.wacliVer = wacli.Version(context.Background(), a.wacliBin)
+		}
+	})
+	return a.wacliVer
 }
 
 // SetAutostart registers the app to open at login, in the tray, or stops it.

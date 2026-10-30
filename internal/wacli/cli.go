@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
@@ -41,6 +42,25 @@ type Error struct {
 }
 
 func (e *Error) Error() string { return e.Message }
+
+// Version is the version the wacli at bin reports ("0.25.1"), or "" when
+// it does not answer.
+func Version(ctx context.Context, bin string) string {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "--version")
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+	platform.Background(cmd)
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	fields := strings.Fields(string(out))
+	if len(fields) == 0 {
+		return ""
+	}
+	return strings.TrimPrefix(fields[len(fields)-1], "v")
+}
 
 // Run executes one command with --json and returns its data.
 func (c *CLI) Run(ctx context.Context, args ...string) (json.RawMessage, error) {

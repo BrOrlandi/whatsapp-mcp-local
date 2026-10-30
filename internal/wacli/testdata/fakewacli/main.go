@@ -12,7 +12,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -41,7 +40,7 @@ func main() {
 		fmt.Println("Flags:\n      --webhook string\n      --webhook-events string")
 	case "chats mark-read", "chats pin", "presence typing", "presence paused", "send file", "send sticker", "send react":
 		// What a running sync accepts over its socket, like send text.
-		if locked() && !exists(".send.sock") {
+		if locked() && !delegateUp() {
 			fail("store is locked")
 		}
 		record("delegated")
@@ -65,7 +64,7 @@ func main() {
 		record("exclusive")
 		reply(map[string]any{"archived": true})
 	case "send text":
-		if locked() && !exists(".send.sock") {
+		if locked() && !delegateUp() {
 			fail("store is locked")
 		}
 		record("delegated")
@@ -178,26 +177,14 @@ func syncFollow() {
 		os.Exit(1)
 	}
 	writePID(lock)
-	sock := filepath.Join(store, ".send.sock")
-	_ = os.Remove(sock)
-	ln, err := net.Listen("unix", sock)
+	closeDelegate, err := serveDelegate()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	go func() {
-		for {
-			c, err := ln.Accept()
-			if err != nil {
-				return
-			}
-			c.Close()
-		}
-	}()
 	event("connected", nil)
 	<-stop
-	ln.Close()
-	_ = os.Remove(sock)
+	closeDelegate()
 	unlock(lock)
 	lock.Close()
 }

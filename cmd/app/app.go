@@ -39,8 +39,11 @@ type App struct {
 	dataDir  string
 	storeDir string
 	wacliBin string
-	bridge   string
-	hidden   bool
+
+	wacliVersionOnce sync.Once
+	wacliVer         string
+	bridge           string
+	hidden           bool
 
 	cfgMu      sync.Mutex
 	cfg        appconfig.Config

@@ -48,6 +48,9 @@ type HostSettings struct {
 	PortLocked bool
 	DataDir    string
 	Version    string
+	// WacliVersion is the version of the wacli inside the app, the program
+	// that talks to WhatsApp; each release of the app names the one it ships.
+	WacliVersion string
 }
 
 // UpdateState is where the app's update stands.

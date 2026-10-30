@@ -702,6 +702,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="card__body stack">
 <div class="version"><span class="version__label">{{t "Versão instalada"}}</span>
 <div class="version__row"><span class="version__number">{{.Settings.Version}}</span><span class="pill" data-update-badge hidden></span></div></div>
+{{with .Settings.WacliVersion}}<p class="muted version__note">{{tf "Com o wacli %s, o programa que conversa com o WhatsApp. Cada versão do app traz o wacli testado com ela." .}}</p>{{end}}
 <p class="muted version__note" data-update-text hidden></p>
 <div class="actions"><button class="btn btn--small" type="button" data-update-install hidden>{{t "Instalar e reiniciar"}}</button><button class="btn btn--ghost btn--small" type="button" data-update-check>{{t "Procurar atualização"}}</button><a class="btn btn--ghost btn--small" data-update-page href="#" target="_blank" rel="noopener" hidden>{{t "Baixar a versão nova"}}</a></div>
 </div></section>
