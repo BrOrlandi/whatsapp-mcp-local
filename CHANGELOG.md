@@ -4,6 +4,38 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.6.0] - 2026-10-30
+
+### Adicionado
+
+- **A versão do wacli aparece em Configurações › Versão e atualizações.**
+
+### Mudou
+
+- **Envio de arquivo e áudio grandes não falha mais por tempo limite de 45 s.**
+  O tempo agora acompanha o tamanho do arquivo.
+- **O envio não duplica a mensagem quando a conexão cai no meio.**
+- **Arquivar, fixar e marcar como lida não esperam mais o celular.** Antes,
+  essas ações podiam levar até cinco minutos quando o celular não respondia.
+- **Conversa arquivada volta a aparecer quando chega mensagem nova**, seguindo a
+  opção "Manter conversas arquivadas" do WhatsApp.
+- **Votos retirados de enquete não voltam mais** depois de reiniciar o app ou
+  receber histórico antigo.
+- **Prévias de link em alta resolução** por padrão.
+- **No Windows, o app reconhece o novo canal de envio do wacli** (named pipe),
+  com fallback para o socket anterior.
+- **Pareamento que não completava em alguns servidores Linux ARM64.**
+  Obrigado @mhdsilva (#10).
+- Correções de segurança (Go 1.27.3, x/net).
+
+### Atenção
+
+Na primeira abertura depois de atualizar, o wacli refaz a sincronização de
+arquivadas, fixadas e silenciadas. Se ela falhar, essas marcações podem sumir
+até o WhatsApp ser aberto no celular. As mensagens não se perdem.
+
+Inclui o wacli 0.25.1.
+
 ## [1.5.0] - 2026-10-14
 
 ### Adicionado
@@ -266,6 +298,7 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.6.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.6.0
 [1.5.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.5.0
 [1.4.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.4.0
 [1.3.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.3.1

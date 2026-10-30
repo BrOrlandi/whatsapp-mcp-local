@@ -55,7 +55,7 @@ janela e sem a bandeja, como serviço do sistema.
   acontece quando o computador desliga ou a sessão do usuário termina.
 - **Instância única.** Abrir o app de novo só traz a janela da instância que já
   está rodando.
-- **O wacli vem dentro do app**, numa versão fixa e testada (hoje a 0.20.0). Ele
+- **O wacli vem dentro do app**, numa versão fixa e testada (hoje a 0.25.1). Ele
   só muda quando sai uma versão nova do app.
 - **Abrir com o sistema.** No macOS 13 ou mais novo, um item de início
   (SMAppService), que aparece em *Ajustes › Geral › Itens de Início*; antes

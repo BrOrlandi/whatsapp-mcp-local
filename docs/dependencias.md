@@ -27,7 +27,7 @@ Claude Code ───HTTP───┤ MCP + painel ── supervisor ──► w
 | | |
 |---|---|
 | O que é | Cliente de WhatsApp em linha de comando, de [openclaw/wacli](https://github.com/openclaw/wacli), licença MIT |
-| Versão em uso | 0.20.0, dentro do app, fixada em `build/wacli.env` com o sha256 de cada sistema |
+| Versão em uso | 0.25.1, dentro do app, fixada em `build/wacli.env` com o sha256 de cada sistema |
 | Para que serve | Pareia o computador como dispositivo conectado, mantém a sessão, recebe e guarda as mensagens, envia, baixa mídia |
 
 É a dependência mais importante, e o projeto depende de várias partes dela, não
@@ -37,7 +37,7 @@ só dos comandos:
 |---|---|---|
 | Saída `--json` dos comandos (`{success, data, error}`) | todas as tools | uma tool passa a falhar ao ler a resposta |
 | Eventos `--events` do `sync` e do `auth` (`connected`, `qr_code`, `pair_code`, `history_sync`, `progress`…) | supervisor, pareamento, painel | o QR code ou o estado do sync deixam de aparecer |
-| O socket `.send.sock` que o `sync --follow` abre para receber envios e mudanças de estado das conversas | supervisor | envios esperam o tempo limite em vez de sair; arquivar e marcar como lida passam a pausar o sync |
+| O socket de delegação do `sync --follow` (`.send.sock` no Unix; named pipe `\\.\pipe\wacli-send-<hash>` no Windows desde o wacli 0.23) para receber envios e mudanças de estado das conversas | supervisor | envios esperam o tempo limite em vez de sair; arquivar e marcar como lida passam a pausar o sync |
 | O webhook do `sync` (`--webhook`, `--webhook-secret`, `--webhook-events`, `--webhook-allow-private`) e o formato do que ele posta | relay dos webhooks (`internal/webhook`) | os webhooks param de receber; sem as flags, o sync roda sem elas e a API diz `"available": false` |
 | O arquivo `LOCK`, com `pid=` | recuperação depois de uma queda | um sync órfão não é encerrado sozinho |
 | O esquema do `wacli.db` (tabelas `messages`, `chats`, `contacts`, `groups`…), lido em modo somente leitura | prévias, nomes, contexto de áudio, saúde | a consulta afetada falha com erro de SQL |

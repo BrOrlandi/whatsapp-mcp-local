@@ -44,11 +44,11 @@ code, check whether a newer wacli is out:
 . build/wacli.env; echo "pinned v$WACLI_VERSION, latest $(gh release view -R openclaw/wacli --json tagName -q .tagName)"
 ```
 
-If it is newer, read its release notes and tell Bruno. A release that fixes the connection after
-a change on WhatsApp's side (a whatsmeow update, pairing, sync, sending) is worth a patch release
-of its own that only bumps `build/wacli.env`; anything else can wait for the next release. Before
-bumping, run the tests and check the Status tab and the chat previews: the database schema can
-change between versions (`docs/dependencias.md#wacli`).
+If it is newer, read its release notes and tell Bruno. Every new wacli release is shipped as its
+own patch release of the app that only bumps `build/wacli.env` (after the checks below), and
+every release note names the wacli version. Before bumping, run the tests and check the Status
+tab and the chat previews: the database schema can change between versions
+(`docs/dependencias.md#wacli`).
 
 ## Release & Changelog
 
