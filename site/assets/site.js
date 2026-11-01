@@ -104,9 +104,9 @@
   document.querySelectorAll("[data-copy]").forEach((button) => {
     const label = button.querySelector("span");
     button.addEventListener("click", async () => {
-      const text = document.getElementById(button.dataset.copy).textContent.trim();
+      const command = document.getElementById(button.dataset.copy).textContent.trim();
       try {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(command);
         label.textContent = text.copied;
       } catch {
         label.textContent = text.copyFailed;
