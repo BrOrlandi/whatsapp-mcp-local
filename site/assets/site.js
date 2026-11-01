@@ -76,6 +76,9 @@
   const os = detectOS();
   if (os === "mobile") document.documentElement.classList.add("is-mobile");
   document.querySelectorAll(`[data-os="${os}"]`).forEach((el) => el.classList.add("is-current"));
+  // On the download page, the visitor's system comes first, on a row of its own.
+  const osGrid = document.querySelector(".os-grid");
+  if (osGrid && osGrid.querySelector(".os.is-current")) osGrid.classList.add("has-current");
 
   // Download links point at releases/latest; with the API, they also get the version and size.
   const assetLinks = document.querySelectorAll("[data-asset]");

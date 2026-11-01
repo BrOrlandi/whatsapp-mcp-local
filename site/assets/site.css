@@ -440,7 +440,30 @@ code {
   font-size: 0.8rem;
   font-weight: 800;
 }
-@media (max-width: 920px) { .os-grid { grid-template-columns: minmax(0, 1fr); } }
+/* The visitor's system first and wide: the download on the left, the steps on the right */
+.os-grid.has-current { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.os-grid.has-current .os.is-current { order: -1; grid-column: 1 / -1; }
+@media (min-width: 921px) {
+  .os-grid.has-current .os.is-current {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: repeat(6, auto) 1fr;
+    column-gap: clamp(32px, 5vw, 64px);
+    align-content: start;
+    padding: 36px 36px 34px;
+  }
+  .os-grid.has-current .os.is-current > * { grid-column: 1; }
+  .os-grid.has-current .os.is-current > .os__steps {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    align-self: start;
+    margin: 0;
+    padding: 0 0 0 clamp(32px, 5vw, 64px);
+    border-top: 0;
+    border-left: 1px solid var(--line);
+  }
+}
+@media (max-width: 920px) { .os-grid, .os-grid.has-current { grid-template-columns: minmax(0, 1fr); } }
 
 .after { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(40px, 6vw, 88px); }
 .after h2 { font-size: clamp(1.7rem, 3vw, 2.2rem); }
