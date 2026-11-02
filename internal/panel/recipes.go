@@ -1,6 +1,12 @@
 package panel
 
-import "github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
+import (
+	"runtime"
+	"strings"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
+)
 
 // recipe is one thing worth doing with the gateway, written for someone
 // deciding whether it is worth their time rather than for someone already
@@ -159,4 +165,62 @@ Se você só aceitar servidores que rodam por linha de comando (stdio), use esta
 %s
 
 Quando terminar, liste as ferramentas do servidor "%s" e me diga quantas são e qual é o número de telefone conectado.`, ServerName, endpoint, config, ServerName)
+}
+
+// desktopPrompt is for when the Desktop button did not get the WhatsApp to
+// connect: Claude itself checks the app, tests the program Claude Desktop
+// starts, edits the configuration and says what is left. Where Claude cannot
+// touch files (a plain chat), it walks the person through it instead.
+func desktopPrompt(endpoint, command string, paths []string, entry string) string {
+	where := strings.Join(paths, "\n")
+	if runtime.GOOS == "windows" {
+		where += "\n\n" + i18n.T(`No Windows, o Claude Desktop atual guarda a configuração em %LOCALAPPDATA%\Claude-Data\claude_<código>\claude_desktop_config.json, e é esse arquivo que vale. Versões anteriores usavam %LOCALAPPDATA%\Packages\Claude_<código>\LocalCache\Roaming\Claude ou %APPDATA%\Claude. Confira quais existem e edite todos.`)
+	}
+	initialize := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"` + mcp.CheckClient + `","version":"1"}}}`
+	list := `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`
+	return i18n.Tf(`Quero conectar o WhatsApp MCP Local ao Claude Desktop deste computador (%s). Se você consegue ler e editar arquivos e rodar comandos aqui (por exemplo, na aba Code do Claude Desktop ou no Claude Code), faça tudo você mesmo e me conte o resultado de cada passo. Se não consegue, me guie passo a passo, bem devagar, para eu fazer na mão.
+
+1. Confira que o WhatsApp MCP Local está aberto: um GET em %s/api/status deve responder um JSON com "app": "WhatsApp MCP Local". Se o campo "next" for "ready", o WhatsApp está conectado.
+
+2. Teste o programa que o Claude Desktop vai abrir. Rode, com as variáveis de ambiente que estão em "env" na configuração do passo 3, se houver:
+%s
+mandando pela entrada padrão estas duas linhas:
+%s
+%s
+Ele deve responder em seguida, com a lista de ferramentas do WhatsApp. Se não responder, me mostre o erro exato e pare aqui.
+
+3. Abra a configuração do Claude Desktop:
+%s
+
+Faça uma cópia do arquivo antes de mexer. Dentro de "mcpServers", crie ou substitua só a entrada "%s" com o conteúdo abaixo, sem apagar as outras. Se o arquivo não existir, crie com este conteúdo:
+%s
+
+Depois confira que o arquivo continua sendo um JSON válido. Atenção: enquanto está aberto, o Claude Desktop regrava esse arquivo de tempos em tempos e apaga o que foi mudado por fora. Por isso, passe logo para o passo 4.
+
+4. Me peça para fechar o Claude Desktop por completo e abrir de novo, já. %s Se, depois de aberto de novo, a entrada "%s" tiver sumido do arquivo, me peça para usar o botão "Adicionar ao Claude Desktop" no WhatsApp MCP Local: ele fecha o Claude, grava a configuração e abre o Claude de novo.
+
+5. Depois disso, numa conversa nova, use as ferramentas do WhatsApp para me dizer se ele está conectado e qual é o número. Não envie mensagem para ninguém.`,
+		osName(), strings.TrimSuffix(endpoint, "/mcp"), command, initialize, list, where, ServerName, entry, quitHint(), ServerName)
+}
+
+// quitHint is how to really close Claude Desktop, which goes on running
+// after its window is closed.
+func quitHint() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return i18n.T("Fechar a janela não basta: use o menu Claude › Sair do Claude (⌘Q).")
+	case "windows":
+		return i18n.T("Fechar a janela não basta: o Claude continua aberto perto do relógio. Clique com o botão direito no ícone do Claude ali (ele pode estar escondido na setinha ^) e escolha Sair (Quit).")
+	}
+	return i18n.T("Fechar a janela não basta: feche o Claude Desktop pelo menu dele.")
+}
+
+func osName() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "macOS"
+	case "windows":
+		return "Windows"
+	}
+	return "Linux"
 }

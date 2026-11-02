@@ -106,7 +106,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="flow__title"><span class="toolpick__icon">{{toolmark .Tool.Mark}}</span><h1>{{t .Tool.Title}}</h1></div>
 
 {{if .Done}}
-<section class="card card--accent">
+<section class="card card--accent" data-connected>
 <div class="card__head"><h2>{{t .Tool.Connected}}</h2><span class="pill pill--ok">{{t "Conectado"}}</span></div>
 <div class="card__body stack">
 <p class="muted">{{t "Já pode pedir coisas do seu WhatsApp para a sua IA. Para testar, mande isto no chat:"}}</p>
@@ -122,15 +122,27 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{if eq .Tool.Key "claude-desktop"}}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Adicione o WhatsApp ao Claude Desktop"}}</h2>
 {{if not .Setup.Desktop.Found}}<p class="note">{{t "O Claude Desktop não parece estar instalado neste computador."}} <a href="https://claude.ai/download" target="_blank" rel="noopener">{{t "Baixar o Claude Desktop"}}</a></p>{{end}}
-<div class="actions"><button class="btn" type="button" data-add-client="claude-desktop">{{if .Setup.Desktop.Configured}}{{t "Configurar de novo"}}{{else}}{{t "Adicionar ao Claude Desktop"}}{{end}}</button></div>
+{{if .Setup.DesktopReopens}}<p class="muted">{{t "O Claude Desktop vai fechar e abrir de novo sozinho, para carregar o WhatsApp. Se houver alguma conversa sendo escrita nele, termine antes."}}</p>{{end}}
+<div class="actions"><button class="btn" type="button" data-add-client="claude-desktop"{{if .Setup.DesktopReopens}} data-reopens{{end}}>{{if .Setup.Desktop.Configured}}{{t "Configurar de novo"}}{{else}}{{t "Adicionar ao Claude Desktop"}}{{end}}</button></div>
 <p class="busy" data-client-note="claude-desktop" role="status" hidden></p>
-<details class="resend"><summary>{{t "Prefiro fazer à mão"}}</summary>
-<p class="muted">{{tf "No Claude Desktop, vá em <strong>Configurações → Desenvolvedor → Editar configuração</strong>, cole o texto abaixo e reinicie o app. Se já houver outros servidores no arquivo, acrescente só o trecho <code>\"%s\"</code> dentro de <code>mcpServers</code>, sem apagar o resto." serverName}}</p>
+<details class="resend" data-desktop-manual><summary>{{t "Prefiro configurar de outro jeito"}}</summary>
+<h3 class="resend__title">{{t "Peça para o próprio Claude configurar"}}</h3>
+<p class="muted">{{t "Copie o texto abaixo e mande para o Claude Desktop, de preferência na aba Code, que consegue mexer nos arquivos deste computador. Ele confere o app, testa a conexão, corrige a configuração e diz o que falta. Numa conversa comum, ele explica o passo a passo para você fazer."}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Copie e mande para o Claude"}}</span></div>
+<pre class="plain" data-copy><code>{{.Setup.DesktopPrompt}}</code></pre></div>
+<h3 class="resend__title">{{t "Ou edite o arquivo você mesmo"}}</h3>
+<p class="muted">{{tf "Feche o Claude Desktop por completo antes: aberto, ele desfaz mudanças feitas no arquivo. Abra o arquivo abaixo num editor de texto, cole o texto e abra o Claude de novo. Se já houver outros servidores no arquivo, acrescente só o trecho <code>\"%s\"</code> dentro de <code>mcpServers</code>, sem apagar o resto." serverName}}</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">{{.Setup.DesktopPath}}</span></div>
 <pre data-copy><code>{{.Setup.JSON}}</code></pre></div>
 </details></li>
-<li class="flowstep"><h2 class="flowstep__title">{{t "Feche o Claude Desktop e abra de novo"}}</h2>
-<p class="muted">{{t "Só assim ele carrega o WhatsApp."}}</p></li>
+{{if .Setup.DesktopReopens}}<li class="flowstep"><h2 class="flowstep__title">{{t "Espere o Claude Desktop abrir de novo"}}</h2>
+<p class="muted">{{t "O botão fecha e abre o Claude sozinho. Se ele não abrir, abra você mesmo. Se você configurou de outro jeito, feche o Claude por completo e abra de novo: só assim ele carrega o WhatsApp."}} {{.Setup.QuitHint}}</p></li>
+{{else}}<li class="flowstep"><h2 class="flowstep__title">{{t "Feche o Claude Desktop por completo e abra de novo"}}</h2>
+<p class="muted">{{t "Só assim ele carrega o WhatsApp."}} {{.Setup.QuitHint}}</p></li>{{end}}
+<li class="flowstep"><h2 class="flowstep__title">{{t "Pergunte ao Claude se o WhatsApp está conectado"}}</h2>
+<p class="muted">{{t "Numa conversa nova do Claude Desktop, mande o texto abaixo. Ele deve responder com o seu número e as suas conversas recentes."}}</p>
+<div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
+{{template "waittool" .}}</li>
 {{else if eq .Tool.Key "claude-code"}}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Adicione o WhatsApp ao Claude Code"}}</h2>
 <div class="actions"><button class="btn" type="button" data-add-client="claude-code"{{if not .Setup.Code.Found}} disabled title="{{t "O comando claude não foi encontrado neste computador"}}"{{end}}>{{if .Setup.Code.Configured}}{{t "Configurar de novo"}}{{else}}{{t "Adicionar ao Claude Code"}}{{end}}</button></div>
@@ -176,12 +188,22 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Reinicie a ferramenta"}}</h2>
 <p class="muted">{{t "Quando ela terminar a configuração, feche e abra de novo, ou comece uma conversa nova."}}</p></li>
 {{end}}
-<li class="flowstep"><h2 class="flowstep__title">{{t "Espere a conexão"}}</h2><p class="busy" role="status" data-wait-tool="{{.Tool.Client}}" data-wait-known="{{.Known}}" data-wait-since="{{.Since}}"><span class="spinner" aria-hidden="true"></span>{{tf "Esta tela avisa quando %s se conectar." (t .Tool.Who)}}</p></li>
+{{if ne .Tool.Key "claude-desktop"}}<li class="flowstep"><h2 class="flowstep__title">{{t "Espere a conexão"}}</h2>{{template "waittool" .}}</li>{{end}}
 </ol>
+{{if eq .Tool.Key "claude-desktop"}}
+<div class="note waithelp" data-wait-help hidden>
+<p><strong>{{t "Ainda não conectou?"}}</strong> {{t "Confira se fechou o Claude Desktop por completo, não só a janela. Se mesmo assim não der certo, peça para o próprio Claude configurar: ele testa a conexão e corrige o que faltar."}}</p>
+<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-open-manual>{{t "Pedir para o Claude configurar"}}</button></div>
+</div>
+{{end}}
 </div></section>
 {{end}}
 </div>
 {{template "foot" .}}{{end}}
+
+{{define "waittool"}}<p class="busy" role="status" data-wait-tool="{{.Tool.Client}}" data-wait-known="{{.Known}}" data-wait-since="{{.Since}}" data-wait-who="{{t .Tool.Who}}"><span class="spinner" aria-hidden="true"></span>{{tf "Esta tela avisa quando %s se conectar." (t .Tool.Who)}}</p>
+<div class="actions waitactions"><button class="btn btn--ghost btn--small" type="button" data-wait-check>{{t "Checar de novo"}}</button>{{if .InSetup}}<form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done"><button class="btn btn--ghost btn--small" type="submit">{{t "Pular e ir para o painel"}}</button></form>{{else}}<a class="btn btn--ghost btn--small" href="/">{{t "Voltar para o início"}}</a>{{end}}</div>
+<p class="busy" data-wait-result role="status" hidden></p>{{end}}
 
 {{define "chatpreview"}}
 <section class="card" data-chats>

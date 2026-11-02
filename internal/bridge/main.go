@@ -23,6 +23,8 @@ func Main() int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// Claude Desktop ended outright leaves its pipe open: go with it.
+	platform.OnParentExit(func() { os.Exit(0) })
 	err = Run(ctx, Options{
 		URL:   func() string { return "http://127.0.0.1:" + strconv.Itoa(appconfig.ResolvePort(dataDir)) + "/mcp" },
 		Token: os.Getenv("WHATSAPP_MCP_TOKEN"),

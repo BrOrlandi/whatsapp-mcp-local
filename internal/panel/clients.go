@@ -88,20 +88,27 @@ func parseMCPGet(out string) string {
 
 // setup is everything the "connect a tool" instructions show, filled in.
 type setup struct {
-	Endpoint     string
-	Command      string
-	JSON         string
-	DesktopPath  string
-	AgentPrompt  string
-	CodexCommand string
-	CodexTOML    string
-	CodexPath    string
-	CursorJSON   string
-	CursorPath   string
-	Desktop      clientInfo
-	Code         clientInfo
-	Codex        clientInfo
-	Cursor       clientInfo
+	Endpoint    string
+	Command     string
+	JSON        string
+	DesktopPath string
+	AgentPrompt string
+	// DesktopPrompt has Claude set itself up, when the button was not
+	// enough.
+	DesktopPrompt string
+	// QuitHint is how to really close Claude Desktop on this system.
+	QuitHint string
+	// DesktopReopens says the button closes and opens Claude Desktop itself.
+	DesktopReopens bool
+	CodexCommand   string
+	CodexTOML      string
+	CodexPath      string
+	CursorJSON     string
+	CursorPath     string
+	Desktop        clientInfo
+	Code           clientInfo
+	Codex          clientInfo
+	Cursor         clientInfo
 }
 
 // Connection is one row of "Suas conexões": a client that is configured here,
@@ -361,20 +368,23 @@ func (p *Panel) setup(ctx context.Context) setup {
 	snippet, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{ServerName: p.desktopEntry()}}, "", "  ")
 	cursor, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{ServerName: p.cursorEntry()}}, "", "  ")
 	return setup{
-		Endpoint:     p.endpoint(),
-		Command:      "claude " + shellJoin(p.codeArgs()),
-		JSON:         string(snippet),
-		DesktopPath:  DesktopConfigPath(),
-		AgentPrompt:  agentPrompt(p.endpoint(), string(snippet)),
-		CodexCommand: "codex " + shellJoin(p.codexArgs()),
-		CodexTOML:    p.codexTOML(),
-		CodexPath:    CodexConfigPath(),
-		CursorJSON:   string(cursor),
-		CursorPath:   CursorConfigPath(),
-		Desktop:      p.desktopInfo(),
-		Code:         p.codeInfo(ctx, false),
-		Codex:        p.codexInfo(ctx, false),
-		Cursor:       p.cursorInfo(),
+		Endpoint:       p.endpoint(),
+		Command:        "claude " + shellJoin(p.codeArgs()),
+		JSON:           string(snippet),
+		DesktopPath:    DesktopConfigPath(),
+		AgentPrompt:    agentPrompt(p.endpoint(), string(snippet)),
+		DesktopPrompt:  desktopPrompt(p.endpoint(), desktopCommandLine(p.desktopEntry()), desktopConfigPaths(), desktopEntryJSON(p.desktopEntry())),
+		QuitHint:       quitHint(),
+		DesktopReopens: desktopControl,
+		CodexCommand:   "codex " + shellJoin(p.codexArgs()),
+		CodexTOML:      p.codexTOML(),
+		CodexPath:      CodexConfigPath(),
+		CursorJSON:     string(cursor),
+		CursorPath:     CursorConfigPath(),
+		Desktop:        p.desktopInfo(),
+		Code:           p.codeInfo(ctx, false),
+		Codex:          p.codexInfo(ctx, false),
+		Cursor:         p.cursorInfo(),
 	}
 }
 
@@ -419,6 +429,34 @@ func (p *Panel) connections(ctx context.Context, s setup) []Connection {
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].LastUsed.After(out[j].LastUsed) })
 	return out
+}
+
+// desktopCommandLine is the Desktop entry as one command to run, quoted for
+// the system's shell.
+func desktopCommandLine(entry map[string]any) string {
+	parts := []string{fmt.Sprint(entry["command"])}
+	switch args := entry["args"].(type) {
+	case []string:
+		parts = append(parts, args...)
+	case []any:
+		for _, a := range args {
+			parts = append(parts, fmt.Sprint(a))
+		}
+	}
+	if runtime.GOOS == "windows" {
+		// PowerShell: the call operator runs a quoted path.
+		for i, a := range parts {
+			parts[i] = "'" + strings.ReplaceAll(a, "'", "''") + "'"
+		}
+		return "& " + strings.Join(parts, " ")
+	}
+	return shellJoin(parts)
+}
+
+// desktopEntryJSON is the "whatsapp" entry alone, as it goes in mcpServers.
+func desktopEntryJSON(entry map[string]any) string {
+	body, _ := json.MarshalIndent(map[string]any{ServerName: entry}, "", "  ")
+	return string(body)
 }
 
 // describeEntry says where a Desktop server entry points.
@@ -607,9 +645,14 @@ func findCodex() string {
 	return ""
 }
 
-// editDesktop rewrites the Desktop configuration through f.
+// editDesktop rewrites every Desktop configuration through f.
 func editDesktop(f func(servers map[string]any)) error {
-	return editServers(DesktopConfigPath(), "Claude Desktop", f)
+	for _, path := range desktopConfigPaths() {
+		if err := editServers(path, "Claude Desktop", f); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // editServers rewrites the mcpServers of a JSON configuration through f,
@@ -676,25 +719,62 @@ func (p *Panel) removeClaudeDesktop() error {
 	})
 }
 
-// DesktopConfigPath is where Claude Desktop keeps its configuration.
+// DesktopConfigPath is the Claude Desktop configuration that counts: the one
+// the app reads.
 func DesktopConfigPath() string {
+	return desktopConfigPaths()[0]
+}
+
+// desktopConfigPaths are the Claude Desktop configurations on this computer,
+// the one the app reads first. On Windows there can be several, from the
+// app's different eras: Claude 4 (an MSIX package) moves its data, on first
+// launch, to %LOCALAPPDATA%\Claude-Data\claude_<publisher>; before that, the
+// package read a virtualised copy of %APPDATA% inside its package folder;
+// and the old installer used %APPDATA%\Claude itself. Writing to every one
+// that exists keeps the WhatsApp in whichever the app reads.
+func desktopConfigPaths() []string {
 	home, _ := os.UserHomeDir()
+	const file = "claude_desktop_config.json"
 	switch runtime.GOOS {
 	case "darwin":
-		return filepath.Join(home, "Library", "Application Support", "Claude", "claude_desktop_config.json")
+		return []string{filepath.Join(home, "Library", "Application Support", "Claude", file)}
 	case "windows":
-		classic := filepath.Join(os.Getenv("APPDATA"), "Claude")
-		if _, err := os.Stat(classic); err == nil {
-			return filepath.Join(classic, "claude_desktop_config.json")
+		local := os.Getenv("LOCALAPPDATA")
+		first := func(pattern string) string {
+			if dirs, _ := filepath.Glob(pattern); len(dirs) > 0 {
+				return dirs[0]
+			}
+			return ""
 		}
-		// Installed from the Microsoft Store, Claude Desktop reads a
-		// virtualised copy of %APPDATA% inside its package folder.
-		if store, _ := filepath.Glob(filepath.Join(os.Getenv("LOCALAPPDATA"), "Packages", "Claude_*", "LocalCache", "Roaming", "Claude")); len(store) > 0 {
-			return filepath.Join(store[0], "claude_desktop_config.json")
-		}
-		return filepath.Join(classic, "claude_desktop_config.json")
+		return windowsDesktopPaths(file,
+			first(filepath.Join(local, "Claude-Data", "claude_*")),
+			first(filepath.Join(local, "Packages", "Claude_*", "LocalCache", "Roaming", "Claude")),
+			filepath.Join(os.Getenv("APPDATA"), "Claude"))
 	}
-	return filepath.Join(home, ".config", "Claude", "claude_desktop_config.json")
+	return []string{filepath.Join(home, ".config", "Claude", file)}
+}
+
+// windowsDesktopPaths orders the Windows candidates, newest era first (an
+// empty one is absent): the files that exist; with none, the first folder
+// that exists; with none, the last candidate, the classic one. The newest
+// era's folder, once there, is what the app reads, with its file or not yet.
+func windowsDesktopPaths(file string, dirs ...string) []string {
+	exists := func(p string) bool { _, err := os.Stat(p); return err == nil }
+	var out []string
+	for i, d := range dirs {
+		if d != "" && (exists(filepath.Join(d, file)) || (i == 0 && exists(d))) {
+			out = append(out, filepath.Join(d, file))
+		}
+	}
+	if len(out) > 0 {
+		return out
+	}
+	for _, d := range dirs {
+		if d != "" && exists(d) {
+			return []string{filepath.Join(d, file)}
+		}
+	}
+	return []string{filepath.Join(dirs[len(dirs)-1], file)}
 }
 
 // readJSONConfig keeps numbers as written, so rewriting the file changes only

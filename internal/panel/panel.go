@@ -1134,11 +1134,12 @@ func (p *Panel) apiAddClient(r *http.Request) (any, error) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	var err error
+	reopened := false
 	switch r.PathValue("client") {
 	case "claude-code":
 		err = p.addClaudeCode(r.Context(), body.Replace)
 	case "claude-desktop":
-		err = p.addClaudeDesktop(body.Replace)
+		reopened, err = p.addDesktopReopening(r.Context(), body.Replace)
 	case "codex":
 		err = p.addCodex(r.Context(), body.Replace)
 	case "cursor":
@@ -1154,7 +1155,28 @@ func (p *Panel) apiAddClient(r *http.Request) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return map[string]bool{"ok": true}, nil
+	// Read back what was written: the page says it is in only when it is.
+	where, ok := p.configuredIn(r.Context(), r.PathValue("client"))
+	if !ok {
+		return nil, userError{i18n.T("a configuração foi gravada, mas ao ler de novo o WhatsApp não aparece nela; tente de novo ou configure à mão")}
+	}
+	return map[string]any{"ok": true, "where": where, "reopened": reopened}, nil
+}
+
+// configuredIn reads a client's configuration again, after adding the
+// server: where it is kept, and whether the server is there.
+func (p *Panel) configuredIn(ctx context.Context, client string) (string, bool) {
+	switch client {
+	case "claude-code":
+		return "", p.codeInfo(ctx, true).Configured
+	case "claude-desktop":
+		return DesktopConfigPath(), p.desktopInfo().Configured
+	case "codex":
+		return CodexConfigPath(), p.codexInfo(ctx, true).Configured
+	case "cursor":
+		return CursorConfigPath(), p.cursorInfo().Configured
+	}
+	return "", false
 }
 
 func (p *Panel) qr(w http.ResponseWriter, r *http.Request) {

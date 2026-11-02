@@ -81,7 +81,7 @@
       var note = document.querySelector('[data-client-note="' + client + '"]');
       var text = button.textContent;
       button.disabled = true;
-      button.textContent = t("Configurando…");
+      button.textContent = client === "claude-desktop" && button.hasAttribute("data-reopens") ? t("Fechando o Claude e configurando…") : t("Configurando…");
       var add = function (replace) {
         return api("/api/clients/" + client, { replace: replace }).then(function (result) {
           if (result.conflict === undefined) return result;
@@ -94,17 +94,21 @@
           return add(true);
         });
       };
-      add(false).then(function () {
+      add(false).then(function (result) {
         button.textContent = t("Configurado ✓");
         if (note) {
+          // The server read the configuration back before answering, so
+          // the page can say it is there, and where.
           note.hidden = false;
-          note.textContent = {
-            "claude-desktop": t("Pronto. Agora feche o Claude Desktop e abra de novo."),
+          note.classList.add("busy--ok");
+          note.textContent = (result.where ? t("Conferido: o WhatsApp está na configuração, em %s.", result.where) + " " : "") + {
+            "claude-desktop": result.reopened ? t("O Claude Desktop foi fechado e aberto de novo para carregar o WhatsApp.") : t("Agora feche o Claude Desktop por completo e abra de novo."),
             "claude-code": t("Pronto. Agora abra uma sessão nova do Claude Code."),
             "codex": t("Pronto. Agora abra uma conversa nova no Codex."),
             "cursor": t("Pronto. Agora feche o Cursor e abra de novo.")
           }[client];
         }
+        helpAfter(90);
       }).catch(function (error) {
         button.disabled = false;
         button.textContent = text;
@@ -127,6 +131,124 @@
     }, 4000);
   }
 
+  // ---- not connecting ----
+  // When the tool takes a while to connect, the page offers the other way:
+  // Claude setting itself up, from a prompt that also tests the connection.
+  var helpTimer = 0;
+  function helpAfter(seconds) {
+    var help = document.querySelector("[data-wait-help]");
+    if (!help) return;
+    window.clearTimeout(helpTimer);
+    helpTimer = window.setTimeout(function () { help.hidden = false; }, seconds * 1000);
+  }
+  helpAfter(150);
+  document.querySelectorAll("[data-open-manual]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var manual = document.querySelector("[data-desktop-manual]");
+      if (!manual) return;
+      manual.open = true;
+      manual.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  // ---- celebration ----
+  // A "ta-da" and confetti when a tool connects: made here, with no files.
+  function fanfare() {
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    try {
+      var ctx = new Ctx();
+      if (ctx.state === "suspended" && ctx.resume) ctx.resume();
+      var out = ctx.createGain();
+      out.gain.value = 0.18;
+      out.connect(ctx.destination);
+      var now = ctx.currentTime + 0.03;
+      // A short pickup, then a held major chord.
+      var notes = [
+        [392.0, 0, 0.12], [523.25, 0.13, 0.9], [659.25, 0.13, 0.9], [783.99, 0.13, 0.9], [1046.5, 0.16, 0.85]
+      ];
+      notes.forEach(function (n) {
+        var osc = ctx.createOscillator();
+        var filter = ctx.createBiquadFilter();
+        var gain = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.value = n[0];
+        filter.type = "lowpass";
+        filter.frequency.value = 2400;
+        var start = now + n[1], end = start + n[2];
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.5, start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.25, start + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.0001, end);
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(out);
+        osc.start(start);
+        osc.stop(end + 0.05);
+      });
+      window.setTimeout(function () { ctx.close && ctx.close(); }, 1600);
+    } catch (e) {}
+  }
+  function confetti() {
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    var canvas = el("canvas", "confetti");
+    canvas.setAttribute("aria-hidden", "true");
+    document.body.appendChild(canvas);
+    var ratio = window.devicePixelRatio || 1;
+    var w = window.innerWidth, h = window.innerHeight;
+    canvas.width = w * ratio;
+    canvas.height = h * ratio;
+    var g = canvas.getContext("2d");
+    g.scale(ratio, ratio);
+    // The brand's greens and gold.
+    var colours = ["#2fc9a0", "#0b6b5d", "#4adcb4", "#e5b53a", "#f2d27a", "#ffffff"];
+    var pieces = [];
+    for (var i = 0; i < 170; i++) {
+      var fromLeft = i % 2 === 0;
+      pieces.push({
+        x: fromLeft ? -10 : w + 10,
+        y: h * (0.55 + Math.random() * 0.3),
+        vx: (fromLeft ? 1 : -1) * (4 + Math.random() * 9),
+        vy: -(9 + Math.random() * 10),
+        size: 5 + Math.random() * 6,
+        spin: Math.random() * Math.PI,
+        vspin: (Math.random() - 0.5) * 0.3,
+        colour: colours[i % colours.length]
+      });
+    }
+    var started = Date.now();
+    (function frame() {
+      var age = Date.now() - started;
+      g.clearRect(0, 0, w, h);
+      g.globalAlpha = age > 2600 ? Math.max(0, 1 - (age - 2600) / 900) : 1;
+      pieces.forEach(function (p) {
+        p.vy += 0.32;
+        p.vx *= 0.985;
+        p.x += p.vx;
+        p.y += p.vy;
+        p.spin += p.vspin;
+        g.save();
+        g.translate(p.x, p.y);
+        g.rotate(p.spin);
+        g.fillStyle = p.colour;
+        g.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
+        g.restore();
+      });
+      if (age < 3500) window.requestAnimationFrame(frame);
+      else canvas.remove();
+    })();
+  }
+  function celebrate(sound) {
+    if (sound) fanfare();
+    confetti();
+  }
+  try {
+    if (window.sessionStorage.getItem("celebrate") === "1" && document.querySelector("[data-connected]")) {
+      window.sessionStorage.removeItem("celebrate");
+      celebrate(false);
+    }
+  } catch (e) {}
+
   // ---- waiting for one tool ----
   // The connect flow's last step: the page turns into "connected" once the
   // tool it is about connects after the page was opened, or, for any other
@@ -136,20 +258,48 @@
     var toolClient = waitTool.getAttribute("data-wait-tool");
     var knownClients = (waitTool.getAttribute("data-wait-known") || "").split(" ").filter(Boolean);
     var waitSince = Number(waitTool.getAttribute("data-wait-since") || 0) * 1000;
-    var toolPolls = 0;
-    var toolWatch = window.setInterval(function () {
-      if (++toolPolls > 150) { window.clearInterval(toolWatch); return; }
-      api("/api/state").then(function (state) {
+    // Claude Desktop's chats come as claude-ai; its Code tab, as
+    // local-agent-mode-….
+    var prefixes = toolClient === "claude-ai" ? ["claude-ai", "local-agent-mode"] : [toolClient];
+    var waitResult = document.querySelector("[data-wait-result]");
+    var connected = false;
+    var checkTool = function () {
+      return api("/api/state").then(function (state) {
         var hit = (state.clients || []).some(function (c) {
           if (!toolClient) return knownClients.indexOf(c.name) < 0;
-          return c.name.indexOf(toolClient) === 0 && Date.parse(c.last_seen) >= waitSince;
+          return prefixes.some(function (p) { return c.name.indexOf(p) === 0; }) && Date.parse(c.last_seen) >= waitSince;
         });
-        if (hit) {
+        if (hit && !connected) {
+          connected = true;
           window.clearInterval(toolWatch);
-          window.location.replace(window.location.pathname + "?conectado=1");
+          window.clearTimeout(helpTimer);
+          // The fanfare plays here, where the person already clicked:
+          // a page that just loaded may not make sound yet.
+          celebrate(true);
+          try { window.sessionStorage.setItem("celebrate", "1"); } catch (e) {}
+          window.setTimeout(function () {
+            window.location.replace(window.location.pathname + "?conectado=1");
+          }, 1800);
         }
-      }).catch(function () {});
-    }, 4000);
+        return hit;
+      });
+    };
+    // It keeps asking while the page is open: asking the app on this
+    // computer costs nothing, and a connection can take a while.
+    var toolWatch = window.setInterval(function () { checkTool().catch(function () {}); }, 4000);
+    var checkButton = document.querySelector("[data-wait-check]");
+    if (checkButton) {
+      checkButton.addEventListener("click", function () {
+        checkButton.disabled = true;
+        checkTool().then(function (hit) {
+          if (hit || !waitResult) return;
+          waitResult.hidden = false;
+          waitResult.textContent = t("Ainda não vi %s se conectar. Se a ferramenta já respondeu com o seu WhatsApp, pode pular este passo.", waitTool.getAttribute("data-wait-who") || "");
+        }).catch(function (error) {
+          if (waitResult) { waitResult.hidden = false; waitResult.textContent = error.message; }
+        }).then(function () { checkButton.disabled = false; });
+      });
+    }
   }
 
   // ---- language ----

@@ -166,6 +166,16 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 @media (prefers-reduced-motion:reduce){.spinner{animation-duration:2.4s}}
 .busy{display:flex;align-items:center;gap:10px;margin:14px 0 0;color:var(--muted);font-size:.88rem;line-height:1.5}
 .busy[hidden]{display:none}
+.busy--ok{color:var(--ok);font-weight:600;overflow-wrap:anywhere}
+.confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:1000}
+.waitactions{margin-top:12px}
+.waitactions form{margin:0;display:contents}
+.waithelp{margin:22px 0 0}
+.waithelp[hidden]{display:none}
+.waithelp p{margin:0}
+.waithelp .actions{margin-top:12px}
+.resend__title{font-size:.95rem;margin:16px 0 8px}
+.resend__title:first-of-type{margin-top:4px}
 
 /* ---- numbered how-to list ---- */
 .guide{list-style:none;counter-reset:guide;margin:0;padding:0;display:grid;gap:9px}
@@ -388,7 +398,7 @@ const extraCSS = `
 .toolpick__go{color:var(--muted)}
 .toolpick:hover .toolpick__go{color:var(--brand-strong)}
 .flowsteps{list-style:none;counter-reset:flowstep;margin:0;padding:0;display:grid;gap:22px}
-.flowstep{position:relative;counter-increment:flowstep;padding-left:44px}
+.flowstep{position:relative;counter-increment:flowstep;padding-left:44px;min-width:0}
 .flowstep::before{content:counter(flowstep);position:absolute;left:0;top:-2px;width:30px;height:30px;border-radius:50%;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-weight:700;font-size:.9rem}
 .flowstep+.flowstep{padding-top:22px;border-top:1px solid var(--border)}
 .flowstep+.flowstep::before{top:20px}

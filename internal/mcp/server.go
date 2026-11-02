@@ -62,9 +62,14 @@ func WithClientHint(ctx context.Context, hint string) context.Context {
 	return context.WithValue(ctx, clientHintKey{}, hint)
 }
 
+// CheckClient is the name a test of the bridge gives itself, so the test
+// does not show up as a connected tool.
+const CheckClient = "whatsapp-mcp-check"
+
 // seeClient records a client's use, at most every half minute per client.
 func (s *Server) seeClient(ctx context.Context, name, version string) {
-	if s.state == nil || name == "" {
+	// A test of the bridge (the panel's prompt runs one) is not a tool.
+	if s.state == nil || name == "" || name == CheckClient {
 		return
 	}
 	s.clientsMu.Lock()
