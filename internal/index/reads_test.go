@@ -21,7 +21,11 @@ CREATE TABLE messages (rowid INTEGER PRIMARY KEY AUTOINCREMENT, chat_jid TEXT NO
 	ts INTEGER NOT NULL, from_me INTEGER NOT NULL, text TEXT, display_text TEXT, quoted_msg_id TEXT, quoted_sender_jid TEXT,
 	is_forwarded INTEGER NOT NULL DEFAULT 0, forwarding_score INTEGER NOT NULL DEFAULT 0, reaction_to_id TEXT, reaction_emoji TEXT,
 	media_type TEXT, media_caption TEXT, filename TEXT, mime_type TEXT, direct_path TEXT, local_path TEXT, revoked INTEGER NOT NULL DEFAULT 0,
-	deleted_for_me INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER, edited INTEGER NOT NULL DEFAULT 0, UNIQUE(chat_jid, msg_id));`
+	deleted_for_me INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER, edited INTEGER NOT NULL DEFAULT 0, buttons TEXT, UNIQUE(chat_jid, msg_id));
+CREATE TABLE polls (chat_jid TEXT NOT NULL, msg_id TEXT NOT NULL, sender_jid TEXT, question TEXT NOT NULL, options_json TEXT NOT NULL,
+	selectable_count INTEGER NOT NULL DEFAULT 1, created_ts INTEGER NOT NULL, PRIMARY KEY (chat_jid, msg_id));
+CREATE TABLE message_locations (chat_jid TEXT NOT NULL, msg_id TEXT NOT NULL, latitude REAL NOT NULL, longitude REAL NOT NULL, name TEXT, address TEXT,
+	is_live INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (chat_jid, msg_id));`
 
 const (
 	mae     = "5511900000001@s.whatsapp.net"
@@ -33,6 +37,14 @@ const (
 // store builds a wacli store in a temporary folder and opens it the way the
 // daemon does, read-only.
 func store(t *testing.T, now time.Time) *Index {
+	t.Helper()
+	x, _ := storeAt(t, now)
+	return x
+}
+
+// storeAt is store that also says where the file is, for a test that adds
+// rows of its own.
+func storeAt(t *testing.T, now time.Time) (*Index, string) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "wacli.db")
 	db, err := sql.Open("sqlite", "file:"+path)
@@ -73,7 +85,7 @@ func store(t *testing.T, now time.Time) *Index {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { x.Close() })
-	return x
+	return x, path
 }
 
 func TestStatsAndCounts(t *testing.T) {
@@ -156,5 +168,78 @@ func TestTriageQueries(t *testing.T) {
 	}
 	if !x.ChatKnown(ctx, mae) || x.ChatKnown(ctx, "5511000000000@s.whatsapp.net") {
 		t.Error("ChatKnown is wrong")
+	}
+}
+
+// TestStatusCountsOnlyVisibleMessages is the "phantom newest message": right
+// after pairing, wacli stores protocol messages between the account's own
+// devices as content-free "(message)" rows, newer than anything real. The
+// status read them as the newest message, one no conversation or search could
+// show. Reactions, statuses and channels are not messages either.
+func TestStatusCountsOnlyVisibleMessages(t *testing.T) {
+	now := time.Now()
+	x, path := storeAt(t, now)
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	self := me + "@s.whatsapp.net"
+	ago := func(d time.Duration) int64 { return now.Add(-d).Unix() }
+	for _, q := range []struct {
+		sql  string
+		args []any
+	}{
+		// Placeholders, outgoing and incoming, newer than every real message.
+		{`INSERT INTO messages (chat_jid, msg_id, sender_jid, ts, from_me, text, display_text) VALUES (?, 'X1', ?, ?, 1, '', '(message)'), (?, 'X2', ?, ?, 0, NULL, '(message)'), (?, 'X3', ?, ?, 0, '', '> Vou sim' || char(10) || '(message)')`,
+			[]any{self, self, ago(time.Minute), lucas, lucas, ago(2 * time.Minute), mae, mae, ago(3 * time.Minute)}},
+		// A status and a channel post, newer still.
+		{`INSERT INTO messages (chat_jid, msg_id, sender_jid, ts, from_me, text, display_text) VALUES ('status@broadcast', 'S1', ?, ?, 0, 'meu status', 'meu status'), ('120363000000000009@newsletter', 'N1', '', ?, 0, 'novidade', 'novidade')`,
+			[]any{lucas, ago(30 * time.Second), ago(20 * time.Second)}},
+		// A location carries no text but is a real message: 10 minutes ago.
+		{`INSERT INTO messages (chat_jid, msg_id, sender_jid, ts, from_me, text, display_text) VALUES (?, 'LOC', ?, ?, 0, '', '(message)')`,
+			[]any{lucas, lucas, ago(10 * time.Minute)}},
+		{`INSERT INTO message_locations (chat_jid, msg_id, latitude, longitude) VALUES (?, 'LOC', -23.5, -46.6)`, []any{lucas}},
+	} {
+		if _, err := db.Exec(q.sql, q.args...); err != nil {
+			t.Fatalf("%s: %v", q.sql, err)
+		}
+	}
+	ctx := context.Background()
+	want := now.Add(-10 * time.Minute).Unix()
+
+	c, err := x.Coverage(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.Newest == nil || c.Newest.Unix() != want {
+		t.Errorf("coverage newest = %v, want the location 10 minutes ago", c.Newest)
+	}
+	if c.Messages != 10 || c.Chats != 3 {
+		t.Errorf("coverage = %d messages in %d chats, want 10 in 3 (the 9 real ones and the location)", c.Messages, c.Chats)
+	}
+
+	a, err := x.Activity(ctx, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.NewestIncoming == nil || a.NewestIncoming.Unix() != want || a.NewestAny == nil || a.NewestAny.Unix() != want {
+		t.Errorf("activity newest = %v / %v, want the location", a.NewestIncoming, a.NewestAny)
+	}
+	if a.LastHour != 3 {
+		t.Errorf("last hour = %d, want 3 (F3, M4 and the location; not the reaction, placeholders, status or channel)", a.LastHour)
+	}
+
+	chats, err := x.RecentChats(ctx, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range chats {
+		if p.JID == self {
+			t.Errorf("chat list shows a placeholder: %+v", p)
+		}
+	}
+	if n, _ := x.CountMessages(ctx, Filter{ChatJID: mae}); n != 4 {
+		t.Errorf("Mãe = %d messages, want 4 (the placeholder reply left out)", n)
 	}
 }

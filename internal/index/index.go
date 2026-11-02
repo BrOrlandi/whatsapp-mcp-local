@@ -96,7 +96,7 @@ type Coverage struct {
 func (x *Index) Coverage(ctx context.Context) (Coverage, error) {
 	var c Coverage
 	var oldest, newest sql.NullInt64
-	err := x.db.QueryRowContext(ctx, `SELECT COUNT(*), COUNT(DISTINCT chat_jid), MIN(ts), MAX(ts) FROM messages WHERE deleted_at IS NULL`).
+	err := x.db.QueryRowContext(ctx, `SELECT COUNT(*), COUNT(DISTINCT m.chat_jid), MIN(m.ts), MAX(m.ts) FROM messages m WHERE `+visible).
 		Scan(&c.Messages, &c.Chats, &oldest, &newest)
 	if err != nil {
 		return c, describe(err)
@@ -334,15 +334,17 @@ type Activity struct {
 // Activity measures recent traffic. Incoming messages are what prove the
 // device is receiving: the account's own sends reach the store through sync
 // too, but a send can be recorded locally before WhatsApp delivers anything.
+// Only visible messages count: a reaction, a status or a content-free system
+// row is not a message the person could find in a conversation.
 func (x *Index) Activity(ctx context.Context, now time.Time) (Activity, error) {
 	var a Activity
 	var incoming, any, oldest sql.NullInt64
 	err := x.db.QueryRowContext(ctx, `SELECT
-		(SELECT MAX(ts) FROM messages WHERE from_me = 0),
-		(SELECT MAX(ts) FROM messages),
-		(SELECT MIN(ts) FROM messages),
-		(SELECT COUNT(*) FROM messages WHERE ts >= ?),
-		(SELECT COUNT(*) FROM messages WHERE ts >= ?)`,
+		(SELECT MAX(m.ts) FROM messages m WHERE m.from_me = 0 AND `+visible+`),
+		(SELECT MAX(m.ts) FROM messages m WHERE `+visible+`),
+		(SELECT MIN(m.ts) FROM messages m WHERE `+visible+`),
+		(SELECT COUNT(*) FROM messages m WHERE m.ts >= ? AND `+visible+`),
+		(SELECT COUNT(*) FROM messages m WHERE m.ts >= ? AND `+visible+`)`,
 		now.Add(-time.Hour).Unix(), now.Add(-24*time.Hour).Unix()).Scan(&incoming, &any, &oldest, &a.LastHour, &a.LastDay)
 	if err != nil {
 		return a, describe(err)
@@ -382,10 +384,24 @@ type ChatPreview struct {
 // the kind of media it carries.
 const displayText = `COALESCE(NULLIF(m.media_caption,''), NULLIF(m.text,''), NULLIF(m.display_text,''), '')`
 
+// placeholder is a row wacli stored without any content: a protocol or system
+// message it could not read (key shares, history notices, settings sent between
+// the account's own devices), kept under the display text "(message)". wacli
+// does not let these move a chat's activity, so the chat list never shows them,
+// and neither may anything here. Locations and polls keep their content in
+// tables of their own, so a row that has one is not a placeholder.
+const placeholder = `(COALESCE(m.text,'') = '' AND COALESCE(m.media_caption,'') = '' AND COALESCE(m.media_type,'') = ''
+	AND m.revoked = 0 AND COALESCE(m.buttons,'') IN ('', 'null', '[]')
+	AND (m.display_text = '(message)' OR m.display_text LIKE '%' || char(10) || '(message)')
+	AND NOT EXISTS (SELECT 1 FROM message_locations l WHERE l.chat_jid = m.chat_jid AND l.msg_id = m.msg_id)
+	AND NOT EXISTS (SELECT 1 FROM polls p WHERE p.chat_jid = m.chat_jid AND p.msg_id = m.msg_id))`
+
 // visible keeps out what the phone's chat list does not show: reactions,
-// content-free system rows, status broadcasts and channels.
+// content-free system rows, status broadcasts and channels. It is the one
+// notion of "a message" every read shares, the status included, so a status
+// never names a message that no conversation or search can show.
 const visible = `m.deleted_at IS NULL AND COALESCE(m.reaction_to_id,'') = '' AND (` + displayText + ` != '' OR COALESCE(m.media_type,'') != '')
-	AND m.chat_jid NOT LIKE '%@broadcast' AND m.chat_jid NOT LIKE '%@newsletter'`
+	AND m.chat_jid NOT LIKE '%@broadcast' AND m.chat_jid NOT LIKE '%@newsletter' AND NOT ` + placeholder
 
 // RecentChats lists the conversations with the most recent real messages,
 // each with its last one, named the way the phone would name them.
