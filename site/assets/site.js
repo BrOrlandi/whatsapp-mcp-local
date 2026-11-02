@@ -239,6 +239,27 @@
 
   // The hero conversation: a request, what the app did in WhatsApp, and the answer.
   const chat = document.querySelector("[data-chat]");
+  // Help videos: a poster of our own until clicked, then YouTube's player,
+  // already playing. Before the click there is no player, so none of its
+  // title bar and shade sits over the picture; without JS the link opens
+  // the video on YouTube.
+  document.querySelectorAll("a.video-frame[data-yt]").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      const frame = document.createElement("iframe");
+      frame.src = `https://www.youtube-nocookie.com/embed/${link.dataset.yt}?autoplay=1&rel=0&playsinline=1`;
+      frame.title = link.getAttribute("aria-label") || "";
+      frame.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+      frame.referrerPolicy = "strict-origin-when-cross-origin";
+      frame.allowFullscreen = true;
+      const box = document.createElement("div");
+      box.className = "video-frame";
+      box.append(frame);
+      link.replaceWith(box);
+      frame.focus();
+    });
+  });
+
   if (!chat) return;
 
   const scenarios = {
