@@ -655,6 +655,17 @@ func editDesktop(f func(servers map[string]any)) error {
 	return nil
 }
 
+// desktopConfigsReadable says whether editDesktop could rewrite every Desktop
+// configuration: each one missing or valid JSON.
+func desktopConfigsReadable() error {
+	for _, path := range desktopConfigPaths() {
+		if _, err := readJSONConfig(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return userError{i18n.Tf("a configuração do %s não é um JSON válido; corrija %s antes", "Claude Desktop", path)}
+		}
+	}
+	return nil
+}
+
 // editServers rewrites the mcpServers of a JSON configuration through f,
 // after keeping a copy of the file as it was.
 func editServers(path, tool string, f func(servers map[string]any)) error {
@@ -784,6 +795,9 @@ func readJSONConfig(path string) (map[string]any, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Windows editors (older Notepad, PowerShell 5's Set-Content) start the
+	// file with a byte order mark, which Claude Desktop reads past.
+	raw = bytes.TrimPrefix(raw, []byte("\xef\xbb\xbf"))
 	cfg := map[string]any{}
 	if len(bytes.TrimSpace(raw)) == 0 {
 		return cfg, nil

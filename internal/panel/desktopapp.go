@@ -31,6 +31,10 @@ func (p *Panel) addDesktopReopening(ctx context.Context, replace bool) (reopened
 	if !desktopControl {
 		return false, p.addClaudeDesktop(replace)
 	}
+	// Nor is Claude closed for a file that cannot be written.
+	if err := desktopConfigsReadable(); err != nil {
+		return false, err
+	}
 	target := desktopLaunchTarget()
 	if desktopRunning() {
 		if err := quitDesktop(ctx); err != nil {

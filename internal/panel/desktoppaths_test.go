@@ -45,3 +45,23 @@ func TestWindowsDesktopPaths(t *testing.T) {
 	touch(data)
 	check(data, store, filepath.Join(data, file), filepath.Join(store, file), filepath.Join(classic, file))
 }
+
+// A configuration saved with a byte order mark, as PowerShell 5 and older
+// Notepad write it, is read and rewritten like any other.
+func TestEditServersWithByteOrderMark(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "claude_desktop_config.json")
+	if err := os.WriteFile(path, []byte("\xef\xbb\xbf{\"mcpServers\": {\"other\": {\"command\": \"x\"}}}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := editServers(path, "Claude Desktop", func(s map[string]any) { s["whatsapp"] = map[string]any{"command": "y"} }); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := readJSONConfig(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	servers := cfg["mcpServers"].(map[string]any)
+	if servers["other"] == nil || servers["whatsapp"] == nil {
+		t.Fatalf("servers = %v", servers)
+	}
+}
