@@ -64,8 +64,7 @@ importa nele:
   configurações e o token do daemon (`/data/mcp`). Apagar o volume desconecta
   o WhatsApp. A pasta `data/`, ao lado do compose, precisa existir e
   pertencer ao usuário 1000 do contêiner antes do primeiro `up`: sem isso, o
-  Docker a cria como root e o daemon não consegue gravar nela (o
-  `install-docker.sh` já cuida disso).
+  Docker a cria como root e o daemon não consegue gravar nela.
 - **O contêiner é o serviço.** Os comandos `service` não se aplicam:
   `docker compose up -d`, `restart` e `stop` fazem esse papel, e o registro
   sai em `docker compose logs -f`.
@@ -153,7 +152,7 @@ de cada ferramenta.
 ## Automação
 
 Os comandos `status`, `pair`, `logout`, `port`, `token`, `webhooks`,
-`update` e `remote` aceitam `--json`: o resultado sai como um objeto JSON na saída padrão, e um erro também, como
+e `update` aceitam `--json`: o resultado sai como um objeto JSON na saída padrão, e um erro também, como
 `{"error": "…", "exit_code": 4}`. O `status --json` é o mesmo
 [`GET /api/status`](api.md#get-apistatus).
 
