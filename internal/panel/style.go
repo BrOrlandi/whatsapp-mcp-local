@@ -538,6 +538,9 @@ input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:v
 .version__row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px}
 .version__number{font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.2}
 .version__note{margin:0}
+.version-bar{display:flex;align-items:center;flex-wrap:wrap;gap:12px 24px}
+.version-bar .actions{margin:0;gap:8px}
+.version-bar__wacli{margin-left:auto;align-self:flex-end;font-size:.85rem}
 .pill[hidden]{display:none}
 .pill--new{background:var(--brand-strong);color:var(--brand-ink);border-color:var(--brand-strong);box-shadow:0 0 0 3px var(--brand-soft)}
 .pill--new::before{display:none}
