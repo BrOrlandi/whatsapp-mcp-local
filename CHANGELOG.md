@@ -4,6 +4,38 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.6.1] - 2026-11-02
+
+### Corrigido
+
+- **Claude Desktop no Windows volta a conectar.** As versões novas do Claude
+  Desktop guardam a configuração em outra pasta
+  (`%LOCALAPPDATA%\Claude-Data`), e o app gravava na antiga, que o Claude não
+  lê mais. Agora o app grava em todas as pastas que o Claude usa ou já usou.
+- **O botão "Adicionar ao Claude Desktop" fecha e abre o Claude sozinho.**
+  Aberto, o Claude Desktop regrava o arquivo de configuração e apagava o
+  WhatsApp poucos segundos depois. Agora o app fecha o Claude, grava, confere e
+  abre de novo, no Windows e no Mac, e diz em que arquivo gravou.
+- **O status não conta mais como "mensagem mais nova" o que não é mensagem.**
+  Mensagens internas entre os aparelhos da sua conta, gravadas no pareamento,
+  apareciam como a mais recente sem existir em nenhuma conversa.
+- A tela de conectar não quebra mais o layout com caminhos longos, e o botão de
+  copiar volta a aparecer.
+
+### Mudou
+
+- **Esperando a ferramenta conectar, a tela tem "Checar de novo" e "Pular".**
+  Ela também continua checando enquanto estiver aberta, em vez de parar depois
+  de dez minutos, e reconhece a aba Code do Claude Desktop.
+- **Pedir para o próprio Claude configurar.** Em "Prefiro configurar de outro
+  jeito", há um texto para colar no Claude, que testa a conexão e corrige a
+  configuração.
+- **No celular, o computador aparece como "WhatsApp MCP - Windows (nome do
+  PC)"**, em vez de "wacli", nos números conectados a partir desta versão.
+- Uma comemoração quando a ferramenta conecta.
+
+Inclui o wacli 0.25.1.
+
 ## [1.6.0] - 2026-10-30
 
 ### Adicionado
@@ -298,6 +330,7 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.6.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.6.1
 [1.6.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.6.0
 [1.5.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.5.0
 [1.4.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.4.0
