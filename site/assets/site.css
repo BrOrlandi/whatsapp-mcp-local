@@ -524,3 +524,35 @@ code {
   .server-steps > li, .steps > li { padding-left: 0; }
   .server-steps > li::before, .steps > li::before { position: static; display: block; margin-bottom: 12px; }
 }
+
+/* Help pages (/ajuda): the list of guides and a guide. */
+.page-head--short { padding-block: clamp(28px, 5vw, 56px) clamp(40px, 6vw, 72px); }
+.crumbs { margin: 0 0 10px !important; font-size: 1rem !important; font-weight: 600; }
+.nav__link[aria-current="page"] { color: #fff; }
+.help-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: 20px; padding-block: clamp(40px, 6vw, 72px); }
+.help-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 28px 26px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  box-shadow: 0 24px 60px -36px rgba(7, 61, 53, 0.45);
+}
+.help-card:hover { border-color: var(--brand); color: var(--ink); }
+.help-card h2 { font-size: 1.55rem; letter-spacing: -0.02em; }
+.help-card p { color: var(--ink-soft); }
+.help-card__tag { display: inline-flex; align-self: flex-start; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: var(--brand-soft); color: var(--brand-strong); font-size: 0.86rem; font-weight: 700; }
+.help-card__tag svg { width: 14px; height: 14px; }
+.help-card__more { display: inline-flex; align-items: center; gap: 8px; margin-top: auto; color: var(--brand); font-weight: 700; }
+.help-card__more svg { width: 18px; height: 18px; }
+.article { max-width: 860px; padding-block: clamp(40px, 6vw, 72px); }
+.article > h2 { margin-top: clamp(48px, 7vw, 72px); font-size: clamp(1.7rem, 3vw, 2.2rem); }
+.article .steps { margin-top: 24px; }
+.article .faq { margin-top: 24px; }
+.article__more { margin-top: 32px; color: var(--ink-soft); }
+.video-frame { position: relative; aspect-ratio: 16 / 9; border-radius: 18px; overflow: hidden; background: var(--deep-sunken); box-shadow: 0 30px 70px -36px rgba(7, 61, 53, 0.6); }
+.video-frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
