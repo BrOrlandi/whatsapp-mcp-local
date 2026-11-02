@@ -79,6 +79,13 @@ Structured convention: `.claude/release.json` (read by the `release` skill). Pro
 - Bump from conventional commits (breaking → major, `feat` → minor, otherwise patch), confirmed
   with the user; while the version is 0.x, minor marks a release with new features.
 
+## Integration tests
+
+`docs/testes-integracao.md` has the end-to-end scripts with the real AI tools (Claude Desktop on
+Windows in a VMPal VM, and on a separate test Mac over SSH). Run them only when Bruno asks. The
+repository is public: never write his addresses, IPs or user names there; the doc uses
+`TEST_MAC` and `VM` placeholders.
+
 ## Git workflow
 
 <!-- claude-skill:commit default-branch-policy=direct -->

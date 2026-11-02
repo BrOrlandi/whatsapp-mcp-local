@@ -148,6 +148,10 @@ WAMCP_E2E_PACKAGES=<pasta com os pacotes e um manifest.json> WAMCP_E2E_AUDIO=voz
 Com `WAMCP_E2E_PACKAGES=published`, ele baixa os pacotes fixados em
 `internal/sidecar/manifest.json`, do release publicado.
 
+Os testes de integração com as ferramentas de IA de verdade (o Claude Desktop
+no Windows, numa VM do VMPal, e no macOS, num Mac de testes) também só rodam
+sob demanda, e têm roteiro próprio: [testes-integracao.md](testes-integracao.md).
+
 ## Publicar
 
 Toda versão é compilada e publicada à mão, neste Mac: o GitHub Actions só roda
