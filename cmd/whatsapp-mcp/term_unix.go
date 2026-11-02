@@ -14,3 +14,6 @@ func isTerminal(f *os.File) bool {
 	_, err := unix.IoctlGetTermios(int(f.Fd()), ioctlGetTermios)
 	return err == nil
 }
+
+// ansiOK reports whether f shows ANSI colours and cursor codes: any terminal.
+func ansiOK(f *os.File) bool { return isTerminal(f) }

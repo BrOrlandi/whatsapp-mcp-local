@@ -85,7 +85,7 @@ func pairCmd(cfg config, args []string) error {
 		}
 	}()
 
-	colour := isTerminal(os.Stdout) && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb"
+	colour := ansiOK(os.Stdout) && os.Getenv("NO_COLOR") == "" && os.Getenv("TERM") != "dumb"
 	shown := ""
 	for {
 		st, _, err := a.status(ctx)
@@ -165,7 +165,7 @@ func showQR(st status, colour, invert bool, file string) error {
 	if err != nil {
 		return err
 	}
-	if isTerminal(os.Stdout) {
+	if ansiOK(os.Stdout) {
 		fmt.Fprint(stdout, "\x1b[H\x1b[2J") // the new code in place of the old one
 	} else if p.QRVersion > 1 {
 		fmt.Fprintln(stdout, "\n"+strings.Repeat("─", 40)+"\n")

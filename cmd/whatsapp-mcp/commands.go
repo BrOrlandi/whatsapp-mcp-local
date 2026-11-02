@@ -529,6 +529,9 @@ func logsCmd(cfg config, args []string) error {
 	if _, err := f.parse(args); err != nil {
 		return err
 	}
+	if *lines < 0 {
+		return fail(exitUsage, "logs: %s", i18n.T("-n é um número de linhas, 0 ou mais"))
+	}
 	switch {
 	case inContainer():
 		return fail(exitConflict, "%s", i18n.T("no Docker, o registro sai na saída do contêiner: docker compose logs -f"))

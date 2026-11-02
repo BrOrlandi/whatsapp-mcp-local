@@ -865,5 +865,6 @@
  "Checar de novo": "Comprobar de nuevo",
  "Pular e ir para o painel": "Saltar e ir al panel",
  "Voltar para o início": "Volver al inicio",
- "Ainda não vi %s se conectar. Se a ferramenta já respondeu com o seu WhatsApp, pode pular este passo.": "Todavía no vi que %s se conectara. Si la herramienta ya respondió con tu WhatsApp, puedes saltar este paso."
+ "Ainda não vi %s se conectar. Se a ferramenta já respondeu com o seu WhatsApp, pode pular este passo.": "Todavía no vi que %s se conectara. Si la herramienta ya respondió con tu WhatsApp, puedes saltar este paso.",
+ "-n é um número de linhas, 0 ou mais": "-n es un número de líneas, 0 o más"
 }

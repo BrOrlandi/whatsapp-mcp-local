@@ -424,3 +424,10 @@ func TestFlagsAnywhere(t *testing.T) {
 		t.Fatalf("--json then an unknown flag: exit %d, json %v", exitCode(err), jsonOutput)
 	}
 }
+
+func TestLogsRefusesANegativeCount(t *testing.T) {
+	cfg, _ := load()
+	if _, err := run(t, logsCmd, cfg, "-n", "-1"); exitCode(err) != exitUsage {
+		t.Fatalf("logs -n -1: exit %d, %v", exitCode(err), err)
+	}
+}
