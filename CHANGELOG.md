@@ -20,6 +20,11 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
   não for um JSON válido, ele avisa qual arquivo corrigir antes de fechar o
   Claude, em vez de fechar e depois não conseguir gravar.
 
+### Mudou
+
+- **"Versão e atualizações" numa linha só.** A versão e o botão de procurar
+  atualização ficam lado a lado, e a versão do wacli aparece, curta, no canto.
+
 Inclui o wacli 0.25.1.
 
 ## [1.6.1] - 2026-11-02
