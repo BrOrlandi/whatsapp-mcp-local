@@ -4,7 +4,7 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
-## [Não lançado]
+## [1.6.2] - 2026-11-02
 
 ### Corrigido
 
@@ -13,6 +13,14 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
   conversa, e a IA recebia cada uma delas como uma mensagem vazia,
   "(message)", que escondia o que você escreveu. Ler a conversa, buscar e ver
   o contexto de uma mensagem agora deixam essas mensagens de fora.
+- **Claude Desktop no Windows: configuração salva pelo Bloco de Notas ou pelo
+  PowerShell.** Esses editores podem gravar o arquivo com uma marca invisível
+  no começo, e o app o tomava por inválido. Agora ele lê e grava normalmente.
+- **O app não fecha mais o Claude Desktop à toa.** Se a configuração do Claude
+  não for um JSON válido, ele avisa qual arquivo corrigir antes de fechar o
+  Claude, em vez de fechar e depois não conseguir gravar.
+
+Inclui o wacli 0.25.1.
 
 ## [1.6.1] - 2026-11-02
 
