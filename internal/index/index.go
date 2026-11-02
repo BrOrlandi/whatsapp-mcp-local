@@ -449,6 +449,11 @@ type ChatPreview struct {
 // this identifies an empty parser fallback, not a specific WhatsApp event.
 const displayText = `COALESCE(NULLIF(m.media_caption,''), NULLIF(m.text,''), NULLIF(NULLIF(m.display_text,''),'(message)'), '')`
 
+// anyText is any text a row has, wacli's "(message)" included: whether a row
+// with only that is a real message (a location, a poll) is placeholder's call,
+// not this one's.
+const anyText = `COALESCE(NULLIF(m.media_caption,''), NULLIF(m.text,''), NULLIF(m.display_text,''), '')`
+
 // placeholder is a row wacli stored without any content: a protocol or system
 // message it could not read (key shares, history notices, settings sent between
 // the account's own devices), kept under the display text "(message)". wacli
@@ -465,7 +470,7 @@ const placeholder = `(COALESCE(m.text,'') = '' AND COALESCE(m.media_caption,'') 
 // content-free system rows, status broadcasts and channels. It is the one
 // notion of "a message" every read shares, the status included, so a status
 // never names a message that no conversation or search can show.
-const visible = `m.deleted_at IS NULL AND COALESCE(m.reaction_to_id,'') = '' AND (` + displayText + ` != '' OR COALESCE(m.media_type,'') != '')
+const visible = `m.deleted_at IS NULL AND COALESCE(m.reaction_to_id,'') = '' AND (` + anyText + ` != '' OR COALESCE(m.media_type,'') != '')
 	AND m.chat_jid NOT LIKE '%@broadcast' AND m.chat_jid NOT LIKE '%@newsletter' AND NOT ` + placeholder
 
 // RecentChats lists the conversations with the most recent real messages,
