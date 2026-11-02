@@ -165,10 +165,18 @@ func (s *Server) messageContext(ctx context.Context, a arguments) map[string]any
 	before, after := around(a.Before), around(a.After)
 	ctx, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
+	// System rows are dropped below; ask for enough more on each side that
+	// both still come back full.
+	extra, _ := s.index.Placeholders(ctx, m.ChatJID, time.Time{}, time.Time{})
+	extra = min(extra, 500)
 	var out []wacliMessage
 	if err := s.cli.Decode(ctx, &out, "--read-only", "messages", "context", "--chat", m.ChatJID, "--id", m.ID,
-		"--before", strconv.Itoa(before), "--after", strconv.Itoa(after)); err != nil {
+		"--before", strconv.Itoa(before+extra), "--after", strconv.Itoa(after+extra)); err != nil {
 		return toolError("%v", err)
+	}
+	out = s.dropPlaceholders(ctx, out, m.ID)
+	if at := slices.IndexFunc(out, func(w wacliMessage) bool { return w.MsgID == m.ID }); at >= 0 {
+		out = out[max(at-before, 0):min(at+1+after, len(out))]
 	}
 	msgs := make([]message, 0, len(out))
 	for _, w := range out {

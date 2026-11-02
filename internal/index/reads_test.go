@@ -243,3 +243,51 @@ func TestStatusCountsOnlyVisibleMessages(t *testing.T) {
 		t.Errorf("Mãe = %d messages, want 4 (the placeholder reply left out)", n)
 	}
 }
+
+// TestPlaceholdersInTheChatWithOneself: wacli stores the protocol messages the
+// account's own devices exchange as content-free "(message)" rows in the chat
+// with oneself. The readers that go through wacli drop them by asking which
+// rows are placeholders, and size their request by how many a period holds; a
+// location, which also has no text, is a real message.
+func TestPlaceholdersInTheChatWithOneself(t *testing.T) {
+	now := time.Now()
+	x, path := storeAt(t, now)
+	db, err := sql.Open("sqlite", "file:"+path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	self := me + "@s.whatsapp.net"
+	ago := func(d time.Duration) int64 { return now.Add(-d).Unix() }
+	for _, q := range []struct {
+		sql  string
+		args []any
+	}{
+		{`INSERT INTO messages (chat_jid, msg_id, sender_jid, ts, from_me, text, display_text) VALUES
+			(?, 'P1', ?, ?, 1, '', '(message)'), (?, 'P2', ?, ?, 1, NULL, '(message)'),
+			(?, 'REAL', ?, ?, 1, 'Ola teste 123', 'Ola teste 123'), (?, 'LOC', ?, ?, 1, '', '(message)')`,
+			[]any{self, self, ago(time.Minute), self, self, ago(3 * time.Hour), self, self, ago(2 * time.Minute), self, self, ago(4 * time.Minute)}},
+		{`INSERT INTO message_locations (chat_jid, msg_id, latitude, longitude) VALUES (?, 'LOC', -23.5, -46.6)`, []any{self}},
+	} {
+		if _, err := db.Exec(q.sql, q.args...); err != nil {
+			t.Fatalf("%s: %v", q.sql, err)
+		}
+	}
+	ctx := context.Background()
+
+	got, err := x.WhichPlaceholders(ctx, []MessageKey{{self, "P1"}, {self, "P2"}, {self, "REAL"}, {self, "LOC"}, {lucas, "P1"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[MessageKey]bool{{self, "P1"}: true, {self, "P2"}: true}
+	if len(got) != len(want) || !got[MessageKey{self, "P1"}] || !got[MessageKey{self, "P2"}] {
+		t.Errorf("WhichPlaceholders = %v, want %v", got, want)
+	}
+
+	if n, err := x.Placeholders(ctx, self, time.Time{}, time.Time{}); err != nil || n != 2 {
+		t.Errorf("Placeholders over all time = %d, %v; want 2", n, err)
+	}
+	if n, err := x.Placeholders(ctx, self, now.Add(-time.Hour), now); err != nil || n != 1 {
+		t.Errorf("Placeholders over the last hour = %d, %v; want 1", n, err)
+	}
+}

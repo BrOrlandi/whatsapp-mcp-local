@@ -125,6 +125,67 @@ func (x *Index) ChatOldest(ctx context.Context, chatJID string) (*time.Time, err
 	return &t, nil
 }
 
+// Placeholders is how many content-free system rows (see placeholder) one
+// chat holds over a period, so a reader that goes through wacli can ask for
+// that many more and still fill its page once it drops them.
+func (x *Index) Placeholders(ctx context.Context, chatJID string, since, until time.Time) (int, error) {
+	query := `SELECT COUNT(*) FROM messages m WHERE m.chat_jid = ? AND ` + placeholder
+	args := []any{chatJID}
+	if !since.IsZero() {
+		query += ` AND m.ts >= ?`
+		args = append(args, since.Unix())
+	}
+	if !until.IsZero() {
+		query += ` AND m.ts <= ?`
+		args = append(args, until.Unix())
+	}
+	var n int
+	if err := x.db.QueryRowContext(ctx, query, args...).Scan(&n); err != nil {
+		return 0, describe(err)
+	}
+	return n, nil
+}
+
+// MessageKey names one stored message: ids are unique per chat only.
+type MessageKey struct{ ChatJID, ID string }
+
+// WhichPlaceholders reports which of the given messages are content-free
+// system rows: what wacli stores for the protocol messages the account's own
+// devices exchange, under the text "(message)". wacli's own reads return them
+// like any message; nothing the person reads should.
+func (x *Index) WhichPlaceholders(ctx context.Context, keys []MessageKey) (map[MessageKey]bool, error) {
+	byChat := map[string][]any{}
+	for _, k := range keys {
+		byChat[k.ChatJID] = append(byChat[k.ChatJID], k.ID)
+	}
+	out := map[MessageKey]bool{}
+	for chat, ids := range byChat {
+		for len(ids) > 0 {
+			batch := ids[:min(len(ids), 500)]
+			ids = ids[len(batch):]
+			rows, err := x.db.QueryContext(ctx, `SELECT m.msg_id FROM messages m WHERE m.chat_jid = ? AND m.msg_id IN (?`+
+				strings.Repeat(",?", len(batch)-1)+`) AND `+placeholder, append([]any{chat}, batch...)...)
+			if err != nil {
+				return nil, describe(err)
+			}
+			for rows.Next() {
+				var id string
+				if err := rows.Scan(&id); err != nil {
+					rows.Close()
+					return nil, describe(err)
+				}
+				out[MessageKey{chat, id}] = true
+			}
+			err = rows.Err()
+			rows.Close()
+			if err != nil {
+				return nil, describe(err)
+			}
+		}
+	}
+	return out, nil
+}
+
 // Gap is a window in which no conversation at all produced a message.
 type Gap struct {
 	From  time.Time `json:"from"`

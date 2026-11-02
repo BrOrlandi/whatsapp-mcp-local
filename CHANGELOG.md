@@ -4,6 +4,16 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+### Corrigido
+
+- **A conversa com você mesmo mostra as suas mensagens, sem "(message)".** As
+  mensagens internas que os aparelhos da sua conta trocam entre si ficam nessa
+  conversa, e a IA recebia cada uma delas como uma mensagem vazia,
+  "(message)", que escondia o que você escreveu. Ler a conversa, buscar e ver
+  o contexto de uma mensagem agora deixam essas mensagens de fora.
+
 ## [1.6.1] - 2026-11-02
 
 ### Corrigido

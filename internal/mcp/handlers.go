@@ -187,6 +187,50 @@ func parseTime(value, name string) (string, error) {
 	return "", fmt.Errorf("%s must be an RFC 3339 time such as 2026-09-01T00:00:00Z", name)
 }
 
+// periodBound reads a since or until value parseTime accepted. A bare date
+// as an upper bound covers the whole day. It only sizes a request, so erring
+// wide is harmless.
+func periodBound(value string, upper bool) time.Time {
+	if t, err := time.Parse(time.RFC3339, value); err == nil {
+		return t
+	}
+	if t, err := time.Parse("2006-01-02", value); err == nil {
+		if upper {
+			return t.Add(24 * time.Hour)
+		}
+		return t
+	}
+	return time.Time{}
+}
+
+// dropPlaceholders leaves out the content-free system rows wacli stores for
+// the protocol messages the account's own devices exchange (key shares,
+// settings), which it shows as "(message)". They land in the chat with
+// oneself, where they would bury what the person actually wrote. Keep is a
+// message the caller asked for by id and must not lose.
+func (s *Server) dropPlaceholders(ctx context.Context, ws []wacliMessage, keep string) []wacliMessage {
+	keys := make([]index.MessageKey, 0, len(ws))
+	for _, w := range ws {
+		if w.MsgID != keep && w.Text == "" && w.MediaType == "" && w.MediaCaption == "" && !w.Revoked {
+			keys = append(keys, index.MessageKey{ChatJID: w.ChatJID, ID: w.MsgID})
+		}
+	}
+	if len(keys) == 0 {
+		return ws
+	}
+	drop, err := s.index.WhichPlaceholders(ctx, keys)
+	if err != nil || len(drop) == 0 {
+		return ws
+	}
+	out := ws[:0:0]
+	for _, w := range ws {
+		if !drop[index.MessageKey{ChatJID: w.ChatJID, ID: w.MsgID}] {
+			out = append(out, w)
+		}
+	}
+	return out
+}
+
 // ---- reading ----
 
 // wacliMessage is a message as `wacli --json messages list|search` prints it.
@@ -340,7 +384,11 @@ func (s *Server) chatMessages(ctx context.Context, a arguments) map[string]any {
 	}
 	ctx, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
-	args := []string{"--read-only", "messages", "list", "--chat", a.ChatJID, "--limit", strconv.Itoa(limit(a.Limit, 100))}
+	// System rows are dropped below; ask for as many more as the period holds,
+	// so the page still comes back full.
+	n := limit(a.Limit, 100)
+	extra, _ := s.index.Placeholders(ctx, a.ChatJID, periodBound(since, false), periodBound(until, true))
+	args := []string{"--read-only", "messages", "list", "--chat", a.ChatJID, "--limit", strconv.Itoa(n + extra)}
 	if since != "" {
 		args = append(args, "--after", since)
 	}
@@ -356,8 +404,10 @@ func (s *Server) chatMessages(ctx context.Context, a arguments) map[string]any {
 	if err := s.cli.Decode(ctx, &out, args...); err != nil {
 		return toolError("%v", err)
 	}
-	msgs := make([]message, 0, len(out.Messages))
-	for _, m := range out.Messages {
+	kept := s.dropPlaceholders(ctx, out.Messages, "")
+	kept = kept[:min(len(kept), n)]
+	msgs := make([]message, 0, len(kept))
+	for _, m := range kept {
 		msg := convert(m)
 		s.name(ctx, &msg)
 		msgs = append(msgs, msg)
@@ -442,7 +492,7 @@ func (s *Server) searchMessages(ctx context.Context, a arguments) map[string]any
 	}
 	msgs := make([]message, 0, len(out.Messages))
 	seen := map[string]bool{}
-	for _, m := range out.Messages {
+	for _, m := range s.dropPlaceholders(ctx, out.Messages, "") {
 		msg := convert(m)
 		s.name(ctx, &msg)
 		msgs = append(msgs, msg)
