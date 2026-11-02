@@ -66,7 +66,7 @@ func Version(ctx context.Context, bin string) string {
 func (c *CLI) Run(ctx context.Context, args ...string) (json.RawMessage, error) {
 	full := append([]string{"--json"}, args...)
 	cmd := exec.CommandContext(ctx, c.Bin, full...)
-	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1")
+	cmd.Env = c.env()
 	platform.Background(cmd)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -124,7 +124,7 @@ func lastLine(s string) string {
 // command line may run an older wacli than the app ships.
 func (c *CLI) Supports(ctx context.Context, flag string, command ...string) bool {
 	cmd := exec.CommandContext(ctx, c.Bin, append(command, "--help")...)
-	cmd.Env = append(os.Environ(), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1")
+	cmd.Env = c.env()
 	platform.Background(cmd)
 	out, _ := cmd.CombinedOutput()
 	return bytes.Contains(out, []byte(flag))
