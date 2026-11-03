@@ -79,9 +79,9 @@ func evaluate(in healthInputs) Health {
 	case in.DoctorErr != nil:
 		add("wacli", "fail", "wacli did not answer: "+in.DoctorErr.Error(), "check that wacli is installed (brew install openclaw/tap/wacli) and that WACLI_BIN points at it")
 	case in.SessionRevoked:
-		add("paired", "fail", "WhatsApp revoked this linked device", "pair again: wacli auth logout, then wacli auth")
+		add("paired", "fail", "WhatsApp revoked this linked device", "connect WhatsApp again: in the panel (Connect), or with whatsapp-mcp pair in a terminal")
 	case !in.Authenticated:
-		add("paired", "fail", "WhatsApp is not paired on this machine", "run wacli auth in a terminal and scan the QR code from Linked devices on the phone")
+		add("paired", "fail", "WhatsApp is not paired on this machine", "connect WhatsApp: in the panel (Connect), or with whatsapp-mcp pair in a terminal, and scan the QR code from Linked devices on the phone")
 	default:
 		add("paired", "ok", "WhatsApp is paired as a linked device", "")
 	}
@@ -100,9 +100,9 @@ func evaluate(in healthInputs) Health {
 	case sync.State == "reconnecting":
 		add("sync", "warn", "reconnecting to WhatsApp, for "+for_, "check the internet connection; it keeps retrying on its own")
 	case sync.State == "not_paired":
-		add("sync", "fail", "waiting for WhatsApp to be paired", "run wacli auth")
+		add("sync", "fail", "waiting for WhatsApp to be paired", "connect WhatsApp: in the panel (Connect), or with whatsapp-mcp pair in a terminal")
 	case sync.State == "logged_out":
-		add("sync", "fail", "WhatsApp logged this device out", "pair again: wacli auth logout, then wacli auth")
+		add("sync", "fail", "WhatsApp logged this device out", "connect WhatsApp again: in the panel (Connect), or with whatsapp-mcp pair in a terminal")
 	default:
 		detail := "not running (" + sync.State + ")"
 		if sync.LastError != "" {
