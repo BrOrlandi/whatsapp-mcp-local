@@ -867,5 +867,9 @@
  "Voltar para o início": "Volver al inicio",
  "Ainda não vi %s se conectar. Se a ferramenta já respondeu com o seu WhatsApp, pode pular este passo.": "Todavía no vi que %s se conectara. Si la herramienta ya respondió con tu WhatsApp, puedes saltar este paso.",
  "-n é um número de linhas, 0 ou mais": "-n es un número de líneas, 0 o más",
- "Recomendado: assim as suas ferramentas de IA encontram o WhatsApp sempre que o computador ligar. Se preferir deixar para depois, a opção fica em Configurações.": "Recomendado: así tus herramientas de IA encuentran WhatsApp siempre que la computadora se encienda. Si prefieres dejarlo para después, la opción está en Configuración."
+ "Recomendado: assim as suas ferramentas de IA encontram o WhatsApp sempre que o computador ligar. Se preferir deixar para depois, a opção fica em Configurações.": "Recomendado: así tus herramientas de IA encuentran WhatsApp siempre que la computadora se encienda. Si prefieres dejarlo para después, la opción está en Configuración.",
+ "Passo %d de %d": "Paso %d de %d",
+ "Próximo passo": "Siguiente paso",
+ "Passo anterior": "Paso anterior",
+ "Ver todos os passos": "Ver todos los pasos"
 }

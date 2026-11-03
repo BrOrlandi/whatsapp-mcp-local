@@ -407,6 +407,10 @@ const extraCSS = `
 .flowstep .busy{margin-top:0}
 .flowstep .resend{margin-top:16px}
 @media (max-width:460px){.flowstep{padding-left:0}.flowstep::before{position:static;margin-bottom:8px}}
+.flowsteps--one .flowstep{padding-top:0;border-top:0}
+.flowsteps--one .flowstep::before{content:attr(data-step);top:-2px}
+.flowstep__count{margin:0 0 4px;color:var(--muted);font-size:.85rem}
+.flowstep__nav{margin-top:18px}
 /* ---- settings sections ---- */
 .card__title{display:flex;align-items:center;gap:10px}
 .card__title .icon{box-sizing:content-box;width:18px;height:18px;padding:6px;border-radius:8px;background:var(--brand-soft);color:var(--brand)}

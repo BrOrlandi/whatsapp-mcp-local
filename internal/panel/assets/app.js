@@ -96,6 +96,9 @@
       };
       add(false).then(function (result) {
         button.textContent = t("Configurado ✓");
+        var step = button.closest(".flowstep");
+        var next = step && step.querySelector("[data-step-next]");
+        if (next) { next.classList.remove("btn--ghost"); next.focus(); }
         if (note) {
           // The server read the configuration back before answering, so
           // the page can say it is there, and where.
@@ -115,6 +118,57 @@
         if (note) { note.hidden = false; note.textContent = error.message; }
       });
     });
+  });
+
+  // ---- one step at a time ----
+  // The connect flow shows its steps one by one, each with a button to the
+  // next. "Ver todos os passos" shows them all at once, for whoever got
+  // stuck; without the script, they are all there from the start.
+  document.querySelectorAll("ol.flowsteps").forEach(function (list) {
+    var steps = Array.prototype.slice.call(list.children);
+    if (steps.length < 2) return;
+    list.classList.add("flowsteps--one");
+    function show(i, focus) {
+      steps.forEach(function (step, j) { step.hidden = j !== i; });
+      if (!focus) return;
+      var title = steps[i].querySelector(".flowstep__title");
+      if (title) { title.setAttribute("tabindex", "-1"); title.focus(); }
+      list.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+    function showAll() {
+      list.classList.remove("flowsteps--one");
+      steps.forEach(function (step) { step.hidden = false; });
+      list.querySelectorAll(".flowstep__nav, .flowstep__count").forEach(function (node) { node.remove(); });
+    }
+    steps.forEach(function (step, i) {
+      step.setAttribute("data-step", String(i + 1));
+      var count = el("p", "flowstep__count", t("Passo %d de %d", i + 1, steps.length));
+      step.insertBefore(count, step.firstChild);
+      var nav = el("div", "actions flowstep__nav");
+      if (i < steps.length - 1) {
+        // A step with its own button (Adicionar ao …) keeps it the main one
+        // until it has worked.
+        var own = step.querySelector("[data-add-client]");
+        var next = el("button", own ? "btn btn--ghost" : "btn", t("Próximo passo"));
+        next.type = "button";
+        next.setAttribute("data-step-next", "");
+        next.addEventListener("click", function () { show(i + 1, true); });
+        nav.appendChild(next);
+      }
+      if (i > 0) {
+        var back = el("button", "btn btn--ghost", t("Passo anterior"));
+        back.type = "button";
+        back.addEventListener("click", function () { show(i - 1, true); });
+        nav.appendChild(back);
+      }
+      var all = el("button", "btn btn--quiet btn--small", t("Ver todos os passos"));
+      all.type = "button";
+      all.addEventListener("click", showAll);
+      nav.appendChild(all);
+      step.appendChild(nav);
+    });
+    list.addEventListener("flowsteps:all", showAll);
+    show(0, false);
   });
 
   // ---- waiting for a client ----
@@ -146,6 +200,9 @@
     button.addEventListener("click", function () {
       var manual = document.querySelector("[data-desktop-manual]");
       if (!manual) return;
+      // The manual way sits in the first step, maybe hidden by now.
+      var list = manual.closest("ol.flowsteps");
+      if (list) list.dispatchEvent(new CustomEvent("flowsteps:all"));
       manual.open = true;
       manual.scrollIntoView({ behavior: "smooth", block: "start" });
     });
