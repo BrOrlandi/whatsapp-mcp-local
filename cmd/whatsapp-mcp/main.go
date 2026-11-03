@@ -138,6 +138,20 @@ func main() {
 	if len(os.Args) > 2 {
 		args = os.Args[2:]
 	}
+	// whatsapp-mcp <command> --help, and whatsapp-mcp help <command>.
+	if cmd == "help" || cmd == "--help" || cmd == "-h" {
+		if len(args) > 0 {
+			if text := helpFor(args[0]); text != "" {
+				fmt.Print(text)
+				return
+			}
+			fmt.Fprintf(os.Stderr, "unknown command %q\n\n%s", args[0], usage)
+			os.Exit(exitUsage)
+		}
+	} else if text := helpFor(cmd); text != "" && wantsHelp(args) {
+		fmt.Print(text)
+		return
+	}
 	switch cmd {
 	case "serve":
 		err = serve(cfg)
@@ -224,7 +238,16 @@ status, pair, logout, port, token, webhooks and update take --json: one JSON obj
 2 wrong usage, 3 the daemon does not answer, 4 WhatsApp not ready or not connected, 5 timeout,
 6 not possible here (a setting fixed by the environment, a busy port, Docker).
 
-Environment: WHATSAPP_MCP_PORT, WHATSAPP_MCP_TOKEN, WHATSAPP_MCP_LANG (pt-BR, es, en), WACLI_BIN, WACLI_STORE_DIR, WHATSAPP_MCP_DATA
+Run whatsapp-mcp <command> --help (or whatsapp-mcp help <command>) for what a command does,
+its flags and examples.
+
+Environment (each one wins over what the commands saved):
+  WHATSAPP_MCP_PORT    the port of the MCP and the panel (default 47821)
+  WHATSAPP_MCP_TOKEN   the key the MCP asks for (see whatsapp-mcp token)
+  WHATSAPP_MCP_LANG    the language of the messages and the panel: pt-BR, es, en
+  WHATSAPP_MCP_DATA    the data folder (default ~/.whatsapp-mcp)
+  WACLI_BIN            the wacli program to run (default: the one beside this program, else PATH)
+  WACLI_STORE_DIR      wacli's folder, with the WhatsApp session and messages (default ~/.wacli)
 `
 
 // language is the one the panel and the messages show: WHATSAPP_MCP_LANG,
