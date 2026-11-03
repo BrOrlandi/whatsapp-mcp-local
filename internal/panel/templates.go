@@ -62,8 +62,10 @@ way out is one click away. */}}
 refreshes when it has passed. */}}
 {{define "syncpill"}}<span class="pill pill--{{.SyncTone}}{{if .SyncBusy}} pill--busy{{end}}" data-sync>{{if .SyncBusy}}<span class="spinner" aria-hidden="true"></span>{{end}}{{t .SyncLabel}}</span>{{end}}
 
-{{define "autostartcheck"}}{{if .App}}<div class="wizard__escape"><label class="check check--inline"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span>{{t "Abrir o WhatsApp MCP quando o computador ligar"}}</span></label></div>
-<p class="busy" data-setting-note role="status" hidden></p>{{end}}{{end}}
+{{/* Offered once everything works: the last step of the first run. */}}
+{{define "autostartcheck"}}{{if .App}}<div class="stack" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+<label class="check"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span><strong>{{t "Abrir o WhatsApp MCP quando o computador ligar"}}</strong><span class="check__hint">{{t "Recomendado: assim as suas ferramentas de IA encontram o WhatsApp sempre que o computador ligar. Se preferir deixar para depois, a opção fica em Configurações."}}</span></span></label>
+<p class="busy" data-setting-note role="status" hidden></p></div>{{end}}{{end}}
 
 {{/* Connecting an AI tool is a flow of its own: the tool first, then the
 steps for that one, which end when it connects. No tabs on the way. */}}
@@ -475,7 +477,6 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div>
 </div></section>
 <p class="muted" style="text-align:center">{{t "Tudo roda neste computador: as mensagens ficam aqui, e nada passa por servidor de terceiros."}}</p>
-{{template "autostartcheck" .}}
 {{end}}
 
 {{if eq .Step 2}}
@@ -495,6 +496,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="lead">{{if eq .LiveCount 1}}{{tf "%s já está usando o seu WhatsApp." (liveTools .Connections)}}{{else}}{{tf "%s já estão usando o seu WhatsApp." (liveTools .Connections)}}{{end}}</p>
 <p class="muted">{{t "Para testar, mande isto no chat:"}}</p>
 <div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
+{{template "autostartcheck" .}}
 <form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done">
 <div class="actions" style="margin-top:14px"><button class="btn btn--block" type="submit">{{t "Ir para o painel"}}</button></div></form>
 </div></section>
@@ -508,7 +510,6 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done">
 <div class="wizard__escape"><button class="btn btn--quiet" type="submit">{{t "Pular por enquanto"}}</button></div></form>
 {{end}}
-{{template "autostartcheck" .}}
 {{end}}
 </div>
 {{template "foot" .}}{{end}}

@@ -866,5 +866,6 @@
  "Pular e ir para o painel": "Skip and go to the dashboard",
  "Voltar para o início": "Back to the start",
  "Ainda não vi %s se conectar. Se a ferramenta já respondeu com o seu WhatsApp, pode pular este passo.": "I haven't seen %s connect yet. If the tool already answered with your WhatsApp, you can skip this step.",
- "-n é um número de linhas, 0 ou mais": "-n is a number of lines, 0 or more"
+ "-n é um número de linhas, 0 ou mais": "-n is a number of lines, 0 or more",
+ "Recomendado: assim as suas ferramentas de IA encontram o WhatsApp sempre que o computador ligar. Se preferir deixar para depois, a opção fica em Configurações.": "Recommended: this way your AI tools find WhatsApp whenever the computer starts. If you would rather leave it for later, the option is in Settings."
 }
