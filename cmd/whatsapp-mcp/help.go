@@ -290,7 +290,7 @@ HTTPS. See docs/modo-servidor.md.
                   server's fingerprint (default)
   code            a pairing code for one more device. It works once, for 10
                   minutes, and is not shown again; paste it in the app, in
-                  Configurações › Acesso remoto › Usar um servidor, with this
+                  Settings › Remote access › Use a server, with this
                   server's https:// address.
     --name          the device's name in the list
     --scope         admin (default): the whole panel; tools: only the MCP
