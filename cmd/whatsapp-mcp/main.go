@@ -283,7 +283,7 @@ func serve(cfg config) error {
 		Port: cfg.Port, RequirePort: true, Token: cfg.Token,
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
 		LogPath: logPath(), Version: version, Logger: logger,
-		Desktop: desktopCommand(cfg),
+		Desktop: desktopCommand(cfg), CommandLine: true,
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
 		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)

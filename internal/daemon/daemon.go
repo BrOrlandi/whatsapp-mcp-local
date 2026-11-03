@@ -45,6 +45,9 @@ type Config struct {
 	// Panel adjusts the control panel before it is served, for the app to
 	// plug in what only it can do.
 	Panel func(*panel.Panel)
+	// CommandLine is set by the command line, which has no app window: the
+	// health checks' fixes name its commands.
+	CommandLine bool
 }
 
 // Daemon is a running gateway.

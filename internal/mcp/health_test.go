@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -97,5 +98,24 @@ func TestHealthVerdicts(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestHealthFixSpeaksToWhoIsThere keeps the app's fixes free of commands: a
+// person using the app may never have opened a terminal.
+func TestHealthFixSpeaksToWhoIsThere(t *testing.T) {
+	for _, commandLine := range []bool{false, true} {
+		h := evaluate(healthInputs{Now: time.Now(), Sync: wacli.Status{State: "not_paired"}, CommandLine: commandLine})
+		for _, c := range h.Checks {
+			if c.Status != "fail" || c.Fix == "" {
+				continue
+			}
+			if got := strings.Contains(c.Fix, "whatsapp-mcp pair"); got != commandLine {
+				t.Errorf("commandLine=%v, %s fix %q", commandLine, c.Name, c.Fix)
+			}
+			if strings.Contains(c.Fix, "wacli auth") {
+				t.Errorf("%s fix names wacli auth: %q", c.Name, c.Fix)
+			}
+		}
 	}
 }

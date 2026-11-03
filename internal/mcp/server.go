@@ -22,11 +22,12 @@ import (
 var Version = "dev"
 
 type Server struct {
-	cli        *wacli.CLI
-	supervisor *wacli.Supervisor
-	index      *index.Index
-	state      *state.State
-	logger     *slog.Logger
+	commandLine bool
+	cli         *wacli.CLI
+	supervisor  *wacli.Supervisor
+	index       *index.Index
+	state       *state.State
+	logger      *slog.Logger
 	// baseURL is where this gateway listens, for the media links it hands
 	// out. It changes when the port does.
 	baseMu    sync.RWMutex
@@ -136,6 +137,10 @@ type Config struct {
 	// one.
 	Account  func(context.Context) account.Info
 	Accounts func() int
+	// CommandLine is set when this runs as the command line, with no app:
+	// the health fixes then say which command connects WhatsApp, instead of
+	// pointing at the app's screen.
+	CommandLine bool
 }
 
 func New(c Config) *Server {
@@ -144,7 +149,7 @@ func New(c Config) *Server {
 	}
 	return &Server{cli: c.CLI, supervisor: c.Supervisor, index: c.Index, state: c.State, logger: c.Logger,
 		baseURL: c.BaseURL, mediaDir: c.MediaDir, exportDir: c.ExportDir, links: newMediaLinks(), started: time.Now(), asr: c.ASR,
-		clients: map[string]string{}, touched: map[string]time.Time{}, account: c.Account, accounts: c.Accounts}
+		clients: map[string]string{}, touched: map[string]time.Time{}, account: c.Account, accounts: c.Accounts, commandLine: c.CommandLine}
 }
 
 // Account is the number this server answers for.

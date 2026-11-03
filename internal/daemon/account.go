@@ -85,7 +85,7 @@ func (d *Daemon) startAccount(ctx context.Context, spec AccountSpec, asr *locala
 
 	a.server = mcp.New(mcp.Config{CLI: a.cli, Supervisor: a.sup, Index: a.idx, State: a.st, Logger: logger,
 		BaseURL: baseURL(d.Port()), MediaDir: filepath.Join(spec.DataDir, "media"), ExportDir: filepath.Join(spec.DataDir, "exports"), ASR: asr,
-		Account: a.Info, Accounts: d.accountCount})
+		Account: a.Info, Accounts: d.accountCount, CommandLine: d.cfg.CommandLine})
 	return a, nil
 }
 
