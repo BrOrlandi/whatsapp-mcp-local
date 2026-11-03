@@ -127,11 +127,9 @@ func (t *transfers) receive(w http.ResponseWriter, r *http.Request) {
 	if !t.start(w, r) {
 		return
 	}
-	if t.state(r.Context()).Paired {
-		t.done()
-		writeError(w, http.StatusConflict, i18n.T("o servidor já tem um WhatsApp conectado: desconecte-o no servidor antes de trazer os dados deste computador"))
-		return
-	}
+	// The data is read before anything else: a request that does not read
+	// its body as it comes is given up on (internal/remote), and asking
+	// wacli whether it is paired takes a while.
 	a := t.d.primary
 	staging, err := transfer.NewStaging(a.StoreDir, a.DataDir)
 	if err == nil {
@@ -142,6 +140,12 @@ func (t *transfers) receive(w http.ResponseWriter, r *http.Request) {
 		t.done()
 		t.d.logger.Warn("a transfer from the app failed", "error", err)
 		writeError(w, http.StatusBadRequest, i18n.T("os dados não chegaram inteiros; nada mudou no servidor")+": "+err.Error())
+		return
+	}
+	if t.state(r.Context()).Paired {
+		staging.Remove()
+		t.done()
+		writeError(w, http.StatusConflict, i18n.T("o servidor já tem um WhatsApp conectado: desconecte-o no servidor antes de trazer os dados deste computador"))
 		return
 	}
 	t.d.logger.Info("received a number's data from the app; installing it on restart")

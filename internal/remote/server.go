@@ -88,7 +88,12 @@ const (
 	maxStreams  = 64               // requests at once in a session
 	idleTimeout = 90 * time.Second // a session with nothing, not even a ping
 	streamQueue = 64               // body frames queued for a request not read yet
-	maxNameLen  = 64
+	// bodyWait is how long a request's handler may fall behind its body (a
+	// large upload written to disk) before it is given up on. Meanwhile the
+	// session waits for it, as TCP would, so it stays short: one request
+	// that stops reading must not hold the others for long.
+	bodyWait   = 3 * time.Second
+	maxNameLen = 64
 	// firstFrame is how long a connection may wait before its first
 	// message, so idle connections cannot hold the handshake slots.
 	firstFrame = 5 * time.Second
@@ -525,12 +530,14 @@ func (s *Server) identify(ctx context.Context, key []byte, stamp int64) (state.R
 
 type stream struct {
 	body   chan []byte // nil closes the body
+	ctx    context.Context
 	cancel context.CancelFunc
 }
 
 // serve reads a device's requests and answers each in its own goroutine.
-// The reader never waits on a handler: a request's body is queued, and a
-// request that falls too far behind is cancelled.
+// A request's body is queued; when its handler falls behind, the reader
+// waits for it up to bodyWait, then cancels the request and tells the
+// device, whose round trip fails instead of waiting for an answer.
 func (s *Server) serve(ctx context.Context, ch *channel, device state.RemoteClient) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -588,7 +595,7 @@ func (s *Server) serve(ctx context.Context, ch *channel, device state.RemoteClie
 				return
 			}
 			sctx, scancel := context.WithCancel(ctx)
-			st := &stream{body: make(chan []byte, streamQueue), cancel: scancel}
+			st := &stream{body: make(chan []byte, streamQueue), ctx: sctx, cancel: scancel}
 			streams[id] = st
 			mu.Unlock()
 			go func() {
@@ -616,9 +623,22 @@ func (s *Server) serve(ctx context.Context, ch *channel, device state.RemoteClie
 			}
 			select {
 			case st.body <- part:
+				continue
 			default:
-				drop(id) // the handler is not reading: give up on it, not on the session
 			}
+			wait := time.NewTimer(bodyWait)
+			select {
+			case st.body <- part:
+			case <-st.ctx.Done(): // the handler is done: the rest is not read
+			case <-wait.C:
+				// The handler stopped reading: give up on it, not on the session.
+				drop(id)
+				_ = ch.write(ctx, frame(frameCancel, id, nil))
+			case <-ctx.Done():
+				wait.Stop()
+				return
+			}
+			wait.Stop()
 		case frameCancel:
 			drop(id)
 		}

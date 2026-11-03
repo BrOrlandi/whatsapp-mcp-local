@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -645,6 +646,89 @@ func TestABodyNobodyReadsDoesNotBlockTheSession(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("a body nobody reads blocked the whole session")
+	}
+}
+
+func TestALargeBodyWaitsForASlowStart(t *testing.T) {
+	// A handler that does something else first (the transfer asks wacli
+	// whether it is paired) still gets the whole body of a large upload.
+	f := newFixture(t)
+	body := bytes.Repeat([]byte("0123456789abcdef"), 1<<20) // 16 MiB, more than the queue holds
+	f.srv.Admin = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(time.Second)
+		got, err := io.ReadAll(r.Body)
+		if err != nil || !bytes.Equal(got, body) {
+			http.Error(w, "short body", http.StatusBadRequest)
+			return
+		}
+		_, _ = io.WriteString(w, "ok")
+	})
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	req, _ := http.NewRequest(http.MethodPost, "http://local/upload", bytes.NewReader(body))
+	resp, err := c.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("upload: %s", resp.Status)
+	}
+}
+
+func TestALargeResponseWaitsForASlowReader(t *testing.T) {
+	// The app reads a large download (the number coming back) while it
+	// writes it to disk: a reader that starts late still gets all of it.
+	f := newFixture(t)
+	body := bytes.Repeat([]byte("fedcba9876543210"), 1<<20) // 16 MiB
+	f.srv.Admin = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	})
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	req, _ := http.NewRequest(http.MethodPost, "http://local/download", nil)
+	resp, err := c.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	time.Sleep(time.Second)
+	got, err := io.ReadAll(resp.Body)
+	if err != nil || !bytes.Equal(got, body) {
+		t.Fatalf("read %d of %d bytes: %v", len(got), len(body), err)
+	}
+}
+
+func TestARequestTheServerGivesUpOnFails(t *testing.T) {
+	// A body nobody reads is given up on, and the device hears of it: its
+	// round trip fails instead of waiting for an answer that never comes.
+	f := newFixture(t)
+	release := make(chan struct{})
+	f.srv.Admin = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-release
+	})
+	defer close(release)
+	d, key := f.pair(ScopeAdmin)
+	c, stop := connected(t, d, key)
+	defer stop()
+	done := make(chan error, 1)
+	go func() {
+		req, _ := http.NewRequest(http.MethodPost, "http://local/stuck", bytes.NewReader(make([]byte, 16<<20)))
+		resp, err := c.RoundTrip(req)
+		if err == nil {
+			resp.Body.Close()
+		}
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, errDropped) {
+			t.Fatalf("err = %v, want errDropped", err)
+		}
+	case <-time.After(bodyWait + 10*time.Second):
+		t.Fatal("the round trip kept waiting for a request the server gave up on")
 	}
 }
 

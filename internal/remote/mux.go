@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Frames inside a session: one byte of type, four of stream, then the
@@ -184,7 +185,13 @@ func (w *responseWriter) finish() {
 type pending struct {
 	head chan respHead
 	body chan []byte // nil ends the body
+	// stop ends the request's sending when the server gives up on it.
+	stop context.CancelFunc
 }
+
+// errDropped is a request the server gave up on: it stopped reading the
+// body, or the session's reader could not keep its response.
+var errDropped = errors.New("the server gave up on the request")
 
 type clientMux struct {
 	ch *channel
@@ -201,12 +208,21 @@ func newClientMux(ch *channel) *clientMux {
 	return &clientMux{ch: ch, streams: map[uint32]*pending{}, pongs: make(chan struct{}, 1), rotated: make(chan error, 1)}
 }
 
-// deliver queues part of a response body; a reader that falls too far
-// behind loses its response, not the session.
+// deliver queues part of a response body. A reader that falls behind (a
+// large download written to disk) holds the session for up to bodyWait, as
+// TCP would; one that falls further behind loses its response, not the
+// session.
 func (m *clientMux) deliver(stream uint32, p *pending, part []byte) {
 	select {
 	case p.body <- part:
+		return
 	default:
+	}
+	wait := time.NewTimer(bodyWait)
+	defer wait.Stop()
+	select {
+	case p.body <- part:
+	case <-wait.C:
 		_ = m.ch.write(context.Background(), frame(frameCancel, stream, nil))
 		m.mu.Lock()
 		if m.streams[stream] == p {
@@ -269,6 +285,8 @@ func (m *clientMux) run(ctx context.Context) error {
 				m.deliver(stream, p, nil)
 				m.drop(stream)
 			}
+		case frameCancel:
+			m.abort(stream)
 		}
 	}
 }
@@ -277,6 +295,21 @@ func (m *clientMux) get(stream uint32) *pending {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.streams[stream]
+}
+
+// abort ends a request the server gave up on: its round trip, still
+// sending or waiting for the answer, fails.
+func (m *clientMux) abort(stream uint32) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	p := m.streams[stream]
+	if p == nil {
+		return
+	}
+	delete(m.streams, stream)
+	p.stop()
+	close(p.head)
+	close(p.body)
 }
 
 func (m *clientMux) drop(stream uint32) {
@@ -308,11 +341,13 @@ func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	m.next++
 	stream := m.next
-	p := &pending{head: make(chan respHead, 1), body: make(chan []byte, streamQueue)}
+	// ctx ends with the request's, or when the server gives up on it
+	// (abort); it lives on with the response's body.
+	ctx, stop := context.WithCancel(req.Context())
+	p := &pending{head: make(chan respHead, 1), body: make(chan []byte, streamQueue), stop: stop}
 	m.streams[stream] = p
 	m.mu.Unlock()
 
-	ctx := req.Context()
 	path := req.URL.RequestURI()
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
@@ -328,6 +363,9 @@ func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
 		defer req.Body.Close()
 	}
 	if err := sendBody(ctx, m.ch, frameReqBody, frameReqEnd, stream, body); err != nil {
+		if req.Context().Err() == nil && ctx.Err() != nil {
+			return nil, errDropped
+		}
 		if ctx.Err() != nil {
 			_ = m.ch.write(context.Background(), frame(frameCancel, stream, nil))
 		}
@@ -337,6 +375,9 @@ func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
 	select {
 	case h, ok := <-p.head:
 		if !ok {
+			if ctx.Err() != nil && req.Context().Err() == nil {
+				return nil, errDropped
+			}
 			return nil, errClosed
 		}
 		resp := &http.Response{StatusCode: h.Status, Status: http.StatusText(h.Status), Header: h.Header,
@@ -348,10 +389,10 @@ func (m *clientMux) RoundTrip(req *http.Request) (*http.Response, error) {
 			resp.Header = http.Header{}
 		}
 		return resp, nil
-	case <-ctx.Done():
+	case <-req.Context().Done():
 		_ = m.ch.write(context.Background(), frame(frameCancel, stream, nil))
 		m.drop(stream)
-		return nil, ctx.Err()
+		return nil, req.Context().Err()
 	}
 }
 
