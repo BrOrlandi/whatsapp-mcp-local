@@ -4,6 +4,38 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.7.0] - 2026-11-03
+
+### Novo
+
+- **Tudo pelo terminal, sem tela.** A linha de comando faz o que o painel faz,
+  para usar num servidor ou por SSH: `status` diz como as coisas estão e o que
+  fazer a seguir, `pair` conecta o WhatsApp com um QR code desenhado no
+  terminal (ou com `--phone`, um código para digitar no celular), e há
+  `logout`, `port`, `token`, `webhooks`, `logs`, `update` e
+  `service stop|start|restart`. Cada comando explica a si mesmo com `--help`;
+  para scripts e agentes de IA, os principais respondem em JSON com `--json`,
+  e o código de saída diz o que aconteceu.
+- **Num servidor Linux, o serviço continua rodando depois que você sai do
+  SSH**, e o `service install` não tenta abrir o navegador: ele indica o
+  `whatsapp-mcp pair`.
+- **`whatsapp-mcp update` atualiza a própria linha de comando** para a versão
+  mais nova e reinicia o serviço.
+- **Imagem Docker** e um arquivo do Docker Compose para rodar num servidor
+  (`docs/servidor.md`).
+
+### Corrigido
+
+- Mudar a porta ou o token pela linha de comando agora reinicia o serviço no
+  Linux também.
+- O painel não mostra mais mensagens vazias que o wacli grava como
+  marcadores.
+- Quando o WhatsApp não está conectado, a dica que a IA recebe manda conectar
+  pela tela Conectar do app, em vez de um comando interno do wacli (na linha
+  de comando, com `whatsapp-mcp pair`).
+
+Inclui o wacli 0.25.1.
+
 ## [1.6.2] - 2026-11-02
 
 ### Corrigido
@@ -353,6 +385,8 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.7.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.7.0
+[1.6.2]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.6.2
 [1.6.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.6.1
 [1.6.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.6.0
 [1.5.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.5.0
