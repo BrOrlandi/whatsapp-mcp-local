@@ -142,9 +142,10 @@ func (s *Server) handlers() map[string]func(context.Context, arguments) map[stri
 		"get_poll_results":    s.pollResults,
 		"organise_chat":       s.organiseChat,
 
-		"forward_message": s.forwardMessage,
-		"mark_chat_read":  s.markChatRead,
-		"send_typing":     s.sendTyping,
+		"forward_message":  s.forwardMessage,
+		"mark_chat_read":   s.markChatRead,
+		"mark_chat_unread": s.markChatUnread,
+		"send_typing":      s.sendTyping,
 
 		"get_message_context": s.messageContext,
 		"message_stats":       s.messageStats,

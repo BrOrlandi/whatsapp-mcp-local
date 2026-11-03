@@ -212,6 +212,18 @@ func (s *Server) markChatRead(ctx context.Context, a arguments) map[string]any {
 	return textResult(map[string]any{"done": true, "chat_jid": chat, "receipts": receipts, "result": out}, false)
 }
 
+func (s *Server) markChatUnread(ctx context.Context, a arguments) map[string]any {
+	chat := strings.TrimSpace(a.ChatJID)
+	if chat == "" {
+		return toolError("chat_jid is required")
+	}
+	out, err := s.delegatedOrExclusive(ctx, "mark chat unread", "chats", "mark-unread", "--chat", chat)
+	if err != nil {
+		return toolError("%v", err)
+	}
+	return textResult(map[string]any{"done": true, "chat_jid": chat, "result": out}, false)
+}
+
 func (s *Server) sendTyping(ctx context.Context, a arguments) map[string]any {
 	to := strings.TrimSpace(a.To)
 	if to == "" {
