@@ -4,6 +4,20 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.7.5] - 2026-11-03
+
+### Mudou
+
+- **Conectar uma ferramenta de IA, um passo por vez.** A tela de conectar
+  mostra só o passo atual, com "Passo 1 de 3" e um botão para o próximo (e
+  para voltar). Quem ficar travado pode abrir "Ver todos os passos" e ver tudo
+  de uma vez, como antes.
+- **"Abrir o WhatsApp MCP quando o computador ligar" aparece no fim da
+  configuração**, no cartão "Tudo pronto", recomendado, em vez de embaixo do
+  QR code. A opção continua em Configurações.
+
+Inclui o wacli 0.25.1.
+
 ## [1.7.0] - 2026-11-03
 
 ### Novo
@@ -385,6 +399,7 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.7.5]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.7.5
 [1.7.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.7.0
 [1.6.2]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.6.2
 [1.6.1]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.6.1
