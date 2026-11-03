@@ -13,3 +13,26 @@ para ele; os demais são só a ideia, registrada para não se perder.
 - **Vários números de WhatsApp no mesmo app**, como recurso pago: uma
   conexão MCP por número, e quem tem um número só não percebe nada.
   [Plano](plano-multiplas-contas.md).
+
+## A revisar
+
+- **Onde roda a transcrição dos áudios.** Hoje ela é conferida só no Mac.
+  Falta:
+  - Testar o whisper.cpp no Windows e no Linux. O Handy, app em que a
+    transcrição se baseou, funciona bem em todos.
+  - Medir quanto CPU e tempo um áudio custa. A tela de Transcrição deve dizer,
+    com um teste rápido no próprio computador, se ele dá conta, antes de
+    ligar.
+  - Escolher onde transcrever quando o WhatsApp MCP roda num servidor (2.0),
+    numa configuração do app:
+    - no servidor;
+    - no app do computador da pessoa, que está conectado ao servidor e
+      transcreve com o motor local dele;
+    - em nenhum dos dois: a ferramenta entrega o áudio, e o agente de IA que
+      consome o MCP transcreve.
+
+    Nem todo servidor compensa rodar o Whisper.
+  - Na versão local, continua transcrevendo no próprio computador, depois de
+    passar no teste de capacidade.
+
+  O fluxo de hoje está em [transcricao.md](transcricao.md).
