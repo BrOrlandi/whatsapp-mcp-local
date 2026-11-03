@@ -119,16 +119,32 @@
 
   // ---- waiting for a client ----
   // The daemon stamps every client that talks to it, so the page only has to
-  // ask. Polling stops after about ten minutes: by then a reload is honest.
+  // ask. Setting a tool up can take a while: after ten minutes the page asks
+  // less often, but it never stops.
+  function keepAsking(check) {
+    var started = Date.now();
+    var timer = null;
+    var stopped = false;
+    function next() {
+      if (stopped) return;
+      timer = window.setTimeout(function () {
+        check(stop);
+        next();
+      }, Date.now() - started > 600000 ? 15000 : 4000);
+    }
+    function stop() { stopped = true; window.clearTimeout(timer); }
+    // Back on the window, it asks at once.
+    window.addEventListener("focus", function () { if (!stopped) check(stop); });
+    next();
+    return stop;
+  }
   var waiting = document.querySelector("[data-wait-client='true']");
   if (waiting) {
-    var polls = 0;
-    var watch = window.setInterval(function () {
-      if (++polls > 150) { window.clearInterval(watch); return; }
+    keepAsking(function (stop) {
       api("/api/state").then(function (state) {
-        if (state.clients_live > 0) { window.clearInterval(watch); window.location.reload(); }
+        if (state.clients_live > 0) { stop(); window.location.reload(); }
       }).catch(function () {});
-    }, 4000);
+    });
   }
 
   // ---- not connecting ----
@@ -271,14 +287,16 @@
         });
         if (hit && !connected) {
           connected = true;
-          window.clearInterval(toolWatch);
+          stopWatch();
           window.clearTimeout(helpTimer);
           // The fanfare plays here, where the person already clicked:
           // a page that just loaded may not make sound yet.
           celebrate(true);
           try { window.sessionStorage.setItem("celebrate", "1"); } catch (e) {}
           window.setTimeout(function () {
-            window.location.replace(window.location.pathname + "?conectado=1");
+            var query = new URLSearchParams(window.location.search);
+            query.set("conectado", "1");
+            window.location.replace(window.location.pathname + "?" + query.toString());
           }, 1800);
         }
         return hit;
@@ -286,7 +304,7 @@
     };
     // It keeps asking while the page is open: asking the app on this
     // computer costs nothing, and a connection can take a while.
-    var toolWatch = window.setInterval(function () { checkTool().catch(function () {}); }, 4000);
+    var stopWatch = keepAsking(function () { checkTool().catch(function () {}); });
     var checkButton = document.querySelector("[data-wait-check]");
     if (checkButton) {
       checkButton.addEventListener("click", function () {
@@ -723,6 +741,8 @@
           window.clearInterval(syncWatch);
           syncing.textContent = t("Histórico recebido.");
           syncing.classList.remove("busy");
+          // The pill said "Sincronizando": the page shows the state now.
+          if (document.querySelector("[data-sync-arriving]")) window.location.reload();
         }
       }).catch(function () {});
     }, 3000);
@@ -755,6 +775,29 @@
       .then(function () { poll(); });
   });
   if (!progress.hidden) poll();
+})();
+
+// The connect page: the remote agents sit below the fold, so a floating hint
+// says there is more, until the page is scrolled.
+(function () {
+  var hint = document.querySelector("[data-more-hint]");
+  if (!hint) return;
+  var target = document.getElementById(hint.getAttribute("href").slice(1));
+  if (!target) return;
+  function seen() { return target.getBoundingClientRect().top < window.innerHeight - 40; }
+  if (seen()) return;
+  function done() {
+    hint.hidden = true;
+    window.removeEventListener("scroll", onScroll);
+  }
+  function onScroll() { if (window.scrollY > 24 || seen()) done(); }
+  hint.hidden = false;
+  window.addEventListener("scroll", onScroll, { passive: true });
+  hint.addEventListener("click", function (event) {
+    event.preventDefault();
+    done();
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 })();
 
 // Inside the desktop app: links leave for the browser, settings save as they
@@ -967,4 +1010,52 @@
     });
   }
   poll();
+})();
+
+// Remote access: the pairing code, shown once and never put in an address;
+// revoking a device; and, in the app on another computer, the live state of
+// its connection with the server (the app answers /__app/remote/status).
+(function () {
+  var out = document.querySelector("[data-remote-code-out]");
+  var make = document.querySelector("[data-remote-code]");
+  if (make && out) {
+    make.addEventListener("click", function () {
+      make.disabled = true;
+      fetch("/api/remote/codigo", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: "{}" })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          make.disabled = false;
+          if (d.error) { window.alert(d.error); return; }
+          out.hidden = false;
+          out.querySelector("[data-remote-code-value]").textContent = d.code;
+          out.querySelector("[data-remote-code-note]").textContent = t("Impressão digital do servidor:") + " " + d.server_fingerprint;
+        })
+        .catch(function () { make.disabled = false; });
+    });
+  }
+  document.querySelectorAll("[data-remote-revoke]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      if (!window.confirm(t("Revogar este dispositivo? Ele perde o acesso na hora e precisa ser pareado de novo."))) return;
+      fetch("/api/remote/dispositivos/" + encodeURIComponent(b.getAttribute("data-remote-revoke")),
+        { method: "DELETE", credentials: "same-origin", headers: { "Content-Type": "application/json" } })
+        .then(function () { window.location.reload(); });
+    });
+  });
+  var card = document.querySelector("[data-remote-status]");
+  if (!card) return;
+  var label = card.querySelector("[data-remote-status-label]");
+  function connectionState(connected) {
+    card.classList.toggle("remote-status--fail", !connected);
+    label.textContent = connected ? t("MCP Remoto") : t("MCP remoto não alcançou o servidor");
+  }
+  function poll() {
+    fetch("/__app/remote/status", { credentials: "same-origin", cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("remote status");
+      return r.json();
+    }).then(function (d) {
+      connectionState(!!d.link && d.link.state === "connected");
+    }).catch(function () { connectionState(false); });
+  }
+  poll();
+  setInterval(poll, 3000);
 })();

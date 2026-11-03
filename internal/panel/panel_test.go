@@ -153,6 +153,7 @@ func TestSettingsOnTheCommandLine(t *testing.T) {
 		Local       localasr.Status
 		Total       int
 		Corrected   int
+		Devices     []remoteDevice
 	}{layout: layout{Title: "Configurações", Active: "configuracoes"}, PortChanged: true}); err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +178,7 @@ func TestToolState(t *testing.T) {
 		{Key: "client:windsurf", Live: true},
 	}
 	want := map[string]string{"claude-desktop": "", "claude-code": "live", "codex": "configured", "cursor": "", "outra": "live"}
-	for _, c := range toolChoices(conns) {
+	for _, c := range toolChoices(guides, conns) {
 		if c.State != want[c.Key] {
 			t.Errorf("%s is %q, want %q", c.Key, c.State, want[c.Key])
 		}
@@ -282,5 +283,51 @@ func TestRenameConnection(t *testing.T) {
 	rename("client:windsurf", "")
 	if tool := tools()["client:windsurf"].Tool; tool != "Windsurf" {
 		t.Errorf("the name did not come back: %q", tool)
+	}
+}
+
+// The connections are listed by the way they reach the MCP.
+func TestConnectionsAreGroupedByTheirWay(t *testing.T) {
+	list := groupConnections(context.Background(), []Connection{
+		{Tool: "hermes-agent", Live: true, Via: "url"},
+		{Tool: "Claude Code", Live: true, Via: "app:Mac do Bruno"},
+		{Tool: "Codex", Live: true, Via: "app:Mac do Bruno"},
+		{Tool: "t", Live: true, Via: ""},
+	})
+	var got []string
+	for _, c := range list {
+		if c.GroupStart {
+			got = append(got, "["+c.Group+"]")
+		}
+		got = append(got, c.Tool)
+	}
+	want := "[Direto no servidor, pelo endereço com chave] hermes-agent [No computador Mac do Bruno, pelo app] Claude Code Codex [Caminho ainda não registrado (aparece no próximo uso)] t"
+	if strings.Join(got, " ") != want {
+		t.Fatalf("groups:\n%s\nwant\n%s", strings.Join(got, " "), want)
+	}
+	// One way only: no headings.
+	for _, c := range groupConnections(context.Background(), []Connection{{Tool: "a", Via: "local", Live: true}, {Tool: "b", Via: "local", Live: true}}) {
+		if c.GroupStart {
+			t.Fatal("a single group needs no heading")
+		}
+	}
+}
+
+// The page for any other tool says it connected when the tool was one with a
+// page of its own: the Codex, set up by hand from there.
+func TestAnyOtherToolCountsAKnownOne(t *testing.T) {
+	st, err := state.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	p := &Panel{State: st}
+	if anyLive(p.connections(ctx, setup{})) {
+		t.Fatal("live with no tool")
+	}
+	_ = st.SeeClient(ctx, "codex-mcp-client", "0.164.0", time.Now())
+	if !anyLive(p.connections(ctx, setup{})) {
+		t.Error("the Codex connected, and the page for any other tool does not see it")
 	}
 }
