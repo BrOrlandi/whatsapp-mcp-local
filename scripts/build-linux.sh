@@ -76,6 +76,10 @@ mkdir -p "$tools"
 curl -fsSL -o "$tools/linuxdeploy" "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-${appimage_arch}.AppImage"
 curl -fsSL -o "$appdir/AppRun" "https://github.com/AppImage/AppImageKit/releases/download/continuous/AppRun-${appimage_arch}"
 cp "$(go env GOMODCACHE)/github.com/wailsapp/wails/v3@$(go list -m -f '{{.Version}}' github.com/wailsapp/wails/v3)/internal/commands/linuxdeploy-plugin-gtk.sh" "$tools/"
+# An AppImage marks itself with "AI\x02" in the ELF padding, which keeps
+# emulators (Rosetta in colima, binfmt) from recognising it as x86_64; blank
+# it so linuxdeploy also runs in an emulated amd64 container on an ARM Mac.
+printf '\0\0\0' | dd of="$tools/linuxdeploy" bs=1 seek=8 conv=notrunc 2>/dev/null
 chmod +x "$tools/linuxdeploy" "$tools/linuxdeploy-plugin-gtk.sh" "$appdir/AppRun"
 (
   cd "$tools"
