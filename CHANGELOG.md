@@ -4,6 +4,24 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.7.6] - 2026-11-09
+
+### Corrigido
+
+- **Quem tem listas de transmissão não fica mais com as mensagens novas
+  atrasadas.** Cada mensagem de uma lista de transmissão segurava a chegada das
+  outras por mais de um minuto.
+- **Responder uma conversa marca ela como lida**, como no celular.
+- **Áudios `.m4a` enviados aparecem para quem recebe.** Antes, alguns
+  aplicativos do WhatsApp escondiam esses áudios.
+- **Anexos de mensagens de empresas** (documento, imagem ou vídeo no topo da
+  mensagem) chegam inteiros e podem ser baixados.
+- **As confirmações de entrega e leitura não se perdem** quando chega junto
+  uma confirmação malformada.
+- Correções de segurança nas bibliotecas de rede.
+
+Inclui o wacli 0.26.0.
+
 ## [1.7.5] - 2026-11-03
 
 ### Mudou
