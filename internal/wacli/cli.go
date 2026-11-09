@@ -43,7 +43,7 @@ type Error struct {
 
 func (e *Error) Error() string { return e.Message }
 
-// Version is the version the wacli at bin reports ("0.25.1"), or "" when
+// Version is the version the wacli at bin reports ("0.26.0"), or "" when
 // it does not answer.
 func Version(ctx context.Context, bin string) string {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)

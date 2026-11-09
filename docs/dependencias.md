@@ -27,7 +27,7 @@ Claude Code ───HTTP───┤ MCP + painel ── supervisor ──► w
 | | |
 |---|---|
 | O que é | Cliente de WhatsApp em linha de comando, de [openclaw/wacli](https://github.com/openclaw/wacli), licença MIT |
-| Versão em uso | 0.25.1, dentro do app, fixada em `build/wacli.env` com o sha256 de cada sistema |
+| Versão em uso | 0.26.0, dentro do app, fixada em `build/wacli.env` com o sha256 de cada sistema |
 | Para que serve | Pareia o computador como dispositivo conectado, mantém a sessão, recebe e guarda as mensagens, envia, baixa mídia |
 
 É a dependência mais importante, e o projeto depende de várias partes dela, não
