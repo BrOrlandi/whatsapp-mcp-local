@@ -181,6 +181,10 @@ func main() {
 		err = logsCmd(cfg, args)
 	case "update":
 		err = updateCmd(cfg, args)
+	case "remote":
+		err = remoteCmd(cfg, args)
+	case "apikey":
+		err = apikeyCmd(cfg, args)
 	case "config":
 		printConfig(cfg)
 	case "transcription":
@@ -226,6 +230,12 @@ Settings:
   token [show|new|set <token>|clear]   the key /mcp and the API's actions ask for (restarts the service)
   webhooks [list|add <url>|remove <id>|enable <id>|disable <id>|test <id>]
       add: [--events message,reaction,receipt] [--include-own] [--chats <jid>,<jid>]
+  remote [devices]          the devices (the app on another computer) that use this daemon remotely
+  remote code [--name N]    a one-time pairing code for one more device (valid 10 minutes)
+  remote revoke <id>        cut a device off at once
+  apikey [list]             the keys of the MCP by the server's address, for agents elsewhere
+  apikey new <name>         make a key for one agent (shown once)
+  apikey revoke <id>        cut a key off at once
   config                    print the configuration for Claude Code and Claude Desktop
   transcription install     set up voice-note transcription on this computer (whisper.cpp)
   open                      open the control panel in the browser
@@ -244,6 +254,8 @@ its flags and examples.
 Environment (each one wins over what the commands saved):
   WHATSAPP_MCP_PORT    the port of the MCP and the panel (default 47821)
   WHATSAPP_MCP_TOKEN   the key the MCP asks for (see whatsapp-mcp token)
+  WHATSAPP_MCP_REMOTE_LISTEN  host:port for the app's remote access, behind an HTTPS proxy
+  WHATSAPP_MCP_REMOTE_TRUSTED_PROXY  that proxy: names, IPs or CIDRs
   WHATSAPP_MCP_LANG    the language of the messages and the panel: pt-BR, es, en
   WHATSAPP_MCP_DATA    the data folder (default ~/.whatsapp-mcp)
   WACLI_BIN            the wacli program to run (default: the one beside this program, else PATH)
@@ -274,16 +286,35 @@ func fatal(err error) {
 	os.Exit(code)
 }
 
+// remoteSetting is a remote access setting: the environment's, else the
+// one `service install` kept in config.json.
+func remoteSetting(name, kept string) string {
+	if v, ok := os.LookupEnv(name); ok {
+		return v
+	}
+	return kept
+}
+
 func serve(cfg config) error {
+	privateFiles()
+	saved, _ := appconfig.Load(cfg.DataDir)
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := appconfig.MarkNew(cfg.DataDir); err != nil {
 		logger.Warn("could not write config.json", "error", err)
 	}
+	restart := make(chan struct{}, 1)
 	d, err := daemon.Start(daemon.Config{
 		Port: cfg.Port, RequirePort: true, Token: cfg.Token,
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
 		LogPath: logPath(), Version: version, Logger: logger,
-		Desktop: desktopCommand(cfg), CommandLine: true,
+		Desktop: desktopCommand(cfg), CommandLine: true, RemoteListen: remoteSetting("WHATSAPP_MCP_REMOTE_LISTEN", saved.RemoteListen),
+		RemoteTrustedProxy: remoteSetting("WHATSAPP_MCP_REMOTE_TRUSTED_PROXY", saved.RemoteTrustedProxy),
+		Restart: func() {
+			select {
+			case restart <- struct{}{}:
+			default:
+			}
+		},
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
 		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)
@@ -294,9 +325,18 @@ func serve(cfg config) error {
 	fmt.Fprintf(os.Stderr, "\n  Panel:  %s/\n  MCP:    %s/mcp\n\n", cfg.baseURL(), cfg.baseURL())
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	<-ctx.Done()
-	d.Stop()
-	return nil
+	select {
+	case <-ctx.Done():
+		d.Stop()
+		return nil
+	case <-restart:
+		// A transfer of the number's data: the service, or Docker, starts
+		// this process again, which opens the data now in place.
+		d.Stop()
+		logger.Info("exiting for the service to start again")
+		os.Exit(75)
+		return nil
+	}
 }
 
 // desktopCommand is how Claude Desktop reaches this daemon: this program's
@@ -312,16 +352,38 @@ func desktopCommand(cfg config) panel.DesktopCommand {
 	return c
 }
 
+// keepSettings writes into config.json what the service must find there:
+// the port, and the remote access settings when the environment gives them.
+func keepSettings(cfg config) error {
+	listen, proxy := os.LookupEnv("WHATSAPP_MCP_REMOTE_LISTEN")
+	trusted, trust := os.LookupEnv("WHATSAPP_MCP_REMOTE_TRUSTED_PROXY")
+	if cfg.PortSource != "config" || proxy || trust {
+		c, _ := appconfig.Load(cfg.DataDir)
+		if cfg.PortSource != "config" {
+			c.Port = cfg.Port
+		}
+		// Remote access, when given, is kept too: the service does not
+		// carry the shell's environment, and a later reinstall (a new port,
+		// a new token) must not lose it. An empty value turns it off.
+		if proxy {
+			c.RemoteListen = listen
+		}
+		if trust {
+			c.RemoteTrustedProxy = trusted
+		}
+		if err := appconfig.Save(cfg.DataDir, c); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // installService writes the login service for this program and (re)starts
 // it. The port goes into config.json, where every command finds it; the
 // token stays in its file, unless it came from the environment.
 func installService(cfg config) (string, error) {
-	if cfg.PortSource != "config" {
-		c, _ := appconfig.Load(cfg.DataDir)
-		c.Port = cfg.Port
-		if err := appconfig.Save(cfg.DataDir, c); err != nil {
-			return "", err
-		}
+	if err := keepSettings(cfg); err != nil {
+		return "", err
 	}
 	env := map[string]string{"WACLI_BIN": cfg.WacliBin, "WACLI_STORE_DIR": cfg.StoreDir,
 		"WHATSAPP_MCP_DATA": cfg.DataDir}

@@ -165,7 +165,9 @@ Ela se instala como serviço do sistema e abre o mesmo painel no navegador, em
 `whatsapp-mcp pair` desenha o QR code ali mesmo (ou dá um código para digitar
 no celular), e há comandos para o estado, a porta, o token, os webhooks e as
 atualizações, inclusive num contêiner Docker. Veja
-[Num servidor sem tela](docs/servidor.md).
+[Num servidor sem tela](docs/servidor.md). Para deixar o WhatsApp MCP num
+servidor ligado o tempo todo e controlar pelo app (uso avançado, para agentes
+autônomos), siga o passo a passo do [Modo servidor](docs/modo-servidor.md).
 
 ## Bom saber
 
@@ -189,6 +191,7 @@ atualizações, inclusive num contêiner Docker. Veja
 [Como funciona](docs/como-funciona.md) ·
 [API local](docs/api.md) ·
 [Servidor](docs/servidor.md) ·
+[Modo servidor](docs/modo-servidor.md) ·
 [Transcrição](docs/transcricao.md) ·
 [Dependências](docs/dependencias.md) ·
 [Desenvolvimento](docs/desenvolvimento.md) ·

@@ -278,6 +278,51 @@ It reaches the daemon at WHATSAPP_MCP_PORT (or the saved port) and sends
 WHATSAPP_MCP_TOKEN (or the saved token).
 `,
 
+	"remote": `Usage: whatsapp-mcp remote [devices] [--json]
+       whatsapp-mcp remote code [--name <name>] [--scope admin|tools] [--json]
+       whatsapp-mcp remote revoke <id> [--json]
+
+Remote access, for a WhatsApp MCP on a server: the app on another computer is
+paired with it and becomes its remote control, end to end encrypted inside
+HTTPS. See docs/modo-servidor.md.
+
+  devices         the paired devices, when each was last seen, and the
+                  server's fingerprint (default)
+  code            a pairing code for one more device. It works once, for 10
+                  minutes, and is not shown again; paste it in the app, in
+                  Settings › Remote access › Use a server, with this
+                  server's https:// address.
+    --name          the device's name in the list
+    --scope         admin (default): the whole panel; tools: only the MCP
+  revoke <id>     cut a device off at once; it has to be paired again
+
+The server needs WHATSAPP_MCP_REMOTE_LISTEN (and an HTTPS proxy in front).
+
+Example:
+  whatsapp-mcp remote code --name "MacBook"
+  whatsapp-mcp remote revoke 3f9a1c0b
+`,
+
+	"apikey": `Usage: whatsapp-mcp apikey [list] [--json]
+       whatsapp-mcp apikey new <name> [--json]
+       whatsapp-mcp apikey revoke <id> [--json]
+
+Keys for agents on other machines (Hermes Agent, OpenClaw, Grok Bot…) to use
+the MCP by the server's address, https://<server>/mcp, with the header
+Authorization: Bearer <key>. With no key, the MCP by the server's address is
+off.
+
+  list           the keys, by name and when they were made (default)
+  new <name>     make a key for one agent and print it once. Keep it in the
+                 agent's secrets; a key never used stops working after 24
+                 hours.
+  revoke <id>    cut a key off at once
+
+Example:
+  whatsapp-mcp apikey new "Hermes Agent"
+  whatsapp-mcp apikey revoke 7c2e
+`,
+
 	"version": `Usage: whatsapp-mcp version
 
 Prints this program's version. Also: whatsapp-mcp --version, -v.

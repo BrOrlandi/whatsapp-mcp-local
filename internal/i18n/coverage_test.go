@@ -92,7 +92,7 @@ func templateSources(t *testing.T, path string) (string, int) {
 
 func TestTemplateCoverage(t *testing.T) {
 	root := filepath.Join("..", "..")
-	for _, file := range []string{"internal/panel/templates.go", "internal/panel/webhookdocs.go"} {
+	for _, file := range []string{"internal/panel/templates.go", "internal/panel/webhookdocs.go", "cmd/app/remotepage.go"} {
 		src, base := templateSources(t, filepath.Join(root, file))
 		// Blank what is not a person's text, keeping offsets for line numbers.
 		blank := func(re *regexp.Regexp, s string) string {
@@ -233,7 +233,7 @@ func portuguese(s string, vocab map[string]bool) bool {
 	if !strings.Contains(t, " ") && (t == "" || !unicode.IsUpper([]rune(t)[0])) {
 		return false
 	}
-	if strings.HasPrefix(t, "GET ") || strings.HasPrefix(t, "POST ") || strings.HasPrefix(t, "http") {
+	if strings.HasPrefix(t, "GET ") || strings.HasPrefix(t, "POST ") || strings.HasPrefix(t, "DELETE ") || strings.HasPrefix(t, "PATCH ") || strings.HasPrefix(t, "http") {
 		return false
 	}
 	if ptLetters.MatchString(t) {
@@ -309,7 +309,7 @@ func TestGoCoverage(t *testing.T) {
 					wrapped := n >= 4 && window[n-1] == token.LPAREN && window[n-2] == token.IDENT && window[n-3] == token.PERIOD && window[n-4] == token.IDENT &&
 						lits[n-4] == "i18n" && (lits[n-2] == "T" || lits[n-2] == "Tf" || lits[n-2] == "N")
 					v, _ := strconv.Unquote(lit)
-					if !wrapped && !contract[v] && portuguese(v, vocab) && !strings.HasSuffix(rel, "templates.go") && !strings.HasSuffix(rel, "webhookdocs.go") {
+					if !wrapped && !contract[v] && portuguese(v, vocab) && !strings.HasSuffix(rel, "templates.go") && !strings.HasSuffix(rel, "webhookdocs.go") && !strings.HasSuffix(rel, "remotepage.go") {
 						short := v
 						if len(short) > 90 {
 							short = short[:90] + "…"

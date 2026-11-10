@@ -643,3 +643,177 @@ func updateCmd(cfg config, args []string) error {
 	say("%s", i18n.Tf("Atualizado para a versão %s.", st.Latest))
 	return nil
 }
+
+// ---- remote access ----
+
+// remoteCmd manages the devices that use this daemon from another computer
+// (internal/remote, docs/servidor.md).
+func remoteCmd(cfg config, args []string) error {
+	f := newFlags("remote")
+	name := f.String("name", "", "")
+	scope := f.String("scope", "admin", "")
+	rest, err := f.parse(args)
+	if err != nil {
+		return err
+	}
+	action := "devices"
+	if len(rest) > 0 {
+		action, rest = rest[0], rest[1:]
+	}
+	a := newAPI(cfg)
+	ctx := context.Background()
+	switch action {
+	case "code":
+		var code struct {
+			Code        string    `json:"code"`
+			Scope       string    `json:"scope"`
+			ExpiresAt   time.Time `json:"expires_at"`
+			Fingerprint string    `json:"server_fingerprint"`
+		}
+		var raw json.RawMessage
+		if err := a.call(ctx, http.MethodPost, "/api/remote/codigo", map[string]string{"name": *name, "scope": *scope}, &raw); err != nil {
+			return err
+		}
+		if jsonOutput {
+			fmt.Fprintln(stdout, string(raw))
+			return nil
+		}
+		_ = json.Unmarshal(raw, &code)
+		say("%s\n\n  %s\n", i18n.T("Código de pareamento (vale uma vez, por 10 minutos; não aparece de novo):"), code.Code)
+		say("%s %s", i18n.T("Impressão digital do servidor:"), code.Fingerprint)
+		say("%s", i18n.T("No app do outro computador: Configurações › Acesso remoto › Usar um servidor, com o endereço https:// deste servidor e o código."))
+		return nil
+	case "devices":
+		var out struct {
+			Devices []struct {
+				ID        string     `json:"id"`
+				Name      string     `json:"name"`
+				Scope     string     `json:"scope"`
+				LastSeen  *time.Time `json:"last_seen_at"`
+				RevokedAt *time.Time `json:"revoked_at"`
+			} `json:"devices"`
+			Fingerprint string `json:"server_fingerprint"`
+		}
+		var raw json.RawMessage
+		if err := a.call(ctx, http.MethodGet, "/api/remote/dispositivos", nil, &raw); err != nil {
+			return err
+		}
+		if jsonOutput {
+			fmt.Fprintln(stdout, string(raw))
+			return nil
+		}
+		_ = json.Unmarshal(raw, &out)
+		if len(out.Devices) == 0 {
+			say("%s", i18n.T("Nenhum dispositivo pareado. Para parear o app de outro computador: whatsapp-mcp remote code"))
+		}
+		for _, d := range out.Devices {
+			state := i18n.T("nunca conectado")
+			switch {
+			case d.RevokedAt != nil:
+				state = i18n.T("revogado")
+			case d.LastSeen != nil:
+				state = i18n.Tf("visto em %s", d.LastSeen.Local().Format("2006-01-02 15:04"))
+			}
+			say("%s  %-24s %-6s %s", d.ID, d.Name, d.Scope, state)
+		}
+		if out.Fingerprint != "" {
+			say("\n%s %s", i18n.T("Impressão digital do servidor:"), out.Fingerprint)
+		}
+		return nil
+	case "revoke":
+		if len(rest) != 1 {
+			return fail(exitUsage, "usage: whatsapp-mcp remote revoke <id>")
+		}
+		if err := a.call(ctx, http.MethodDelete, "/api/remote/dispositivos/"+url.PathEscape(rest[0]), nil, nil); err != nil {
+			return err
+		}
+		if jsonOutput {
+			printJSON(map[string]bool{"revoked": true})
+		}
+		say("%s", i18n.T("Dispositivo revogado: ele perde o acesso na hora e precisa ser pareado de novo."))
+		return nil
+	}
+	return fail(exitUsage, "usage: whatsapp-mcp remote [devices|code [--name N] [--scope admin|tools]|revoke <id>]")
+}
+
+// ---- API keys ----
+
+// apikeyCmd manages the keys agents on other machines use the MCP by the
+// server's address with (internal/remote, docs/servidor.md).
+func apikeyCmd(cfg config, args []string) error {
+	f := newFlags("apikey")
+	rest, err := f.parse(args)
+	if err != nil {
+		return err
+	}
+	action := "list"
+	if len(rest) > 0 {
+		action, rest = rest[0], rest[1:]
+	}
+	a := newAPI(cfg)
+	ctx := context.Background()
+	switch action {
+	case "list":
+		var out struct {
+			Keys []struct {
+				ID      string    `json:"id"`
+				Name    string    `json:"name"`
+				Created time.Time `json:"created_at"`
+			} `json:"keys"`
+		}
+		var raw json.RawMessage
+		if err := a.call(ctx, http.MethodGet, "/api/chaves", nil, &raw); err != nil {
+			return err
+		}
+		if jsonOutput {
+			fmt.Fprintln(stdout, string(raw))
+			return nil
+		}
+		_ = json.Unmarshal(raw, &out)
+		if len(out.Keys) == 0 {
+			say("%s", i18n.T("Nenhuma chave de API: o MCP pelo endereço do servidor está desligado. Para criar uma: whatsapp-mcp apikey new <nome>"))
+		}
+		for _, k := range out.Keys {
+			created := ""
+			if !k.Created.IsZero() {
+				created = k.Created.Local().Format("2006-01-02 15:04")
+			}
+			say("%s  %-24s %s", k.ID, k.Name, created)
+		}
+		return nil
+	case "new":
+		if len(rest) == 0 {
+			return fail(exitUsage, "usage: whatsapp-mcp apikey new <name>")
+		}
+		var out struct {
+			Key  string `json:"key"`
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		var raw json.RawMessage
+		if err := a.call(ctx, http.MethodPost, "/api/chaves", map[string]string{"name": strings.Join(rest, " ")}, &raw); err != nil {
+			return err
+		}
+		if jsonOutput {
+			fmt.Fprintln(stdout, string(raw))
+			return nil
+		}
+		_ = json.Unmarshal(raw, &out)
+		say("%s\n\n  %s\n", i18n.T("Chave de API (aparece uma vez só e deixa de valer se não for usada em 24 horas; guarde no lugar de segredos do agente):"), out.Key)
+		say("%s", i18n.T("O agente usa o MCP em https://<endereço do servidor>/mcp, com o cabeçalho Authorization: Bearer <chave>."))
+		return nil
+	case "revoke":
+		if len(rest) != 1 {
+			return fail(exitUsage, "usage: whatsapp-mcp apikey revoke <id>")
+		}
+		if err := a.call(ctx, http.MethodDelete, "/api/chaves/"+url.PathEscape(rest[0]), nil, nil); err != nil {
+			return err
+		}
+		if jsonOutput {
+			printJSON(map[string]bool{"revoked": true})
+		}
+		say("%s", i18n.T("Chave revogada: o agente que a usava perde o acesso na hora."))
+		return nil
+	}
+	return fail(exitUsage, "usage: whatsapp-mcp apikey [list|new <name>|revoke <id>]")
+}
