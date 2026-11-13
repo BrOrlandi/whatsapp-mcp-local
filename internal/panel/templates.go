@@ -691,6 +691,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <label class="check"><input type="checkbox" value="message" checked data-webhook-event><span>{{t "Chegar uma mensagem"}}</span></label>
 <label class="check"><input type="checkbox" value="reaction" data-webhook-event><span>{{t "Alguém reagir a uma mensagem"}}</span></label>
 <label class="check"><input type="checkbox" value="receipt" data-webhook-event><span>{{t "Uma mensagem sua for entregue, lida ou ouvida"}}</span></label>
+<label class="check"><input type="checkbox" value="online" data-webhook-event><span>{{t "O WhatsApp voltar a ficar on-line neste computador"}}<span class="check__hint">{{t "Ao ligar ou acordar o computador, ou quando a internet volta depois de alguns minutos. Bom para uma tarefa que lê o que chegou enquanto ele estava fora."}}</span></span></label>
 <label class="check"><input type="checkbox" data-webhook-own><span>{{t "Incluir as mensagens que você manda"}}<span class="check__hint">{{t "Do celular ou pela sua ferramenta de IA."}}</span></span></label>
 <div class="actions"><button class="btn btn--small" type="submit">{{t "Adicionar webhook"}}</button><button class="btn btn--quiet btn--small" type="button" data-webhook-cancel hidden>{{t "Cancelar"}}</button></div>
 <p class="alert" role="alert" data-webhook-error hidden></p>
