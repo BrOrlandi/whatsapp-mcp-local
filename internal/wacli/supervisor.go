@@ -35,6 +35,7 @@ type Supervisor struct {
 
 	mu        sync.Mutex
 	changed   chan struct{}
+	followers []chan struct{}
 	want      bool
 	proc      *os.Process
 	exited    chan struct{}
@@ -104,10 +105,26 @@ func (s *Supervisor) SetWebhook(url, secret string) {
 // tray icon can follow it without asking over and over.
 func (s *Supervisor) Changes() <-chan struct{} { return s.changed }
 
+// Subscribe is Changes for one more follower: every follower gets its own
+// channel, signalled the same way, so a second one does not take the tray's
+// signals.
+func (s *Supervisor) Subscribe() <-chan struct{} {
+	c := make(chan struct{}, 1)
+	s.mu.Lock()
+	s.followers = append(s.followers, c)
+	s.mu.Unlock()
+	return c
+}
+
 func (s *Supervisor) signalChange() {
-	select {
-	case s.changed <- struct{}{}:
-	default:
+	s.mu.Lock()
+	followers := s.followers
+	s.mu.Unlock()
+	for _, c := range append([]chan struct{}{s.changed}, followers...) {
+		select {
+		case c <- struct{}{}:
+		default:
+		}
 	}
 }
 

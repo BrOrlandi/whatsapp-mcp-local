@@ -146,4 +146,9 @@ func (a *Account) startWebhooks(ctx context.Context, wacliBin string) {
 	if err := a.hooks.Start(ctx); err != nil {
 		a.logger.Warn("could not load the webhooks", "error", err)
 	}
+	changes := a.sup.Subscribe()
+	go a.hooks.WatchOnline(ctx, changes, func() (string, time.Time, time.Time) {
+		st := a.sup.Status()
+		return st.State, st.Since, st.History.LastAt
+	})
 }

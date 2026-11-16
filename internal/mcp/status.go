@@ -64,7 +64,7 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	// told about new messages.
 	webhooks := map[string]any{"setup": "in the app, Configurações › Webhooks: " + s.base() + "/configuracoes#webhooks",
 		"documentation": s.base() + "/webhooks/documentacao",
-		"what":          "the app posts every new message, reaction or read receipt to a script of the user's, so it can act as messages arrive; these tools only answer when asked"}
+		"what":          "the app posts every new message, reaction or read receipt to a script of the user's, so it can act as messages arrive, and an online event when WhatsApp is back on this computer (the app started, the computer woke, the internet returned), so a script can run a task that reads the chats then; these tools only answer when asked"}
 	if hooks, err := s.state.Webhooks(ctx); err == nil {
 		enabled := 0
 		for _, h := range hooks {

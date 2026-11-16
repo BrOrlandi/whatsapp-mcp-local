@@ -88,7 +88,7 @@
       form.hidden = !open;
       cancel.hidden = count > 0;
     };
-    var EVENTS = { message: t("Mensagens"), reaction: t("Reações"), receipt: t("Entregas e leituras") };
+    var EVENTS = { message: t("Mensagens"), reaction: t("Reações"), receipt: t("Entregas e leituras"), online: t("De volta on-line") };
     // What a row last said (a test's result, an error), kept across the
     // refreshes that redraw the list.
     var notes = {};

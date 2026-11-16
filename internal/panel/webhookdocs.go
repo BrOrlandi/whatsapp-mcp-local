@@ -39,6 +39,7 @@ func exampleJSON(ev webhook.Event) string {
 func webhookExamples() []webhookExampleGroup {
 	at := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 	sent := at.Add(time.Second)
+	overnight := at.Add(-9*time.Hour - 25*time.Minute)
 	const (
 		maria   = "5511912345678@s.whatsapp.net"
 		joao    = "5511987654321@s.whatsapp.net"
@@ -103,6 +104,10 @@ func webhookExamples() []webhookExampleGroup {
 				JSON: exampleJSON(webhook.Event{Kind: "receipt", ID: "d73abf8e065c1924", At: sent, Account: number, Receipt: &webhook.Receipt{ChatJID: maria, SenderJID: maria,
 					MessageIDs: []string{"3EB0B1C2D3E4F5A6B7C8", "3EB0B1C2D3E4F5A6B7C9"}, Type: "read", Timestamp: at}})},
 		}},
+		{ID: "online", Title: i18n.T("De volta on-line (online)"), Intro: i18n.T("O WhatsApp voltou a ficar acessível neste computador. O aviso espera até 3 minutos o histórico que o celular manda ao conectar assentar, então um programa que lê as conversas nessa hora costuma encontrar o que chegou enquanto o computador estava fora; se o histórico demorar mais, o aviso sai antes de ele terminar. Não chega nas pausas curtas das ferramentas nem numa queda de poucos segundos, e o filtro de conversas não se aplica a ele."), Examples: []webhookExample{
+			{ID: "acordou", Title: i18n.T("O computador acordou"), Note: i18n.T("Para rodar uma tarefa da sua ferramenta de IA nessa hora, o programa que recebe pode chamá-la, por exemplo com claude -p, e responder na hora sem esperar ela terminar. Os despertares curtos do macOS (Power Nap) também podem mandar woke: guarde um intervalo mínimo entre uma tarefa e outra."),
+				JSON: exampleJSON(webhook.Event{Kind: "online", ID: "f95cd1a0287e3b46", At: sent, Account: number, Online: &webhook.Online{Reason: "woke", OfflineSince: &overnight, OfflineSeconds: int64(sent.Sub(overnight).Seconds())}})},
+		}},
 		{ID: "test", Title: i18n.T("Aviso de teste"), Intro: i18n.T("O que o botão Testar manda. Tem test true; não conta para o desligamento automático."), Examples: []webhookExample{
 			{ID: "teste", Title: i18n.T("Teste"), JSON: exampleJSON(webhook.Event{Kind: "message", ID: "e84bc09f176d2a35", At: sent, Test: true, Account: number,
 				Message: webhook.TestMessage(at)})},
@@ -132,7 +137,7 @@ const webhookDocsSource = `{{define "webhookdocs"}}{{template "head" .}}{{templa
 <div class="card__body stack">
 <ul class="rows">
 <li class="row"><span class="row__main"><span class="row__title mono">Content-Type: application/json</span><span class="row__meta">{{t "O corpo é o aviso, em UTF-8."}}</span></span></li>
-<li class="row"><span class="row__main"><span class="row__title mono">X-WhatsApp-MCP-Event</span><span class="row__meta">{{t "O tipo do aviso: message, reaction ou receipt. É o mesmo campo event do corpo."}}</span></span></li>
+<li class="row"><span class="row__main"><span class="row__title mono">X-WhatsApp-MCP-Event</span><span class="row__meta">{{t "O tipo do aviso: message, reaction, receipt ou online. É o mesmo campo event do corpo."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">X-WhatsApp-MCP-Delivery</span><span class="row__meta">{{t "O id do aviso, o mesmo delivery_id do corpo. Uma nova tentativa do mesmo aviso repete o id: use-o para não processar duas vezes."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">X-WhatsApp-MCP-Signature</span><span class="row__meta">{{t "sha256= seguido do HMAC-SHA256 do corpo com a chave do webhook, em hexadecimal."}}</span></span></li>
 </ul>
@@ -167,7 +172,7 @@ function assinaturaValida(corpo, cabecalho, chave) {
 <div class="card__body stack">
 <h3 class="card__sub" style="border:0;padding:0">{{t "Em todo aviso"}}</h3>
 <ul class="rows">
-<li class="row"><span class="row__main"><span class="row__title mono">event</span><span class="row__meta">{{t "message, reaction ou receipt."}}</span></span></li>
+<li class="row"><span class="row__main"><span class="row__title mono">event</span><span class="row__meta">{{t "message, reaction, receipt ou online."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">delivery_id</span><span class="row__meta">{{t "O id do aviso; repete nas novas tentativas."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">sent_at</span><span class="row__meta">{{t "Quando o aviso foi montado, em UTC."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">test</span><span class="row__meta">{{t "true no aviso do botão Testar; ausente nos outros."}}</span></span></li>
@@ -191,6 +196,11 @@ function assinaturaValida(corpo, cabecalho, chave) {
 <li class="row"><span class="row__main"><span class="row__title mono">chat_jid · sender_jid</span><span class="row__meta">{{t "A conversa e quem recebeu, leu ou ouviu."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">message_ids</span><span class="row__meta">{{t "Os ids das suas mensagens a que o aviso se refere."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">type · timestamp</span><span class="row__meta">{{t "delivered, read ou played, e quando."}}</span></span></li>
+</ul>
+<h3 class="card__sub">online</h3>
+<ul class="rows">
+<li class="row"><span class="row__main"><span class="row__title mono">reason</span><span class="row__meta">{{t "started (o app abriu, com o computador ou à mão), woke (o computador acordou) ou reconnected (a internet ou o WhatsApp voltou depois de ao menos dois minutos fora)."}}</span></span></li>
+<li class="row"><span class="row__main"><span class="row__title mono">offline_since · offline_seconds</span><span class="row__meta">{{t "O último momento em que o app sabia estar conectado, em UTC, e quanto tempo ficou fora até a conexão voltar (a espera pelo histórico não conta). Ficam de fora quando o app não sabe, como na primeira vez que abre."}}</span></span></li>
 </ul>
 </div></section>
 

@@ -32,6 +32,7 @@ func init() {
 		Cowork Python Node js JSON JSONs HTTP HTTPS URL API Prompt GitHub Whisper NVIDIA Mac Content Type application json X Event Delivery Signature
 		event delivery_id sent_at test id chat_jid chat_name group timestamp from_me sender_jid sender_name text media
 		reply_to reaction location poll forwarded edited revoked receipt message_ids type
+		online reason offline_since offline_seconds
 		receptor py PDF OK Ok v W`) {
 		sameEverywhere[strings.ToLower(w)] = true
 	}
