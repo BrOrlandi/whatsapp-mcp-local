@@ -865,6 +865,21 @@
   var folder = document.querySelector("[data-open-folder]");
   if (folder) folder.addEventListener("click", function () { post("/api/abrir-pasta").catch(function () {}); });
 
+  // Logs para suporte: the app saves the file in Downloads and shows it; a
+  // browser (the command line's panel) downloads it.
+  document.querySelectorAll("[data-logs-hours]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var note = document.querySelector("[data-logs-note]");
+      var hours = Number(button.getAttribute("data-logs-hours"));
+      var show = function (text) { if (note) { note.textContent = text; note.hidden = !text; } };
+      show(t("Gerando o arquivo…"));
+      post("/api/diagnostico", { horas: hours }).then(function (data) {
+        if (data.url) { window.location.href = data.url; show(""); return; }
+        show(t("Salvo em Downloads: %s", data.name || ""));
+      }).catch(function (err) { show(err.message); });
+    });
+  });
+
   // Updates: the card in Configurações and the banner on every page show the
   // same state, asked for every minute so a version found in the background
   // appears without a reload.

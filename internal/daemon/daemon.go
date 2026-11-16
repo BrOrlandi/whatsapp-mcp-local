@@ -14,11 +14,14 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/diag"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
@@ -63,6 +66,9 @@ type Daemon struct {
 	routes  *http.ServeMux
 
 	watchDone chan struct{}
+
+	// diag is the diagnostic log the panel exports, or nil.
+	diag *diag.Log
 
 	mu        sync.Mutex
 	accounts  []*Account
@@ -112,6 +118,14 @@ func Start(cfg Config) (*Daemon, error) {
 	}
 
 	d := &Daemon{cfg: cfg, logger: logger, port: cfg.Port, listenErr: problem, watchDone: make(chan struct{})}
+	// In the data folder, on every system (the command line's log on Linux
+	// is the journal, not a file), so erasing the data erases it too.
+	if d.diag, err = diag.Open(filepath.Join(cfg.DataDir, "logs", "diagnostics"), cfg.DataDir); err != nil {
+		logger.Warn("the diagnostic log is off", "error", err)
+		d.diag = nil
+	}
+	d.diag.Event("app", "started", diag.Fields{"version": mcp.Version, "wacli": wacli.Version(context.Background(), cfg.WacliBin),
+		"os": runtime.GOOS + "/" + runtime.GOARCH, "command_line": cfg.CommandLine})
 	ctx, cancel := context.WithCancel(context.Background())
 	d.cancel = cancel
 
@@ -126,7 +140,7 @@ func Start(cfg Config) (*Daemon, error) {
 	d.primary, d.accounts = primary, []*Account{primary}
 
 	d.panel = &panel.Panel{Server: primary.server, Supervisor: primary.sup, Index: primary.idx, State: primary.st, Token: cfg.Token,
-		Endpoint: d.MCPURL, Desktop: cfg.Desktop, LogPath: cfg.LogPath, MCPProblem: d.PortProblem, DataDir: cfg.DataDir}
+		Endpoint: d.MCPURL, Desktop: cfg.Desktop, LogPath: cfg.LogPath, MCPProblem: d.PortProblem, DataDir: cfg.DataDir, Diag: d.diag}
 	if cfg.Panel != nil {
 		cfg.Panel(d.panel)
 	}
@@ -194,7 +208,12 @@ func (d *Daemon) Stop() {
 	for _, a := range accounts {
 		a.stop()
 	}
+	d.diag.Event("app", "stopped", nil)
+	d.diag.Close()
 }
+
+// Diag is the diagnostic log, or nil when it could not be opened.
+func (d *Daemon) Diag() *diag.Log { return d.diag }
 
 // Accounts are the numbers the daemon runs, the main one first.
 func (d *Daemon) Accounts() []*Account {

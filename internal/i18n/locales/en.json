@@ -871,5 +871,14 @@
  "Passo %d de %d": "Step %d of %d",
  "Próximo passo": "Next step",
  "Passo anterior": "Previous step",
- "Ver todos os passos": "See all the steps"
+ "Ver todos os passos": "See all the steps",
+ "Logs para suporte": "Logs for support",
+ "Se algo estranho acontecer, baixe os logs e mande o arquivo para o suporte. Ele mostra o que o app fez e quando, sem o texto das mensagens, nomes ou números.": "If something odd happens, download the logs and send the file to support. It shows what the app did and when, without message text, names or numbers.",
+ "Números, contatos, grupos e links viram códigos, sempre o mesmo para o mesmo contato. O arquivo é um texto que você pode abrir e ler antes de mandar. Ficam guardados os últimos 7 dias.": "Numbers, contacts, groups and links become codes, always the same for the same contact. The file is plain text you can open and read before sending it. The last 7 days are kept.",
+ "Últimas 24 horas": "Last 24 hours",
+ "Últimos 3 dias": "Last 3 days",
+ "Últimos 7 dias": "Last 7 days",
+ "Gerando o arquivo…": "Creating the file…",
+ "Salvo em Downloads: %s": "Saved in Downloads: %s",
+ "não foi possível salvar o arquivo: %v": "could not save the file: %v"
 }

@@ -772,6 +772,14 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div></section>
 <script src="/assets/settings.js" defer></script>
 
+<section class="card" id="logs">
+<div class="card__head"><h2 class="card__title">{{icon "activity"}}{{t "Logs para suporte"}}</h2></div>
+<div class="card__body stack">
+<p class="muted">{{t "Se algo estranho acontecer, baixe os logs e mande o arquivo para o suporte. Ele mostra o que o app fez e quando, sem o texto das mensagens, nomes ou números."}} <span class="tip" tabindex="0" aria-describedby="tip-logs"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-logs">{{t "Números, contatos, grupos e links viram códigos, sempre o mesmo para o mesmo contato. O arquivo é um texto que você pode abrir e ler antes de mandar. Ficam guardados os últimos 7 dias."}}</span></span></p>
+<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-logs-hours="24">{{t "Últimas 24 horas"}}</button><button class="btn btn--small" type="button" data-logs-hours="72">{{t "Últimos 3 dias"}}</button><button class="btn btn--ghost btn--small" type="button" data-logs-hours="168">{{t "Últimos 7 dias"}}</button></div>
+<p class="busy" data-logs-note role="status" hidden></p>
+</div></section>
+
 {{if .App}}
 <section class="card" id="dados">
 <div class="card__head"><h2 class="card__title">{{icon "folder"}}{{t "Dados"}}</h2></div>

@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -179,7 +180,7 @@ func (t Target) assetName() string {
 // Enabled reports whether this build can update itself: a tagged version,
 // installed in a way the updater knows.
 func (u *Updater) Enabled() bool {
-	_, ok := parseVersion(u.Version)
+	_, _, ok := parseVersion(u.Version)
 	return ok && u.Repo != "" && u.Target.Kind != ""
 }
 
@@ -456,32 +457,42 @@ func (u *Updater) Install(ctx context.Context) error {
 	return nil
 }
 
-// parseVersion reads 1.2.3 (with or without the v) as numbers.
-func parseVersion(v string) ([3]int, bool) {
-	var out [3]int
+// preRelease is the suffix of a test version this updater knows:
+// 1.8.0-beta.1, 1.8.0-rc2. A build from an untagged commit (1.7.6-3-gfa726f6)
+// is not one.
+var preRelease = regexp.MustCompile(`^-(alpha|beta|rc)\.?[0-9]+$`)
+
+// parseVersion reads 1.2.3 (with or without the v) as numbers; pre is set
+// for a test version such as 1.3.0-beta.1.
+func parseVersion(v string) (out [3]int, pre bool, ok bool) {
 	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
 	if i := strings.IndexAny(v, "-+"); i >= 0 {
-		return out, false // a pre-release or a development build
+		if !preRelease.MatchString(v[i:]) {
+			return out, false, false // a development build
+		}
+		v, pre = v[:i], true
 	}
 	parts := strings.Split(v, ".")
 	if len(parts) != 3 {
-		return out, false
+		return out, false, false
 	}
 	for i, p := range parts {
 		n, err := strconv.Atoi(p)
 		if err != nil || n < 0 {
-			return out, false
+			return out, false, false
 		}
 		out[i] = n
 	}
-	return out, true
+	return out, pre, true
 }
 
-// newer reports whether tag is a later version than current.
+// newer reports whether tag is a later version than current. A test version
+// is never offered; one that is installed comes before its final version, so
+// a beta updates to the release it led to.
 func newer(tag, current string) bool {
-	a, ok1 := parseVersion(tag)
-	b, ok2 := parseVersion(current)
-	if !ok1 || !ok2 {
+	a, tagPre, ok1 := parseVersion(tag)
+	b, curPre, ok2 := parseVersion(current)
+	if !ok1 || !ok2 || tagPre {
 		return false
 	}
 	for i := range a {
@@ -489,5 +500,5 @@ func newer(tag, current string) bool {
 			return a[i] > b[i]
 		}
 	}
-	return false
+	return curPre
 }

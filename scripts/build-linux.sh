@@ -41,9 +41,11 @@ sed 's|^Exec=.*|Exec=/opt/whatsapp-mcp/whatsapp-mcp-app|' build/linux/whatsapp-m
 install -m 0644 build/linux/whatsapp-mcp.png "$deb/usr/share/icons/hicolor/512x512/apps/whatsapp-mcp.png"
 install -m 0644 "$work/THIRD-PARTY-NOTICES.txt" "$deb/usr/share/doc/whatsapp-mcp/copyright"
 size="$(du -sk "$deb" | cut -f1)"
+# A test version (1.8.0-beta.1) is 1.8.0~beta.1 to dpkg, which sorts it
+# before 1.8.0; with the dash, the final version would look older.
 cat > "$deb/DEBIAN/control" <<CONTROL
 Package: whatsapp-mcp
-Version: ${VERSION}
+Version: ${VERSION/-/\~}
 Architecture: ${arch}
 Maintainer: Bruno Orlandi <https://github.com/BrOrlandi>
 Installed-Size: ${size}

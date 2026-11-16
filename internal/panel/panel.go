@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/diag"
 	"html/template"
 	"io"
 	"io/fs"
@@ -61,6 +62,8 @@ type Panel struct {
 	// DataDir is the data folder, whose config.json keeps the language
 	// picked on the command line, where there is no Host to keep it.
 	DataDir string
+	// Diag is the diagnostic log the Configurações page exports, or nil.
+	Diag *diag.Log
 
 	pages *template.Template
 	code  codeCache
@@ -184,6 +187,7 @@ func (p *Panel) Register(mux *http.ServeMux) {
 	if p.Host != nil {
 		p.registerApp(mux)
 	}
+	p.registerDiagnostic(mux)
 	registerAssets(mux)
 }
 

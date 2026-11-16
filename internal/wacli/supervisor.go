@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/diag"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
@@ -53,6 +54,9 @@ type Supervisor struct {
 
 	// webhook is where sync posts each live message, when set.
 	webhook []string
+
+	// diag is the diagnostic log, when there is one.
+	diag *diag.Log
 }
 
 // HistoryProgress is the history the phone has been sending to the running
@@ -100,6 +104,29 @@ func (s *Supervisor) SetWebhook(url, secret string) {
 	s.webhook = []string{"--webhook", url, "--webhook-secret", secret, "--webhook-allow-private", "--webhook-events", "message,receipt"}
 }
 
+// SetDiag sends what sync does to the diagnostic log, and the wacli commands
+// with it. It is set before Run.
+func (s *Supervisor) SetDiag(l *diag.Log) {
+	s.mu.Lock()
+	s.diag = l
+	s.mu.Unlock()
+	s.cli.Diag = l
+}
+
+func (s *Supervisor) note(event string, fields diag.Fields) {
+	s.mu.Lock()
+	l := s.diag
+	s.mu.Unlock()
+	l.Event("sync", event, fields)
+}
+
+func (s *Supervisor) count(name string) {
+	s.mu.Lock()
+	l := s.diag
+	s.mu.Unlock()
+	l.Count(name)
+}
+
 // Changes signals, without blocking, every time sync's state changes, so a
 // tray icon can follow it without asking over and over.
 func (s *Supervisor) Changes() <-chan struct{} { return s.changed }
@@ -114,6 +141,7 @@ func (s *Supervisor) signalChange() {
 func (s *Supervisor) setState(state, lastError string) {
 	s.mu.Lock()
 	changed := s.state != state
+	from, since := s.state, s.since
 	if changed {
 		s.state = state
 		s.since = time.Now()
@@ -123,6 +151,7 @@ func (s *Supervisor) setState(state, lastError string) {
 	}
 	s.mu.Unlock()
 	if changed {
+		s.note("state", diag.Fields{"from": from, "to": state, "lasted_s": int(time.Since(since).Seconds()), "error": lastError})
 		s.signalChange()
 	}
 }
@@ -170,6 +199,12 @@ func (s *Supervisor) Run(ctx context.Context) {
 
 		started := time.Now()
 		err := s.runOnce(ctx)
+		s.mu.Lock()
+		wanted, reason := s.want, s.pausedFor
+		s.mu.Unlock()
+		s.diag.FlushCounts()
+		s.note("sync_exited", diag.Fields{"error": err, "ran_s": int(time.Since(started).Seconds()),
+			"requested": !wanted || ctx.Err() != nil, "reason": reason, "app_stopping": ctx.Err() != nil})
 		if ctx.Err() != nil {
 			return
 		}
@@ -198,8 +233,10 @@ func (s *Supervisor) Run(ctx context.Context) {
 			backoff = 2 * time.Second
 		}
 		if s.reclaimOrphan() {
+			s.note("orphan_wacli_stopped", nil)
 			backoff = 2 * time.Second
 		}
+		s.note("restart_scheduled", diag.Fields{"wait_ms": backoff.Milliseconds(), "restarts": s.Status().Restarts})
 		s.waitWake(ctx, backoff)
 		backoff = min(backoff*2, time.Minute)
 	}
@@ -267,8 +304,11 @@ func (s *Supervisor) runOnce(ctx context.Context) error {
 	exited := make(chan struct{})
 	s.proc, s.exited = cmd.Process, exited
 	s.state, s.since = "starting", time.Now()
+	webhook := len(s.webhook) > 0
 	s.mu.Unlock()
 	s.signalChange()
+	// The flags, never the webhook's address or secret.
+	s.note("sync_started", diag.Fields{"pid": cmd.Process.Pid, "flags": syncFlags(args), "webhook": webhook})
 
 	// A stop of the daemon interrupts sync, and gives it the same 20 seconds
 	// a pause does to close its store before it is killed.
@@ -301,8 +341,13 @@ func (s *Supervisor) readEvents(r io.Reader) {
 			Data  map[string]any `json:"data"`
 		}
 		if json.Unmarshal(scanner.Bytes(), &ev) != nil || ev.Event == "" {
+			// whatsmeow's own errors, which wacli prints as plain lines.
+			if line := strings.TrimSpace(scanner.Text()); line != "" {
+				s.note("wacli_stderr", diag.Fields{"line": line})
+			}
 			continue
 		}
+		s.noteEvent(ev.Event, ev.Data)
 		if ev.Event == "progress" || ev.Event == "history_sync" {
 			// Frequent and uninteresting once seen; keep only the latest.
 			s.mu.Lock()
@@ -351,6 +396,40 @@ func (s *Supervisor) readEvents(r io.Reader) {
 	}
 }
 
+// noteEvent writes a sync event to the diagnostic log. Presence and typing
+// of contacts, and history progress, come too often: they are counted.
+func (s *Supervisor) noteEvent(event string, data map[string]any) {
+	switch event {
+	case "presence", "chat_presence", "progress", "history_sync", "media_retry_progress":
+		s.count("wacli_" + event)
+		return
+	}
+	fields := diag.Fields{}
+	for k, v := range data {
+		fields[k] = v
+	}
+	s.mu.Lock()
+	l := s.diag
+	s.mu.Unlock()
+	l.Event("wacli", event, fields)
+}
+
+// syncFlags are sync's flag names and plain values, without the webhook's.
+func syncFlags(args []string) []string {
+	var out []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "--webhook") {
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+				i++
+			}
+			continue
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
 func (s *Supervisor) record(ev Event) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -366,6 +445,7 @@ func (s *Supervisor) socketReady() bool {
 
 // stopSync stops the sync process and keeps it down until startSync.
 func (s *Supervisor) stopSync(reason string) {
+	s.note("sync_pausing", diag.Fields{"reason": reason})
 	s.mu.Lock()
 	s.want = false
 	s.pausedFor = reason
@@ -439,10 +519,16 @@ func (s *Supervisor) awaitDelegate(ctx context.Context) {
 // Exclusive stops sync, runs an operation that needs the store lock, and
 // starts sync again whatever the outcome.
 func (s *Supervisor) Exclusive(ctx context.Context, reason string, fn func(context.Context) error) error {
+	waited := time.Now()
 	s.ops.Lock()
 	defer s.ops.Unlock()
+	started := time.Now()
 	s.stopSync(reason)
-	defer s.startSync()
+	defer func() {
+		s.startSync()
+		s.note("sync_resumed", diag.Fields{"reason": reason, "stopped_ms": time.Since(started).Milliseconds()})
+	}()
+	s.note("exclusive_operation", diag.Fields{"reason": reason, "waited_ms": started.Sub(waited).Milliseconds()})
 	err := fn(ctx)
 	if IsLockError(err) {
 		// The lock is an flock the kernel releases as sync exits; give a

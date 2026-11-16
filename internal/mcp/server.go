@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/diag"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
@@ -54,6 +55,8 @@ type Server struct {
 	clientsMu sync.Mutex
 	clients   map[string]string
 	touched   map[string]time.Time
+
+	diag *diag.Log
 }
 
 type clientHintKey struct{}
@@ -141,6 +144,9 @@ type Config struct {
 	// the health fixes then say which command connects WhatsApp, instead of
 	// pointing at the app's screen.
 	CommandLine bool
+	// Diag gets a line for every client that connects and every call it
+	// makes.
+	Diag *diag.Log
 }
 
 func New(c Config) *Server {
@@ -149,7 +155,52 @@ func New(c Config) *Server {
 	}
 	return &Server{cli: c.CLI, supervisor: c.Supervisor, index: c.Index, state: c.State, logger: c.Logger,
 		baseURL: c.BaseURL, mediaDir: c.MediaDir, exportDir: c.ExportDir, links: newMediaLinks(), started: time.Now(), asr: c.ASR,
-		clients: map[string]string{}, touched: map[string]time.Time{}, account: c.Account, accounts: c.Accounts, commandLine: c.CommandLine}
+		clients: map[string]string{}, touched: map[string]time.Time{}, account: c.Account, accounts: c.Accounts, commandLine: c.CommandLine,
+		diag: c.Diag}
+}
+
+// Diag is the diagnostic log, or nil.
+func (s *Server) Diag() *diag.Log { return s.diag }
+
+// clientOf is how the diagnostic log names a request's caller: the name it
+// gave at initialize, or the transport's hint (the bridge's header, an HTTP
+// client's User-Agent).
+func (s *Server) clientOf(ctx context.Context) string {
+	hint, _ := ctx.Value(clientHintKey{}).(string)
+	s.clientsMu.Lock()
+	name := s.clients[hint]
+	s.clientsMu.Unlock()
+	if name != "" {
+		return name
+	}
+	return truncate(hint, 80)
+}
+
+// toolArgs are the arguments of a call worth a diagnostic line: which chat,
+// how many, which action. Text, captions, queries and file paths are not.
+func toolArgs(raw json.RawMessage) diag.Fields {
+	var args map[string]any
+	if json.Unmarshal(raw, &args) != nil {
+		return nil
+	}
+	out := diag.Fields{}
+	for k, v := range args {
+		switch v.(type) {
+		case bool, float64:
+			out[k] = v
+		case string:
+			switch k {
+			case "chat_jid", "jid", "chat", "group_jid", "sender_jid", "participant", "message_id", "action", "state",
+				"type", "kind", "media_type", "presence", "mode", "status", "period", "since", "until", "before", "after", "duration":
+				out[k] = v
+			default:
+				out[k] = "<omitted>"
+			}
+		default:
+			out[k] = "<omitted>"
+		}
+	}
+	return out
 }
 
 // Account is the number this server answers for.
@@ -205,6 +256,7 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 		return encode(nil, nil, rpcError(-32700, "parse error"))
 	}
 	if len(req.ID) == 0 {
+		s.diag.Event("mcp", "notification", diag.Fields{"method": truncate(req.Method, 60), "client": s.clientOf(ctx)})
 		return nil
 	}
 	switch req.Method {
@@ -214,6 +266,16 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 		}
 		_ = json.Unmarshal(req.Params, &p)
 		s.noteInitialize(ctx, req.Params)
+		var info struct {
+			ClientInfo struct {
+				Name    string `json:"name"`
+				Version string `json:"version"`
+			} `json:"clientInfo"`
+		}
+		_ = json.Unmarshal(req.Params, &info)
+		hint, _ := ctx.Value(clientHintKey{}).(string)
+		s.diag.Event("mcp", "client_initialize", diag.Fields{"client": truncate(info.ClientInfo.Name, 60),
+			"version": truncate(info.ClientInfo.Version, 40), "protocol": truncate(p.ProtocolVersion, 20), "via": truncate(hint, 80)})
 		version := latestVersion
 		if supportedVersions[p.ProtocolVersion] {
 			version = p.ProtocolVersion
@@ -226,8 +288,10 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 			"instructions":    s.instructions(acct),
 		}, nil)
 	case "ping":
+		s.diag.Count("mcp_ping")
 		return encode(req.ID, map[string]any{}, nil)
 	case "tools/list":
+		s.diag.Event("mcp", "tools_list", diag.Fields{"client": s.clientOf(ctx)})
 		return encode(req.ID, map[string]any{"tools": toolDefinitions()}, nil)
 	case "tools/call":
 		var params callParams
@@ -238,8 +302,11 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 		started := time.Now()
 		result := s.call(ctx, params)
 		s.logger.Info("tool call", "tool", params.Name, "ms", time.Since(started).Milliseconds(), "error", result["isError"])
+		s.diag.Event("mcp", "tool_call", diag.Fields{"tool": truncate(params.Name, 60), "client": s.clientOf(ctx),
+			"ms": time.Since(started).Milliseconds(), "error": result["isError"], "args": toolArgs(params.Arguments)})
 		return encode(req.ID, result, nil)
 	default:
+		s.diag.Event("mcp", "unknown_method", diag.Fields{"method": truncate(req.Method, 60), "client": s.clientOf(ctx)})
 		return encode(req.ID, nil, rpcError(-32601, "method not found"))
 	}
 }

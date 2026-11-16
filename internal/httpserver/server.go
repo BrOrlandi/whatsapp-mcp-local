@@ -50,6 +50,7 @@ func Routes(server *mcp.Server, opts Options) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
+			server.Diag().Event("mcp", "http_refused", map[string]any{"method": r.Method, "user_agent": truncate(r.UserAgent(), 80)})
 			// Streamable HTTP allows a GET for a server-initiated stream; this
 			// server never pushes, so it says so instead of holding a connection.
 			w.Header().Set("Allow", "POST")
@@ -57,6 +58,7 @@ func Routes(server *mcp.Server, opts Options) *http.ServeMux {
 			return
 		}
 		if opts.Token != "" && !validToken(r, opts.Token) {
+			server.Diag().Event("mcp", "token_refused", map[string]any{"user_agent": truncate(r.UserAgent(), 80)})
 			w.Header().Set("WWW-Authenticate", `Bearer realm="whatsapp-mcp-local"`)
 			http.Error(w, "missing or wrong bearer token", http.StatusUnauthorized)
 			return
@@ -143,6 +145,13 @@ func loopbackHost(hostport string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+func truncate(v string, n int) string {
+	if len(v) > n {
+		return v[:n]
+	}
+	return v
 }
 
 func validToken(r *http.Request, token string) bool {

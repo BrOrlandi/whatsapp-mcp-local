@@ -871,5 +871,14 @@
  "Passo %d de %d": "Paso %d de %d",
  "Próximo passo": "Siguiente paso",
  "Passo anterior": "Paso anterior",
- "Ver todos os passos": "Ver todos los pasos"
+ "Ver todos os passos": "Ver todos los pasos",
+ "Logs para suporte": "Registros para soporte",
+ "Se algo estranho acontecer, baixe os logs e mande o arquivo para o suporte. Ele mostra o que o app fez e quando, sem o texto das mensagens, nomes ou números.": "Si pasa algo raro, descarga los registros y envía el archivo a soporte. Muestra lo que hizo la app y cuándo, sin el texto de los mensajes, nombres ni números.",
+ "Números, contatos, grupos e links viram códigos, sempre o mesmo para o mesmo contato. O arquivo é um texto que você pode abrir e ler antes de mandar. Ficam guardados os últimos 7 dias.": "Números, contactos, grupos y enlaces se convierten en códigos, siempre el mismo para el mismo contacto. El archivo es un texto que puedes abrir y leer antes de enviarlo. Se guardan los últimos 7 días.",
+ "Últimas 24 horas": "Últimas 24 horas",
+ "Últimos 3 dias": "Últimos 3 días",
+ "Últimos 7 dias": "Últimos 7 días",
+ "Gerando o arquivo…": "Generando el archivo…",
+ "Salvo em Downloads: %s": "Guardado en Descargas: %s",
+ "não foi possível salvar o arquivo: %v": "no se pudo guardar el archivo: %v"
 }

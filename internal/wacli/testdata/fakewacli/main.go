@@ -210,6 +210,14 @@ func syncFollow() {
 		os.Exit(1)
 	}
 	event("connected", nil)
+	if exists("UNDECRYPTABLE") {
+		// What a real sync reports when a message cannot be read, and the
+		// way whatsmeow's own errors arrive: a plain line.
+		event("warning", map[string]any{"code": "undecryptable_message", "chat_jid": "120363025246125486@g.us",
+			"sender_jid": "5511987654321:3@s.whatsapp.net", "msg_id": "3EB0C431D5A2F1E9B7", "recovery": "requested_if_possible",
+			"message": "warning: could not read message 3EB0C431D5A2F1E9B7 in 120363025246125486@g.us from 5511987654321:3@s.whatsapp.net"})
+		fmt.Fprintln(os.Stderr, "10:00:00.000 [Client ERROR] Failed to decrypt message from 5511987654321@s.whatsapp.net")
+	}
 	<-stop
 	closeDelegate()
 	unlock(lock)

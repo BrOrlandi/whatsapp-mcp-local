@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/diag"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 )
 
@@ -25,6 +26,9 @@ import (
 type CLI struct {
 	Bin      string
 	StoreDir string
+	// Diag, when set, gets a line for every command: which one, its flags
+	// (never their values), how long it took and whether it failed.
+	Diag *diag.Log
 }
 
 // envelope is the shape every `--json` command prints.
@@ -63,7 +67,15 @@ func Version(ctx context.Context, bin string) string {
 }
 
 // Run executes one command with --json and returns its data.
-func (c *CLI) Run(ctx context.Context, args ...string) (json.RawMessage, error) {
+func (c *CLI) Run(ctx context.Context, args ...string) (data json.RawMessage, err error) {
+	if c.Diag != nil {
+		started := time.Now()
+		defer func() {
+			command, flags := commandShape(args)
+			c.Diag.Event("wacli", "command", diag.Fields{"command": command, "flags": flags,
+				"ms": time.Since(started).Milliseconds(), "error": err})
+		}()
+	}
 	full := append([]string{"--json"}, args...)
 	cmd := exec.CommandContext(ctx, c.Bin, full...)
 	cmd.Env = c.env()
@@ -93,6 +105,47 @@ func (c *CLI) Run(ctx context.Context, args ...string) (json.RawMessage, error) 
 		detail = "no output"
 	}
 	return nil, &Error{Args: args, Message: detail}
+}
+
+// commandShape is a command's words ("chats mark-read") and its flag names,
+// without the values, which can be numbers or text.
+func commandShape(args []string) (string, []string) {
+	var words, flags []string
+	takesValue := false
+	for _, a := range args {
+		if strings.HasPrefix(a, "-") {
+			name, _, hasValue := strings.Cut(a, "=")
+			flags = append(flags, name)
+			takesValue = !hasValue && !booleanFlags[name]
+			continue
+		}
+		if takesValue {
+			takesValue = false
+			continue
+		}
+		if commandWord(a) {
+			words = append(words, a)
+		}
+	}
+	return strings.Join(words, " "), flags
+}
+
+// booleanFlags are the flags this app passes without a value.
+var booleanFlags = map[string]bool{"--read-only": true, "--json": true, "--events": true, "--follow": true,
+	"--force": true, "--help": true, "--all": true, "--refresh-contacts": true, "--refresh-groups": true}
+
+// commandWord is a subcommand's name: lowercase letters and dashes, which
+// a phone number, an address or a message id never is.
+func commandWord(s string) bool {
+	if s == "" || len(s) > 30 {
+		return false
+	}
+	for _, r := range s {
+		if (r < 'a' || r > 'z') && r != '-' {
+			return false
+		}
+	}
+	return true
 }
 
 // Decode runs a command and unmarshals its data into v.
