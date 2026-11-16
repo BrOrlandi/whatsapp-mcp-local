@@ -109,15 +109,17 @@ type Receipt struct {
 
 // Online says WhatsApp is reachable again on this computer: the app started,
 // the computer woke up, or the connection came back after a while away. It
-// comes once the history the phone sends on connecting has settled, so a
-// script that reads the chats then sees what arrived meanwhile.
+// waits up to three minutes for the history the phone sends on connecting to
+// settle, so a script that reads the chats then usually sees what arrived
+// meanwhile; a history that takes longer is still arriving when it comes.
 type Online struct {
 	// Reason is started (the app started, with the computer or by hand),
 	// woke (the computer woke from sleep) or reconnected (the internet or
 	// WhatsApp came back after at least two minutes away).
 	Reason string `json:"reason"`
 	// OfflineSince is the last moment the app knew it was connected, when it
-	// knows one; OfflineSeconds is how long it was away until now.
+	// knows one; OfflineSeconds is how long it was away, until the connection
+	// came back (the wait for the history is not counted).
 	OfflineSince   *time.Time `json:"offline_since,omitempty"`
 	OfflineSeconds int64      `json:"offline_seconds,omitempty"`
 }

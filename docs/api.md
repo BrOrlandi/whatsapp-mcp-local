@@ -176,9 +176,13 @@ script rodar o que precisa das conversas nessa hora (por exemplo, resumir o que
 chegou à noite). Traz `online.reason`: `started` (o app abriu, com o computador
 ou à mão), `woke` (o computador acordou) ou `reconnected` (a internet ou o
 WhatsApp voltou depois de ao menos dois minutos fora), e, quando o app sabe,
-`offline_since` e `offline_seconds`. Chega depois que o histórico que o celular
-manda ao conectar assentou, não chega nas pausas curtas das ferramentas nem numa
-queda de poucos segundos, e o filtro de conversas (`chats`) não se aplica a ele.
+`offline_since` e `offline_seconds` (o tempo fora até a conexão voltar). O aviso
+espera até 3 minutos o histórico que o celular manda ao conectar assentar; se ele
+demorar mais, o aviso sai antes de o histórico terminar. Não chega nas pausas
+curtas das ferramentas nem numa queda de poucos segundos, e o filtro de conversas
+(`chats`) não se aplica a ele. Os despertares curtos do macOS (Power Nap) também
+podem mandar `woke`: quem roda uma tarefa a cada aviso faz bem em guardar um
+intervalo mínimo entre elas.
 
 **Entrega.** Cada webhook tem uma fila, entregue em ordem. Qualquer resposta
 `2xx` conta como entregue; responda em até 3 segundos e faça o trabalho

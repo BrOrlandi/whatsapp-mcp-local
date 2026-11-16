@@ -156,6 +156,12 @@ func (w *onlineWatch) check(ctx context.Context) {
 			w.seen(ctx, wallNow())
 			w.goneSince(w.lastSeen, "reconnected")
 		} else if w.pending != nil {
+			// It dropped again while the history settled. After a short
+			// outage the connection held until now, so that time is not away:
+			// the count starts again from here.
+			if w.reason == "reconnected" && w.waitFrom.Sub(w.offlineSince) < minOffline {
+				w.offlineSince = wallNow()
+			}
 			w.cancel()
 		}
 	}
@@ -171,7 +177,9 @@ func (w *onlineWatch) fire(ctx context.Context) {
 	}
 	now := wallNow()
 	waited := now.Sub(w.waitFrom)
-	if w.reason == "woke" && since.Before(w.wokeAt) && now.Sub(w.wokeAt) < wakeWait {
+	// Not after, rather than before: on a coarse clock (Windows) a connection
+	// noticed in the same tick as the wake reads as the same instant.
+	if w.reason == "woke" && !since.After(w.wokeAt) && now.Sub(w.wokeAt) < wakeWait {
 		w.schedule(settle) // sync has not connected since the wake yet
 		return
 	}
@@ -191,7 +199,7 @@ func (w *onlineWatch) fire(ctx context.Context) {
 	ev := Event{Kind: "online", ID: randomHex(8), At: now.UTC(), Online: &Online{Reason: w.reason}}
 	if !w.offlineSince.IsZero() {
 		since := w.offlineSince.UTC().Truncate(time.Second)
-		ev.Online.OfflineSince, ev.Online.OfflineSeconds = &since, int64(now.Sub(w.offlineSince).Seconds())
+		ev.Online.OfflineSince, ev.Online.OfflineSeconds = &since, int64(away.Seconds())
 	}
 	w.seen(ctx, now)
 	if announce {

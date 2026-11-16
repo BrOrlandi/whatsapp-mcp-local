@@ -238,3 +238,42 @@ func TestOnlineOnlyForWebhooksThatWantIt(t *testing.T) {
 		t.Fatalf("a webhook without the online event got %d", n)
 	}
 }
+
+// step changes sync's state and gives the watcher a moment to see it: the
+// change channel keeps one signal, so two changes in a row would merge.
+func step(fs *fakeSync, state string) {
+	fs.set(state)
+	time.Sleep(10 * time.Millisecond)
+}
+
+func TestOnlineOfflineSecondsStopAtTheReconnection(t *testing.T) {
+	r, fs := onlineSetup(t)
+	step(fs, "reconnecting")
+	skew.Add(int64(5 * time.Minute)) // five minutes away
+	fs.history(wallNow())
+	step(fs, "connected")
+	skew.Add(int64(time.Minute)) // then a minute of history settling
+	got := waitOnline(t, r, 2)
+	if o := got[1].Online; o.Reason != "reconnected" || o.OfflineSeconds != 300 {
+		t.Fatalf("offline_seconds = %d (%+v), want 300: the wait for the history is not time away", o.OfflineSeconds, o)
+	}
+}
+
+func TestOnlineDropWhileHistorySettles(t *testing.T) {
+	r, fs := onlineSetup(t)
+	// A short outage, then the connection holds while history arrives, then
+	// another short outage: the time it held is not away.
+	step(fs, "reconnecting")
+	skew.Add(int64(50 * time.Millisecond))
+	fs.history(wallNow())
+	step(fs, "connected")
+	skew.Add(int64(125 * time.Millisecond))
+	fs.history(wallNow())
+	step(fs, "reconnecting")
+	skew.Add(int64(5 * time.Millisecond))
+	step(fs, "connected")
+	time.Sleep(200 * time.Millisecond)
+	if got := onlineEvents(r); len(got) != 1 {
+		t.Fatalf("two short outages were announced as one long one: %+v", got[len(got)-1].Online)
+	}
+}

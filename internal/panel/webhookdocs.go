@@ -104,8 +104,8 @@ func webhookExamples() []webhookExampleGroup {
 				JSON: exampleJSON(webhook.Event{Kind: "receipt", ID: "d73abf8e065c1924", At: sent, Account: number, Receipt: &webhook.Receipt{ChatJID: maria, SenderJID: maria,
 					MessageIDs: []string{"3EB0B1C2D3E4F5A6B7C8", "3EB0B1C2D3E4F5A6B7C9"}, Type: "read", Timestamp: at}})},
 		}},
-		{ID: "online", Title: i18n.T("De volta on-line (online)"), Intro: i18n.T("O WhatsApp voltou a ficar acessível neste computador. Chega quando o histórico que o celular manda ao conectar já assentou, então um programa que lê as conversas nessa hora já encontra o que chegou enquanto o computador estava fora. Não chega nas pausas curtas das ferramentas nem numa queda de poucos segundos, e o filtro de conversas não se aplica a ele."), Examples: []webhookExample{
-			{ID: "acordou", Title: i18n.T("O computador acordou"), Note: i18n.T("Para rodar uma tarefa da sua ferramenta de IA nessa hora, o programa que recebe pode chamá-la, por exemplo com claude -p, e responder na hora sem esperar ela terminar."),
+		{ID: "online", Title: i18n.T("De volta on-line (online)"), Intro: i18n.T("O WhatsApp voltou a ficar acessível neste computador. O aviso espera até 3 minutos o histórico que o celular manda ao conectar assentar, então um programa que lê as conversas nessa hora costuma encontrar o que chegou enquanto o computador estava fora; se o histórico demorar mais, o aviso sai antes de ele terminar. Não chega nas pausas curtas das ferramentas nem numa queda de poucos segundos, e o filtro de conversas não se aplica a ele."), Examples: []webhookExample{
+			{ID: "acordou", Title: i18n.T("O computador acordou"), Note: i18n.T("Para rodar uma tarefa da sua ferramenta de IA nessa hora, o programa que recebe pode chamá-la, por exemplo com claude -p, e responder na hora sem esperar ela terminar. Os despertares curtos do macOS (Power Nap) também podem mandar woke: guarde um intervalo mínimo entre uma tarefa e outra."),
 				JSON: exampleJSON(webhook.Event{Kind: "online", ID: "f95cd1a0287e3b46", At: sent, Account: number, Online: &webhook.Online{Reason: "woke", OfflineSince: &overnight, OfflineSeconds: int64(sent.Sub(overnight).Seconds())}})},
 		}},
 		{ID: "test", Title: i18n.T("Aviso de teste"), Intro: i18n.T("O que o botão Testar manda. Tem test true; não conta para o desligamento automático."), Examples: []webhookExample{
@@ -200,7 +200,7 @@ function assinaturaValida(corpo, cabecalho, chave) {
 <h3 class="card__sub">online</h3>
 <ul class="rows">
 <li class="row"><span class="row__main"><span class="row__title mono">reason</span><span class="row__meta">{{t "started (o app abriu, com o computador ou à mão), woke (o computador acordou) ou reconnected (a internet ou o WhatsApp voltou depois de ao menos dois minutos fora)."}}</span></span></li>
-<li class="row"><span class="row__main"><span class="row__title mono">offline_since · offline_seconds</span><span class="row__meta">{{t "O último momento em que o app sabia estar conectado, em UTC, e quanto tempo ficou fora até agora. Ficam de fora quando o app não sabe, como na primeira vez que abre."}}</span></span></li>
+<li class="row"><span class="row__main"><span class="row__title mono">offline_since · offline_seconds</span><span class="row__meta">{{t "O último momento em que o app sabia estar conectado, em UTC, e quanto tempo ficou fora até a conexão voltar (a espera pelo histórico não conta). Ficam de fora quando o app não sabe, como na primeira vez que abre."}}</span></span></li>
 </ul>
 </div></section>
 
