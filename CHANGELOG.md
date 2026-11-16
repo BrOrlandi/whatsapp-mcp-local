@@ -4,6 +4,25 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.8.0-beta.1] - 2026-11-16
+
+Versão de teste, para investigar notificações repetidas de "sincronização" no
+iPhone. Quem não foi convidado não precisa dela: o app só atualiza sozinho para
+versões finais.
+
+### Adicionado
+
+- **Logs para suporte**, em Configurações: um botão baixa um arquivo de texto
+  com o que o app fez nas últimas 24 horas, 3 dias ou 7 dias, com horário
+  exato. Números, contatos, grupos e links viram códigos, e o texto das
+  mensagens e os nomes não entram no arquivo. O app guarda os últimos 7 dias.
+
+### Mudou
+
+- Quem estiver numa versão de teste recebe a versão final pelo atualizador.
+
+Inclui o wacli 0.26.1, que mantém o histórico de chamadas ao juntar conversas e corrige falhas de segurança do Go.
+
 ## [1.7.6] - 2026-11-09
 
 ### Corrigido
