@@ -28,9 +28,20 @@ var (
 	minOffline = 2 * time.Minute
 )
 
+// wallNow is the time on the wall clock. The watcher compares only wall
+// times: on macOS the monotonic clock stops while the computer sleeps, so a
+// night asleep would look like no time at all.
+var wallNow = func() time.Time { return time.Now().Round(0) }
+
+// wakeWait is how long, after a sleep, the event waits for sync to connect
+// anew: the connection sync reports may be a socket the sleep killed. If sync
+// never reconnects (the socket survived), the event goes after it.
+var wakeWait = 90 * time.Second
+
 // SyncState is what the online watcher reads about sync: its state
-// (connected, reconnecting, paused…) and when history last arrived.
-type SyncState func() (state string, historyAt time.Time)
+// (connected, reconnecting, paused…), since when, and when history last
+// arrived.
+type SyncState func() (state string, since, historyAt time.Time)
 
 // WatchOnline follows sync and dispatches an online event every time the
 // number is reachable again. changes signals each change of sync's state. It
@@ -45,7 +56,6 @@ func (m *Manager) WatchOnline(ctx context.Context, changes <-chan struct{}, read
 	w.offlineSince = w.lastSeen
 	beat := time.NewTicker(heartbeat)
 	defer beat.Stop()
-	lastBeat := time.Now()
 	w.check(ctx)
 	for {
 		select {
@@ -55,18 +65,11 @@ func (m *Manager) WatchOnline(ctx context.Context, changes <-chan struct{}, read
 			w.check(ctx)
 		case <-w.timer():
 			w.fire(ctx)
-		case now := <-beat.C:
-			slept := now.Sub(lastBeat) > 3*heartbeat
-			lastBeat = now
-			if slept && w.online {
-				// Sync may still say connected over a socket the sleep killed;
-				// the event waits for the connection to hold again.
-				w.goneSince(w.lastSeen, "woke")
+		case <-beat.C:
+			if w.slept() {
 				w.check(ctx)
-				continue
-			}
-			if w.online {
-				w.seen(ctx, now)
+			} else if w.online {
+				w.seen(ctx, wallNow())
 			}
 		}
 	}
@@ -77,9 +80,10 @@ type onlineWatch struct {
 	read SyncState
 
 	online       bool
-	lastSeen     time.Time // the last moment known connected
+	lastSeen     time.Time // the last moment known connected, on the wall clock
 	offlineSince time.Time // when it went away, zero when unknown
 	reason       string    // why the next event goes: started, woke, reconnected
+	wokeAt       time.Time // when a sleep was noticed, for the woke event
 
 	waitFrom time.Time // when the connection was first seen holding
 	pending  *time.Timer
@@ -120,20 +124,36 @@ func (w *onlineWatch) seen(ctx context.Context, at time.Time) {
 	_ = w.m.st.SetSetting(context.WithoutCancel(ctx), lastOnlineSetting, at.UTC().Format(time.RFC3339))
 }
 
+// slept notices a sleep: while online the heartbeat writes lastSeen down
+// every beat, so a gap of several beats on the wall clock means the computer
+// was asleep. It runs before anything else looks at the state, so the time
+// away is measured from before the sleep, not from when sync noticed it.
+func (w *onlineWatch) slept() bool {
+	now := wallNow()
+	if !w.online || now.Sub(w.lastSeen) <= 3*heartbeat {
+		return false
+	}
+	w.goneSince(w.lastSeen, "woke")
+	w.wokeAt = now
+	return true
+}
+
 // check reacts to sync's state now.
 func (w *onlineWatch) check(ctx context.Context) {
-	state, _ := w.read()
+	w.slept()
+	state, _, _ := w.read()
 	switch state {
-	case "paused":
-		// The tools pause sync for seconds at a time; nothing changes.
+	case "paused", "starting":
+		// The tools pause sync for seconds at a time, and it starts again
+		// after; nothing changes until it connects or fails.
 	case "connected":
 		if !w.online && w.pending == nil {
-			w.waitFrom = time.Now()
+			w.waitFrom = wallNow()
 			w.schedule(settle)
 		}
 	default:
 		if w.online {
-			w.seen(ctx, time.Now())
+			w.seen(ctx, wallNow())
 			w.goneSince(w.lastSeen, "reconnected")
 		} else if w.pending != nil {
 			w.cancel()
@@ -144,27 +164,34 @@ func (w *onlineWatch) check(ctx context.Context) {
 // fire sends the event if the connection held and the history settled.
 func (w *onlineWatch) fire(ctx context.Context) {
 	w.pending = nil
-	state, historyAt := w.read()
+	state, since, historyAt := w.read()
 	if state != "connected" {
 		w.waitFrom = time.Time{}
 		return
 	}
-	now := time.Now()
-	if quiet := now.Sub(historyAt); quiet < settle && now.Sub(w.waitFrom) < settleMax {
+	now := wallNow()
+	waited := now.Sub(w.waitFrom)
+	if w.reason == "woke" && since.Before(w.wokeAt) && now.Sub(w.wokeAt) < wakeWait {
+		w.schedule(settle) // sync has not connected since the wake yet
+		return
+	}
+	if quiet := now.Sub(historyAt); quiet < settle && waited < settleMax {
 		w.schedule(settle - quiet)
 		return
 	}
-	w.waitFrom = time.Time{}
-	w.online = true
+	// Away is up to when the connection came back, not to now: the wait for
+	// the history is not time away.
 	away := time.Duration(0)
 	if !w.offlineSince.IsZero() {
-		away = now.Sub(w.offlineSince)
+		away = w.waitFrom.Sub(w.offlineSince)
 	}
+	w.waitFrom = time.Time{}
+	w.online = true
 	announce := w.reason != "reconnected" || away >= minOffline
 	ev := Event{Kind: "online", ID: randomHex(8), At: now.UTC(), Online: &Online{Reason: w.reason}}
 	if !w.offlineSince.IsZero() {
-		since := w.offlineSince.UTC()
-		ev.Online.OfflineSince, ev.Online.OfflineSeconds = &since, int64(away.Seconds())
+		since := w.offlineSince.UTC().Truncate(time.Second)
+		ev.Online.OfflineSince, ev.Online.OfflineSeconds = &since, int64(now.Sub(w.offlineSince).Seconds())
 	}
 	w.seen(ctx, now)
 	if announce {

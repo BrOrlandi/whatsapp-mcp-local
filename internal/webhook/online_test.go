@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -12,13 +13,14 @@ import (
 type fakeSync struct {
 	mu        sync.Mutex
 	state     string
+	since     time.Time
 	historyAt time.Time
 	changes   chan struct{}
 }
 
 func (f *fakeSync) set(state string) {
 	f.mu.Lock()
-	f.state = state
+	f.state, f.since = state, wallNow()
 	f.mu.Unlock()
 	select {
 	case f.changes <- struct{}{}:
@@ -32,16 +34,26 @@ func (f *fakeSync) history(at time.Time) {
 	f.mu.Unlock()
 }
 
-func (f *fakeSync) read() (string, time.Time) {
+func (f *fakeSync) read() (string, time.Time, time.Time) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.state, f.historyAt
+	return f.state, f.since, f.historyAt
+}
+
+// skew moves the watcher's wall clock forward, as a night asleep does while
+// the monotonic clock stands still.
+var skew atomic.Int64
+
+func init() {
+	// Short times for the watcher, set once: watchers of earlier tests may
+	// still be winding down, so they are never put back.
+	heartbeat, settle, settleMax, minOffline, wakeWait = time.Hour, 40*time.Millisecond, 400*time.Millisecond, 150*time.Millisecond, 300*time.Millisecond
+	wallNow = func() time.Time { return time.Now().Round(0).Add(time.Duration(skew.Load())) }
 }
 
 func shortOnlineTimes(t *testing.T) {
-	old := []time.Duration{heartbeat, settle, settleMax, minOffline}
-	heartbeat, settle, settleMax, minOffline = time.Hour, 40*time.Millisecond, 400*time.Millisecond, 150*time.Millisecond
-	t.Cleanup(func() { heartbeat, settle, settleMax, minOffline = old[0], old[1], old[2], old[3] })
+	t.Helper()
+	skew.Store(0)
 }
 
 func onlineEvents(r *receiver) []Event {
@@ -132,6 +144,80 @@ func TestOnline(t *testing.T) {
 	r.mu.Unlock()
 	if v, _ := st.Setting(context.Background(), lastOnlineSetting); v == "" || v == before.Format(time.RFC3339) {
 		t.Errorf("last online moment not kept: %q", v)
+	}
+}
+
+// onlineSetup is a webhook that wants the online event, watching a fake sync
+// that is already online once.
+func onlineSetup(t *testing.T) (*receiver, *fakeSync) {
+	t.Helper()
+	shortOnlineTimes(t)
+	m, _ := manager(t)
+	r := newReceiver(t, func(int32) int { return http.StatusOK })
+	online, url := []string{"online"}, r.srv.URL
+	if _, _, err := m.Create(context.Background(), Settings{URL: &url, Events: &online}); err != nil {
+		t.Fatal(err)
+	}
+	fs := &fakeSync{state: "starting", changes: make(chan struct{}, 1)}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go m.WatchOnline(ctx, fs.changes, fs.read)
+	fs.set("connected")
+	waitOnline(t, r, 1)
+	return r, fs
+}
+
+func TestOnlineAfterSleep(t *testing.T) {
+	r, fs := onlineSetup(t)
+	// Eight hours asleep: the monotonic clock did not move, the wall did.
+	// Sync then notices the dead socket and reconnects in a moment.
+	skew.Store(int64(8 * time.Hour))
+	fs.set("reconnecting")
+	fs.set("connected")
+	got := waitOnline(t, r, 2)
+	o := got[1].Online
+	if o.Reason != "woke" || o.OfflineSeconds < int64((8*time.Hour).Seconds()) {
+		t.Fatalf("after sleep = %+v", o)
+	}
+}
+
+func TestOnlineAfterSleepWaitsForTheReconnection(t *testing.T) {
+	r, fs := onlineSetup(t)
+	skew.Store(int64(8 * time.Hour))
+	fs.set("connected") // a change that is not a new connection yet: still the old socket
+	time.Sleep(120 * time.Millisecond)
+	if n := len(onlineEvents(r)); n != 1 {
+		t.Fatalf("woke announced before sync reconnected: %d events", n)
+	}
+	fs.set("reconnecting")
+	fs.set("connected")
+	if got := waitOnline(t, r, 2); got[1].Online.Reason != "woke" {
+		t.Fatalf("reason = %q", got[1].Online.Reason)
+	}
+}
+
+func TestOnlineToolPauseDuringHistory(t *testing.T) {
+	r, fs := onlineSetup(t)
+	// History keeps arriving, and a tool pauses and restarts sync meanwhile:
+	// the wait for the history is not time away.
+	stop := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-stop:
+				return
+			case <-time.After(5 * time.Millisecond):
+				fs.history(wallNow())
+			}
+		}
+	}()
+	fs.set("paused")
+	fs.set("starting")
+	fs.set("connected")
+	time.Sleep(600 * time.Millisecond) // past settleMax and minOffline
+	close(stop)
+	if n := len(onlineEvents(r)); n != 1 {
+		t.Fatalf("a tool pause was announced: %d events", n)
 	}
 }
 
