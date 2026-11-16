@@ -164,7 +164,7 @@ Example:
 `,
 
 	"webhooks": `Usage: whatsapp-mcp webhooks [list] [--json]
-       whatsapp-mcp webhooks add <url> [--events message,reaction,receipt]
+       whatsapp-mcp webhooks add <url> [--events message,reaction,receipt,online]
                                  [--include-own] [--chats <jid>,<jid>] [--json]
        whatsapp-mcp webhooks remove|enable|disable|test <id> [--json]
 
@@ -175,7 +175,9 @@ posted: http://127.0.0.1:47821/webhooks/documentacao (with your port).
 
   list            the webhooks, with their id, state and deliveries (default)
   add <url>       create one; it prints the secret once, keep it
-    --events        which events to post: message, reaction, receipt
+    --events        which events to post: message, reaction, receipt, online
+                    (online: WhatsApp is back on this computer, after it
+                    started, woke up or came back online)
                     (default: message)
     --include-own   also post the messages you send
     --chats         only these chats, by JID (from the AI tools or the panel)

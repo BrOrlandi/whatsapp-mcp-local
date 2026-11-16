@@ -37,7 +37,7 @@ import (
 )
 
 // Events a webhook can receive.
-var Events = []string{"message", "reaction", "receipt"}
+var Events = []string{"message", "reaction", "receipt", "online"}
 
 // Event is one thing that happened, as webhooks receive it.
 type Event struct {
@@ -46,6 +46,7 @@ type Event struct {
 	At      time.Time `json:"sent_at"`
 	Message *Message  `json:"message,omitempty"`
 	Receipt *Receipt  `json:"receipt,omitempty"`
+	Online  *Online   `json:"online,omitempty"`
 	// Account is the WhatsApp number the event happened on, so one script
 	// can serve several numbers.
 	Account *account.Info `json:"account,omitempty"`
@@ -104,6 +105,23 @@ type Receipt struct {
 	MessageIDs []string  `json:"message_ids"`
 	Type       string    `json:"type"`
 	Timestamp  time.Time `json:"timestamp"`
+}
+
+// Online says WhatsApp is reachable again on this computer: the app started,
+// the computer woke up, or the connection came back after a while away. It
+// waits up to three minutes for the history the phone sends on connecting to
+// settle, so a script that reads the chats then usually sees what arrived
+// meanwhile; a history that takes longer is still arriving when it comes.
+type Online struct {
+	// Reason is started (the app started, with the computer or by hand),
+	// woke (the computer woke from sleep) or reconnected (the internet or
+	// WhatsApp came back after at least two minutes away).
+	Reason string `json:"reason"`
+	// OfflineSince is the last moment the app knew it was connected, when it
+	// knows one; OfflineSeconds is how long it was away, until the connection
+	// came back (the wait for the history is not counted).
+	OfflineSince   *time.Time `json:"offline_since,omitempty"`
+	OfflineSeconds int64      `json:"offline_seconds,omitempty"`
 }
 
 // Retry schedule: ten attempts, each with a short timeout, the waits between
@@ -237,6 +255,9 @@ func (m *Manager) Dispatch(ctx context.Context, ev Event) {
 func (m *Manager) wants(ctx context.Context, h state.Webhook, ev Event) bool {
 	if !slices.Contains(h.Events, ev.Kind) {
 		return false
+	}
+	if ev.Kind == "online" {
+		return true // about the number, not a chat: the chat filter does not apply
 	}
 	if ev.fromMe && !h.IncludeOwn {
 		return false

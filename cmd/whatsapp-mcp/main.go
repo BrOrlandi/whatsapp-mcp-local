@@ -225,7 +225,7 @@ Settings:
   port [<port>]             show or change the MCP's port (restarts the service)
   token [show|new|set <token>|clear]   the key /mcp and the API's actions ask for (restarts the service)
   webhooks [list|add <url>|remove <id>|enable <id>|disable <id>|test <id>]
-      add: [--events message,reaction,receipt] [--include-own] [--chats <jid>,<jid>]
+      add: [--events message,reaction,receipt,online] [--include-own] [--chats <jid>,<jid>]
   config                    print the configuration for Claude Code and Claude Desktop
   transcription install     set up voice-note transcription on this computer (whisper.cpp)
   open                      open the control panel in the browser
