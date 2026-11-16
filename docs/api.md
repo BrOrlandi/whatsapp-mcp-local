@@ -126,7 +126,7 @@ curl -s -X POST -H 'Content-Type: application/json' \
 | Campo | O que é |
 |---|---|
 | `url` | O endereço, `http://` ou `https://` (obrigatório) |
-| `events` | O que ele recebe: `message` (mensagens novas, o padrão), `reaction` (reações) e `receipt` (as suas mensagens entregues, lidas ou ouvidas) |
+| `events` | O que ele recebe: `message` (mensagens novas, o padrão), `reaction` (reações), `receipt` (as suas mensagens entregues, lidas ou ouvidas) e `online` (o WhatsApp voltou a ficar acessível neste computador) |
 | `include_own` | `true` também entrega as mensagens que a própria conta manda, do celular ou pelas ferramentas |
 | `chats` | Só estas conversas (JIDs); vazio, todas |
 | `enabled` | `false` desliga sem apagar |
@@ -134,7 +134,7 @@ curl -s -X POST -H 'Content-Type: application/json' \
 A resposta traz o `secret`, uma única vez: ele assina cada entrega. Cada
 entrega é um `POST` com JSON e estes cabeçalhos:
 
-- `X-WhatsApp-MCP-Event`: `message`, `reaction` ou `receipt`;
+- `X-WhatsApp-MCP-Event`: `message`, `reaction`, `receipt` ou `online`;
 - `X-WhatsApp-MCP-Delivery`: o id da entrega;
 - `X-WhatsApp-MCP-Signature`: `sha256=` seguido do HMAC-SHA256 do corpo com o
   segredo, em hexadecimal. Confira antes de confiar no conteúdo.
@@ -170,6 +170,15 @@ Uma mensagem com mídia traz `media` (`type`, `mime_type`, `filename`, `bytes`,
 `reaction` (`to`, `emoji`; vazio quando foi removida); uma confirmação, `receipt` (`message_ids`, `type`:
 `delivered`, `read` ou `played`). Só chegam mensagens novas: o histórico que o
 celular manda depois de conectar não é entregue.
+
+`online` avisa que o WhatsApp voltou a ficar acessível neste computador, para um
+script rodar o que precisa das conversas nessa hora (por exemplo, resumir o que
+chegou à noite). Traz `online.reason`: `started` (o app abriu, com o computador
+ou à mão), `woke` (o computador acordou) ou `reconnected` (a internet ou o
+WhatsApp voltou depois de ao menos dois minutos fora), e, quando o app sabe,
+`offline_since` e `offline_seconds`. Chega depois que o histórico que o celular
+manda ao conectar assentou, não chega nas pausas curtas das ferramentas nem numa
+queda de poucos segundos, e o filtro de conversas (`chats`) não se aplica a ele.
 
 **Entrega.** Cada webhook tem uma fila, entregue em ordem. Qualquer resposta
 `2xx` conta como entregue; responda em até 3 segundos e faça o trabalho
