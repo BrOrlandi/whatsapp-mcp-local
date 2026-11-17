@@ -30,6 +30,9 @@ var blocked = []netip.Prefix{
 	netip.MustParsePrefix("64:ff9b:1::/48"),  // local NAT64
 	netip.MustParsePrefix("2001:db8::/32"),   // documentation
 	netip.MustParsePrefix("fc00::/7"),        // unique local
+	netip.MustParsePrefix("::/96"),           // IPv4-compatible, which reaches IPv4 inside
+	netip.MustParsePrefix("2002::/16"),       // 6to4, which carries an IPv4 address
+	netip.MustParsePrefix("2001::/32"),       // Teredo, which carries an IPv4 address
 }
 
 // Internal reports whether an address is not on the internet.

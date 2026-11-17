@@ -72,6 +72,8 @@ func (l *mediaLinks) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if link.mime != "" {
 		w.Header().Set("Content-Type", link.mime)
 	}
+	// The type is the one WhatsApp gave; a browser must not guess another.
+	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+filepath.Base(link.path)+`"`)
 	http.ServeFile(w, r, link.path)
 }
