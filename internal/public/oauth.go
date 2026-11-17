@@ -595,7 +595,7 @@ func (s *Server) consentError(w http.ResponseWriter, problem string) {
 // without a port.
 func redirectHost(raw string) string {
 	if u, err := url.Parse(raw); err == nil {
-		return strings.ToLower(u.Hostname())
+		return asciiHost(u.Hostname())
 	}
 	return ""
 }
@@ -607,7 +607,7 @@ func redirectHost(raw string) string {
 func clientHost(c client, redirect string) string {
 	if c.Document {
 		if u, err := url.Parse(c.ID); err == nil {
-			return strings.ToLower(u.Hostname())
+			return asciiHost(u.Hostname())
 		}
 	}
 	return redirectHost(redirect)
@@ -631,13 +631,13 @@ func (s *Server) needsPassword(r *http.Request, ar authRequest) bool {
 func (s *Server) consent(w http.ResponseWriter, r *http.Request, ar authRequest, c client, problem string, status int) {
 	back := ar.RedirectURI
 	if u, err := url.Parse(ar.RedirectURI); err == nil {
-		back = u.Host
+		back = asciiHost(u.Host)
 	}
 	var body bytes.Buffer
 	_ = consentTemplate.Execute(&body, map[string]any{
 		"Lang": i18n.Lang(), "Title": i18n.T("Permitir acesso ao seu WhatsApp"),
 		"Lead":            i18n.Tf("%s quer usar o seu WhatsApp por este servidor.", clientHost(c, ar.RedirectURI)),
-		"From":            i18n.Tf("O aplicativo se apresenta como “%s”: esse nome é dele e não é verificado.", c.Name),
+		"From":            i18n.Tf("O aplicativo se apresenta como “%s”: esse nome é dele e não é verificado.", cleanName(c.Name, clientHost(c, ar.RedirectURI))),
 		"Back":            i18n.Tf("Depois de aprovar, você volta para: %s", back),
 		"Loopback":        loopbackOnly(c),
 		"LoopbackWarning": i18n.T("Este aplicativo volta para um programa no computador de quem está conectando. Qualquer programa ali pode usar esse nome: só aprove se foi você que pediu agora."),

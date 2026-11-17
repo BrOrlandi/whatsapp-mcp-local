@@ -153,6 +153,7 @@ func (d *documents) fetch(ctx context.Context, id string) (client, error) {
 // short, or the host it came from.
 func cleanName(name, fallback string) string {
 	name = strings.Join(strings.FieldsFunc(name, func(r rune) bool { return r < 0x20 || r == 0x7f }), " ")
+	name = visibleName(name)
 	name = strings.TrimSpace(name)
 	if r := []rune(name); len(r) > 60 {
 		name = string(r[:60])
