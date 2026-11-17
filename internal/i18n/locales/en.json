@@ -954,8 +954,6 @@
  "este aplicativo não está registrado neste servidor; conecte de novo a partir do aplicativo": "this app is not registered on this server; connect again from the app",
  "não foi possível ler a descrição do aplicativo que pediu acesso; tente de novo em um minuto": "the description of the app asking for access could not be read; try again in a minute",
  "%s quer usar o seu WhatsApp por este servidor.": "%s wants to use your WhatsApp through this server.",
- "Aplicativo: %s (descrito por %s)": "App: %s (described by %s)",
- "Aplicativo: %s": "App: %s",
  "Depois de aprovar, você volta para: %s": "After you approve, you go back to: %s",
  "Este aplicativo volta para um programa no computador de quem está conectando. Qualquer programa ali pode usar esse nome: só aprove se foi você que pediu agora.": "This app returns to a program on the computer of whoever is connecting. Any program there can use this name: approve only if you asked just now.",
  "O que ele pode fazer": "What it may do",
@@ -985,5 +983,8 @@
  "uso: whatsapp-mcp apikey revoke <id>": "usage: whatsapp-mcp apikey revoke <id>",
  "o aplicativo pediu um tipo de acesso que este servidor não oferece": "the app asked for a kind of access this server does not offer",
  "o pedido de acesso não usa a proteção que este servidor exige (PKCE S256)": "the access request does not use the protection this server requires (PKCE S256)",
- "o pedido de acesso é para outro endereço, não para este servidor": "the access request is for another address, not for this server"
+ "o pedido de acesso é para outro endereço, não para este servidor": "the access request is for another address, not for this server",
+ "Escolha o que este aplicativo pode fazer: tudo, ou só ler.": "Choose what this app may do: everything, or read only.",
+ "O aplicativo se apresenta como “%s”: esse nome é dele e não é verificado.": "The app calls itself “%s”: that name is its own and is not verified.",
+ "O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos.": "The server is receiving many password attempts right now. Try again in a few seconds."
 }

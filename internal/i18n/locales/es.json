@@ -954,8 +954,6 @@
  "este aplicativo não está registrado neste servidor; conecte de novo a partir do aplicativo": "esta aplicación no está registrada en este servidor; conecta de nuevo desde la aplicación",
  "não foi possível ler a descrição do aplicativo que pediu acesso; tente de novo em um minuto": "no se pudo leer la descripción de la aplicación que pidió acceso; inténtalo de nuevo en un minuto",
  "%s quer usar o seu WhatsApp por este servidor.": "%s quiere usar tu WhatsApp por este servidor.",
- "Aplicativo: %s (descrito por %s)": "Aplicación: %s (descrita por %s)",
- "Aplicativo: %s": "Aplicación: %s",
  "Depois de aprovar, você volta para: %s": "Después de aprobar, vuelves a: %s",
  "Este aplicativo volta para um programa no computador de quem está conectando. Qualquer programa ali pode usar esse nome: só aprove se foi você que pediu agora.": "Esta aplicación vuelve a un programa en la computadora de quien está conectando. Cualquier programa ahí puede usar ese nombre: aprueba solo si fuiste tú quien lo pidió ahora.",
  "O que ele pode fazer": "Lo que puede hacer",
@@ -985,5 +983,8 @@
  "uso: whatsapp-mcp apikey revoke <id>": "uso: whatsapp-mcp apikey revoke <id>",
  "o aplicativo pediu um tipo de acesso que este servidor não oferece": "la aplicación pidió un tipo de acceso que este servidor no ofrece",
  "o pedido de acesso não usa a proteção que este servidor exige (PKCE S256)": "el pedido de acceso no usa la protección que este servidor exige (PKCE S256)",
- "o pedido de acesso é para outro endereço, não para este servidor": "el pedido de acceso es para otra dirección, no para este servidor"
+ "o pedido de acesso é para outro endereço, não para este servidor": "el pedido de acceso es para otra dirección, no para este servidor",
+ "Escolha o que este aplicativo pode fazer: tudo, ou só ler.": "Elige lo que esta aplicación puede hacer: todo, o solo leer.",
+ "O aplicativo se apresenta como “%s”: esse nome é dele e não é verificado.": "La aplicación se presenta como “%s”: ese nombre es suyo y no está verificado.",
+ "O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos.": "El servidor está recibiendo muchos intentos de contraseña ahora. Inténtalo de nuevo en unos segundos."
 }
