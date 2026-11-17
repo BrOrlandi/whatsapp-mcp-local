@@ -43,6 +43,10 @@ func (l *mediaLinks) add(path, mime string, ttl time.Duration) string {
 	return token
 }
 
+// Add hands out a link to a file for ttl, and returns its token: the path
+// is /media/<token>.
+func (l *mediaLinks) Add(path, mime string, ttl time.Duration) string { return l.add(path, mime, ttl) }
+
 // Live reports whether a /media/ path is a link that still works.
 func (l *mediaLinks) Live(path string) bool {
 	token, ok := strings.CutPrefix(path, "/media/")
