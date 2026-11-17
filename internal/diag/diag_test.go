@@ -130,3 +130,35 @@ func TestNilLogIsQuiet(t *testing.T) {
 		t.Fatal(n, err)
 	}
 }
+
+func TestCodesMatchBackHere(t *testing.T) {
+	a := testAnon()
+	out := a.Text("from 5511987654321:3@s.whatsapp.net in 120363025246125486@g.us")
+	var user, group string
+	for _, w := range strings.Fields(out) {
+		switch KindOf(w) {
+		case "user":
+			user = w
+		case "group":
+			group = w
+		}
+	}
+	if k, v, ok := JIDCode("5511987654321@s.whatsapp.net"); !ok || k != "user" || !a.Is(user, k, v) {
+		t.Errorf("user code %q does not match back (%s %s %v)", user, k, v, ok)
+	}
+	if k, v, _ := JIDCode("120363025246125486@g.us"); !a.Is(group, k, v) {
+		t.Errorf("group code %q does not match back", group)
+	}
+	id := a.Value("msg_id", "3EB0C431D5A2F1E9B7").(string)
+	if KindOf(id) != "msg" || !a.Is(id, "msg", "3EB0C431D5A2F1E9B7") || a.Is(id, "msg", "OTHER") {
+		t.Errorf("msg code %q", id)
+	}
+	if KindOf("hello") != "" || KindOf("x#1") != "" {
+		t.Error("KindOf accepts what is not a code")
+	}
+	// What the patched wacli adds to the warning stays readable.
+	got := a.Value("data", map[string]any{"type": "poll", "media_type": "", "timestamp": "2026-11-16T21:43:05Z", "edit": "", "category": "peer"}).(map[string]any)
+	if got["type"] != "poll" || got["timestamp"] != "2026-11-16T21:43:05Z" || got["category"] != "peer" {
+		t.Errorf("envelope fields changed: %v", got)
+	}
+}

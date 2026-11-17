@@ -6,10 +6,14 @@ import (
 	"strings"
 )
 
-// env is the environment every wacli run gets: its store, no colours, and
-// the name this computer shows in the phone's list of linked devices.
+// env is the environment every wacli run gets: its store, no colours, the
+// name this computer shows in the phone's list of linked devices, and no
+// asking the phone for a copy of a message this computer could not decrypt:
+// each answer can show a "sync completed" notification on an iPhone. A wacli
+// without that switch ignores it.
 func (c *CLI) env() []string {
-	return append(os.Environ(), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1", "WACLI_DEVICE_LABEL="+DeviceLabel())
+	return append(os.Environ(), "WACLI_STORE_DIR="+c.StoreDir, "NO_COLOR=1", "WACLI_DEVICE_LABEL="+DeviceLabel(),
+		"WACLI_REREQUEST_FROM_PHONE=0")
 }
 
 // DeviceLabel is the linked device's name, as wacli would build it but

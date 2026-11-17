@@ -889,5 +889,18 @@
  "De volta on-line (online)": "De vuelta en línea (online)",
  "O WhatsApp voltou a ficar acessível neste computador. O aviso espera até 3 minutos o histórico que o celular manda ao conectar assentar, então um programa que lê as conversas nessa hora costuma encontrar o que chegou enquanto o computador estava fora; se o histórico demorar mais, o aviso sai antes de ele terminar. Não chega nas pausas curtas das ferramentas nem numa queda de poucos segundos, e o filtro de conversas não se aplica a ele.": "WhatsApp volvió a estar disponible en esta computadora. El aviso espera hasta 3 minutos a que se asiente el historial que envía el celular al conectarse, así que un programa que lee las conversaciones en ese momento suele encontrar lo que llegó mientras la computadora estaba fuera; si el historial tarda más, el aviso sale antes de que termine. No llega en las pausas cortas de las herramientas ni en una caída de pocos segundos, y el filtro de conversaciones no se aplica a este aviso.",
  "O computador acordou": "La computadora despertó",
- "Para rodar uma tarefa da sua ferramenta de IA nessa hora, o programa que recebe pode chamá-la, por exemplo com claude -p, e responder na hora sem esperar ela terminar. Os despertares curtos do macOS (Power Nap) também podem mandar woke: guarde um intervalo mínimo entre uma tarefa e outra.": "Para ejecutar una tarea de tu herramienta de IA en ese momento, el programa que recibe puede llamarla, por ejemplo con claude -p, y responder de inmediato sin esperar a que termine. Los despertares breves de macOS (Power Nap) también pueden enviar woke: deja un intervalo mínimo entre una tarea y otra."
+ "Para rodar uma tarefa da sua ferramenta de IA nessa hora, o programa que recebe pode chamá-la, por exemplo com claude -p, e responder na hora sem esperar ela terminar. Os despertares curtos do macOS (Power Nap) também podem mandar woke: guarde um intervalo mínimo entre uma tarefa e outra.": "Para ejecutar una tarea de tu herramienta de IA en ese momento, el programa que recibe puede llamarla, por ejemplo con claude -p, y responder de inmediato sin esperar a que termine. Los despertares breves de macOS (Power Nap) también pueden enviar woke: deja un intervalo mínimo entre una tarea y otra.",
+ "Código do arquivo": "Código del archivo",
+ "Descobrir o código": "Descifrar el código",
+ "Cole um código do arquivo para ver aqui a conversa, o contato ou a mensagem a que ele se refere. Só este computador sabe decifrar os códigos.": "Pega un código del archivo para ver aquí la conversación, el contacto o el mensaje al que se refiere. Solo esta computadora puede descifrar los códigos.",
+ "Mensagem de %s": "Mensaje del %s",
+ "na conversa %s": "en la conversación %s",
+ "enviada por %s": "enviado por %s",
+ "tipo: %s": "tipo: %s",
+ "você": "tú",
+ "cole um código do arquivo, como group#1a2b3c4d": "pega un código del archivo, como group#1a2b3c4d",
+ "as mensagens ainda não estão disponíveis": "los mensajes aún no están disponibles",
+ "nenhuma mensagem guardada neste computador tem esse código": "ningún mensaje guardado en esta computadora tiene ese código",
+ "nenhuma conversa ou contato deste computador tem esse código": "ninguna conversación o contacto de esta computadora tiene ese código",
+ "ex.: group#1a2b3c4d": "ej.: group#1a2b3c4d"
 }

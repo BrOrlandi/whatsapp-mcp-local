@@ -779,6 +779,8 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="muted">{{t "Se algo estranho acontecer, baixe os logs e mande o arquivo para o suporte. Ele mostra o que o app fez e quando, sem o texto das mensagens, nomes ou números."}} <span class="tip" tabindex="0" aria-describedby="tip-logs"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-logs">{{t "Números, contatos, grupos e links viram códigos, sempre o mesmo para o mesmo contato. O arquivo é um texto que você pode abrir e ler antes de mandar. Ficam guardados os últimos 7 dias."}}</span></span></p>
 <div class="actions"><button class="btn btn--ghost btn--small" type="button" data-logs-hours="24">{{t "Últimas 24 horas"}}</button><button class="btn btn--small" type="button" data-logs-hours="72">{{t "Últimos 3 dias"}}</button><button class="btn btn--ghost btn--small" type="button" data-logs-hours="168">{{t "Últimos 7 dias"}}</button></div>
 <p class="busy" data-logs-note role="status" hidden></p>
+<div class="actions"><input type="text" placeholder="{{t "ex.: group#1a2b3c4d"}}" aria-label="{{t "Código do arquivo"}}" data-code-input spellcheck="false" autocomplete="off"><button class="btn btn--ghost btn--small" type="button" data-code-find>{{t "Descobrir o código"}}</button><span class="tip" tabindex="0" aria-describedby="tip-codigo"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-codigo">{{t "Cole um código do arquivo para ver aqui a conversa, o contato ou a mensagem a que ele se refere. Só este computador sabe decifrar os códigos."}}</span></span></div>
+<p class="muted" data-code-result role="status" hidden></p>
 </div></section>
 
 {{if .App}}

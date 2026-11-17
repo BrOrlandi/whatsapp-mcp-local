@@ -710,3 +710,46 @@ func (x *Index) ChatKnown(ctx context.Context, jid string) bool {
 	var one int
 	return x.db.QueryRowContext(ctx, `SELECT 1 FROM chats WHERE jid = ? UNION SELECT 1 FROM messages WHERE chat_jid = ? LIMIT 1`, jid, jid).Scan(&one) == nil
 }
+
+// Addresses are every chat and sender address the store knows.
+func (x *Index) Addresses(ctx context.Context) ([]string, error) {
+	rows, err := x.db.QueryContext(ctx, `
+		SELECT jid FROM chats
+		UNION SELECT DISTINCT chat_jid FROM messages
+		UNION SELECT DISTINCT sender_jid FROM messages WHERE sender_jid IS NOT NULL AND sender_jid != ''`)
+	if err != nil {
+		return nil, describe(err)
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var jid string
+		if err := rows.Scan(&jid); err != nil {
+			return nil, err
+		}
+		out = append(out, jid)
+	}
+	return out, rows.Err()
+}
+
+// FindMessageID walks every stored message id, newest first, until match
+// says yes, and gives that message's chat and id.
+func (x *Index) FindMessageID(ctx context.Context, match func(id string) bool) (chatJID, id string, err error) {
+	rows, err := x.db.QueryContext(ctx, `SELECT chat_jid, msg_id FROM messages ORDER BY ts DESC`)
+	if err != nil {
+		return "", "", describe(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		if err := rows.Scan(&chatJID, &id); err != nil {
+			return "", "", err
+		}
+		if match(id) {
+			return chatJID, id, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return "", "", err
+	}
+	return "", "", ErrNotFound
+}

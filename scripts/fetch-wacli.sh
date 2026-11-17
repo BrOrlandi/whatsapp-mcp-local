@@ -17,7 +17,7 @@ name="wacli_${WACLI_VERSION}_${os}_${arch}.${ext}"
 [ "$os/$arch" = darwin/universal ] && name="wacli_${WACLI_VERSION}_universal_darwin_all.tar.gz"
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-curl -fsSL -o "$tmp/$name" "https://github.com/openclaw/wacli/releases/download/v${WACLI_VERSION}/${name}"
+curl -fsSL -o "$tmp/$name" "https://github.com/${WACLI_REPO:-openclaw/wacli}/releases/download/v${WACLI_VERSION}/${name}"
 if command -v sha256sum >/dev/null; then got="$(sha256sum "$tmp/$name" | cut -d' ' -f1)"; else got="$(shasum -a 256 "$tmp/$name" | cut -d' ' -f1)"; fi
 [ "$got" = "$want" ] || { echo "checksum mismatch for $name: got $got, want $want" >&2; exit 1; }
 mkdir -p "$tmp/x" "$out"

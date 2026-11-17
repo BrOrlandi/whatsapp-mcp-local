@@ -63,6 +63,78 @@ func (p *Panel) registerDiagnostic(mux *http.ServeMux) {
 		}
 		return map[string]string{"path": path, "name": name}, nil
 	}))
+	mux.HandleFunc("POST /api/diagnostico/codigo", p.api(func(r *http.Request) (any, error) {
+		var req struct {
+			Code string `json:"codigo"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		return p.decodeCode(r.Context(), req.Code)
+	}))
+}
+
+// codeMatch is what a code from the diagnostic file stands for, shown only on
+// this computer's page: the key that made it never leaves here.
+type codeMatch struct {
+	Kind    string `json:"tipo"`           // conversa, mensagem, numero
+	Name    string `json:"nome,omitempty"` // the chat or person
+	Address string `json:"endereco,omitempty"`
+	Chat    string `json:"conversa,omitempty"`
+	Sender  string `json:"de,omitempty"`
+	When    string `json:"quando,omitempty"`
+	Content string `json:"conteudo,omitempty"`
+	Text    string `json:"texto,omitempty"`
+}
+
+func (p *Panel) decodeCode(ctx context.Context, c string) (*codeMatch, error) {
+	c = strings.Trim(strings.TrimSpace(c), "\"'.,;")
+	kind := diag.KindOf(c)
+	anon := p.Diag.Anonymizer()
+	if kind == "" || anon == nil {
+		return nil, userError{i18n.T("cole um código do arquivo, como group#1a2b3c4d")}
+	}
+	if p.Index == nil {
+		return nil, userError{i18n.T("as mensagens ainda não estão disponíveis")}
+	}
+	if kind == "msg" {
+		chat, id, err := p.Index.FindMessageID(ctx, func(id string) bool { return anon.Is(c, "msg", id) })
+		if err != nil {
+			return nil, userError{i18n.T("nenhuma mensagem guardada neste computador tem esse código")}
+		}
+		m, err := p.Index.MessageByID(ctx, id, chat)
+		if err != nil {
+			return nil, err
+		}
+		out := &codeMatch{Kind: "mensagem", Chat: p.Index.Names.Name(ctx, m.ChatJID), Address: m.ChatJID,
+			When: m.Timestamp.Local().Format("2006-01-02 15:04:05"), Content: m.MediaType}
+		if m.FromMe {
+			out.Sender = i18n.T("você")
+		} else if m.SenderJID != "" {
+			out.Sender = p.Index.Names.Name(ctx, m.SenderJID)
+		}
+		if out.Content == "" {
+			out.Content = "text"
+		}
+		out.Text = m.Text
+		if len([]rune(out.Text)) > 200 {
+			out.Text = string([]rune(out.Text)[:200]) + "…"
+		}
+		return out, nil
+	}
+	addrs, err := p.Index.Addresses(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, jid := range addrs {
+		k, user, ok := diag.JIDCode(jid)
+		if !ok {
+			continue
+		}
+		if (kind == k && anon.Is(c, k, user)) || (kind == "num" && anon.Is(c, "num", user)) {
+			return &codeMatch{Kind: map[bool]string{true: "numero", false: "conversa"}[kind == "num"],
+				Name: p.Index.Names.Name(ctx, jid), Address: jid}, nil
+		}
+	}
+	return nil, userError{i18n.T("nenhuma conversa ou contato deste computador tem esse código")}
 }
 
 func diagnosticPeriod(v string) int {

@@ -889,5 +889,18 @@
  "De volta on-line (online)": "Back online (online)",
  "O WhatsApp voltou a ficar acessível neste computador. O aviso espera até 3 minutos o histórico que o celular manda ao conectar assentar, então um programa que lê as conversas nessa hora costuma encontrar o que chegou enquanto o computador estava fora; se o histórico demorar mais, o aviso sai antes de ele terminar. Não chega nas pausas curtas das ferramentas nem numa queda de poucos segundos, e o filtro de conversas não se aplica a ele.": "WhatsApp is reachable again on this computer. The delivery waits up to 3 minutes for the history the phone sends on connecting to settle, so a program that reads the chats then usually finds what arrived while the computer was away; if the history takes longer, the delivery goes before it finishes. It doesn't come for the tools' short pauses or a drop of a few seconds, and the chat filter doesn't apply to it.",
  "O computador acordou": "The computer woke up",
- "Para rodar uma tarefa da sua ferramenta de IA nessa hora, o programa que recebe pode chamá-la, por exemplo com claude -p, e responder na hora sem esperar ela terminar. Os despertares curtos do macOS (Power Nap) também podem mandar woke: guarde um intervalo mínimo entre uma tarefa e outra.": "To run a task of your AI tool at that moment, the receiving program can call it, for example with claude -p, and answer right away without waiting for it to finish. Brief wake-ups on macOS (Power Nap) can also send woke: keep a minimum interval between one task and the next."
+ "Para rodar uma tarefa da sua ferramenta de IA nessa hora, o programa que recebe pode chamá-la, por exemplo com claude -p, e responder na hora sem esperar ela terminar. Os despertares curtos do macOS (Power Nap) também podem mandar woke: guarde um intervalo mínimo entre uma tarefa e outra.": "To run a task of your AI tool at that moment, the receiving program can call it, for example with claude -p, and answer right away without waiting for it to finish. Brief wake-ups on macOS (Power Nap) can also send woke: keep a minimum interval between one task and the next.",
+ "Código do arquivo": "File code",
+ "Descobrir o código": "Look up the code",
+ "Cole um código do arquivo para ver aqui a conversa, o contato ou a mensagem a que ele se refere. Só este computador sabe decifrar os códigos.": "Paste a code from the file to see here the chat, contact or message it stands for. Only this computer can read the codes.",
+ "Mensagem de %s": "Message from %s",
+ "na conversa %s": "in the chat %s",
+ "enviada por %s": "sent by %s",
+ "tipo: %s": "type: %s",
+ "você": "you",
+ "cole um código do arquivo, como group#1a2b3c4d": "paste a code from the file, such as group#1a2b3c4d",
+ "as mensagens ainda não estão disponíveis": "the messages are not available yet",
+ "nenhuma mensagem guardada neste computador tem esse código": "no message stored on this computer has that code",
+ "nenhuma conversa ou contato deste computador tem esse código": "no chat or contact on this computer has that code",
+ "ex.: group#1a2b3c4d": "e.g. group#1a2b3c4d"
 }

@@ -167,3 +167,44 @@ func (a *Anonymizer) url(m string) string {
 	}
 	return u.Scheme + "://" + code(a.key, "url", host+u.Path)
 }
+
+// KindOf is the kind a code was made for (user, lid, group, msg, num...), or
+// "" when s is not a code.
+func KindOf(s string) string {
+	kind, hash, ok := strings.Cut(strings.TrimSpace(s), "#")
+	if !ok || kind == "" || len(hash) < 8 {
+		return ""
+	}
+	return kind
+}
+
+// Is says whether c is the code of value for kind, on this computer. It is
+// how a code from an exported file is matched back to what it stands for,
+// which only works here, with this computer's key.
+func (a *Anonymizer) Is(c, kind, value string) bool {
+	if a == nil {
+		return false
+	}
+	c = strings.TrimSpace(c)
+	if i := strings.IndexByte(c, ':'); i > 0 { // a device suffix
+		c = c[:i]
+	}
+	return code(a.key, kind, value) == c
+}
+
+// JIDCode splits a WhatsApp address into the kind and the part its code is
+// made of, as the anonymiser does.
+func JIDCode(jid string) (kind, value string, ok bool) {
+	sub := jidRe.FindStringSubmatch(jid)
+	if sub == nil {
+		return "", "", false
+	}
+	kind = map[string]string{
+		"s.whatsapp.net": "user", "c.us": "user", "lid": "lid", "g.us": "group",
+		"newsletter": "channel", "broadcast": "list", "hosted": "user", "hosted.lid": "lid", "bot": "bot",
+	}[sub[3]]
+	if kind == "" {
+		kind = "jid"
+	}
+	return kind, sub[1], true
+}

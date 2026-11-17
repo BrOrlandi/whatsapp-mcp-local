@@ -880,6 +880,29 @@
     });
   });
 
+  // A code from the diagnostic file, matched back here, where its key is.
+  var codeButton = document.querySelector("[data-code-find]");
+  if (codeButton) codeButton.addEventListener("click", function () {
+    var input = document.querySelector("[data-code-input]");
+    var out = document.querySelector("[data-code-result]");
+    var show = function (text) { if (out) { out.textContent = text; out.hidden = !text; } };
+    show(t("Procurando…"));
+    post("/api/diagnostico/codigo", { codigo: input ? input.value : "" }).then(function (m) {
+      var parts = [];
+      if (m.tipo === "mensagem") {
+        parts.push(t("Mensagem de %s", m.quando));
+        if (m.conversa) parts.push(t("na conversa %s", m.conversa));
+        if (m.de) parts.push(t("enviada por %s", m.de));
+        if (m.conteudo) parts.push(t("tipo: %s", m.conteudo));
+        if (m.texto) parts.push("“" + m.texto + "”");
+      } else {
+        parts.push(m.nome || m.endereco);
+        if (m.nome && m.endereco) parts.push(m.endereco);
+      }
+      show(parts.join(" · "));
+    }).catch(function (err) { show(err.message); });
+  });
+
   // Updates: the card in Configurações and the banner on every page show the
   // same state, asked for every minute so a version found in the background
   // appears without a reload.

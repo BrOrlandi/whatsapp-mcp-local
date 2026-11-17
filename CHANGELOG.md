@@ -4,6 +4,27 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [1.8.0-beta.2] - 2026-11-16
+
+Versão de teste, só para macOS, para confirmar a causa das notificações
+repetidas de "sincronização" no iPhone.
+
+### Mudou
+
+- O app não pede mais ao celular uma cópia das mensagens que o computador não
+  conseguiu decifrar. Cada resposta do celular a esse pedido podia mostrar a
+  notificação. Essas mensagens ficam faltando no computador.
+
+### Adicionado
+
+- **Logs para suporte** mostram, para cada mensagem não decifrada, o tipo
+  (texto, mídia, reação, enquete…) e o horário de envio.
+- Um campo em **Logs para suporte** mostra a conversa, o contato ou a mensagem
+  de um código do arquivo, só neste computador.
+
+Inclui um wacli 0.26.1 modificado (0.26.1-orlandi.1), com a opção de não
+pedir as mensagens ao celular.
+
 ## [1.8.0-beta.1] - 2026-11-16
 
 Versão de teste, para investigar notificações repetidas de "sincronização" no
