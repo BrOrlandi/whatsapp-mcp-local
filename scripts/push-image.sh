@@ -12,16 +12,20 @@ VERSION="${1:?usage: scripts/push-image.sh X.Y.Z}"
 VERSION="${VERSION#v}"
 IMAGE="$(scripts/image-name.sh)"
 
-for tag in "$VERSION" latest; do
+# A test version (1.9.0-beta.1) is pushed under its own tag only.
+TAGS_TO_PUSH=("$VERSION")
+case "$VERSION" in *-*) ;; *) TAGS_TO_PUSH+=(latest) ;; esac
+
+for tag in "${TAGS_TO_PUSH[@]}"; do
   docker image inspect "$IMAGE:$tag" >/dev/null 2>&1 || { echo "$IMAGE:$tag is not on this computer: run scripts/release.sh $VERSION first" >&2; exit 1; }
 done
 platforms="$(docker image inspect "$IMAGE:$VERSION" --platform linux/amd64 --format '{{.Architecture}}' 2>/dev/null || true) $(docker image inspect "$IMAGE:$VERSION" --platform linux/arm64 --format '{{.Architecture}}' 2>/dev/null || true)"
 [ "$platforms" = "amd64 arm64" ] || { echo "$IMAGE:$VERSION does not hold both amd64 and arm64 (got: $platforms)" >&2; exit 1; }
 
-read -r -p "Push $IMAGE:$VERSION and :latest (amd64, arm64)? [y/N] " answer
+read -r -p "Push $IMAGE with the tags ${TAGS_TO_PUSH[*]} (amd64, arm64)? [y/N] " answer
 [ "$answer" = y ] || [ "$answer" = Y ] || { echo "nothing pushed"; exit 1; }
 # With the containerd image store, a push sends the index with both platforms.
-for tag in "$VERSION" latest; do
+for tag in "${TAGS_TO_PUSH[@]}"; do
   docker push "$IMAGE:$tag"
 done
-echo "==> pushed $IMAGE:$VERSION and :latest"
+echo "==> pushed $IMAGE: ${TAGS_TO_PUSH[*]}"

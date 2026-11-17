@@ -188,7 +188,9 @@ os testes. O instalador do Windows não é assinado.
   por uma chamada de ferramenta, sem conta do WhatsApp:
   `go test -tags integration_server -count=1 ./integration/`. Depois da
   release, `docker login ghcr.io` e `scripts/push-image.sh X.Y.Z` publicam as
-  tags `X.Y.Z` e `latest`, com confirmação.
+  tags `X.Y.Z` e `latest`, com confirmação. Uma versão de teste
+  (`X.Y.Z-beta.N`) sai só com a própria tag, nunca como `latest`, e a release
+  dela no GitHub vai com `--prerelease --latest=false`.
 - **Os programas da transcrição** mudam pouco, e saem num release `sidecars-N`
   à parte, que não é marcado como o mais recente (o atualizador do app não o
   confunde com uma versão). Cada sistema compila com `scripts/sidecars/`

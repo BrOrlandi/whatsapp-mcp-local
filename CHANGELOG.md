@@ -6,6 +6,16 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ## [Não lançado]
 
+## [1.9.0-beta.1] - 2026-11-17
+
+Versão de teste do modo servidor, para quem foi convidado a testar. O app só
+atualiza sozinho para versões finais, e quem instalar esta recebe a 1.9.0
+final pelo atualizador. O uso com o Claude pelo navegador e pelo celular e com
+o ChatGPT ainda não foi confirmado nesta versão de teste. A imagem Docker
+desta versão é `ghcr.io/brorlandi/whatsapp-mcp-local:1.9.0-beta.1`
+(`WAMCP_VERSION=1.9.0-beta.1` no instalador); a tag `latest` só passa a
+existir na versão final.
+
 ### Adicionado
 
 - **Modo servidor.** O WhatsApp MCP pode rodar num servidor ligado o tempo

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the server mode's Docker image for linux/amd64 and linux/arm64 into
-# this computer's Docker store, tagged X.Y.Z and latest, and never pushes it
+# this computer's Docker store, tagged X.Y.Z and latest (a test version such
+# as X.Y.Z-beta.1 is not tagged latest), and never pushes it
 # (scripts/push-image.sh does, as its own step). scripts/release.sh runs it
 # for every release; it also runs alone:
 #
@@ -28,9 +29,12 @@ check
 VERSION="${VERSION#v}"
 IMAGE="$(scripts/image-name.sh)"
 echo "==> image $IMAGE:$VERSION"
+# A test version (1.9.0-beta.1) is never latest: compose.yml installs latest.
+tags=(-t "$IMAGE:$VERSION")
+case "$VERSION" in *-*) ;; *) tags+=(-t "$IMAGE:latest") ;; esac
 docker buildx build --platform linux/amd64,linux/arm64 -f build/docker/Dockerfile \
   --build-arg VERSION="v$VERSION" --build-arg TAGS="${TAGS:-}" \
-  -t "$IMAGE:$VERSION" -t "$IMAGE:latest" --load .
+  "${tags[@]}" --load .
 for arch in amd64 arm64; do
   echo "    $arch: $(docker run --rm --platform "linux/$arch" "$IMAGE:$VERSION" version)"
 done
