@@ -116,7 +116,7 @@ func (s *Server) callAs(ctx context.Context, params callParams) map[string]any {
 		return toolError("the tool %q is not allowed for this connection", params.Name)
 	}
 	result := s.call(ctx, params)
-	if fromRemote(ctx) {
+	if fromRemote(ctx) && (pathTools[params.Name] || result["isError"] == true) {
 		result = s.withoutServerPaths(result)
 	}
 	return result

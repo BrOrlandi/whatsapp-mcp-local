@@ -9,11 +9,16 @@ import (
 )
 
 // An agent on another computer never reads where things are on the server:
-// in its answers, the server's folders (media, exports, wacli's store, the
-// app's data, the home and temporary folders, wacli's own path), wherever
-// they appear (media_stats, the purge_media preview, whatsapp_status's
-// wacli report, an error wacli wrote), become a short name. Programs on
-// the server itself get every answer as it is.
+// in the answers that name them (media_stats, the purge_media preview,
+// whatsapp_status with wacli's report, and any error, which may carry what
+// wacli wrote), the server's folders (media, exports, wacli's store, the
+// app's data, the home and temporary folders, wacli's own path) become a
+// short name. Other answers, which carry what people wrote in their
+// messages, are never rewritten. Programs on the server itself get every
+// answer as it is.
+
+// pathTools are the tools whose answers name the server's folders.
+var pathTools = map[string]bool{"media_stats": true, "purge_media": true, "whatsapp_status": true}
 
 type serverPath struct{ path, name string }
 

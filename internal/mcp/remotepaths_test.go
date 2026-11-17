@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -25,7 +26,8 @@ func TestServerPathsInWacliTextAreReplaced(t *testing.T) {
 		t.Fatalf("a wacli error for an agent outside: %s", out)
 	}
 	out = s.withoutServerPaths(doctor)["content"].([]any)[0].(map[string]any)["text"].(string)
-	if strings.Contains(out, `"`+store) || !strings.Contains(out, `"wacli-store`) || !strings.Contains(out, "https://wa.example.com/tmp"+root+"x/media") {
+	esc, _ := json.Marshal(root)
+	if strings.Contains(out, `"`+store) || !strings.Contains(out, `"wacli-store`) || !strings.Contains(out, "https://wa.example.com/tmp"+string(esc[1:len(esc)-1])+"x/media") {
 		t.Fatalf("wacli's report for an agent outside: %s", out)
 	}
 	// Through a call: a local caller keeps the text as it is.
