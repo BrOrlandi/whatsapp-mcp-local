@@ -239,3 +239,31 @@ func TestTablesWithoutACredentialAreBounded(t *testing.T) {
 		t.Fatal("the /64 did not count its addresses together")
 	}
 }
+
+// A code replayed while its first exchange is still keeping the connection
+// ends that connection: the replay never misses it.
+func TestACodeReplayedDuringItsExchange(t *testing.T) {
+	s, _, _ := agentServer(t)
+	c := registerClient(t, s, "https://claude.ai/api/mcp/auth_callback")
+	verifier, challenge := pkce("x")
+	_, back := c.approve(c.authorizeQuery(challenge, c.redirect), testPassword, "full")
+	form := url.Values{"grant_type": {"authorization_code"}, "code": {back.Get("code")}, "client_id": {c.id},
+		"redirect_uri": {c.redirect}, "code_verifier": {verifier}}
+	replayed := 0
+	afterCodeClaimed = func() {
+		replayed++
+		if rec, _ := c.token(form); rec.Code != http.StatusBadRequest {
+			t.Errorf("the replay: %d", rec.Code)
+		}
+	}
+	defer func() { afterCodeClaimed = func() {} }()
+	_, tok := c.token(form)
+	if replayed != 1 {
+		t.Fatalf("the replay ran %d times", replayed)
+	}
+	if at, _ := tok["access_token"].(string); at != "" {
+		if rec := call2(s, at); rec.Code != http.StatusUnauthorized {
+			t.Fatalf("the connection survived a replay during its exchange: %d", rec.Code)
+		}
+	}
+}

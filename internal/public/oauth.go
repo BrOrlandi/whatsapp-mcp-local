@@ -409,6 +409,10 @@ func (s *Server) token(w http.ResponseWriter, r *http.Request, pr peer) {
 	}
 }
 
+// afterCodeClaimed runs once a code is claimed for an exchange; tests use
+// it to replay the code at that moment.
+var afterCodeClaimed = func() {}
+
 func (s *Server) exchangeCode(w http.ResponseWriter, ctx context.Context, f url.Values) {
 	key := hashSecret(f.Get("code"))
 	now := s.now()
@@ -442,18 +446,24 @@ func (s *Server) exchangeCode(w http.ResponseWriter, ctx context.Context, f url.
 	}
 	conn := state.Connection{ID: shortID("c_"), ClientID: p.clientID, ClientName: p.clientName, ReadOnly: p.readOnly,
 		Resource: s.resourceURL(), CreatedAt: now.UTC()}
-	p.connection = conn.ID
-	s.oauth.mu.Unlock()
 	hash, err := s.cfg.Password.Current()
 	if err != nil {
+		s.oauth.mu.Unlock()
 		oauthError(w, http.StatusServiceUnavailable, "temporarily_unavailable", "the panel password is not set up")
 		return
 	}
 	conn.Password = passwordFingerprint(hash)
+	// The connection is kept before the code is marked used and the lock
+	// let go: a replay of the code always finds the connection to end.
 	if err := s.state.AddConnection(ctx, conn); err != nil {
+		delete(s.oauth.codes, key)
+		s.oauth.mu.Unlock()
 		oauthError(w, http.StatusInternalServerError, "server_error", "could not keep the connection")
 		return
 	}
+	p.connection = conn.ID
+	s.oauth.mu.Unlock()
+	afterCodeClaimed()
 	if !isDocumentID(p.clientID) {
 		_ = s.state.TouchOAuthClient(ctx, p.clientID, now)
 	}
