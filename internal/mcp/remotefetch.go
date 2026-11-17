@@ -21,9 +21,27 @@ func fromRemote(ctx context.Context) bool { return caller.From(ctx).Kind != call
 
 var errRemotePath = errors.New("from another computer, a file is sent by its https URL: paths on the server are not reachable")
 
+var errRemoteHTTPS = errors.New("from another computer, a file is sent by its https URL: http is not accepted")
+
 // remoteClient downloads for an agent outside: every connection checked,
-// at most 5 redirects. The call's context bounds the time.
-var remoteClient = netguard.Client(10*time.Minute, 5)
+// at most 5 redirects, all of them https. The call's context bounds the
+// time.
+var remoteClient = httpsOnly(netguard.Client(10*time.Minute, 5))
+
+// httpsOnly refuses a redirect to anything but https.
+func httpsOnly(c *http.Client) *http.Client {
+	next := c.CheckRedirect
+	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if req.URL.Scheme != "https" {
+			return errRemoteHTTPS
+		}
+		if next != nil {
+			return next(req, via)
+		}
+		return nil
+	}
+	return c
+}
 
 // downloadClient is the client a send's URL is fetched with.
 func downloadClient(ctx context.Context) *http.Client {

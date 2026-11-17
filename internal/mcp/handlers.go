@@ -702,6 +702,15 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 	if fail != nil {
 		return fail
 	}
+	if fromRemote(ctx) {
+		src := strings.TrimSpace(a.URL)
+		if filepath.IsAbs(strings.TrimPrefix(src, "file://")) {
+			return toolError("%v", errRemotePath)
+		}
+		if !strings.HasPrefix(strings.ToLower(src), "https://") {
+			return toolError("%v", errRemoteHTTPS)
+		}
+	}
 	if a.DryRun {
 		// A dry run checks the source without downloading it.
 		draft := map[string]any{"type": as, "file": a.URL, "caption": a.Caption, "filename": a.Filename}
@@ -804,6 +813,9 @@ func (s *Server) fetchFile(ctx context.Context, source, filename string) (string
 	}
 	if !strings.HasPrefix(source, "http://") && !strings.HasPrefix(source, "https://") {
 		return "", nothing, errors.New("url must be an http(s) URL or an absolute path on this machine")
+	}
+	if fromRemote(ctx) && !strings.HasPrefix(source, "https://") {
+		return "", nothing, errRemoteHTTPS
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
