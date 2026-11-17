@@ -4,7 +4,7 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
-## [Não lançado]
+## [1.8.0] - 2026-11-17
 
 ### Adicionado
 
@@ -14,6 +14,10 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
   minutos fora. Ele chega depois que o histórico mandado pelo celular termina
   de chegar e diz desde quando o número estava fora. Contribuição de
   [@bragueloire](https://github.com/bragueloire).
+- **Logs para suporte**, em Configurações: um botão baixa um arquivo de texto
+  com o que o app fez nas últimas 24 horas, 3 dias ou 7 dias, com horário
+  exato. Números, contatos, grupos e links viram códigos, e o texto das
+  mensagens e os nomes não entram no arquivo. O app guarda os últimos 7 dias.
 
 ### Corrigido
 
@@ -23,19 +27,6 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
   pelo celular.
 - **Cada envio devolve a conversa como as leituras a conhecem**, para a IA
   achar a mensagem que acabou de mandar ao ler a conversa em seguida.
-
-## [1.8.0-beta.1] - 2026-11-16
-
-Versão de teste, para investigar notificações repetidas de "sincronização" no
-iPhone. Quem não foi convidado não precisa dela: o app só atualiza sozinho para
-versões finais.
-
-### Adicionado
-
-- **Logs para suporte**, em Configurações: um botão baixa um arquivo de texto
-  com o que o app fez nas últimas 24 horas, 3 dias ou 7 dias, com horário
-  exato. Números, contatos, grupos e links viram códigos, e o texto das
-  mensagens e os nomes não entram no arquivo. O app guarda os últimos 7 dias.
 
 ### Mudou
 
@@ -456,6 +447,8 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.8.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.8.0
+[1.7.6]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.7.6
 [1.7.5]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.7.5
 [1.7.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.7.0
 [1.6.2]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.6.2
