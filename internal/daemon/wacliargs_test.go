@@ -4,13 +4,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
 
 // A value a caller gives never becomes a wacli flag: wacli honours flags
-// anywhere on the line, so positional values go after "--", and every
-// recipient or number is checked for its shape first.
+// anywhere on the line, so positional values go after "--", and the others
+// go right after their own flag.
 func TestCallerValuesNeverBecomeWacliFlags(t *testing.T) {
 	base := ""
 	if runtime.GOOS != "windows" {
@@ -40,8 +41,18 @@ func TestCallerValuesNeverBecomeWacliFlags(t *testing.T) {
 		callTool(t, port, "get_profile_picture", map[string]any{"to": bad})
 		callTool(t, port, "mark_chat_read", map[string]any{"chat_jid": bad})
 	}
-	if log := argsLog(); strings.Contains(log, "--store="+filepath.Join(root, "elsewhere")) || strings.Contains(log, "--account=x") || strings.Contains(log, " -h") {
-		t.Errorf("a caller's value reached wacli as a flag:\n%s", log)
+	// A value may reach wacli only as its own flag's value (--to <value>,
+	// which wacli reads as the value whatever it looks like) or after "--".
+	bad := map[string]bool{"--store=" + filepath.Join(root, "elsewhere"): true, "--account=x": true, "-h": true}
+	valueFlags := map[string]bool{"--to": true, "--jid": true, "--chat": true, "--user": true}
+	for _, line := range strings.Split(argsLog(), "\n") {
+		words := strings.Fields(line)
+		for i, w := range words {
+			if !bad[w] || i > 0 && valueFlags[words[i-1]] || slices.Contains(words[:i], "--") {
+				continue
+			}
+			t.Errorf("a caller's value reached wacli as a flag: %s", line)
+		}
 	}
 	// A valid check puts its numbers after "--".
 	callTool(t, port, "check_numbers", map[string]any{"numbers": []string{"+55 11 90000-0001", "5511900000002@s.whatsapp.net"}})

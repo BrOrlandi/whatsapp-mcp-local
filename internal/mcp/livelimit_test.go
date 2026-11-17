@@ -70,19 +70,3 @@ func TestTooManyNumbersInOneCallFromOutside(t *testing.T) {
 		t.Fatalf("%.200s", out)
 	}
 }
-
-// Every server part WhatsApp uses is a JID, the ones to come included; a
-// value shaped like a flag is not.
-func TestJIDShapes(t *testing.T) {
-	for _, v := range []string{"5511900000001@s.whatsapp.net", "5511900000001:12@s.whatsapp.net", "120363000000000000@g.us",
-		"123456789012345@lid", "status@broadcast", "120363000000000000@newsletter", "123@bot", "123@hosted", "123@hosted.lid"} {
-		if !validJID(v) {
-			t.Errorf("%s is a JID", v)
-		}
-	}
-	for _, v := range []string{"--store=/x", "-h", "a b@s.whatsapp.net", "x@", "@g.us", "5511@S.WHATSAPP.NET --json"} {
-		if validJID(v) {
-			t.Errorf("%q is not a JID", v)
-		}
-	}
-}

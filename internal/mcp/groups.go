@@ -10,7 +10,7 @@ import (
 
 func groupJID(a arguments) (string, map[string]any) {
 	jid := strings.TrimSpace(a.GroupJID)
-	if !strings.HasSuffix(jid, "@g.us") || !validJID(jid) {
+	if !strings.HasSuffix(jid, "@g.us") {
 		return "", toolError("group_jid must be a group JID ending in @g.us")
 	}
 	return jid, nil
@@ -27,9 +27,6 @@ func (s *Server) manageParticipants(ctx context.Context, a arguments) map[string
 	}
 	if len(a.Participants) == 0 || len(a.Participants) > 50 {
 		return toolError("participants must list one to fifty phone numbers or JIDs")
-	}
-	if fail := checkTargets("each of participants", a.Participants...); fail != nil {
-		return fail
 	}
 	if a.Action == "remove" && !a.Confirm {
 		people := make([]map[string]string, 0, len(a.Participants))
