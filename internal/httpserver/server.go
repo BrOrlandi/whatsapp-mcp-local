@@ -73,7 +73,9 @@ func RoutesWithPatterns(server *mcp.Server, opts Options) (*http.ServeMux, []str
 			http.Error(w, "this MCP endpoint accepts POST", http.StatusMethodNotAllowed)
 			return
 		}
-		if opts.Token != "" && !validToken(r, opts.Token) {
+		// The token is the local listener's; on the public address the
+		// caller was already checked by its key or login.
+		if opts.Token != "" && caller.From(r.Context()).Kind == caller.Local && !validToken(r, opts.Token) {
 			server.Diag().Event("mcp", "token_refused", map[string]any{"user_agent": truncate(r.UserAgent(), 80)})
 			w.Header().Set("WWW-Authenticate", `Bearer realm="whatsapp-mcp-local"`)
 			http.Error(w, "missing or wrong bearer token", http.StatusUnauthorized)
@@ -117,7 +119,7 @@ func RoutesWithPatterns(server *mcp.Server, opts Options) (*http.ServeMux, []str
 			http.Error(w, "this connection does not reach the health report", http.StatusForbidden)
 			return
 		}
-		if opts.Token != "" && !validToken(r, opts.Token) {
+		if opts.Token != "" && caller.From(r.Context()).Kind == caller.Local && !validToken(r, opts.Token) {
 			http.Error(w, "missing or wrong bearer token", http.StatusUnauthorized)
 			return
 		}

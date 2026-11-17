@@ -164,6 +164,9 @@ func Start(cfg Config) (*Daemon, error) {
 
 	d.panel = &panel.Panel{Server: primary.server, Supervisor: primary.sup, Index: primary.idx, State: primary.st, Token: cfg.Token,
 		Endpoint: d.MCPURL, Desktop: cfg.Desktop, LogPath: cfg.LogPath, MCPProblem: d.PortProblem, DataDir: cfg.DataDir, Diag: d.diag}
+	if cfg.Public != nil {
+		d.panel.PublicURL = cfg.Public.Origin
+	}
 	if cfg.Panel != nil {
 		cfg.Panel(d.panel)
 	}
@@ -175,6 +178,8 @@ func Start(cfg Config) (*Daemon, error) {
 
 	if cfg.Public != nil {
 		d.public = public.New(cfg.Public, d.routes, logger)
+		d.public.UseState(primary.st)
+		d.public.UseMediaLinks(primary.server.Links().Live)
 		d.publicSrv, d.publicAddr = httpserver.NewServer(d.public), publicLn.Addr().String()
 		go func() {
 			if err := d.publicSrv.Serve(publicLn); err != nil && !errors.Is(err, http.ErrServerClosed) {

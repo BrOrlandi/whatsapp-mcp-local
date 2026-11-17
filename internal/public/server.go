@@ -13,6 +13,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 )
 
 // CookieName is the panel session's cookie.
@@ -39,6 +40,18 @@ type Server struct {
 	logger   *slog.Logger
 	sessions *sessions
 	throttle *throttle
+	// bearers slows down wrong keys and tokens, address by address.
+	bearers *throttle
+
+	// state keeps the keys, logins and tokens; nil, and no agent gets in.
+	state     *state.State
+	access    *access
+	documents *documents
+	oauth     *oauthState
+	// mediaLink reports whether a /media/ path is a live link, which its
+	// own secret opens.
+	mediaLink func(path string) bool
+	now       func() time.Time
 }
 
 // New is the public listener's handler in front of the daemon's routes.
@@ -46,8 +59,18 @@ func New(cfg *Config, routes *http.ServeMux, logger *slog.Logger) *Server {
 	if logger == nil {
 		logger = slog.Default()
 	}
-	return &Server{cfg: cfg, routes: routes, logger: logger, sessions: newSessions(), throttle: newThrottle()}
+	return &Server{cfg: cfg, routes: routes, logger: logger, sessions: newSessions(), throttle: newThrottle(),
+		bearers: newThrottle(), documents: newDocuments(), oauth: newOAuthState(), now: time.Now}
 }
+
+// UseState lets agents in, with the keys and logins kept in st.
+func (s *Server) UseState(st *state.State) {
+	s.state = st
+	s.access = newAccess(s.cfg, st)
+}
+
+// UseMediaLinks lets a download_media link through by its own secret.
+func (s *Server) UseMediaLinks(live func(path string) bool) { s.mediaLink = live }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	pr := s.cfg.proxies.read(r)
@@ -67,6 +90,16 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	who := caller.Caller{Kind: caller.Anonymous, Origin: s.cfg.Origin}
 	ctx := caller.With(r.Context(), who)
 	r = r.WithContext(ctx)
+
+	// The MCP and the OAuth endpoints answer browser-based clients from any
+	// site; they never take a cookie.
+	if corsPath(r.URL.Path) {
+		if r.Method == http.MethodOptions {
+			preflight(w)
+			return
+		}
+		cors(w)
+	}
 
 	switch r.URL.Path {
 	case LoginPath:
@@ -88,10 +121,47 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		s.logout(w, r)
 		return
-	case "/mcp":
-		// The MCP on the public address arrives with API keys and OAuth.
-		w.Header().Set("WWW-Authenticate", `Bearer realm="whatsapp-mcp"`)
-		http.Error(w, "the MCP on this address needs an API key or a login, which this version does not offer yet", http.StatusUnauthorized)
+	case ProtectedResourcePath, ProtectedResourcePath + "/mcp", AuthServerPath, RegisterPath, TokenPath, AuthorizePath:
+		s.oauthRoute(w, r, pr)
+		return
+	}
+
+	// An agent's key or access token: it reaches the MCP, its media links
+	// and the health report, never the panel (the routes check the caller).
+	// A cookie is never an agent's credential.
+	if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
+		bearer = strings.TrimSpace(bearer)
+		// Wrong keys slow down their own address for a while, up to 15
+		// minutes (seconds for the address every visitor shares); the key
+		// itself is never locked, and other addresses are not touched.
+		if wait := s.bearers.wait(pr.client); wait > 0 {
+			w.Header().Set("Retry-After", strconv.Itoa(int(wait/time.Second)+1))
+			s.challenge(w, true)
+			return
+		}
+		var agent caller.Caller
+		valid := false
+		if s.access != nil {
+			agent, valid = s.access.authenticate(r.Context(), bearer)
+		}
+		if !valid {
+			s.bearers.try(pr.client, pr.shared)
+			s.logger.Warn("public listener: refused a wrong key or token", "client", pr.client, "path", truncate(r.URL.Path, 40))
+			s.challenge(w, true)
+			return
+		}
+		s.bearers.ok(pr.client)
+		r = r.WithContext(caller.With(ctx, agent))
+		_, pattern := s.routes.Handler(r)
+		if _, classified := httpserver.RouteAccess(pattern); pattern != "" && !classified {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		s.routes.ServeHTTP(w, r)
+		return
+	}
+	if r.URL.Path == "/mcp" {
+		s.challenge(w, false)
 		return
 	}
 
@@ -110,12 +180,37 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case classified && access == caller.Open:
 		s.routes.ServeHTTP(w, r)
+	case classified && access == caller.Media && s.mediaLink != nil && (r.Method == http.MethodGet || r.Method == http.MethodHead) && s.mediaLink(r.URL.Path):
+		// A download_media link: its own secret, random and short-lived,
+		// is the credential.
+		s.routes.ServeHTTP(w, r)
 	case classified && access == caller.PanelAccess && (r.Method == http.MethodGet || r.Method == http.MethodHead) &&
 		!strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, "/diagnostico/"):
 		http.Redirect(w, r, LoginPath+"?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
 	default:
 		w.Header().Set("Cache-Control", "no-store")
 		http.Error(w, "sign in to the panel first", http.StatusUnauthorized)
+	}
+}
+
+// oauthRoute answers the discovery documents and the OAuth endpoints.
+func (s *Server) oauthRoute(w http.ResponseWriter, r *http.Request, pr peer) {
+	get := r.Method == http.MethodGet || r.Method == http.MethodHead
+	switch {
+	case (r.URL.Path == ProtectedResourcePath || r.URL.Path == ProtectedResourcePath+"/mcp") && get:
+		s.protectedResource(w)
+	case r.URL.Path == AuthServerPath && get:
+		s.authServer(w)
+	case r.URL.Path == RegisterPath && r.Method == http.MethodPost:
+		s.register(w, r, pr)
+	case r.URL.Path == TokenPath && r.Method == http.MethodPost:
+		s.token(w, r, pr)
+	case r.URL.Path == AuthorizePath && get:
+		s.authorizePage(w, r, pr)
+	case r.URL.Path == AuthorizePath && r.Method == http.MethodPost:
+		s.authorize(w, r, pr)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 

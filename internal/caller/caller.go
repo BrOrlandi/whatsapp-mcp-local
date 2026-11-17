@@ -114,7 +114,11 @@ func (c Caller) May(a Access) bool {
 		return c.Kind == Local
 	case MCP:
 		return c.Kind == Local || c.Kind == OAuth || c.Kind == APIKey
-	case Media, Health:
+	case Media:
+		// A media link's own secret is its credential: on the public
+		// listener, anyone holding a live one may open it.
+		return c.Kind == Local || c.Kind == Panel || c.Kind == OAuth || c.Kind == APIKey || c.Kind == Anonymous
+	case Health:
 		return c.Kind == Local || c.Kind == Panel || c.Kind == OAuth || c.Kind == APIKey
 	}
 	return false
