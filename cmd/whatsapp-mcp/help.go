@@ -290,7 +290,7 @@ Example:
   whatsapp-mcp open
 `,
 
-	"bridge": `Usage: whatsapp-mcp bridge
+	"bridge": `Usage: whatsapp-mcp bridge [--url <address> [--key-file <file>]]
 
 An MCP server on standard input and output that forwards every request to the
 running WhatsApp MCP. It is for AI tools that only start MCP servers as local
@@ -299,6 +299,38 @@ prints the configuration that runs it. You do not run it yourself.
 
 It reaches the daemon at WHATSAPP_MCP_PORT (or the saved port) and sends
 WHATSAPP_MCP_TOKEN (or the saved token).
+
+With --url it forwards to a WhatsApp MCP server instead, at its public address
+(https://whatsapp.example.com/mcp), with an API key made there
+(` + "`whatsapp-mcp apikey create`" + ` or the panel's connections page). The key comes
+from WHATSAPP_MCP_API_KEY or from the file --key-file names, never from an
+argument; nothing of WhatsApp needs to be installed on this computer.
+
+Example, in Claude Desktop's configuration:
+  "command": "whatsapp-mcp", "args": ["bridge", "--url", "https://whatsapp.example.com/mcp"],
+  "env": {"WHATSAPP_MCP_API_KEY": "wamcp_key_..."}
+`,
+
+	"apikey": `Usage: whatsapp-mcp apikey [list] [--json]
+       whatsapp-mcp apikey create --name <name> [--read-only] [--json]
+       whatsapp-mcp apikey revoke <id> [--json]
+
+The keys AI tools on other computers use to reach the MCP at the server's
+public address (the server mode, WHATSAPP_MCP_PUBLIC_URL), sent as
+Authorization: Bearer <key>. For tools that log in (Claude in the browser or
+on the phone, ChatGPT), the login with the panel's password needs no key.
+
+  list      the keys, with their id, name, access and last use
+  create    make a key and print it, the only time it is shown; --read-only
+            lets it read and search, never send, delete or change groups
+  revoke    stop a key at once
+
+A key nobody uses within 24 hours of its creation stops working. Only a hash
+of each key is kept, in the data folder.
+
+Example:
+  whatsapp-mcp apikey create --name "Claude Code no notebook"
+  whatsapp-mcp apikey revoke k_1a2b3c4d5e6f
 `,
 
 	"version": `Usage: whatsapp-mcp version

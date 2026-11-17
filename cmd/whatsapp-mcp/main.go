@@ -159,11 +159,10 @@ func main() {
 	case "bridge":
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
-		err = bridge.Run(ctx, bridge.Options{
-			URL:        func() string { return cfg.baseURL() + "/mcp" },
-			Token:      cfg.Token,
-			NotRunning: "the WhatsApp MCP daemon is not running; start it with `whatsapp-mcp service install` or `whatsapp-mcp serve`",
-		}, os.Stdin, os.Stdout)
+		var opts bridge.Options
+		if opts, err = bridgeOptions(cfg, args); err == nil {
+			err = bridge.Run(ctx, opts, os.Stdin, os.Stdout)
+		}
 	case "service":
 		err = serviceCmd(cfg, args)
 	case "status":
@@ -178,6 +177,8 @@ func main() {
 		err = tokenCmd(cfg, args)
 	case "password":
 		err = passwordCmd(cfg, args)
+	case "apikey":
+		err = apikeyCmd(cfg, args)
 	case "webhooks", "webhook":
 		err = webhooksCmd(cfg, args)
 	case "logs":
@@ -228,13 +229,15 @@ Settings:
   port [<port>]             show or change the MCP's port (restarts the service)
   token [show|new|set <token>|clear]   the key /mcp and the API's actions ask for (restarts the service)
   password hash|set         the panel's password for the server mode: print its hash, or keep it here
+  apikey [list|create --name <name> [--read-only]|revoke <id>]   keys for agents on other computers (server mode)
   webhooks [list|add <url>|remove <id>|enable <id>|disable <id>|test <id>]
       add: [--events message,reaction,receipt,online] [--include-own] [--chats <jid>,<jid>]
   config                    print the configuration for Claude Code and Claude Desktop
   transcription install     set up voice-note transcription on this computer (whisper.cpp)
   open                      open the control panel in the browser
 
-  bridge                    stdio MCP server for Claude Desktop that forwards to the daemon
+  bridge [--url <address>]  stdio MCP server for Claude Desktop that forwards to the daemon, or to a server
+                            (--url, with the key in WHATSAPP_MCP_API_KEY or --key-file)
   version                   print the version
 
 status, pair, logout, port, token, webhooks and update take --json: one JSON object
