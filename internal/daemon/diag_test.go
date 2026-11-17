@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -14,7 +15,11 @@ import (
 // The diagnostic file has what a support case needs (sync's warnings, the
 // AI tools that connected and their calls) and none of the numbers.
 func TestDiagnosticExportIsUsefulAndAnonymous(t *testing.T) {
-	root, err := os.MkdirTemp("/tmp", "diag-")
+	tmp := ""
+	if runtime.GOOS != "windows" {
+		tmp = "/tmp" // the store's socket path must stay short
+	}
+	root, err := os.MkdirTemp(tmp, "diag-")
 	if err != nil {
 		t.Fatal(err)
 	}
