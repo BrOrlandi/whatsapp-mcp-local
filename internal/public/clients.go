@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/netip"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -40,10 +41,11 @@ const (
 // only to the internet (netguard checks the address dialled), follows no
 // redirect, and is cut at 5 seconds and 64 KB.
 type documents struct {
-	client *http.Client
-	now    func() time.Time
-	mu     sync.Mutex
-	cache  map[string]cachedDoc
+	client  *http.Client
+	now     func() time.Time
+	mu      sync.Mutex
+	cache   map[string]cachedDoc
+	fetches map[string][]time.Time // by client address
 }
 
 type cachedDoc struct {
@@ -53,7 +55,7 @@ type cachedDoc struct {
 }
 
 func newDocuments() *documents {
-	return &documents{client: netguard.Client(cimdTimeout, 0), now: time.Now, cache: map[string]cachedDoc{}}
+	return &documents{client: netguard.Client(cimdTimeout, 0), now: time.Now, cache: map[string]cachedDoc{}, fetches: map[string][]time.Time{}}
 }
 
 // isDocumentID reports whether a client_id is a metadata document's address.
@@ -61,12 +63,31 @@ func isDocumentID(id string) bool { return strings.HasPrefix(id, "https://") }
 
 var errDocument = errors.New("document")
 
-func (d *documents) get(ctx context.Context, id string) (client, error) {
+// fetchesPerHour bounds how many documents one address may make the server
+// fetch, since anyone may ask.
+const fetchesPerHour = 30
+
+func (d *documents) get(ctx context.Context, id, addr string) (client, error) {
 	d.mu.Lock()
 	if c, ok := d.cache[id]; ok && d.now().Before(c.expires) {
 		d.mu.Unlock()
 		return c.c, c.err
 	}
+	now := d.now()
+	recent := d.fetches[addr][:0:0]
+	for _, t := range d.fetches[addr] {
+		if now.Sub(t) < time.Hour {
+			recent = append(recent, t)
+		}
+	}
+	if len(recent) >= fetchesPerHour {
+		d.mu.Unlock()
+		return client{}, errDocument
+	}
+	if len(d.fetches) > 10000 {
+		d.fetches = map[string][]time.Time{}
+	}
+	d.fetches[addr] = append(recent, now)
 	d.mu.Unlock()
 	c, err := d.fetch(ctx, id)
 	ttl := cimdCacheOK
@@ -99,6 +120,7 @@ func (d *documents) fetch(ctx context.Context, id string) (client, error) {
 		return client{}, errDocument
 	}
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "whatsapp-mcp (OAuth client metadata)")
 	resp, err := d.client.Do(req)
 	if err != nil {
 		return client{}, errDocument
@@ -116,12 +138,15 @@ func (d *documents) fetch(ctx context.Context, id string) (client, error) {
 		ClientName   string   `json:"client_name"`
 		RedirectURIs []string `json:"redirect_uris"`
 		AuthMethod   string   `json:"token_endpoint_auth_method"`
+		AuthMethods  []string `json:"token_endpoint_auth_methods_supported"`
 	}
-	if json.Unmarshal(body, &doc) != nil || doc.ClientID != id || len(doc.RedirectURIs) == 0 {
+	if json.Unmarshal(body, &doc) != nil || doc.ClientID != id || len(doc.RedirectURIs) == 0 || len(doc.RedirectURIs) > 20 {
 		return client{}, errDocument
 	}
-	// This server has public clients only.
-	if doc.AuthMethod != "" && doc.AuthMethod != "none" {
+	// This server has public clients only: the client must be able to be
+	// one. ChatGPT's document names private_key_jwt as its method and lists
+	// none among those it supports.
+	if doc.AuthMethod != "" && doc.AuthMethod != "none" && !slices.Contains(doc.AuthMethods, "none") {
 		return client{}, errDocument
 	}
 	for _, r := range doc.RedirectURIs {
@@ -147,9 +172,9 @@ func cleanName(name, fallback string) string {
 }
 
 // resolveClient is the client a client_id names.
-func (s *Server) resolveClient(ctx context.Context, id string) (client, error) {
+func (s *Server) resolveClient(ctx context.Context, id, addr string) (client, error) {
 	if isDocumentID(id) {
-		c, err := s.documents.get(ctx, id)
+		c, err := s.documents.get(ctx, id, addr)
 		if err != nil {
 			return c, errors.New(i18n.T("não foi possível ler a descrição do aplicativo que pediu acesso; tente de novo em um minuto"))
 		}

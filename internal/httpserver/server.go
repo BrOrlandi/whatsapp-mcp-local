@@ -99,7 +99,10 @@ func RoutesWithPatterns(server *mcp.Server, opts Options) (*http.ServeMux, []str
 		if hint == "" {
 			hint = "ua:" + r.UserAgent()
 		}
-		who.Client = hint
+		// An agent from outside keeps the tag of its key or login.
+		if who.Kind == caller.Local {
+			who.Client = hint
+		}
 		response := server.Handle(caller.With(r.Context(), who), body)
 		if response == nil {
 			w.WriteHeader(http.StatusAccepted)

@@ -69,6 +69,8 @@ type Panel struct {
 	// PublicURL is the server mode's public address (scheme and host), or
 	// empty without it.
 	PublicURL string
+	// Logins are the server mode's OAuth logins still valid.
+	Logins func(context.Context) ([]state.Connection, error)
 
 	pages *template.Template
 	code  codeCache

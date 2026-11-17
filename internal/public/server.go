@@ -2,6 +2,7 @@ package public
 
 import (
 	"bytes"
+	"context"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -69,6 +70,25 @@ func (s *Server) UseState(st *state.State) {
 	s.access = newAccess(s.cfg, st)
 }
 
+// Logins are the OAuth logins still valid: one approved with an older
+// password is revoked here, so a list never shows it.
+func (s *Server) Logins(ctx context.Context) ([]state.Connection, error) {
+	if s.state == nil {
+		return nil, nil
+	}
+	all, err := s.state.Connections(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := all[:0]
+	for _, c := range all {
+		if _, live := s.access.liveConnection(ctx, c.ID); live {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
 // UseMediaLinks lets a download_media link through by its own secret.
 func (s *Server) UseMediaLinks(live func(path string) bool) { s.mediaLink = live }
 
@@ -131,22 +151,21 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// A cookie is never an agent's credential.
 	if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
 		bearer = strings.TrimSpace(bearer)
-		// Wrong keys slow down their own address for a while, up to 15
-		// minutes (seconds for the address every visitor shares); the key
-		// itself is never locked, and other addresses are not touched.
-		if wait := s.bearers.wait(pr.client); wait > 0 {
-			w.Header().Set("Retry-After", strconv.Itoa(int(wait/time.Second)+1))
-			s.challenge(w, true)
-			return
-		}
+		// A valid key or token always goes through. Wrong ones slow down
+		// their own address, up to 15 minutes (seconds for the address
+		// every visitor shares): while it waits, its wrong tries are not
+		// even counted, and the answer says when to try again.
 		var agent caller.Caller
 		valid := false
 		if s.access != nil {
 			agent, valid = s.access.authenticate(r.Context(), bearer)
 		}
 		if !valid {
-			s.bearers.try(pr.client, pr.shared)
-			s.logger.Warn("public listener: refused a wrong key or token", "client", pr.client, "path", truncate(r.URL.Path, 40))
+			if wait := s.bearers.try(pr.client, pr.shared); wait > 0 {
+				w.Header().Set("Retry-After", strconv.Itoa(int(wait/time.Second)+1))
+			} else {
+				s.logger.Warn("public listener: refused a wrong key or token", "client", pr.client, "path", truncate(r.URL.Path, 40))
+			}
 			s.challenge(w, true)
 			return
 		}

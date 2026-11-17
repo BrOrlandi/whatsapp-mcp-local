@@ -982,5 +982,8 @@
  "não foi possível ler a chave em %s: %v": "no se pudo leer la clave en %s: %v",
  "usada em %s": "usada el %s",
  "uso: whatsapp-mcp apikey [list|create --name <nome> [--read-only]|revoke <id>]": "uso: whatsapp-mcp apikey [list|create --name <nombre> [--read-only]|revoke <id>]",
- "uso: whatsapp-mcp apikey revoke <id>": "uso: whatsapp-mcp apikey revoke <id>"
+ "uso: whatsapp-mcp apikey revoke <id>": "uso: whatsapp-mcp apikey revoke <id>",
+ "o aplicativo pediu um tipo de acesso que este servidor não oferece": "la aplicación pidió un tipo de acceso que este servidor no ofrece",
+ "o pedido de acesso não usa a proteção que este servidor exige (PKCE S256)": "el pedido de acceso no usa la protección que este servidor exige (PKCE S256)",
+ "o pedido de acesso é para outro endereço, não para este servidor": "el pedido de acceso es para otra dirección, no para este servidor"
 }

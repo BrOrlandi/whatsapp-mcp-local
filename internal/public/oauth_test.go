@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -184,6 +185,12 @@ func TestWrongKeysAreThrottledByAddress(t *testing.T) {
 	b := map[string]string{"Authorization": "Bearer " + key, "X-Forwarded-For": "203.0.113.9"}
 	if rec := serve(s, fromTunnel("POST", "/mcp", b, "")); rec.Code != 200 {
 		t.Fatalf("a valid key from another address: %d", rec.Code)
+	}
+	// A valid key from the slowed-down address itself still goes through:
+	// a stale key behind the same network does not lock the good one out.
+	same := map[string]string{"Authorization": "Bearer " + key, "X-Forwarded-For": "198.51.100.7"}
+	if rec := serve(s, fromTunnel("POST", "/mcp", same, "")); rec.Code != 200 {
+		t.Fatalf("a valid key from the slowed-down address: %d", rec.Code)
 	}
 }
 
@@ -379,7 +386,8 @@ func TestAuthorizationRequestsAreChecked(t *testing.T) {
 	if rec := get(q); rec.Code != 400 || rec.Header().Get("Location") != "" {
 		t.Errorf("an unknown client: %d", rec.Code)
 	}
-	// The rest goes back to the client, with the issuer.
+	// The rest is shown here too: anyone may register a client, so nothing
+	// goes to its address before the person decides.
 	for name, change := range map[string][2]string{
 		"no PKCE":          {"code_challenge_method", "plain"},
 		"another resource": {"resource", "https://other.example/mcp"},
@@ -387,9 +395,7 @@ func TestAuthorizationRequestsAreChecked(t *testing.T) {
 	} {
 		q := c.authorizeQuery(challenge, c.redirect)
 		q.Set(change[0], change[1])
-		rec := get(q)
-		loc, _ := url.Parse(rec.Header().Get("Location"))
-		if rec.Code != 303 || loc.Query().Get("error") == "" || loc.Query().Get("iss") != origin {
+		if rec := get(q); rec.Code != 400 || rec.Header().Get("Location") != "" {
 			t.Errorf("%s: %d %q", name, rec.Code, rec.Header().Get("Location"))
 		}
 	}
@@ -479,7 +485,7 @@ func TestDocumentsAreNotFetchedFromInside(t *testing.T) {
 	defer srv.Close()
 	d := newDocuments()
 	_, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
-	if _, err := d.get(context.Background(), "https://localhost:"+port+"/client.json"); err == nil {
+	if _, err := d.get(context.Background(), "https://localhost:"+port+"/client.json", "198.51.100.7"); err == nil {
 		t.Fatal("a document on loopback was accepted")
 	}
 }
@@ -511,5 +517,81 @@ func TestTheSessionDoesNotReachTheMCP(t *testing.T) {
 	}
 	if rec := serve(s, fromTunnel("GET", "/status", map[string]string{"Cookie": CookieName + "=" + c.Value}, "")); rec.Body.String() != "panel//full" {
 		t.Fatalf("the panel with its session: %s", rec.Body)
+	}
+}
+
+// The documents the real clients publish, as fetched on 2026-11-17, go
+// through the checks: Claude (claude.ai, the apps), Claude Code and
+// ChatGPT, whose document names private_key_jwt and supports none.
+func TestTheRealClientsDocuments(t *testing.T) {
+	s, _, _ := agentServer(t)
+	byHost := map[string]string{}
+	for file, id := range map[string]string{
+		"claude.json":      "https://claude.ai/oauth/mcp-oauth-client-metadata",
+		"claude-code.json": "https://claude.ai/oauth/claude-code-client-metadata",
+		"chatgpt.json":     "https://chatgpt.com/oauth/client.json",
+	} {
+		raw, err := os.ReadFile(filepath.Join("testdata", "cimd", file))
+		if err != nil {
+			t.Fatal(err)
+		}
+		byHost[id] = string(raw)
+	}
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(byHost["https://"+r.Host+r.URL.Path]))
+	}))
+	defer srv.Close()
+	addr := srv.Listener.Addr().String()
+	s.documents.client = &http.Client{Timeout: time.Second, Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		DialContext: func(ctx context.Context, network, _ string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, addr)
+		}}}
+	for id, redirect := range map[string]string{
+		"https://claude.ai/oauth/mcp-oauth-client-metadata":   "https://claude.ai/api/mcp/auth_callback",
+		"https://claude.ai/oauth/claude-code-client-metadata": "http://localhost:51234/callback",
+		"https://chatgpt.com/oauth/client.json":               "https://chatgpt.com/connector_platform_oauth_redirect",
+	} {
+		c := oauthClient{t: t, s: s, id: id, redirect: redirect}
+		verifier, challenge := pkce("d")
+		q := c.authorizeQuery(challenge, redirect)
+		host, _ := url.Parse(id)
+		if page := serve(s, fromTunnel("GET", "/oauth/authorize?"+q.Encode(), nil, "")); page.Code != 200 || !strings.Contains(page.Body.String(), host.Host) {
+			t.Errorf("%s: the consent page answered %d: %.300s", id, page.Code, page.Body)
+			continue
+		}
+		_, back := c.approve(q, testPassword, "full")
+		_, tok := c.token(url.Values{"grant_type": {"authorization_code"}, "code": {back.Get("code")}, "client_id": {id},
+			"redirect_uri": {redirect}, "code_verifier": {verifier}, "resource": {origin + "/mcp"}})
+		if tok["access_token"] == nil {
+			t.Errorf("%s: no token: %v", id, tok)
+		}
+	}
+}
+
+// What each OAuth route answers anyone, with no credential: the discovery
+// documents and the consent page are open, and the rest refuses a request
+// that does not make sense, but nothing reaches the panel or the MCP.
+func TestTheOAuthRoutesWithoutACredential(t *testing.T) {
+	s, _, _ := agentServer(t)
+	want := map[string]int{
+		"GET " + ProtectedResourcePath:          200,
+		"GET " + ProtectedResourcePath + "/mcp": 200,
+		"GET " + AuthServerPath:                 200,
+		"POST " + RegisterPath:                  400, // an empty body is no client
+		"GET " + AuthorizePath:                  400, // no client named: shown, never redirected
+		"POST " + AuthorizePath:                 403, // not from the consent page
+		"POST " + TokenPath:                     400, // no grant
+	}
+	if len(want) != len(OAuthRoutes) {
+		t.Fatalf("%d routes checked, %d exist", len(want), len(OAuthRoutes))
+	}
+	for _, route := range OAuthRoutes {
+		method, path, _ := strings.Cut(route, " ")
+		rec := serve(s, fromTunnel(method, path, nil, ""))
+		if rec.Code != want[route] || rec.Header().Get("Location") != "" || len(rec.Result().Cookies()) != 0 {
+			t.Errorf("%s: %d %q, want %d", route, rec.Code, rec.Header().Get("Location"), want[route])
+		}
 	}
 }

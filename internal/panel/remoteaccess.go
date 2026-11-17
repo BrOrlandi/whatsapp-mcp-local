@@ -104,7 +104,11 @@ func (p *Panel) accessPage(r *http.Request, newKey, newKeyName string) accessPag
 		}
 		return i18n.T("tudo")
 	}
-	if logins, err := p.State.Connections(ctx); err == nil {
+	list := p.State.Connections
+	if p.Logins != nil {
+		list = p.Logins
+	}
+	if logins, err := list(ctx); err == nil {
 		for _, c := range logins {
 			pg.Items = append(pg.Items, accessItem{ID: c.ID, KindKey: "login", Name: c.ClientName, Kind: i18n.T("login"),
 				Access: access(c.ReadOnly), Created: i18n.Tf("entrou %s", relativeSince(c.CreatedAt)), Used: used(c.LastUsedAt)})

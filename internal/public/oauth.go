@@ -271,14 +271,14 @@ func (s *Server) sendBack(w http.ResponseWriter, r *http.Request, ar authRequest
 // checkRequest validates an authorization request. A problem with the
 // client or its redirect address is shown here, never sent to an address
 // not proven to be the client's; anything else goes back to the client.
-func (s *Server) checkRequest(ctx context.Context, ar authRequest) (c client, problem string, backErr string) {
+func (s *Server) checkRequest(ctx context.Context, ar authRequest, addr string) (c client, problem string, backErr string) {
 	if s.state == nil {
 		return c, i18n.T("o login de agentes não está disponível neste servidor"), ""
 	}
 	if ar.ClientID == "" {
 		return c, i18n.T("o pedido de acesso não diz qual aplicativo o fez"), ""
 	}
-	c, err := s.resolveClient(ctx, ar.ClientID)
+	c, err := s.resolveClient(ctx, ar.ClientID, addr)
 	if err != nil {
 		return c, err.Error(), ""
 	}
@@ -298,15 +298,28 @@ func (s *Server) checkRequest(ctx context.Context, ar authRequest) (c client, pr
 
 func (s *Server) authorizePage(w http.ResponseWriter, r *http.Request, pr peer) {
 	ar := readAuthRequest(r.URL.Query())
-	c, problem, backErr := s.checkRequest(r.Context(), ar)
+	c, problem, backErr := s.checkRequest(r.Context(), ar, pr.client)
 	switch {
 	case problem != "":
 		s.consentError(w, problem)
 	case backErr != "":
-		s.sendBack(w, r, ar, url.Values{"error": {backErr}})
+		// Anyone may register a client, so nothing is redirected to its
+		// address before the person decides: the error is shown here.
+		s.consentError(w, requestProblem(backErr))
 	default:
 		s.consent(w, r, ar, c, "", http.StatusOK)
 	}
+}
+
+// requestProblem says, for the person, what is wrong with a request.
+func requestProblem(code string) string {
+	switch code {
+	case "invalid_target":
+		return i18n.T("o pedido de acesso é para outro endereço, não para este servidor")
+	case "unsupported_response_type":
+		return i18n.T("o aplicativo pediu um tipo de acesso que este servidor não oferece")
+	}
+	return i18n.T("o pedido de acesso não usa a proteção que este servidor exige (PKCE S256)")
 }
 
 // authorize is the consent form's answer.
@@ -321,13 +334,13 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 		return
 	}
 	ar := readAuthRequest(r.PostForm)
-	c, problem, backErr := s.checkRequest(r.Context(), ar)
+	c, problem, backErr := s.checkRequest(r.Context(), ar, pr.client)
 	switch {
 	case problem != "":
 		s.consentError(w, problem)
 		return
 	case backErr != "":
-		s.sendBack(w, r, ar, url.Values{"error": {backErr}})
+		s.consentError(w, requestProblem(backErr))
 		return
 	}
 	if r.PostFormValue("decision") != "allow" {
@@ -549,16 +562,18 @@ func (s *Server) consent(w http.ResponseWriter, r *http.Request, ar authRequest,
 	if u, err := url.Parse(ar.RedirectURI); err == nil {
 		back = u.Host
 	}
-	from := i18n.Tf("Aplicativo: %s", c.Name)
+	// A metadata document's name is the client's own claim: the host it
+	// is served from is what the person can trust, and comes first.
+	who, from := c.Name, i18n.Tf("Aplicativo: %s", c.Name)
 	if c.Document {
 		if u, err := url.Parse(c.ID); err == nil {
-			from = i18n.Tf("Aplicativo: %s (descrito por %s)", c.Name, u.Host)
+			who, from = u.Host, i18n.Tf("Aplicativo: %s (descrito por %s)", c.Name, u.Host)
 		}
 	}
 	var body bytes.Buffer
 	_ = consentTemplate.Execute(&body, map[string]any{
 		"Lang": i18n.Lang(), "Title": i18n.T("Permitir acesso ao seu WhatsApp"),
-		"Lead":            i18n.Tf("%s quer usar o seu WhatsApp por este servidor.", c.Name),
+		"Lead":            i18n.Tf("%s quer usar o seu WhatsApp por este servidor.", who),
 		"From":            from,
 		"Back":            i18n.Tf("Depois de aprovar, você volta para: %s", back),
 		"Loopback":        loopbackOnly(c),
