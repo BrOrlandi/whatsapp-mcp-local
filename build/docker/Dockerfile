@@ -11,8 +11,12 @@
 # It ships the wacli pinned in build/wacli.env, checked against its sha256,
 # as the app does. Built for linux/amd64 and linux/arm64 (scripts/release.sh):
 # the Go build runs on the builder's platform and cross-compiles.
+#
+# Both base images are pinned to a version, not a moving tag, so a build
+# today and one next month use the same ones; bumping them is a change here
+# (the Debian one carries its date: hub.docker.com/_/debian, trixie-*-slim).
 
-FROM --platform=$BUILDPLATFORM golang:1.26-trixie AS build
+FROM --platform=$BUILDPLATFORM golang:1.26.11-trixie AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -24,7 +28,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH:-amd64}" go build -tags "${TAG
       -ldflags "-s -w -X main.version=${VERSION}" -o /out/whatsapp-mcp ./cmd/whatsapp-mcp \
  && scripts/fetch-wacli.sh linux "${TARGETARCH:-amd64}" /out
 
-FROM debian:trixie-slim
+FROM debian:trixie-20261104-slim
 ARG VERSION=dev
 LABEL org.opencontainers.image.title="WhatsApp MCP Local" \
       org.opencontainers.image.description="WhatsApp for AI tools over MCP, on your own server" \

@@ -15,7 +15,9 @@
 # compose.override.yml, which publishes it on the server's loopback only.
 #
 # The image is named here, and scripts/release.sh and push-image.sh read it
-# from here (docs/servidor.md repeats it for people).
+# from here (docs/servidor.md repeats it for people). The images in front of
+# it are pinned to a minor version or a dated release; docs/servidor.md
+# ("Atualizar") says how to move them on.
 name: whatsapp-mcp
 
 services:
@@ -39,7 +41,7 @@ services:
   # X-Forwarded-Proto to https, replacing whatever the visitor sent.
   tailscale:
     profiles: [tailscale]
-    image: tailscale/tailscale:stable
+    image: tailscale/tailscale:v1.104
     restart: unless-stopped
     # The name on the tailnet goes in TS_HOSTNAME, not in the container's
     # hostname: a container named whatsapp-mcp would find itself, not the
@@ -63,7 +65,7 @@ services:
   # dashboard). cloudflared appends the visitor's address to X-Forwarded-For.
   cloudflared:
     profiles: [tunnel]
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.11.1
     restart: unless-stopped
     command: tunnel --no-autoupdate run
     environment:
@@ -75,7 +77,7 @@ services:
   # certificate by itself, and replaces any X-Forwarded-* the visitor sent.
   caddy:
     profiles: [caddy]
-    image: caddy:2
+    image: caddy:2.11
     restart: unless-stopped
     ports:
       - ${WHATSAPP_MCP_HTTP_PORT:-80}:80

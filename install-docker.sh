@@ -15,9 +15,11 @@
 #     WAMCP_PASSWORD_FILE=/root/panel-password bash install-docker.sh --yes
 #
 # WAMCP_PROFILE is tailscale (recommended), tunnel, caddy or proxy (a proxy you
-# already run). tailscale takes WAMCP_TS_AUTHKEY; tunnel takes
-# WAMCP_TUNNEL_TOKEN; caddy takes WAMCP_HTTP_PORT and WAMCP_HTTPS_PORT (default
-# 80 and 443); proxy takes WAMCP_PUBLIC_PORT (default 47822).
+# already run). tailscale takes its auth key from WAMCP_TS_AUTHKEY_FILE; tunnel
+# takes its token from WAMCP_TUNNEL_TOKEN_FILE (a file, like the password, so
+# the secret is not on a command line); caddy takes WAMCP_HTTP_PORT and
+# WAMCP_HTTPS_PORT (default 80 and 443); proxy takes WAMCP_PUBLIC_PORT
+# (default 47822).
 # WAMCP_VERSION picks the image's tag (default latest); WAMCP_PULL=0 uses an
 # image already on this computer, as a test of a local build does.
 set -euo pipefail
@@ -49,12 +51,21 @@ ask() {
   printf -v "$var" '%s' "${answer:-$default}"
 }
 
+# from_file VAR FILE: the first line of FILE, exactly as written.
+from_file() {
+  local var="$1" file="$2" line
+  [ -r "$file" ] || die "cannot read $file"
+  IFS= read -r line < "$file" || [ -n "$line" ] || die "$file is empty"
+  printf -v "$var" '%s' "$line"
+}
+
 # secret VAR "question": like ask, but nothing shows on the screen.
 secret() {
   local var="$1" question="$2" answer
   if [ -n "${!var:-}" ]; then return; fi
   [ -t 0 ] || die "$var is needed: set it in the environment"
-  read -r -s -p "$question: " answer
+  # IFS= keeps spaces at either end: the secret is read exactly as typed.
+  IFS= read -r -s -p "$question: " answer
   echo
   printf -v "$var" '%s' "$answer"
 }
@@ -90,7 +101,9 @@ if [ -n "$here" ] && [ -f "$here/compose.yml" ] && [ "$here" != "$PWD" ]; then
   cp "$here/compose.yml" compose.yml
 elif [ ! -f compose.yml ] || [ "${WAMCP_UPDATE_COMPOSE:-1}" = 1 ]; then
   command -v curl >/dev/null || die "curl is needed to download compose.yml"
-  curl -fsSL -o compose.yml.new "$RAW/compose.yml" && mv compose.yml.new compose.yml
+  # A failed download stops here: an old compose.yml is never used silently.
+  curl -fsSL -o compose.yml.new "$RAW/compose.yml" || { rm -f compose.yml.new; die "could not download $RAW/compose.yml"; }
+  mv compose.yml.new compose.yml
 fi
 # shellcheck disable=SC2016 # the ${...} is compose's, matched literally
 image="$(sed -n 's/.*image: \${WHATSAPP_MCP_IMAGE:-\([^}]*\)}:.*/\1/p' compose.yml | head -1)"
@@ -104,14 +117,23 @@ WAMCP_VERSION="${WAMCP_VERSION:-$(old WHATSAPP_MCP_VERSION)}"
 
 ask WAMCP_URL "Endereço público, com https:// (o do Tailscale, do seu domínio...)" "$(old WHATSAPP_MCP_PUBLIC_URL)"
 WAMCP_URL="${WAMCP_URL%/}"
+# A strict shape: the address goes into .env and into Caddy's configuration,
+# so nothing but a scheme, a host name, an optional port and a plain path.
+url_shape='^https?://[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:[0-9]{1,5})?(/[A-Za-z0-9._~/-]*)?$'
+[[ "$WAMCP_URL" =~ $url_shape ]] || die "o endereço precisa ser como https://whatsapp.example.com (sem espaços, aspas ou outros sinais)"
 case "$WAMCP_URL" in
   https://*) ;;
-  http://*) warn "http sem s: o navegador manda a senha sem criptografia. Use só para teste." ;;
-  *) die "o endereço precisa começar com https://" ;;
+  *) warn "http sem s: o navegador manda a senha sem criptografia. Use só para teste." ;;
 esac
 host="${WAMCP_URL#*://}"
 host="${host%%/*}"
 hostname_only="${host%%:*}"
+
+# token_shape NAME VALUE: a key or token goes into .env between single
+# quotes, so it may hold only the characters such tokens are made of.
+token_shape() {
+  [[ "$2" =~ ^[A-Za-z0-9._=+/-]+$ ]] || die "$1 has characters a token does not have"
+}
 
 current_profile="$(old COMPOSE_PROFILES)"
 [ -n "$current_profile" ] || { [ -f compose.override.yml ] && current_profile=proxy; }
@@ -124,18 +146,24 @@ profile="" trusted="" extra=()
 case "$WAMCP_PROFILE" in
   tailscale)
     profile=tailscale trusted=tailscale
+    [ -z "${WAMCP_TS_AUTHKEY_FILE:-}" ] || from_file WAMCP_TS_AUTHKEY "$WAMCP_TS_AUTHKEY_FILE"
     WAMCP_TS_AUTHKEY="${WAMCP_TS_AUTHKEY:-$(old TS_AUTHKEY)}"
     secret WAMCP_TS_AUTHKEY "Chave de autenticação do Tailscale (tskey-auth-..., não aparece na tela)"
+    token_shape WAMCP_TS_AUTHKEY "$WAMCP_TS_AUTHKEY"
     extra+=("TS_AUTHKEY='$WAMCP_TS_AUTHKEY'" "TS_HOSTNAME=${hostname_only%%.*}")
     ;;
   tunnel)
     profile=tunnel trusted=cloudflared
+    [ -z "${WAMCP_TUNNEL_TOKEN_FILE:-}" ] || from_file WAMCP_TUNNEL_TOKEN "$WAMCP_TUNNEL_TOKEN_FILE"
     WAMCP_TUNNEL_TOKEN="${WAMCP_TUNNEL_TOKEN:-$(old TUNNEL_TOKEN)}"
     secret WAMCP_TUNNEL_TOKEN "Token do túnel da Cloudflare (não aparece na tela)"
+    token_shape WAMCP_TUNNEL_TOKEN "$WAMCP_TUNNEL_TOKEN"
     extra+=("TUNNEL_TOKEN='$WAMCP_TUNNEL_TOKEN'")
     ;;
   caddy)
     profile=caddy trusted=caddy
+    # The site goes into the Caddyfile: a host name and nothing else.
+    [[ "$hostname_only" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || die "the host name $hostname_only is not one Caddy can take"
     extra+=("WHATSAPP_MCP_SITE=$hostname_only")
     # Ports 80 and 443 by default; other ones only when told.
     http_port="${WAMCP_HTTP_PORT:-$(old WHATSAPP_MCP_HTTP_PORT)}"
@@ -156,18 +184,19 @@ esac
 # never shown, never an argument; only its bcrypt hash is written.
 hash="$(old WHATSAPP_MCP_PANEL_PASSWORD_HASH)"
 if [ -z "$hash" ] || [ "${WAMCP_NEW_PASSWORD:-0}" = 1 ]; then
+  password="" again=""
   if [ -n "${WAMCP_PASSWORD_FILE:-}" ]; then
-    password="$(head -n1 "$WAMCP_PASSWORD_FILE")"
+    from_file password "$WAMCP_PASSWORD_FILE"
   else
     cat <<'EOF'
 
   A senha do painel protege as suas conversas na internet. Use uma senha
   longa e aleatória, de um gerenciador de senhas (16 caracteres ou mais):
-  qualquer pessoa pode tentar adivinhá-la, mesmo que devagar.
+  qualquer pessoa pode tentar adivinhá-la, mesmo que devagar. O mínimo
+  aceito, 10 caracteres, é um piso, não uma recomendação.
 
 EOF
     secret password "Senha do painel"
-    again=""
     secret again "De novo, para conferir"
     [ "$password" = "$again" ] || die "as duas senhas não são iguais"
   fi

@@ -6,3 +6,7 @@ video
 build/bin
 docs/assets
 build/docker/data
+# Local secrets never enter the build context.
+.env*
+**/.env*
+build/backups
