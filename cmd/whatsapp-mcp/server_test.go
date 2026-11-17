@@ -86,3 +86,18 @@ func TestHealthcheck(t *testing.T) {
 		t.Fatalf("a daemon answering: %v", err)
 	}
 }
+
+// Without --no-service, setup installs the service (stubbed here) and waits
+// for the daemon to answer.
+func TestServerSetupInstallsTheService(t *testing.T) {
+	withPassword(t, "a throwaway server password")
+	cfg := startDaemon(t, map[string]string{"AUTHED": ""})
+	installed := 0
+	old := installServiceFn
+	installServiceFn = func(config) (string, error) { installed++; return "", nil }
+	t.Cleanup(func() { installServiceFn = old })
+	out, err := run(t, serverCmd, cfg, "setup", "--url", "https://wa.example.com")
+	if err != nil || installed != 1 || !strings.Contains(out, "https://wa.example.com") {
+		t.Fatalf("setup: %v, installed %d: %q", err, installed, out)
+	}
+}
