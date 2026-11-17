@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -66,11 +65,10 @@ type Password struct {
 	env  string
 	path string
 
-	mu      sync.Mutex
-	modTime time.Time
-	size    int64
-	hash    string
-	err     error
+	mu   sync.Mutex
+	raw  string
+	hash string
+	err  error
 }
 
 // NewPassword reads the hash from env, when set, or else from the file at
@@ -87,19 +85,18 @@ func (p *Password) Current() (string, error) {
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	fi, err := os.Stat(p.path)
-	if err != nil {
-		return "", errNoPassword
-	}
-	if fi.ModTime().Equal(p.modTime) && fi.Size() == p.size && (p.hash != "" || p.err != nil) {
-		return p.hash, p.err
-	}
+	// The file is small: it is read on every check, and compared with what
+	// was read before (every bcrypt hash has the same size, and a quick
+	// rewrite may keep the modification time).
 	raw, err := os.ReadFile(p.path)
 	if err != nil {
 		return "", errNoPassword
 	}
-	p.modTime, p.size = fi.ModTime(), fi.Size()
-	p.hash = strings.TrimSpace(string(raw))
+	if string(raw) == p.raw && (p.hash != "" || p.err != nil) {
+		return p.hash, p.err
+	}
+	p.raw = string(raw)
+	p.hash = strings.TrimSpace(p.raw)
 	p.err = CheckHash(p.hash)
 	if p.err != nil {
 		p.hash = ""

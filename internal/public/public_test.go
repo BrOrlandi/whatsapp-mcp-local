@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -329,7 +330,8 @@ func TestWhoseForwardedHeadersAreBelieved(t *testing.T) {
 
 func TestSafeReturn(t *testing.T) {
 	for in, want := range map[string]string{"/status": "/status", "/conectar/codex?x=1": "/conectar/codex?x=1", "": "/",
-		"//evil.example": "/", "https://evil.example": "/", "/\\evil.example": "/", "status": "/"} {
+		"//evil.example": "/", "https://evil.example": "/", "/\\evil.example": "/", "status": "/",
+		"/\t/evil.example": "/", "/\n/evil.example": "/", "/a\\b": "/", "/\x7f/x": "/", "/%09/evil.example": "/%09/evil.example"} {
 		if got := safeReturn(in); got != want {
 			t.Errorf("safeReturn(%q) = %q, want %q", in, got, want)
 		}
@@ -343,5 +345,40 @@ func TestOwnRoutesAreNotInTheDaemonsTable(t *testing.T) {
 		if _, ok := httpserver.RouteAccess(p); ok {
 			t.Errorf("%s is the public listener's own route, not the daemon's", p)
 		}
+	}
+}
+
+// Wrong passwords sent at once from one address do not all get checked:
+// each try is counted before its password is.
+func TestTriesSentAtOnceAreCountedFirst(t *testing.T) {
+	s, _ := testServer(t, "https://wa.example.com", "")
+	a := map[string]string{"X-Forwarded-For": "198.51.100.7"}
+	var mu sync.Mutex
+	codes := map[int]int{}
+	var wg sync.WaitGroup
+	for i := 0; i < 20; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			rec := signIn(s, "127.0.0.1:40000", "wrong password!", a)
+			mu.Lock()
+			codes[rec.Code]++
+			mu.Unlock()
+		}()
+	}
+	wg.Wait()
+	if codes[http.StatusUnauthorized] > freeTries || codes[http.StatusTooManyRequests] < 20-freeTries {
+		t.Fatalf("20 tries at once: %v", codes)
+	}
+}
+
+// The sign-in page takes the return address through the same check.
+func TestTheSignInDoesNotLeaveTheSite(t *testing.T) {
+	s, _ := testServer(t, "https://wa.example.com", "")
+	h := map[string]string{"Origin": s.cfg.Origin, "X-Forwarded-Proto": "https"}
+	body := url.Values{"password": {testPassword}, "next": {"/\t/evil.example"}}.Encode()
+	rec := serve(s, request("POST", "/entrar", "127.0.0.1:40000", h, body))
+	if rec.Code != http.StatusSeeOther || rec.Header().Get("Location") != "/" {
+		t.Fatalf("got %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 }

@@ -146,11 +146,6 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, pr peer) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
-	if wait := s.throttle.wait(pr.client); wait > 0 {
-		w.Header().Set("Retry-After", strconv.Itoa(int(wait.Round(time.Second)/time.Second)+1))
-		s.loginPage(w, r, "", wait, http.StatusTooManyRequests)
-		return
-	}
 	r.Body = http.MaxBytesReader(w, r.Body, 4<<10)
 	password := r.PostFormValue("password")
 	hash, err := s.cfg.Password.Current()
@@ -159,8 +154,14 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, pr peer) {
 		http.Error(w, "the panel password is not set up", http.StatusServiceUnavailable)
 		return
 	}
+	// The try is counted before the password is checked, in one step, so
+	// tries sent at once from one address do not all slip in.
+	if wait := s.throttle.try(pr.client, pr.shared); wait > 0 {
+		w.Header().Set("Retry-After", strconv.Itoa(int(wait.Round(time.Second)/time.Second)+1))
+		s.loginPage(w, r, "", wait, http.StatusTooManyRequests)
+		return
+	}
 	if password == "" || !verify(hash, password) {
-		s.throttle.fail(pr.client, pr.shared)
 		s.logger.Warn("panel sign-in refused: wrong password", "client", pr.client)
 		s.loginPage(w, r, i18n.T("Senha errada."), 0, http.StatusUnauthorized)
 		return
@@ -189,7 +190,11 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 // safeReturn is where to go after signing in: a page of this server, never
 // another site.
 func safeReturn(to string) string {
-	if !strings.HasPrefix(to, "/") || strings.HasPrefix(to, "//") || strings.HasPrefix(to, "/\\") || strings.ContainsAny(to, "\r\n") {
+	// A browser drops tabs and line breaks from a Location and reads a
+	// backslash as a slash, so "/\t/evil.example" would leave the site:
+	// neither is accepted anywhere in the address.
+	if !strings.HasPrefix(to, "/") || strings.HasPrefix(to, "//") || strings.ContainsRune(to, '\\') ||
+		strings.ContainsFunc(to, func(r rune) bool { return r < 0x20 || r == 0x7f }) {
 		return "/"
 	}
 	return to

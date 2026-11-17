@@ -42,10 +42,21 @@ func (t *throttle) wait(addr string) time.Duration {
 	return max(0, e.until.Sub(t.now()))
 }
 
-// fail counts a wrong password from addr.
-func (t *throttle) fail(addr string, shared bool) {
+// try is a sign-in from addr: how long it must still wait, or zero, and
+// then the try is counted as a wrong password until ok says otherwise.
+func (t *throttle) try(addr string, shared bool) time.Duration {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	if e := t.m[addr]; e != nil {
+		if wait := e.until.Sub(t.now()); wait > 0 {
+			return wait
+		}
+	}
+	t.failLocked(addr, shared)
+	return 0
+}
+
+func (t *throttle) failLocked(addr string, shared bool) {
 	now := t.now()
 	e := t.m[addr]
 	if e == nil || now.Sub(e.last) > forgetAfter {
