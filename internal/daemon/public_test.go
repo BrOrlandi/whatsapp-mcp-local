@@ -210,7 +210,7 @@ func TestASignedInPanelOnThePublicListener(t *testing.T) {
 	}
 }
 
-var unstable = regexp.MustCompile(`127\.0\.0\.1:\d+|\d{4}-\d\d-\d\dT[0-9:.]+[-+Z0-9:]*|"(ms|uptime[a-z_]*|started_at|since|at|last[a-z_]*)":\s*("[^"]*"|[0-9.]+)|daemon-\d+`)
+var unstable = regexp.MustCompile(`127\.0\.0\.1:\d+|\d{4}-\d\d-\d\dT[0-9:.]+[-+Z0-9:]*|"(ms|uptime[a-z_]*|started_at|since|at|last[a-z_]*)":\s*("[^"]*"|[0-9.]+)|daemon-\d+| for [0-9][0-9hms.]*`)
 
 // localAnswers is what the local listener answers to a fixed set of
 // requests, with what changes from run to run taken out.
