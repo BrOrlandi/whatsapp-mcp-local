@@ -62,7 +62,7 @@ func (p *Panel) registerRemoteAccess(mux httpserver.Mux) {
 		h.Set("Content-Type", "text/html; charset=utf-8")
 		h.Set("Cache-Control", "no-store")
 		h.Set("X-Frame-Options", "DENY")
-		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Referrer-Policy", "same-origin") // a form posted from a no-referrer page sends Origin: null
 		h.Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'")
 		_, _ = w.Write(body.Bytes())
 	})

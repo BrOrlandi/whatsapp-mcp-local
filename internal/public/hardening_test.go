@@ -267,3 +267,85 @@ func TestACodeReplayedDuringItsExchange(t *testing.T) {
 		}
 	}
 }
+
+// A registered client chooses its own name: the consent page leads with the
+// host the person is sent back to, shows the name as the app's own claim,
+// asks for the password the first time that client and host are approved
+// (even when signed in), and preselects no access.
+func TestTheConsentPageCannotBeImpersonated(t *testing.T) {
+	s, _, _ := agentServer(t)
+	c := registerClient(t, s, "https://claude-ai.attacker.example/cb")
+	_, challenge := pkce("i")
+	q := c.authorizeQuery(challenge, c.redirect)
+	cookie := sessionCookie(t, signIn(s, "127.0.0.1:40000", testPassword, nil))
+	session := map[string]string{"Cookie": CookieName + "=" + cookie.Value}
+	page := serve(s, fromTunnel("GET", "/oauth/authorize?"+q.Encode(), session, "")).Body.String()
+	if strings.Contains(page, "Claude quer usar") || !strings.Contains(page, "claude-ai.attacker.example quer usar") {
+		t.Errorf("the headline is not the host the person goes back to:\n%s", page)
+	}
+	if !strings.Contains(page, "não é verificado") {
+		t.Error("the app's own name is not marked as unverified")
+	}
+	if strings.Contains(page, "checked") {
+		t.Error("an access level is preselected")
+	}
+	if !strings.Contains(page, `type="password"`) {
+		t.Error("the first approval of this client does not ask for the password")
+	}
+	post := func(extra map[string]string, withPassword bool) *httptest.ResponseRecorder {
+		form := url.Values{"decision": {"allow"}}
+		for k, v := range q {
+			form[k] = v
+		}
+		for k, v := range extra {
+			form.Set(k, v)
+		}
+		if withPassword {
+			form.Set("password", testPassword)
+		}
+		return serve(s, fromTunnel("POST", "/oauth/authorize", map[string]string{"Origin": origin, "Cookie": CookieName + "=" + cookie.Value}, form.Encode()))
+	}
+	// Signed in, without the password, the first time: no code.
+	if rec := post(map[string]string{"access": "full"}, false); rec.Header().Get("Location") != "" {
+		t.Errorf("a first approval with the session alone gave a code: %q", rec.Header().Get("Location"))
+	}
+	// No access chosen: no code.
+	if rec := post(nil, true); rec.Header().Get("Location") != "" {
+		t.Errorf("an approval with no access chosen gave a code: %q", rec.Header().Get("Location"))
+	}
+	if rec := post(map[string]string{"access": "everything"}, true); rec.Header().Get("Location") != "" {
+		t.Errorf("an unknown access gave a code: %q", rec.Header().Get("Location"))
+	}
+	// With the password and a choice: a code. After that, the session is
+	// enough for this client and host.
+	if rec := post(map[string]string{"access": "read"}, true); !strings.Contains(rec.Header().Get("Location"), "code=") {
+		t.Fatalf("a full approval: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+	if rec := post(map[string]string{"access": "read"}, false); !strings.Contains(rec.Header().Get("Location"), "code=") {
+		t.Fatalf("a later approval with the session: %d %q", rec.Code, rec.Header().Get("Location"))
+	}
+}
+
+// A client known by its metadata document leads with its document's host.
+func TestTheConsentPageNamesTheDocumentHost(t *testing.T) {
+	s, _, _ := agentServer(t)
+	documentServer(t, s, 0)
+	c := oauthClient{t: t, s: s, id: "https://doc.example/client.json", redirect: "https://doc.example/cb"}
+	_, challenge := pkce("j")
+	page := serve(s, fromTunnel("GET", "/oauth/authorize?"+c.authorizeQuery(challenge, c.redirect).Encode(), nil, "")).Body.String()
+	if !strings.Contains(page, "doc.example quer usar") || !strings.Contains(page, "Doc") {
+		t.Errorf("the headline is not the document's host:\n%s", page)
+	}
+}
+
+// The consent page lets its own form post with its origin: a no-referrer
+// page would make the browser send Origin: null, which is refused.
+func TestTheConsentPageKeepsItsOrigin(t *testing.T) {
+	s, _, _ := agentServer(t)
+	c := registerClient(t, s, "https://claude.ai/api/mcp/auth_callback")
+	_, challenge := pkce("o")
+	rec := serve(s, fromTunnel("GET", "/oauth/authorize?"+c.authorizeQuery(challenge, c.redirect).Encode(), nil, ""))
+	if p := rec.Header().Get("Referrer-Policy"); p != "same-origin" {
+		t.Fatalf("Referrer-Policy: %q", p)
+	}
+}

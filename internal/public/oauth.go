@@ -344,13 +344,21 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 		s.sendBack(w, r, ar, url.Values{"error": {"access_denied"}})
 		return
 	}
+	// The person chooses what the app may do: nothing is preselected.
+	access := r.PostFormValue("access")
+	if access != "full" && access != "read" {
+		s.consent(w, r, ar, c, i18n.T("Escolha o que este aplicativo pode fazer: tudo, ou só ler."), http.StatusBadRequest)
+		return
+	}
 	hash, err := s.cfg.Password.Current()
 	if err != nil {
 		http.Error(w, "the panel password is not set up", http.StatusServiceUnavailable)
 		return
 	}
-	// Signed in to the panel, or the password typed here.
-	if !s.signedIn(r) {
+	// The password, unless signed in and this client was approved to come
+	// back to this host before: a registered client chooses its own name,
+	// so a session alone never lets in one the person has not seen yet.
+	if s.needsPassword(r, ar) {
 		if wait := s.throttle.try(pr.client, pr.shared); wait > 0 {
 			s.consent(w, r, ar, c, i18n.Tf("Muitas tentativas com a senha errada. Tente de novo em %d segundos.", int(wait/time.Second)+1), http.StatusTooManyRequests)
 			return
@@ -376,9 +384,10 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 		}
 	}
 	s.oauth.codes[hashSecret(code)] = &pending{clientID: c.ID, clientName: c.Name, redirectURI: ar.RedirectURI,
-		challenge: ar.Challenge, resource: ar.Resource, readOnly: r.PostFormValue("access") == "read", expires: now.Add(codeTTL)}
+		challenge: ar.Challenge, resource: ar.Resource, readOnly: access == "read", expires: now.Add(codeTTL)}
 	s.oauth.mu.Unlock()
-	s.logger.Info("oauth: access approved", "client", c.Name, "read_only", r.PostFormValue("access") == "read", "address", pr.client)
+	_ = s.state.Approve(r.Context(), c.ID, redirectHost(ar.RedirectURI), now)
+	s.logger.Info("oauth: access approved", "client", c.Name, "host", clientHost(c, ar.RedirectURI), "read_only", access == "read", "address", pr.client)
 	s.sendBack(w, r, ar, url.Values{"code": {code}})
 }
 
@@ -535,17 +544,17 @@ input[type=password]{box-sizing:border-box;width:100%;padding:10px 12px;font:inh
 <body><main>
 <h1>{{.Title}}</h1>
 {{if .Problem}}<div class="error" role="alert">{{.Problem}}</div>{{else}}
-<p>{{.Lead}}</p>
-<div class="who">{{.From}}<br>{{.Back}}</div>
+<p class="lead"><strong>{{.Lead}}</strong></p>
+<div class="who">{{.Back}}<br><span class="muted">{{.From}}</span></div>
 {{if .Loopback}}<div class="warn">{{.LoopbackWarning}}</div>{{end}}
 {{if .Error}}<div class="error" role="alert">{{.Error}}</div>{{end}}
 <form method="post" action="` + AuthorizePath + `">
 {{range $k, $v := .Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}
 <fieldset><legend>{{.AccessLabel}}</legend>
-<label><input type="radio" name="access" value="full" checked> {{.Full}}</label>
-<label><input type="radio" name="access" value="read"> {{.Read}}</label>
+<label><input type="radio" name="access" value="full" required> {{.Full}}</label>
+<label><input type="radio" name="access" value="read" required> {{.Read}}</label>
 </fieldset>
-{{if not .SignedIn}}<label class="field" for="password">{{.PasswordLabel}}</label>
+{{if .AskPassword}}<label class="field" for="password">{{.PasswordLabel}}</label>
 <input id="password" name="password" type="password" autocomplete="current-password" autofocus>{{end}}
 <div class="actions"><button class="deny" type="submit" name="decision" value="deny">{{.Deny}}</button>
 <button class="allow" type="submit" name="decision" value="allow">{{.Allow}}</button></div>
@@ -561,7 +570,9 @@ func pageHeaders(w http.ResponseWriter, status int) {
 	// form-action stays open: the approval redirects to the client's own
 	// address, which a stricter policy would block in some browsers.
 	h.Set("Content-Security-Policy", "default-src 'self'; style-src 'unsafe-inline'; frame-ancestors 'none'")
-	h.Set("Referrer-Policy", "no-referrer")
+	// same-origin, not no-referrer: a form posted from a no-referrer page
+	// carries Origin: null, which the same-origin check refuses.
+	h.Set("Referrer-Policy", "same-origin")
 	w.WriteHeader(status)
 }
 
@@ -572,24 +583,49 @@ func (s *Server) consentError(w http.ResponseWriter, problem string) {
 	_, _ = w.Write(body.Bytes())
 }
 
+// redirectHost is the host a redirect address sends the person back to,
+// without a port.
+func redirectHost(raw string) string {
+	if u, err := url.Parse(raw); err == nil {
+		return strings.ToLower(u.Hostname())
+	}
+	return ""
+}
+
+// clientHost is what the consent page leads with: the host the person can
+// check. A registered client chooses its own name, so it is the host the
+// person is sent back to; a client known by its metadata document, the
+// document's host.
+func clientHost(c client, redirect string) string {
+	if c.Document {
+		if u, err := url.Parse(c.ID); err == nil {
+			return strings.ToLower(u.Hostname())
+		}
+	}
+	return redirectHost(redirect)
+}
+
+// needsPassword reports whether approving this client asks for the panel's
+// password: always without a session, and the first time this client is
+// approved to go back to this host.
+func (s *Server) needsPassword(r *http.Request, ar authRequest) bool {
+	if !s.signedIn(r) {
+		return true
+	}
+	ok, err := s.state.Approved(r.Context(), ar.ClientID, redirectHost(ar.RedirectURI))
+	return err != nil || !ok
+}
+
 func (s *Server) consent(w http.ResponseWriter, r *http.Request, ar authRequest, c client, problem string, status int) {
 	back := ar.RedirectURI
 	if u, err := url.Parse(ar.RedirectURI); err == nil {
 		back = u.Host
 	}
-	// A metadata document's name is the client's own claim: the host it
-	// is served from is what the person can trust, and comes first.
-	who, from := c.Name, i18n.Tf("Aplicativo: %s", c.Name)
-	if c.Document {
-		if u, err := url.Parse(c.ID); err == nil {
-			who, from = u.Host, i18n.Tf("Aplicativo: %s (descrito por %s)", c.Name, u.Host)
-		}
-	}
 	var body bytes.Buffer
 	_ = consentTemplate.Execute(&body, map[string]any{
 		"Lang": i18n.Lang(), "Title": i18n.T("Permitir acesso ao seu WhatsApp"),
-		"Lead":            i18n.Tf("%s quer usar o seu WhatsApp por este servidor.", who),
-		"From":            from,
+		"Lead":            i18n.Tf("%s quer usar o seu WhatsApp por este servidor.", clientHost(c, ar.RedirectURI)),
+		"From":            i18n.Tf("O aplicativo se apresenta como “%s”: esse nome é dele e não é verificado.", c.Name),
 		"Back":            i18n.Tf("Depois de aprovar, você volta para: %s", back),
 		"Loopback":        loopbackOnly(c),
 		"LoopbackWarning": i18n.T("Este aplicativo volta para um programa no computador de quem está conectando. Qualquer programa ali pode usar esse nome: só aprove se foi você que pediu agora."),
@@ -597,7 +633,7 @@ func (s *Server) consent(w http.ResponseWriter, r *http.Request, ar authRequest,
 		"AccessLabel":     i18n.T("O que ele pode fazer"),
 		"Full":            i18n.T("Tudo: ler, buscar, enviar e organizar"),
 		"Read":            i18n.T("Só ler: vê e busca, mas não envia, não apaga e não mexe em grupos"),
-		"SignedIn":        s.signedIn(r), "PasswordLabel": i18n.T("Senha do painel"),
+		"AskPassword":     s.needsPassword(r, ar), "PasswordLabel": i18n.T("Senha do painel"),
 		"Allow": i18n.T("Permitir"), "Deny": i18n.T("Recusar"),
 		"Note": i18n.T("Você pode cortar este acesso quando quiser, no painel, em Conexões."),
 		"Hidden": map[string]string{"client_id": ar.ClientID, "redirect_uri": ar.RedirectURI, "state": ar.State,
