@@ -163,6 +163,27 @@ Example:
   echo "$MY_TOKEN" | whatsapp-mcp token set -
 `,
 
+	"password": `Usage: whatsapp-mcp password hash|set [--json]
+
+The panel's password for the server mode, where the panel is reached at the
+server's public address (WHATSAPP_MCP_PUBLIC_URL) and asks for it. The
+password is asked twice without showing it, or read as one line from a pipe;
+it is never an argument, and never printed.
+
+  hash   print its bcrypt hash, for WHATSAPP_MCP_PANEL_PASSWORD_HASH (in a
+         compose.yaml, write each $ of the hash as $$)
+  set    keep its hash in the data folder, readable only by you; the
+         variable wins when both exist (exit 6 here then)
+  --json {"hash":"$2a$..."} for hash, {"ok":true} for set
+
+A new password signs out everyone signed in to the panel. At least 10
+characters.
+
+Example:
+  whatsapp-mcp password hash
+  whatsapp-mcp password set
+`,
+
 	"webhooks": `Usage: whatsapp-mcp webhooks [list] [--json]
        whatsapp-mcp webhooks add <url> [--events message,reaction,receipt,online]
                                  [--include-own] [--chats <jid>,<jid>] [--json]

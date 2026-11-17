@@ -27,6 +27,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/public"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/service"
 )
 
@@ -175,6 +176,8 @@ func main() {
 		err = portCmd(cfg, args)
 	case "token":
 		err = tokenCmd(cfg, args)
+	case "password":
+		err = passwordCmd(cfg, args)
 	case "webhooks", "webhook":
 		err = webhooksCmd(cfg, args)
 	case "logs":
@@ -224,6 +227,7 @@ WhatsApp:
 Settings:
   port [<port>]             show or change the MCP's port (restarts the service)
   token [show|new|set <token>|clear]   the key /mcp and the API's actions ask for (restarts the service)
+  password hash|set         the panel's password for the server mode: print its hash, or keep it here
   webhooks [list|add <url>|remove <id>|enable <id>|disable <id>|test <id>]
       add: [--events message,reaction,receipt,online] [--include-own] [--chats <jid>,<jid>]
   config                    print the configuration for Claude Code and Claude Desktop
@@ -248,6 +252,12 @@ Environment (each one wins over what the commands saved):
   WHATSAPP_MCP_DATA    the data folder (default ~/.whatsapp-mcp)
   WACLI_BIN            the wacli program to run (default: the one beside this program, else PATH)
   WACLI_STORE_DIR      wacli's folder, with the WhatsApp session and messages (default ~/.wacli)
+
+Server mode (a second address, behind a proxy or a tunnel, where everything asks for a sign-in):
+  WHATSAPP_MCP_PUBLIC_URL           the server's https address; turns the server mode on
+  WHATSAPP_MCP_PANEL_PASSWORD_HASH  the panel's password, as a bcrypt hash (whatsapp-mcp password hash)
+  WHATSAPP_MCP_PUBLIC_LISTEN        where that address answers (default 127.0.0.1:47822)
+  WHATSAPP_MCP_TRUSTED_PROXY        the proxy's addresses, CIDR ranges or names, comma separated
 `
 
 // language is the one the panel and the messages show: WHATSAPP_MCP_LANG,
@@ -279,11 +289,17 @@ func serve(cfg config) error {
 	if err := appconfig.MarkNew(cfg.DataDir); err != nil {
 		logger.Warn("could not write config.json", "error", err)
 	}
+	// The server mode, when its variables are set; with a half-made
+	// configuration nothing starts, and the error says what is missing.
+	pub, err := public.FromEnv(os.Getenv, cfg.DataDir)
+	if err != nil {
+		return fail(exitUsage, "%v", err)
+	}
 	d, err := daemon.Start(daemon.Config{
 		Port: cfg.Port, RequirePort: true, Token: cfg.Token,
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
 		LogPath: logPath(), Version: version, Logger: logger,
-		Desktop: desktopCommand(cfg), CommandLine: true,
+		Desktop: desktopCommand(cfg), CommandLine: true, Public: pub,
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
 		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)
@@ -291,7 +307,11 @@ func serve(cfg config) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "\n  Panel:  %s/\n  MCP:    %s/mcp\n\n", cfg.baseURL(), cfg.baseURL())
+	fmt.Fprintf(os.Stderr, "\n  Panel:  %s/\n  MCP:    %s/mcp\n", cfg.baseURL(), cfg.baseURL())
+	if pub != nil {
+		fmt.Fprintf(os.Stderr, "  Public: %s/ (listening on %s)\n", pub.URL.String(), d.PublicAddr())
+	}
+	fmt.Fprintln(os.Stderr)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	<-ctx.Done()
