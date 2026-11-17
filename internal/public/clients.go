@@ -41,11 +41,13 @@ const (
 // only to the internet (netguard checks the address dialled), follows no
 // redirect, and is cut at 5 seconds and 64 KB.
 type documents struct {
-	client  *http.Client
-	now     func() time.Time
-	mu      sync.Mutex
-	cache   map[string]cachedDoc
-	fetches map[string][]time.Time // by client address
+	client *http.Client
+	now    func() time.Time
+	mu     sync.Mutex
+	cache  *lru[cachedDoc]
+	// fetches caps the documents one address (or /64) makes the server
+	// fetch.
+	fetches *window
 }
 
 type cachedDoc struct {
@@ -55,7 +57,7 @@ type cachedDoc struct {
 }
 
 func newDocuments() *documents {
-	return &documents{client: netguard.Client(cimdTimeout, 0), now: time.Now, cache: map[string]cachedDoc{}, fetches: map[string][]time.Time{}}
+	return &documents{client: netguard.Client(cimdTimeout, 0), now: time.Now, cache: newLRU[cachedDoc](1000), fetches: newWindow(4096)}
 }
 
 // isDocumentID reports whether a client_id is a metadata document's address.
@@ -69,36 +71,28 @@ const fetchesPerHour = 30
 
 func (d *documents) get(ctx context.Context, id, addr string) (client, error) {
 	d.mu.Lock()
-	if c, ok := d.cache[id]; ok && d.now().Before(c.expires) {
+	if c, ok := d.cache.get(id); ok && d.now().Before(c.expires) {
 		d.mu.Unlock()
 		return c.c, c.err
 	}
-	now := d.now()
-	recent := d.fetches[addr][:0:0]
-	for _, t := range d.fetches[addr] {
-		if now.Sub(t) < time.Hour {
-			recent = append(recent, t)
-		}
-	}
-	if len(recent) >= fetchesPerHour {
-		d.mu.Unlock()
+	d.mu.Unlock()
+	if !d.fetches.allow(addr, fetchesPerHour) {
 		return client{}, errDocument
 	}
-	if len(d.fetches) > 10000 {
-		d.fetches = map[string][]time.Time{}
+	// The fetch runs on its own clock, not the request's: a request that
+	// hangs up does not turn into a failure kept for the client.
+	fctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cimdTimeout)
+	defer cancel()
+	c, err := d.fetch(fctx, id)
+	if errors.Is(err, context.Canceled) {
+		return c, err
 	}
-	d.fetches[addr] = append(recent, now)
-	d.mu.Unlock()
-	c, err := d.fetch(ctx, id)
 	ttl := cimdCacheOK
 	if err != nil {
 		ttl = cimdCacheFail
 	}
 	d.mu.Lock()
-	if len(d.cache) > 1000 {
-		d.cache = map[string]cachedDoc{}
-	}
-	d.cache[id] = cachedDoc{c: c, err: err, expires: d.now().Add(ttl)}
+	d.cache.put(id, cachedDoc{c: c, err: err, expires: d.now().Add(ttl)})
 	d.mu.Unlock()
 	return c, err
 }
@@ -113,8 +107,6 @@ func (d *documents) fetch(ctx context.Context, id string) (client, error) {
 	if ip, err := netip.ParseAddr(strings.Trim(u.Hostname(), "[]")); err == nil && netguard.Internal(ip) {
 		return client{}, errDocument
 	}
-	ctx, cancel := context.WithTimeout(ctx, cimdTimeout)
-	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, id, nil)
 	if err != nil {
 		return client{}, errDocument

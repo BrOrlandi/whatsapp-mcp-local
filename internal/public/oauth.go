@@ -43,6 +43,10 @@ const (
 	codeTTL         = time.Minute
 	maxClients      = 500
 	registerPerHour = 20
+	// clientsPerAddress is how many registrations one address (or /64)
+	// may have waiting for a sign-in: 2% of maxClients.
+	clientsPerAddress = 10
+	unusedClientFor   = time.Hour
 )
 
 // pending is an authorization code waiting to be exchanged.
@@ -59,11 +63,11 @@ type oauthState struct {
 	mu    sync.Mutex
 	codes map[string]*pending // by the code's hash
 	// registrations counts recent registrations by client address.
-	registrations map[string][]time.Time
+	registrations *window
 }
 
 func newOAuthState() *oauthState {
-	return &oauthState{codes: map[string]*pending{}, registrations: map[string][]time.Time{}}
+	return &oauthState{codes: map[string]*pending{}, registrations: newWindow(4096)}
 }
 
 func (s *Server) resourceURL() string { return s.cfg.Origin + "/mcp" }
@@ -149,28 +153,15 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request, pr peer) {
 		return
 	}
 	now := s.now()
-	s.oauth.mu.Lock()
-	recent := s.oauth.registrations[pr.client][:0:0]
-	for _, t := range s.oauth.registrations[pr.client] {
-		if now.Sub(t) < time.Hour {
-			recent = append(recent, t)
-		}
-	}
 	limit := registerPerHour
 	if pr.shared {
 		limit *= 5
 	}
-	if len(recent) >= limit {
-		s.oauth.mu.Unlock()
+	if !s.oauth.registrations.allow(pr.client, limit) {
 		w.Header().Set("Retry-After", "3600")
 		oauthError(w, http.StatusTooManyRequests, "too_many_requests", "too many registrations from this address; try again later")
 		return
 	}
-	s.oauth.registrations[pr.client] = append(recent, now)
-	if len(s.oauth.registrations) > 10000 {
-		s.oauth.registrations = map[string][]time.Time{}
-	}
-	s.oauth.mu.Unlock()
 
 	var req struct {
 		RedirectURIs []string `json:"redirect_uris"`
@@ -200,20 +191,25 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request, pr peer) {
 		}
 	}
 	ctx := r.Context()
-	if n, err := s.state.OAuthClientCount(ctx); err == nil && n >= maxClients {
-		_, _ = s.state.PruneOAuthClients(ctx, now.Add(-time.Hour))
-		if n, err = s.state.OAuthClientCount(ctx); err == nil && n >= maxClients {
-			oauthError(w, http.StatusServiceUnavailable, "temporarily_unavailable", "too many clients are registered; try again later")
-			return
-		}
+	// Registrations nobody signed in with go after an hour, and one address
+	// (or /64) holds at most a small share of the total.
+	_, _ = s.state.PruneOAuthClients(ctx, now.Add(-unusedClientFor))
+	from := addrKey(pr.client)
+	if n, err := s.state.UnusedOAuthClientsFrom(ctx, from); err == nil && n >= clientsPerAddress && !pr.shared {
+		w.Header().Set("Retry-After", "3600")
+		oauthError(w, http.StatusTooManyRequests, "too_many_requests", "too many clients from this address are waiting for a sign-in; try again later")
+		return
 	}
-	// Registrations nobody signed in with go after a day.
-	_, _ = s.state.PruneOAuthClients(ctx, now.Add(-24*time.Hour))
+	if n, err := s.state.OAuthClientCount(ctx); err == nil && n >= maxClients {
+		oauthError(w, http.StatusServiceUnavailable, "temporarily_unavailable", "too many clients are registered; try again later")
+		return
+	}
 	host := ""
 	if u, err := url.Parse(req.RedirectURIs[0]); err == nil {
 		host = u.Hostname()
 	}
 	c := registeredClient(cleanName(req.ClientName, host), req.RedirectURIs, now)
+	c.From = from
 	if err := s.state.AddOAuthClient(ctx, c); err != nil {
 		oauthError(w, http.StatusInternalServerError, "server_error", "could not register the client")
 		return
@@ -359,12 +355,17 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 			s.consent(w, r, ar, c, i18n.Tf("Muitas tentativas com a senha errada. Tente de novo em %d segundos.", int(wait/time.Second)+1), http.StatusTooManyRequests)
 			return
 		}
-		if !verify(hash, r.PostFormValue("password")) {
+		right, busy := s.checkPassword(r.Context(), pr, hash, r.PostFormValue("password"))
+		if busy {
+			w.Header().Set("Retry-After", "5")
+			s.consent(w, r, ar, c, i18n.T("O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos."), http.StatusTooManyRequests)
+			return
+		}
+		if !right {
 			s.logger.Warn("oauth: wrong password on the consent page", "client", pr.client)
 			s.consent(w, r, ar, c, i18n.T("Senha errada."), http.StatusUnauthorized)
 			return
 		}
-		s.throttle.ok(pr.client)
 	}
 	code := secret(codePrefix)
 	s.oauth.mu.Lock()
@@ -473,6 +474,10 @@ func (s *Server) refresh(w http.ResponseWriter, ctx context.Context, f url.Value
 		return
 	}
 	spent, err := s.state.SpendRefreshToken(ctx, hashSecret(rt), s.now())
+	if err == nil && spent {
+		// The new access token replaces the old ones.
+		_ = s.state.DeleteAccessTokens(ctx, conn.ID)
+	}
 	if err != nil {
 		oauthError(w, http.StatusInternalServerError, "server_error", "could not refresh")
 		return

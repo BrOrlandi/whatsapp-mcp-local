@@ -32,6 +32,8 @@ type OAuthClient struct {
 	RedirectURIs []string
 	CreatedAt    time.Time
 	LastUsedAt   *time.Time
+	// From is the address (an IPv6 one by its /64) it registered from.
+	From string
 }
 
 // Connection is an agent let in through the OAuth login: what the person
@@ -89,7 +91,21 @@ func (s *State) migrateAccess() error {
 			expires_at INTEGER NOT NULL DEFAULT 0,
 			used_at INTEGER NOT NULL DEFAULT 0,
 			created_at INTEGER NOT NULL);
-		CREATE INDEX IF NOT EXISTS oauth_tokens_connection ON oauth_tokens (connection_id);`)
+		CREATE INDEX IF NOT EXISTS oauth_tokens_connection ON oauth_tokens (connection_id);
+		CREATE TABLE IF NOT EXISTS oauth_approvals (
+			client_id TEXT NOT NULL,
+			redirect_host TEXT NOT NULL,
+			approved_at INTEGER NOT NULL,
+			PRIMARY KEY (client_id, redirect_host));`)
+	if err != nil {
+		return err
+	}
+	// registered_from arrived after the table's first release (1.9 betas).
+	var n int
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('oauth_clients') WHERE name = 'registered_from'`).Scan(&n)
+	if n == 0 {
+		_, err = s.db.Exec(`ALTER TABLE oauth_clients ADD COLUMN registered_from TEXT NOT NULL DEFAULT ''`)
+	}
 	return err
 }
 
@@ -173,8 +189,32 @@ func affected(res sql.Result, err error) error {
 
 // AddOAuthClient keeps a registered client.
 func (s *State) AddOAuthClient(ctx context.Context, c OAuthClient) error {
-	_, err := s.db.ExecContext(ctx, `INSERT INTO oauth_clients (id, name, redirect_uris, created_at) VALUES (?, ?, ?, ?)`,
-		c.ID, c.Name, strings.Join(c.RedirectURIs, "\n"), unix(c.CreatedAt))
+	_, err := s.db.ExecContext(ctx, `INSERT INTO oauth_clients (id, name, redirect_uris, created_at, registered_from) VALUES (?, ?, ?, ?, ?)`,
+		c.ID, c.Name, strings.Join(c.RedirectURIs, "\n"), unix(c.CreatedAt), c.From)
+	return err
+}
+
+// UnusedOAuthClientsFrom is how many clients registered from an address
+// never led to a sign-in.
+func (s *State) UnusedOAuthClientsFrom(ctx context.Context, from string) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM oauth_clients WHERE registered_from = ? AND last_used_at = 0`, from).Scan(&n)
+	return n, err
+}
+
+// Approved reports whether the person approved this client coming back to
+// this host before.
+func (s *State) Approved(ctx context.Context, clientID, host string) (bool, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM oauth_approvals WHERE client_id = ? AND redirect_host = ?`, clientID, host).Scan(&n)
+	return n > 0, err
+}
+
+// Approve records that the person approved this client coming back to this
+// host.
+func (s *State) Approve(ctx context.Context, clientID, host string, at time.Time) error {
+	_, err := s.db.ExecContext(ctx, `INSERT OR REPLACE INTO oauth_approvals (client_id, redirect_host, approved_at) VALUES (?, ?, ?)`,
+		clientID, host, unix(at))
 	return err
 }
 
@@ -319,10 +359,18 @@ func (s *State) SpendRefreshToken(ctx context.Context, hash string, at time.Time
 	return n == 1, nil
 }
 
-// PruneTokens drops the access tokens that expired before the given time,
-// and the refresh tokens spent before it.
-func (s *State) PruneTokens(ctx context.Context, before time.Time) error {
+// PruneTokens drops the access tokens expired before accessBefore, and the
+// refresh tokens spent before refreshBefore (kept until then to catch a late
+// reuse).
+func (s *State) PruneTokens(ctx context.Context, accessBefore, refreshBefore time.Time) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM oauth_tokens WHERE (kind = 'access' AND expires_at < ?) OR (kind = 'refresh' AND used_at != 0 AND used_at < ?)`,
-		unix(before), unix(before))
+		unix(accessBefore), unix(refreshBefore))
+	return err
+}
+
+// DeleteAccessTokens drops a connection's access tokens: a refresh replaces
+// them.
+func (s *State) DeleteAccessTokens(ctx context.Context, connection string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM oauth_tokens WHERE connection_id = ? AND kind = 'access'`, connection)
 	return err
 }

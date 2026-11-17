@@ -219,8 +219,8 @@ func (a *access) issue(ctx context.Context, connection string) (accessToken, ref
 	if err := a.st.AddToken(ctx, hashSecret(refreshToken), connection, "refresh", time.Time{}, now); err != nil {
 		return "", "", err
 	}
-	// Spent refresh tokens are kept a month, so a stolen one replayed late
-	// still ends its connection.
-	_ = a.st.PruneTokens(ctx, now.Add(-30*24*time.Hour))
+	// Expired access tokens go; spent refresh tokens are kept a month, so a
+	// stolen one replayed late still ends its connection.
+	_ = a.st.PruneTokens(ctx, now, now.Add(-30*24*time.Hour))
 	return accessToken, refreshToken, nil
 }

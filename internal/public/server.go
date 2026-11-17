@@ -43,6 +43,8 @@ type Server struct {
 	throttle *throttle
 	// bearers slows down wrong keys and tokens, address by address.
 	bearers *throttle
+	// checks bounds the password checks of everyone together.
+	checks *checks
 
 	// state keeps the keys, logins and tokens; nil, and no agent gets in.
 	state     *state.State
@@ -61,7 +63,7 @@ func New(cfg *Config, routes *http.ServeMux, logger *slog.Logger) *Server {
 		logger = slog.Default()
 	}
 	return &Server{cfg: cfg, routes: routes, logger: logger, sessions: newSessions(), throttle: newThrottle(),
-		bearers: newThrottle(), documents: newDocuments(), oauth: newOAuthState(), now: time.Now}
+		bearers: newThrottle(), checks: newChecks(logger), documents: newDocuments(), oauth: newOAuthState(), now: time.Now}
 }
 
 // UseState lets agents in, with the keys and logins kept in st.
@@ -233,6 +235,32 @@ func (s *Server) oauthRoute(w http.ResponseWriter, r *http.Request, pr peer) {
 	}
 }
 
+// checkPassword checks a password typed on the sign-in or the consent page,
+// in its turn among everyone's: busy means the turn did not come within a
+// few seconds. A right password clears the address's wrong tries and gives
+// it a reserve of turns of its own.
+func (s *Server) checkPassword(ctx context.Context, pr peer, hash, password string) (right, busy bool) {
+	if password == "" {
+		return false, false
+	}
+	release, ok := s.checks.acquire(ctx, pr.client)
+	if !ok {
+		return false, true
+	}
+	right = verifyPassword(hash, password)
+	release()
+	if right {
+		s.throttle.ok(pr.client)
+		if !pr.shared {
+			s.checks.trust(pr.client)
+		}
+	}
+	return right, false
+}
+
+// verifyPassword is verify, replaceable in tests.
+var verifyPassword = verify
+
 // signedIn reports whether the request carries a live panel session, made
 // with the password in force.
 func (s *Server) signedIn(r *http.Request) bool {
@@ -275,12 +303,17 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, pr peer) {
 		s.loginPage(w, r, "", wait, http.StatusTooManyRequests)
 		return
 	}
-	if password == "" || !verify(hash, password) {
+	right, busy := s.checkPassword(r.Context(), pr, hash, password)
+	if busy {
+		w.Header().Set("Retry-After", "5")
+		s.loginPage(w, r, i18n.T("O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos."), 0, http.StatusTooManyRequests)
+		return
+	}
+	if !right {
 		s.logger.Warn("panel sign-in refused: wrong password", "client", pr.client)
 		s.loginPage(w, r, i18n.T("Senha errada."), 0, http.StatusUnauthorized)
 		return
 	}
-	s.throttle.ok(pr.client)
 	id := s.sessions.create(fingerprint(hash))
 	http.SetCookie(w, &http.Cookie{Name: CookieName, Value: id, Path: "/", HttpOnly: true, Secure: s.cfg.HTTPS(),
 		SameSite: http.SameSiteLaxMode, MaxAge: int(sessionMaxAge / time.Second)})

@@ -5,14 +5,15 @@ import (
 	"time"
 )
 
-// throttle slows down wrong passwords, address by address: after a few, each
-// try from that address waits longer, up to a ceiling. It never locks the
-// account: another address signs in at once. The address every visitor
-// shares, when the proxy does not say whom it forwards, waits only seconds,
-// so nobody outside can keep the owner out.
+// throttle slows down wrong passwords (and wrong keys), address by address,
+// an IPv6 address by its /64: after a few, each try from that address waits
+// longer, up to a ceiling. It never locks the account: another address
+// signs in at once. The address every visitor shares, when the proxy does
+// not say whom it forwards, waits only seconds, so nobody outside can keep
+// the owner out. The table is bounded: the least recent address goes first.
 type throttle struct {
 	mu  sync.Mutex
-	m   map[string]*tries
+	m   *lru[*tries]
 	now func() time.Time
 }
 
@@ -27,16 +28,17 @@ const (
 	maxDelay      = 15 * time.Minute
 	maxSharedWait = 5 * time.Second
 	forgetAfter   = time.Hour
+	throttleSize  = 4096
 )
 
-func newThrottle() *throttle { return &throttle{m: map[string]*tries{}, now: time.Now} }
+func newThrottle() *throttle { return &throttle{m: newLRU[*tries](throttleSize), now: time.Now} }
 
 // wait is how long addr must still wait before its next try.
 func (t *throttle) wait(addr string) time.Duration {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	e := t.m[addr]
-	if e == nil {
+	e, ok := t.m.get(addrKey(addr))
+	if !ok {
 		return 0
 	}
 	return max(0, e.until.Sub(t.now()))
@@ -47,40 +49,34 @@ func (t *throttle) wait(addr string) time.Duration {
 func (t *throttle) try(addr string, shared bool) time.Duration {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	if e := t.m[addr]; e != nil {
+	key := addrKey(addr)
+	if e, ok := t.m.get(key); ok {
 		if wait := e.until.Sub(t.now()); wait > 0 {
 			return wait
 		}
 	}
-	t.failLocked(addr, shared)
+	t.failLocked(key, shared)
 	return 0
 }
 
-func (t *throttle) failLocked(addr string, shared bool) {
+func (t *throttle) failLocked(key string, shared bool) {
 	now := t.now()
-	e := t.m[addr]
-	if e == nil || now.Sub(e.last) > forgetAfter {
+	e, ok := t.m.get(key)
+	if !ok || now.Sub(e.last) > forgetAfter {
 		e = &tries{}
-		t.m[addr] = e
+		t.m.put(key, e)
 	}
 	e.fails++
 	e.last = now
 	if e.fails >= freeTries {
 		e.until = now.Add(delay(e.fails, shared))
 	}
-	if len(t.m) > 10000 {
-		for k, v := range t.m {
-			if now.Sub(v.last) > forgetAfter {
-				delete(t.m, k)
-			}
-		}
-	}
 }
 
 // ok forgets addr's wrong passwords, after a right one.
 func (t *throttle) ok(addr string) {
 	t.mu.Lock()
-	delete(t.m, addr)
+	t.m.remove(addrKey(addr))
 	t.mu.Unlock()
 }
 

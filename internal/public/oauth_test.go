@@ -497,7 +497,10 @@ func TestRegistrationIsLimited(t *testing.T) {
 		rec := serve(s, fromTunnel("POST", "/oauth/register", nil, `{"client_name":"x","redirect_uris":["https://x.example/cb"]}`))
 		codes[rec.Code]++
 	}
-	if codes[201] != registerPerHour || codes[429] != 5 {
+	// An address holds at most clientsPerAddress clients waiting for a
+	// sign-in (phase 2b: a small share of the total), under the hourly
+	// limit of registerPerHour.
+	if codes[201] != clientsPerAddress || codes[429] != registerPerHour+5-clientsPerAddress {
 		t.Fatalf("registrations: %v", codes)
 	}
 	// Another address still registers.
