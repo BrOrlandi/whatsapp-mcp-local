@@ -186,7 +186,8 @@ func TestASignedInPanelOnThePublicListener(t *testing.T) {
 			t.Errorf("%s answered %d to a panel session", pattern, rec.Code)
 		}
 	}
-	if rec := page("POST", "/api/clients/codex", nil); !strings.Contains(rec.Body.String(), "próprio servidor") {
+	// The page reads an API error from JSON and shows it.
+	if rec := page("POST", "/api/clients/codex", nil); !strings.HasPrefix(rec.Body.String(), `{"error":"`) || !strings.Contains(rec.Body.String(), "próprio servidor") {
 		t.Errorf("the refusal does not say why: %s", rec.Body)
 	}
 	// The same-origin checks hold against the public address.

@@ -159,7 +159,15 @@ func callerRefused(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	if routeAccess(r) == caller.LocalOnly {
-		http.Error(w, i18n.T("Isto só pode ser feito no próprio servidor, onde o WhatsApp MCP está instalado."), http.StatusForbidden)
+		msg := i18n.T("Isto só pode ser feito no próprio servidor, onde o WhatsApp MCP está instalado.")
+		// The panel's scripts read an API error from JSON, and show it.
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": msg})
+			return true
+		}
+		http.Error(w, msg, http.StatusForbidden)
 		return true
 	}
 	http.Error(w, "forbidden", http.StatusForbidden)
