@@ -552,10 +552,13 @@ func (s *Server) listGroups(ctx context.Context, a arguments) map[string]any {
 
 func (s *Server) getGroup(ctx context.Context, a arguments) map[string]any {
 	jid := strings.TrimSpace(a.GroupJID)
-	if !strings.HasSuffix(jid, "@g.us") {
+	if !strings.HasSuffix(jid, "@g.us") || !validJID(jid) {
 		return toolError("group_jid must be a group JID ending in @g.us")
 	}
 	if a.Live {
+		if fail := s.liveAllowed(ctx, 1); fail != nil {
+			return fail
+		}
 		ctx, cancel := context.WithTimeout(ctx, liveTimeout)
 		err := s.supervisor.Exclusive(ctx, "group info", func(ctx context.Context) error {
 			_, err := s.cli.Run(ctx, "groups", "info", "--jid", jid)
@@ -1016,6 +1019,9 @@ func (s *Server) checkNumbers(ctx context.Context, a arguments) map[string]any {
 			return toolError("%v", err)
 		}
 	}
+	if fail := s.liveAllowed(ctx, len(a.Numbers)); fail != nil {
+		return fail
+	}
 	// The numbers are positional: after "--", none can be a flag.
 	args := append([]string{"contacts", "check", "--"}, a.Numbers...)
 	var out any
@@ -1031,6 +1037,9 @@ func (s *Server) profilePicture(ctx context.Context, a arguments) map[string]any
 	}
 	if strings.TrimSpace(a.To) == "" {
 		return toolError("to is required")
+	}
+	if fail := s.liveAllowed(ctx, 1); fail != nil {
+		return fail
 	}
 	args := []string{"profile", "picture-info", "--jid", a.To}
 	if !a.Full {

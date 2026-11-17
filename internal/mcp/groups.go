@@ -10,7 +10,7 @@ import (
 
 func groupJID(a arguments) (string, map[string]any) {
 	jid := strings.TrimSpace(a.GroupJID)
-	if !strings.HasSuffix(jid, "@g.us") {
+	if !strings.HasSuffix(jid, "@g.us") || !validJID(jid) {
 		return "", toolError("group_jid must be a group JID ending in @g.us")
 	}
 	return jid, nil

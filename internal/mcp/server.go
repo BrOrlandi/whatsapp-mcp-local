@@ -64,6 +64,9 @@ type Server struct {
 	touched   map[string]time.Time
 
 	diag *diag.Log
+
+	// live limits the lookups on WhatsApp's servers of agents from outside.
+	live *liveLimits
 }
 
 // CheckClient is the name a test of the bridge gives itself, so the test
@@ -156,7 +159,7 @@ func New(c Config) *Server {
 	return &Server{cli: c.CLI, supervisor: c.Supervisor, index: c.Index, state: c.State, logger: c.Logger,
 		baseURL: c.BaseURL, mediaDir: c.MediaDir, exportDir: c.ExportDir, links: newMediaLinks(), started: time.Now(), asr: c.ASR,
 		clients: map[string]string{}, touched: map[string]time.Time{}, account: c.Account, accounts: c.Accounts, commandLine: c.CommandLine,
-		diag: c.Diag}
+		diag: c.Diag, live: newLiveLimits()}
 }
 
 // Diag is the diagnostic log, or nil.
