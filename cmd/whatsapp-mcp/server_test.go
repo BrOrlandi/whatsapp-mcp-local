@@ -19,7 +19,7 @@ func TestServerSetupKeepsTheServerMode(t *testing.T) {
 	cfg := config{DataDir: dir, Port: freePort(t)}
 	// Without a daemon answering, setup with --no-service keeps the settings
 	// and touches nothing.
-	out, err := run(t, serverCmd, cfg, "setup", "--url", "https://wa.example.com/", "--trusted-proxy", "10.0.0.5", "--no-service")
+	out, err := run(t, serverCmd, cfg, "setup", "--url", "https://wa.example.com/", "--trusted-proxy", "192.0.2.5", "--no-service")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +27,7 @@ func TestServerSetupKeepsTheServerMode(t *testing.T) {
 		t.Fatalf("setup: %q (installed %d)", out, installed)
 	}
 	c, _ := appconfig.Load(dir)
-	if c.Server == nil || c.Server.PublicURL != "https://wa.example.com" || c.Server.TrustedProxy != "10.0.0.5" {
+	if c.Server == nil || c.Server.PublicURL != "https://wa.example.com" || c.Server.TrustedProxy != "192.0.2.5" {
 		t.Fatalf("config.json: %+v", c.Server)
 	}
 	if _, err := os.Stat(public.PasswordPath(dir)); err != nil {
