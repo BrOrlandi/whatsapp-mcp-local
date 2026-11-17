@@ -16,7 +16,8 @@
 #
 # WAMCP_PROFILE is tailscale (recommended), tunnel, caddy or proxy (a proxy you
 # already run). tailscale takes WAMCP_TS_AUTHKEY; tunnel takes
-# WAMCP_TUNNEL_TOKEN; proxy takes WAMCP_PUBLIC_PORT (default 47822).
+# WAMCP_TUNNEL_TOKEN; caddy takes WAMCP_HTTP_PORT and WAMCP_HTTPS_PORT (default
+# 80 and 443); proxy takes WAMCP_PUBLIC_PORT (default 47822).
 # WAMCP_VERSION picks the image's tag (default latest); WAMCP_PULL=0 uses an
 # image already on this computer, as a test of a local build does.
 set -euo pipefail
@@ -60,6 +61,12 @@ secret() {
 
 command -v docker >/dev/null || die "Docker is needed: https://docs.docker.com/engine/install/"
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is needed (docker compose)"
+# compose.yml carries its configuration files inline (configs.content), which
+# Compose reads from 2.23.1 on.
+compose_version="$(docker compose version --short 2>/dev/null | sed 's/^v//')"
+if [ "$(printf '%s\n%s\n' 2.23.1 "$compose_version" | sort -V | head -1)" != 2.23.1 ]; then
+  die "Docker Compose $compose_version is too old: 2.23.1 or newer is needed"
+fi
 
 cat <<'EOF'
 
@@ -91,6 +98,9 @@ image="$(sed -n 's/.*image: \${WHATSAPP_MCP_IMAGE:-\([^}]*\)}:.*/\1/p' compose.y
 
 # The answers kept from a previous run.
 old() { [ -f .env ] && sed -n "s/^$1=//p" .env | head -1 | sed "s/^'\(.*\)'$/\1/" || true; }
+
+# The image's tag: the one chosen before, unless WAMCP_VERSION says another.
+WAMCP_VERSION="${WAMCP_VERSION:-$(old WHATSAPP_MCP_VERSION)}"
 
 ask WAMCP_URL "Endereço público, com https:// (o do Tailscale, do seu domínio...)" "$(old WHATSAPP_MCP_PUBLIC_URL)"
 WAMCP_URL="${WAMCP_URL%/}"
@@ -127,6 +137,11 @@ case "$WAMCP_PROFILE" in
   caddy)
     profile=caddy trusted=caddy
     extra+=("WHATSAPP_MCP_SITE=$hostname_only")
+    # Ports 80 and 443 by default; other ones only when told.
+    http_port="${WAMCP_HTTP_PORT:-$(old WHATSAPP_MCP_HTTP_PORT)}"
+    https_port="${WAMCP_HTTPS_PORT:-$(old WHATSAPP_MCP_HTTPS_PORT)}"
+    [ -z "$http_port" ] || extra+=("WHATSAPP_MCP_HTTP_PORT=$http_port")
+    [ -z "$https_port" ] || extra+=("WHATSAPP_MCP_HTTPS_PORT=$https_port")
     ;;
   proxy)
     trusted="$gateway"
@@ -190,7 +205,12 @@ say "writing $WAMCP_DIR/.env (readable only by you)"
 )
 chmod 600 .env
 
-if [ "$WAMCP_PROFILE" = proxy ]; then
+# compose.override.yml publishes the public listener on loopback, for the
+# proxy option only. One this script did not write is left alone.
+marker="# Written by install-docker.sh for a proxy you already run"
+ours=0
+{ [ ! -f compose.override.yml ] || head -1 compose.override.yml | grep -qF "$marker"; } && ours=1
+if [ "$WAMCP_PROFILE" = proxy ] && [ "$ours" = 1 ]; then
   cat > compose.override.yml <<'EOF'
 # Written by install-docker.sh for a proxy you already run: the public
 # listener on this server's loopback only, for that proxy to reach. Nothing
@@ -200,9 +220,19 @@ services:
     ports:
       - 127.0.0.1:${WHATSAPP_MCP_PUBLIC_PORT:-47822}:47822
 EOF
-else
+elif [ "$ours" = 1 ]; then
   rm -f compose.override.yml
+else
+  warn "compose.override.yml was not written by this script: left as it is"
 fi
+
+# A previous option's container (the tunnel, Caddy...) goes when another is
+# chosen.
+for pair in tailscale:tailscale tunnel:cloudflared caddy:caddy; do
+  if [ "${pair%%:*}" != "$profile" ]; then
+    docker compose --profile "${pair%%:*}" rm -sf "${pair#*:}" >/dev/null 2>&1 || true
+  fi
+done
 
 say "starting"
 if [ "${WAMCP_PULL:-1}" = 1 ]; then

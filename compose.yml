@@ -40,8 +40,11 @@ services:
     profiles: [tailscale]
     image: tailscale/tailscale:stable
     restart: unless-stopped
-    hostname: ${TS_HOSTNAME:-whatsapp-mcp}
+    # The name on the tailnet goes in TS_HOSTNAME, not in the container's
+    # hostname: a container named whatsapp-mcp would find itself, not the
+    # app, at http://whatsapp-mcp:47822.
     environment:
+      TS_HOSTNAME: ${TS_HOSTNAME:-whatsapp-mcp}
       TS_AUTHKEY: ${TS_AUTHKEY:-}
       TS_STATE_DIR: /var/lib/tailscale
       TS_USERSPACE: "true"
