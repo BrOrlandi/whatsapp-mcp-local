@@ -8,7 +8,7 @@ import (
 func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	report := map[string]any{"gateway": map[string]any{"version": Version, "endpoint": s.base() + "/mcp"}}
+	report := map[string]any{"gateway": map[string]any{"version": Version, "endpoint": s.baseFor(ctx) + "/mcp"}}
 	// The number this connection is, with the label the person gave it.
 	report["account"] = s.Account(ctx)
 
@@ -62,8 +62,8 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	// Webhooks are how a script hears about messages as they arrive; saying
 	// they exist here lets an assistant offer them when the user asks to be
 	// told about new messages.
-	webhooks := map[string]any{"setup": "in the app, Configurações › Webhooks: " + s.base() + "/configuracoes#webhooks",
-		"documentation": s.base() + "/webhooks/documentacao",
+	webhooks := map[string]any{"setup": "in the app, Configurações › Webhooks: " + s.baseFor(ctx) + "/configuracoes#webhooks",
+		"documentation": s.baseFor(ctx) + "/webhooks/documentacao",
 		"what":          "the app posts every new message, reaction or read receipt to a script of the user's, so it can act as messages arrive, and an online event when WhatsApp is back on this computer (the app started, the computer woke, the internet returned), so a script can run a task that reads the chats then; these tools only answer when asked"}
 	if hooks, err := s.state.Webhooks(ctx); err == nil {
 		enabled := 0

@@ -285,7 +285,7 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 			"protocolVersion": version,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "whatsapp-mcp-local", "title": acct.Title(), "version": Version},
-			"instructions":    s.instructions(acct),
+			"instructions":    s.instructions(ctx, acct),
 		}, nil)
 	case "ping":
 		s.diag.Count("mcp_ping")
@@ -318,8 +318,8 @@ const instructions = "WhatsApp over a local wacli store. Reading tools answer fr
 // a message arrives is the job of the app's webhooks: an assistant asked to
 // "let me know when X writes" should point there rather than promise to watch.
 // When the app has more than one number, they also say which one this is.
-func (s *Server) instructions(acct account.Info) string {
-	base := s.base()
+func (s *Server) instructions(ctx context.Context, acct account.Info) string {
+	base := s.baseFor(ctx)
 	which := ""
 	if s.multiAccount() {
 		which = " " + whichNumber(acct)

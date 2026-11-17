@@ -10,9 +10,10 @@ import (
 	"time"
 )
 
-// mediaLinks hands out short-lived URLs for downloaded files. The token is the
-// only thing that grants access, it expires in minutes, and it is served only
-// on the loopback listener.
+// mediaLinks hands out short-lived URLs for downloaded files. The token (192
+// random bits) is the only thing that grants access, and it expires in
+// minutes. On the server mode's public address it is the only credential the
+// link needs.
 type mediaLinks struct {
 	mu    sync.Mutex
 	links map[string]mediaLink
@@ -40,6 +41,18 @@ func (l *mediaLinks) add(path, mime string, ttl time.Duration) string {
 	}
 	l.links[token] = mediaLink{path: path, mime: mime, expires: now.Add(ttl)}
 	return token
+}
+
+// Live reports whether a /media/ path is a link that still works.
+func (l *mediaLinks) Live(path string) bool {
+	token, ok := strings.CutPrefix(path, "/media/")
+	if !ok || token == "" {
+		return false
+	}
+	l.mu.Lock()
+	link, ok := l.links[token]
+	l.mu.Unlock()
+	return ok && time.Now().Before(link.expires)
 }
 
 // ServeHTTP answers GET /media/{token}.
