@@ -1,16 +1,22 @@
 package mcp
 
+import (
+	"context"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
+)
+
 // Every tool belongs to one category, by what it touches. The categories are
 // what the security settings planned in docs/plano-seguranca.md will switch on
 // and off; today they set the MCP annotations clients use to tell a read from
 // an action.
 const (
-	CategoryRead     = "read"     // reads; changes nothing anyone can see
-	CategoryLocal    = "local"    // changes only this computer's own records
-	CategorySend     = "send"     // something reaches other people
-	CategoryDelete   = "delete"   // removes messages
-	CategoryGroups   = "groups"   // administers groups
-	CategoryOrganise = "organise" // changes how the account's own chats are shown
+	CategoryRead     = caller.ReadCategory // reads; changes nothing anyone can see
+	CategoryLocal    = "local"             // changes only this computer's own records
+	CategorySend     = "send"              // something reaches other people
+	CategoryDelete   = "delete"            // removes messages
+	CategoryGroups   = "groups"            // administers groups
+	CategoryOrganise = "organise"          // changes how the account's own chats are shown
 )
 
 var toolCategories = map[string]string{
@@ -83,4 +89,26 @@ func toolDefinitions() []any {
 		def["annotations"] = annotations
 	}
 	return defs
+}
+
+// toolsFor is what tools/list answers a caller: the tools it may use.
+func toolsFor(c caller.Caller) []any {
+	defs := toolDefinitions()
+	out := defs[:0]
+	for _, d := range defs {
+		name := d.(map[string]any)["name"].(string)
+		if c.MayUseTool(name, toolCategories[name]) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// callAs is a tool call checked against the caller: a tool it may not use is
+// refused, as one it cannot see in its list.
+func (s *Server) callAs(ctx context.Context, params callParams) map[string]any {
+	if category, known := toolCategories[params.Name]; known && !caller.From(ctx).MayUseTool(params.Name, category) {
+		return toolError("the tool %q is not allowed for this connection", params.Name)
+	}
+	return s.call(ctx, params)
 }

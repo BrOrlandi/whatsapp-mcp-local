@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 )
 
@@ -66,7 +67,7 @@ type UpdateState struct {
 	CheckedAt time.Time `json:"checked_at,omitempty"`
 }
 
-func (p *Panel) registerApp(mux *http.ServeMux) {
+func (p *Panel) registerApp(mux httpserver.Mux) {
 	mux.HandleFunc("POST /configuracoes/porta", p.form(p.savePort))
 	mux.HandleFunc("POST /configuracoes/encerrar", p.quit)
 	mux.HandleFunc("POST /configuracoes/apagar", p.erase)
@@ -156,7 +157,7 @@ func (p *Panel) apiOpen(r *http.Request) (any, error) {
 }
 
 func (p *Panel) quit(w http.ResponseWriter, r *http.Request) {
-	if !sameOrigin(r) {
+	if !mayUsePanel(r) || !sameOrigin(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -166,7 +167,7 @@ func (p *Panel) quit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Panel) erase(w http.ResponseWriter, r *http.Request) {
-	if !sameOrigin(r) {
+	if !mayUsePanel(r) || !sameOrigin(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

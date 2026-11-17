@@ -64,6 +64,9 @@ type Daemon struct {
 	primary *Account
 	panel   *panel.Panel
 	routes  *http.ServeMux
+	// patterns are the routes registered, for the test that requires each
+	// one to be classified.
+	patterns []string
 
 	watchDone chan struct{}
 
@@ -144,11 +147,11 @@ func Start(cfg Config) (*Daemon, error) {
 	if cfg.Panel != nil {
 		cfg.Panel(d.panel)
 	}
-	register := func(mux *http.ServeMux) {
+	register := func(mux httpserver.Mux) {
 		d.panel.Register(mux)
 		d.panel.RegisterWebhooks(mux, primary.hooks, primary.webhooksOn)
 	}
-	d.routes = httpserver.Routes(primary.server, httpserver.Options{Token: cfg.Token, Logger: logger, Register: register})
+	d.routes, d.patterns = httpserver.RoutesWithPatterns(primary.server, httpserver.Options{Token: cfg.Token, Logger: logger, Register: register})
 
 	if ln != nil {
 		d.serve(ln)

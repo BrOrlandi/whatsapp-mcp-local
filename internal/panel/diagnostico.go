@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/diag"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
 )
@@ -33,9 +34,9 @@ var diagnosticHours = map[int]bool{24: true, 72: true, 168: true}
 // the part that matters.
 const maxAppLogLines = 4000
 
-func (p *Panel) registerDiagnostic(mux *http.ServeMux) {
+func (p *Panel) registerDiagnostic(mux httpserver.Mux) {
 	mux.HandleFunc("GET /diagnostico/logs.txt", func(w http.ResponseWriter, r *http.Request) {
-		if !sameOrigin(r) && !p.fromAgent(r) {
+		if !mayUsePanel(r) || (!sameOrigin(r) && !p.fromAgent(r)) {
 			http.Error(w, "this file is for the panel and programs on this computer", http.StatusForbidden)
 			return
 		}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/webhook"
@@ -18,7 +19,7 @@ import (
 
 // RegisterWebhooks adds the routes for webhooks and downloaded media.
 // available is false when the wacli in use cannot post new messages.
-func (p *Panel) RegisterWebhooks(mux *http.ServeMux, hooks *webhook.Manager, available bool) {
+func (p *Panel) RegisterWebhooks(mux httpserver.Mux, hooks *webhook.Manager, available bool) {
 	// The documentation page joins the templates Register parsed.
 	template.Must(p.pages.Parse(webhookDocsSource))
 	mux.HandleFunc("GET /webhooks/documentacao", p.page(p.webhookDocs))

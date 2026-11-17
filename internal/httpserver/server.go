@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
 )
 
@@ -29,8 +30,16 @@ type Options struct {
 	Addr   string // host:port, loopback
 	Token  string // optional bearer token
 	Logger *slog.Logger
-	// Register adds further routes, such as the control panel.
-	Register func(*http.ServeMux)
+	// Register adds further routes, such as the control panel. Each one
+	// must be classified in routeAccess.
+	Register func(Mux)
+}
+
+// Mux is where routes are registered: an *http.ServeMux, or the recorder
+// that lists them.
+type Mux interface {
+	Handle(pattern string, handler http.Handler)
+	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
 }
 
 // Handler is every route behind the loopback guard: what the HTTP listener
@@ -47,7 +56,14 @@ func Handler(server *mcp.Server, opts Options) http.Handler {
 // health, and whatever Register adds. The app serves them to its own window in
 // memory, where there is no network for a foreign page to come from.
 func Routes(server *mcp.Server, opts Options) *http.ServeMux {
-	mux := http.NewServeMux()
+	mux, _ := RoutesWithPatterns(server, opts)
+	return mux
+}
+
+// RoutesWithPatterns is Routes, and the pattern of every route registered,
+// for the test that requires each one to be classified.
+func RoutesWithPatterns(server *mcp.Server, opts Options) (*http.ServeMux, []string) {
+	mux := &recorder{ServeMux: http.NewServeMux()}
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			server.Diag().Event("mcp", "http_refused", map[string]any{"method": r.Method, "user_agent": truncate(r.UserAgent(), 80)})
@@ -63,6 +79,11 @@ func Routes(server *mcp.Server, opts Options) *http.ServeMux {
 			http.Error(w, "missing or wrong bearer token", http.StatusUnauthorized)
 			return
 		}
+		who := caller.From(r.Context())
+		if !who.May(caller.MCP) {
+			http.Error(w, "this connection does not reach the MCP", http.StatusForbidden)
+			return
+		}
 		body, err := io.ReadAll(io.LimitReader(r.Body, maxBody+1))
 		if err != nil || len(body) > maxBody {
 			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
@@ -76,7 +97,8 @@ func Routes(server *mcp.Server, opts Options) *http.ServeMux {
 		if hint == "" {
 			hint = "ua:" + r.UserAgent()
 		}
-		response := server.Handle(mcp.WithClientHint(r.Context(), hint), body)
+		who.Client = hint
+		response := server.Handle(caller.With(r.Context(), who), body)
 		if response == nil {
 			w.WriteHeader(http.StatusAccepted)
 			return
@@ -84,13 +106,17 @@ func Routes(server *mcp.Server, opts Options) *http.ServeMux {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write(response)
 	})
-	mux.Handle("/media/", server.Links())
+	mux.Handle("/media/", require(caller.Media, server.Links()))
 	if opts.Register != nil {
 		opts.Register(mux)
 	}
 	// /health is the same report as the health tool, for scripts and curl;
 	// it answers 503 when a check fails, so a monitor needs no JSON parsing.
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		if !caller.From(r.Context()).May(caller.Health) {
+			http.Error(w, "this connection does not reach the health report", http.StatusForbidden)
+			return
+		}
 		if opts.Token != "" && !validToken(r, opts.Token) {
 			http.Error(w, "missing or wrong bearer token", http.StatusUnauthorized)
 			return
@@ -109,10 +135,38 @@ func Routes(server *mcp.Server, opts Options) *http.ServeMux {
 		w.Header().Set("Content-Type", "text/plain")
 		_, _ = io.WriteString(w, "ok\n")
 	})
-	return mux
+	return mux.ServeMux, mux.patterns
 }
 
-// Guard rejects any request that did not come from a local program.
+// recorder registers routes and keeps their patterns.
+type recorder struct {
+	*http.ServeMux
+	patterns []string
+}
+
+func (m *recorder) Handle(pattern string, handler http.Handler) {
+	m.patterns = append(m.patterns, pattern)
+	m.ServeMux.Handle(pattern, handler)
+}
+
+func (m *recorder) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+	m.patterns = append(m.patterns, pattern)
+	m.ServeMux.HandleFunc(pattern, handler)
+}
+
+// require answers 403 to a caller that does not reach a.
+func require(a caller.Access, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !caller.From(r.Context()).May(a) {
+			http.Error(w, "this connection does not reach this address", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Guard rejects any request that did not come from a local program, and
+// marks the rest as the local caller.
 func Guard(next http.Handler, logger *slog.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !loopbackHost(r.Host) {
@@ -130,7 +184,7 @@ func Guard(next http.Handler, logger *slog.Logger) http.Handler {
 				return
 			}
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(caller.With(r.Context(), caller.Caller{Kind: caller.Local})))
 	})
 }
 

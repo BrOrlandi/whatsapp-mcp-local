@@ -31,6 +31,8 @@ import (
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/brand"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
@@ -90,19 +92,18 @@ type DesktopCommand struct {
 
 func (p *Panel) endpoint() string { return p.Endpoint() }
 
-type internalKey struct{}
-
-// Internal marks every request as coming from the app's own window, which
-// reaches the panel in memory rather than over the network: no other page
-// can send a request down that path, and the window's webview sends neither
-// Sec-Fetch-Site nor, on a fetch, Origin.
+// Internal marks every request as coming from the app's own window: the
+// local caller, with its Window flag set. The window reaches the panel in
+// memory rather than over the network: no other page can send a request down
+// that path, and the window's webview sends neither Sec-Fetch-Site nor, on a
+// fetch, Origin.
 //
 // The window's webview does not follow an HTTP redirect from the app, so a
 // redirect is answered with a page that navigates there itself.
 func Internal(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rw := &redirectWriter{ResponseWriter: w}
-		next.ServeHTTP(rw, r.WithContext(context.WithValue(r.Context(), internalKey{}, true)))
+		next.ServeHTTP(rw, r.WithContext(caller.With(r.Context(), caller.Caller{Kind: caller.Local, Window: true})))
 	})
 }
 
@@ -135,10 +136,11 @@ func (w *redirectWriter) Write(b []byte) (int, error) {
 	return w.ResponseWriter.Write(b)
 }
 
-func isInternal(r *http.Request) bool {
-	v, _ := r.Context().Value(internalKey{}).(bool)
-	return v
-}
+func isInternal(r *http.Request) bool { return caller.From(r.Context()).Window }
+
+// mayUsePanel reports whether the request's caller reaches the panel: its
+// pages, forms, API and files.
+func mayUsePanel(r *http.Request) bool { return caller.From(r.Context()).May(caller.PanelAccess) }
 
 const (
 	setupSetting     = "setup_step" // "done" once the first run is over
@@ -146,7 +148,7 @@ const (
 	conversationSize = 10
 )
 
-func (p *Panel) Register(mux *http.ServeMux) {
+func (p *Panel) Register(mux httpserver.Mux) {
 	p.pages = parseTemplates()
 
 	mux.HandleFunc("GET /{$}", p.page(p.conectar))
@@ -192,7 +194,7 @@ func (p *Panel) Register(mux *http.ServeMux) {
 }
 
 // registerAssets serves the scripts and icons every page loads.
-func registerAssets(mux *http.ServeMux) {
+func registerAssets(mux httpserver.Mux) {
 	sub, _ := fs.Sub(assets, "assets")
 	mux.HandleFunc("GET /assets/i18n.js", translations)
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(sub))))
@@ -246,6 +248,10 @@ func (p *Panel) page(f func(http.ResponseWriter, *http.Request) (string, any)) h
 	// installer opening the browser, a link in the README): another origin can
 	// neither read nor frame it, so only the requests that act are guarded.
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !mayUsePanel(r) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 		name, data := f(w, r)
 		if name == "" {
 			return // f answered already, with a redirect
@@ -268,7 +274,7 @@ func (p *Panel) page(f func(http.ResponseWriter, *http.Request) (string, any)) h
 // form handles a plain HTML form post and redirects to where f says.
 func (p *Panel) form(f func(*http.Request) (string, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !sameOrigin(r) {
+		if !mayUsePanel(r) || !sameOrigin(r) {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
@@ -288,7 +294,7 @@ func (p *Panel) form(f func(*http.Request) (string, error)) http.HandlerFunc {
 func (p *Panel) api(f func(*http.Request) (any, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		if !sameOrigin(r) && !p.fromAgent(r) {
+		if !mayUsePanel(r) || (!sameOrigin(r) && !p.fromAgent(r)) {
 			http.Error(w, "this API answers its own page and programs on this computer", http.StatusForbidden)
 			return
 		}
@@ -1209,7 +1215,7 @@ func (p *Panel) configuredIn(ctx context.Context, client string) (string, bool) 
 }
 
 func (p *Panel) qr(w http.ResponseWriter, r *http.Request) {
-	if !sameOrigin(r) {
+	if !mayUsePanel(r) || !sameOrigin(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

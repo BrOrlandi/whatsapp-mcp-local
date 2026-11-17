@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/diag"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
@@ -65,13 +66,6 @@ type Server struct {
 	diag *diag.Log
 }
 
-type clientHintKey struct{}
-
-// WithClientHint tells the server which caller a request comes from.
-func WithClientHint(ctx context.Context, hint string) context.Context {
-	return context.WithValue(ctx, clientHintKey{}, hint)
-}
-
 // CheckClient is the name a test of the bridge gives itself, so the test
 // does not show up as a connected tool.
 const CheckClient = "whatsapp-mcp-check"
@@ -105,7 +99,7 @@ func (s *Server) noteInitialize(ctx context.Context, params json.RawMessage) {
 	if name == "" {
 		return
 	}
-	if hint, _ := ctx.Value(clientHintKey{}).(string); hint != "" {
+	if hint := caller.From(ctx).Client; hint != "" {
 		s.clientsMu.Lock()
 		s.clients[hint] = name
 		s.clientsMu.Unlock()
@@ -114,7 +108,7 @@ func (s *Server) noteInitialize(ctx context.Context, params json.RawMessage) {
 }
 
 func (s *Server) noteUse(ctx context.Context) {
-	hint, _ := ctx.Value(clientHintKey{}).(string)
+	hint := caller.From(ctx).Client
 	if hint == "" {
 		return
 	}
@@ -172,7 +166,7 @@ func (s *Server) Diag() *diag.Log { return s.diag }
 // gave at initialize, or the transport's hint (the bridge's header, an HTTP
 // client's User-Agent).
 func (s *Server) clientOf(ctx context.Context) string {
-	hint, _ := ctx.Value(clientHintKey{}).(string)
+	hint := caller.From(ctx).Client
 	s.clientsMu.Lock()
 	name := s.clients[hint]
 	s.clientsMu.Unlock()
@@ -279,7 +273,7 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 			} `json:"clientInfo"`
 		}
 		_ = json.Unmarshal(req.Params, &info)
-		hint, _ := ctx.Value(clientHintKey{}).(string)
+		hint := caller.From(ctx).Client
 		s.diag.Event("mcp", "client_initialize", diag.Fields{"client": truncate(info.ClientInfo.Name, 60),
 			"version": truncate(info.ClientInfo.Version, 40), "protocol": truncate(p.ProtocolVersion, 20), "via": truncate(hint, 80)})
 		version := latestVersion
@@ -298,7 +292,7 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 		return encode(req.ID, map[string]any{}, nil)
 	case "tools/list":
 		s.diag.Event("mcp", "tools_list", diag.Fields{"client": s.clientOf(ctx)})
-		return encode(req.ID, map[string]any{"tools": toolDefinitions()}, nil)
+		return encode(req.ID, map[string]any{"tools": toolsFor(caller.From(ctx))}, nil)
 	case "tools/call":
 		var params callParams
 		if err := json.Unmarshal(req.Params, &params); err != nil {
@@ -306,7 +300,7 @@ func (s *Server) Handle(ctx context.Context, body []byte) []byte {
 		}
 		s.noteUse(ctx)
 		started := time.Now()
-		result := s.call(ctx, params)
+		result := s.callAs(ctx, params)
 		s.logger.Info("tool call", "tool", params.Name, "ms", time.Since(started).Milliseconds(), "error", result["isError"])
 		s.diag.Event("mcp", "tool_call", diag.Fields{"tool": truncate(params.Name, 60), "client": s.clientOf(ctx),
 			"ms": time.Since(started).Milliseconds(), "error": result["isError"], "args": toolArgs(params.Arguments)})
