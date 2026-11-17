@@ -4,6 +4,26 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado]
+
+### Adicionado
+
+- **Aviso de volta online nos webhooks.** Um webhook pode pedir o evento
+  `online`, mandado quando o WhatsApp volta a funcionar neste computador: o app
+  abriu, o computador acordou ou a conexão voltou depois de pelo menos dois
+  minutos fora. Ele chega depois que o histórico mandado pelo celular termina
+  de chegar e diz desde quando o número estava fora. Contribuição de
+  [@bragueloire](https://github.com/bragueloire).
+
+### Corrigido
+
+- **Os webhooks que incluem as suas próprias mensagens recebem também o que a
+  IA manda pelas ferramentas**: textos, respostas, reações, mídias,
+  localizações, enquetes e encaminhamentos. Antes, só chegava o que era mandado
+  pelo celular.
+- **Cada envio devolve a conversa como as leituras a conhecem**, para a IA
+  achar a mensagem que acabou de mandar ao ler a conversa em seguida.
+
 ## [1.8.0-beta.1] - 2026-11-16
 
 Versão de teste, para investigar notificações repetidas de "sincronização" no
