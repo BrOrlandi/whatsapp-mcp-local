@@ -389,6 +389,9 @@ func (s *Server) chatMessages(ctx context.Context, a arguments) map[string]any {
 	// System rows are dropped below; ask for as many more as the period holds,
 	// so the page still comes back full.
 	n := limit(a.Limit, 100)
+	if fail := checkTargets("chat_jid", a.ChatJID); fail != nil {
+		return fail
+	}
 	extra, _ := s.index.Placeholders(ctx, a.ChatJID, periodBound(since, false), periodBound(until, true))
 	args := []string{"--read-only", "messages", "list", "--chat", a.ChatJID, "--limit", strconv.Itoa(n + extra)}
 	if since != "" {
@@ -475,7 +478,10 @@ func (s *Server) searchMessages(ctx context.Context, a arguments) map[string]any
 	ctx, cancel := context.WithTimeout(ctx, readTimeout)
 	defer cancel()
 	n := limit(a.Limit, 50)
-	args := []string{"--read-only", "messages", "search", q, "--limit", strconv.Itoa(n)}
+	if fail := checkTargets("chat_jid", a.ChatJID); fail != nil {
+		return fail
+	}
+	args := []string{"--read-only", "messages", "search", "--limit", strconv.Itoa(n)}
 	if a.ChatJID != "" {
 		args = append(args, "--chat", a.ChatJID)
 	}
@@ -485,6 +491,9 @@ func (s *Server) searchMessages(ctx context.Context, a arguments) map[string]any
 	if until != "" {
 		args = append(args, "--before", until)
 	}
+	// The query is the only positional argument, after "--": a query such
+	// as --store=… is searched for, never read as a flag.
+	args = append(args, "--", q)
 	var out struct {
 		Messages []wacliMessage `json:"messages"`
 		FTS      bool           `json:"fts"`
@@ -649,6 +658,9 @@ func sendResult(out map[string]any, err error) map[string]any {
 }
 
 func (s *Server) sendText(ctx context.Context, a arguments) map[string]any {
+	if fail := checkTargets("to", a.To); fail != nil {
+		return fail
+	}
 	if strings.TrimSpace(a.To) == "" || a.Text == "" {
 		return toolError("to and text are required")
 	}
@@ -680,6 +692,9 @@ func (s *Server) sendText(ctx context.Context, a arguments) map[string]any {
 const maxMedia = 100 << 20
 
 func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
+	if fail := checkTargets("to", a.To); fail != nil {
+		return fail
+	}
 	if strings.TrimSpace(a.To) == "" || strings.TrimSpace(a.URL) == "" {
 		return toolError("to and url are required")
 	}
@@ -844,6 +859,9 @@ func (s *Server) fetchFile(ctx context.Context, source, filename string) (string
 }
 
 func (s *Server) sendLocation(ctx context.Context, a arguments) map[string]any {
+	if fail := checkTargets("to", a.To); fail != nil {
+		return fail
+	}
 	if strings.TrimSpace(a.To) == "" || a.Latitude == nil || a.Longitude == nil {
 		return toolError("to, latitude and longitude are required")
 	}
@@ -868,6 +886,9 @@ func (s *Server) sendLocation(ctx context.Context, a arguments) map[string]any {
 }
 
 func (s *Server) sendPoll(ctx context.Context, a arguments) map[string]any {
+	if fail := checkTargets("to", a.To); fail != nil {
+		return fail
+	}
 	if strings.TrimSpace(a.To) == "" || strings.TrimSpace(a.Question) == "" {
 		return toolError("to and question are required")
 	}
@@ -990,14 +1011,24 @@ func (s *Server) checkNumbers(ctx context.Context, a arguments) map[string]any {
 	if len(a.Numbers) > 50 {
 		return toolError("check at most 50 numbers at a time")
 	}
+	for _, n := range a.Numbers {
+		if err := validTarget("each of numbers", n); err != nil {
+			return toolError("%v", err)
+		}
+	}
+	// The numbers are positional: after "--", none can be a flag.
+	args := append([]string{"contacts", "check", "--"}, a.Numbers...)
 	var out any
-	if err := s.exclusive(ctx, "check numbers", &out, append([]string{"contacts", "check"}, a.Numbers...)...); err != nil {
+	if err := s.exclusive(ctx, "check numbers", &out, args...); err != nil {
 		return toolError("%v", err)
 	}
 	return textResult(map[string]any{"results": out, "note": "a number WhatsApp did not answer for is unknown, not confirmed absent"}, false)
 }
 
 func (s *Server) profilePicture(ctx context.Context, a arguments) map[string]any {
+	if fail := checkTargets("to", a.To); fail != nil {
+		return fail
+	}
 	if strings.TrimSpace(a.To) == "" {
 		return toolError("to is required")
 	}
@@ -1019,6 +1050,9 @@ func (s *Server) organiseChat(ctx context.Context, a arguments) map[string]any {
 	}
 	if strings.TrimSpace(a.ChatJID) == "" {
 		return toolError("chat_jid is required")
+	}
+	if fail := checkTargets("chat_jid", a.ChatJID); fail != nil {
+		return fail
 	}
 	out, err := s.delegatedOrExclusive(ctx, a.Action+" chat", "chats", a.Action, "--chat", a.ChatJID)
 	if err != nil {

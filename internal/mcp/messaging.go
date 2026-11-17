@@ -179,6 +179,9 @@ func (s *Server) forwardMessage(ctx context.Context, a arguments) map[string]any
 	if strings.TrimSpace(a.To) == "" {
 		return toolError("to is required")
 	}
+	if fail := checkTargets("to", a.To); fail != nil {
+		return fail
+	}
 	m, fail := s.message(ctx, a)
 	if fail != nil {
 		return fail
@@ -205,6 +208,9 @@ func (s *Server) markChatRead(ctx context.Context, a arguments) map[string]any {
 	if chat == "" {
 		return toolError("chat_jid is required")
 	}
+	if fail := checkTargets("chat_jid", chat); fail != nil {
+		return fail
+	}
 	receipts := a.Receipts == nil || *a.Receipts
 	args := []string{"chats", "mark-read", "--chat", chat}
 	if receipts {
@@ -221,6 +227,9 @@ func (s *Server) sendTyping(ctx context.Context, a arguments) map[string]any {
 	to := strings.TrimSpace(a.To)
 	if to == "" {
 		return toolError("to is required")
+	}
+	if fail := checkTargets("to", to); fail != nil {
+		return fail
 	}
 	typing := a.Typing == nil || *a.Typing
 	args := []string{"presence", "paused", "--to", to}

@@ -49,6 +49,9 @@ func (s *Server) RequestHistory(ctx context.Context, chatJID string, count, roun
 
 	var targets []string
 	if jid := strings.TrimSpace(chatJID); jid != "" {
+		if err := validTarget("chat_jid", jid); err != nil {
+			return HistoryJob{}, false, err
+		}
 		targets = []string{jid}
 	} else {
 		if chats <= 0 {
