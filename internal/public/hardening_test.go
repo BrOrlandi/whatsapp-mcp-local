@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -15,6 +16,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
 )
 
 // Wrong passwords from one IPv6 /64 count together: a machine holds the
@@ -347,5 +350,120 @@ func TestTheConsentPageKeepsItsOrigin(t *testing.T) {
 	rec := serve(s, fromTunnel("GET", "/oauth/authorize?"+c.authorizeQuery(challenge, c.redirect).Encode(), nil, ""))
 	if p := rec.Header().Get("Referrer-Policy"); p != "same-origin" {
 		t.Fatalf("Referrer-Policy: %q", p)
+	}
+}
+
+// The public server reads a request within its read timeout, then lets a
+// long tool call run; a body too large is refused, and a client that stalls
+// mid-body is cut off.
+func TestThePublicServerBoundsSlowRequests(t *testing.T) {
+	old := readTimeout
+	readTimeout = 300 * time.Millisecond
+	t.Cleanup(func() { readTimeout = old })
+	s, st, _ := agentServer(t)
+	key, _, _ := CreateKey(context.Background(), st, "x", false, time.Now())
+	mux := http.NewServeMux()
+	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-time.After(800 * time.Millisecond):
+			_, _ = w.Write([]byte("alive"))
+		case <-r.Context().Done():
+			_, _ = w.Write([]byte("cancelled"))
+		}
+	})
+	s.routes = mux
+	srv := NewHTTPServer(s)
+	if srv.MaxHeaderBytes > 64<<10 || srv.IdleTimeout == 0 || srv.ReadTimeout == 0 || srv.WriteTimeout != 0 {
+		t.Fatalf("the server: %+v", srv)
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() { _ = srv.Close() })
+	base := "http://" + ln.Addr().String()
+	post := func(body string) (*http.Response, error) {
+		req, _ := http.NewRequest("POST", base+"/mcp", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+key)
+		req.Header.Set("X-Forwarded-Proto", "https")
+		return http.DefaultClient.Do(req)
+	}
+	// A call longer than the read timeout runs to its end.
+	resp, err := post(`{"jsonrpc":"2.0","id":1,"method":"ping"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if string(b) != "alive" {
+		t.Fatalf("a long call: %d %s", resp.StatusCode, b)
+	}
+	// A body over the limit.
+	resp, err = post(strings.Repeat("x", maxBody+10))
+	if err == nil {
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusRequestEntityTooLarge {
+			t.Fatalf("a large body: %d", resp.StatusCode)
+		}
+	}
+	// A client that stops halfway through its body is cut off.
+	conn, err := net.Dial("tcp", ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	fmt.Fprintf(conn, "POST /mcp HTTP/1.1\r\nHost: x\r\nX-Forwarded-Proto: https\r\nAuthorization: Bearer %s\r\nContent-Length: 1000\r\n\r\nabc", key)
+	_ = conn.SetReadDeadline(time.Now().Add(3 * time.Second))
+	start := time.Now()
+	reply, _ := io.ReadAll(conn)
+	if time.Since(start) > 2*time.Second || strings.Contains(string(reply), "alive") {
+		t.Fatalf("a stalled body was waited for %v: %q", time.Since(start), reply)
+	}
+}
+
+// A Bearer that is not shaped like a key or token is not looked up; wrong
+// ones are logged once a minute, and never with a media link's secret.
+func TestWrongBearersAreCheapAndQuiet(t *testing.T) {
+	s, st, _ := agentServer(t)
+	var log bytes.Buffer
+	s.logger = slog.New(slog.NewTextHandler(&log, nil))
+	var lookups atomic.Int32
+	old := authenticate
+	authenticate = func(a *access, ctx context.Context, bearer string) (caller.Caller, bool) {
+		lookups.Add(1)
+		return old(a, ctx, bearer)
+	}
+	t.Cleanup(func() { authenticate = old })
+	for _, b := range []string{"nonsense", KeyPrefix + "short", KeyPrefix + strings.Repeat("!", 43), "wamcp_rt_" + strings.Repeat("a", 43)} {
+		serve(s, fromTunnel("POST", "/mcp", map[string]string{"Authorization": "Bearer " + b, "X-Forwarded-For": "203.0.113.1"}, "{}"))
+	}
+	if n := lookups.Load(); n != 0 {
+		t.Fatalf("%d lookups for credentials that cannot be valid", n)
+	}
+	// A well-formed one is looked up, even from a slowed-down address, so a
+	// valid key there still works.
+	key, _, _ := CreateKey(context.Background(), st, "x", false, time.Now())
+	for i := 0; i < 10; i++ {
+		serve(s, fromTunnel("POST", "/mcp", map[string]string{"Authorization": "Bearer " + KeyPrefix + strings.Repeat("a", 43), "X-Forwarded-For": "203.0.113.2"}, "{}"))
+	}
+	if rec := serve(s, fromTunnel("POST", "/mcp", map[string]string{"Authorization": "Bearer " + key, "X-Forwarded-For": "203.0.113.2"}, "{}")); rec.Code != 200 {
+		t.Fatalf("a valid key from a slowed-down address: %d", rec.Code)
+	}
+	secretLink := "/media/" + strings.Repeat("ab", 24)
+	serve(s, fromTunnel("GET", secretLink, map[string]string{"Authorization": "Bearer nonsense"}, ""))
+	if n := strings.Count(log.String(), "refused a wrong key or token"); n != 1 {
+		t.Fatalf("%d warnings for 15 wrong credentials, want 1:\n%s", n, log.String())
+	}
+	if strings.Contains(log.String(), strings.Repeat("ab", 5)) {
+		t.Fatal("the log holds part of a media link's secret")
+	}
+	// Once the minute is up, the next line says how many were left out, and
+	// a media link's path is shown without its secret.
+	now := time.Now().Add(2 * time.Minute)
+	s.now = func() time.Time { return now }
+	serve(s, fromTunnel("GET", secretLink, map[string]string{"Authorization": "Bearer nonsense"}, ""))
+	if !strings.Contains(log.String(), "path=/media/…") || strings.Contains(log.String(), strings.Repeat("ab", 5)) {
+		t.Fatalf("the media path in the log:\n%s", log.String())
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"html/template"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -43,6 +44,8 @@ type Server struct {
 	throttle *throttle
 	// bearers slows down wrong keys and tokens, address by address.
 	bearers *throttle
+	// bearerLog and peerLog keep repeated refusals to a line a minute.
+	bearerLog, peerLog *logLimiter
 	// checks bounds the password checks of everyone together.
 	checks *checks
 
@@ -63,7 +66,7 @@ func New(cfg *Config, routes *http.ServeMux, logger *slog.Logger) *Server {
 		logger = slog.Default()
 	}
 	return &Server{cfg: cfg, routes: routes, logger: logger, sessions: newSessions(), throttle: newThrottle(),
-		bearers: newThrottle(), checks: newChecks(logger), documents: newDocuments(), oauth: newOAuthState(), now: time.Now}
+		bearers: newThrottle(), checks: newChecks(logger), bearerLog: &logLimiter{interval: time.Minute}, peerLog: &logLimiter{interval: time.Minute}, documents: newDocuments(), oauth: newOAuthState(), now: time.Now}
 }
 
 // UseState lets agents in, with the keys and logins kept in st.
@@ -97,14 +100,23 @@ func (s *Server) UseMediaLinks(live func(path string) bool) { s.mediaLink = live
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	pr := s.cfg.proxies.read(r)
 	if s.cfg.proxies.set && !pr.proxy {
-		s.logger.Warn("public listener: refused a peer that is not the trusted proxy", "peer", r.RemoteAddr)
+		if ok, skipped := s.peerLog.allow(s.now()); ok {
+			s.logger.Warn("public listener: refused a peer that is not the trusted proxy", "peer", r.RemoteAddr, "more_since_last", skipped)
+		}
 		http.Error(w, "this address answers only through its proxy", http.StatusForbidden)
 		return
 	}
 	if s.cfg.HTTPS() && !pr.https {
-		s.logger.Warn("public listener: refused a request that did not arrive over HTTPS", "peer", r.RemoteAddr,
-			"proxy", pr.proxy, "x_forwarded_proto", truncate(r.Header.Get("X-Forwarded-Proto"), 20))
+		if ok, skipped := s.peerLog.allow(s.now()); ok {
+			s.logger.Warn("public listener: refused a request that did not arrive over HTTPS", "peer", r.RemoteAddr,
+				"proxy", pr.proxy, "x_forwarded_proto", truncate(r.Header.Get("X-Forwarded-Proto"), 20), "more_since_last", skipped)
+		}
 		http.Error(w, HTTPSRefused, http.StatusForbidden)
+		return
+	}
+	// The body is read here, whole and bounded, within the server's read
+	// timeout; then the timeout is lifted, so a long tool call runs on.
+	if !readBody(w, r) {
 		return
 	}
 	// Whoever this is, it is not local: the caller is set here, before any
@@ -157,16 +169,20 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// their own address, up to 15 minutes (seconds for the address
 		// every visitor shares): while it waits, its wrong tries are not
 		// even counted, and the answer says when to try again.
+		// One that is not even shaped like a key or token is refused
+		// without looking it up: it cannot be a valid one.
 		var agent caller.Caller
 		valid := false
-		if s.access != nil {
-			agent, valid = s.access.authenticate(r.Context(), bearer)
+		if s.access != nil && wellFormed(bearer) {
+			agent, valid = authenticate(s.access, r.Context(), bearer)
 		}
 		if !valid {
-			if wait := s.bearers.try(pr.client, pr.shared); wait > 0 {
+			wait := s.bearers.try(pr.client, pr.shared)
+			if wait > 0 {
 				w.Header().Set("Retry-After", strconv.Itoa(int(wait/time.Second)+1))
-			} else {
-				s.logger.Warn("public listener: refused a wrong key or token", "client", pr.client, "path", truncate(r.URL.Path, 40))
+			}
+			if ok, skipped := s.bearerLog.allow(s.now()); ok {
+				s.logger.Warn("public listener: refused a wrong key or token", "client", pr.client, "path", logPath(r.URL.Path), "more_since_last", skipped)
 			}
 			s.challenge(w, true)
 			return
@@ -235,6 +251,68 @@ func (s *Server) oauthRoute(w http.ResponseWriter, r *http.Request, pr peer) {
 	}
 }
 
+// maxBody bounds every request body on the public address.
+const maxBody = 2 << 20
+
+// readBody reads a request's body into memory, at most maxBody, and then
+// lifts the connection's read deadline; false means it answered already.
+func readBody(w http.ResponseWriter, r *http.Request) bool {
+	if r.Body != nil && r.Body != http.NoBody {
+		body, err := io.ReadAll(io.LimitReader(r.Body, maxBody+1))
+		if err != nil {
+			http.Error(w, "the request body could not be read in time", http.StatusRequestTimeout)
+			return false
+		}
+		if len(body) > maxBody {
+			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+			return false
+		}
+		r.Body = io.NopCloser(bytes.NewReader(body))
+		r.ContentLength = int64(len(body))
+	}
+	_ = http.NewResponseController(w).SetReadDeadline(time.Time{})
+	return true
+}
+
+// wellFormed reports whether a Bearer credential has the shape of a key or
+// an access token this server hands out.
+func wellFormed(bearer string) bool {
+	rest, ok := strings.CutPrefix(bearer, KeyPrefix)
+	if !ok {
+		if rest, ok = strings.CutPrefix(bearer, accessPrefix); !ok {
+			return false
+		}
+	}
+	if len(rest) != 43 {
+		return false
+	}
+	for _, c := range rest {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
+// logPath is a path as the log shows it: a media link's secret is left out.
+func logPath(p string) string {
+	if strings.HasPrefix(p, "/media/") {
+		return "/media/…"
+	}
+	return truncate(p, 40)
+}
+
+// NewHTTPServer is the public listener's HTTP server: bounded headers, a
+// request read whole within half a minute, idle connections closed after
+// two minutes. No write timeout: a tool call may take minutes.
+func NewHTTPServer(h http.Handler) *http.Server {
+	return &http.Server{Handler: h, ReadHeaderTimeout: 10 * time.Second, ReadTimeout: readTimeout,
+		IdleTimeout: 2 * time.Minute, MaxHeaderBytes: 32 << 10}
+}
+
+// readTimeout is how long a request may take to arrive whole; tests shorten it.
+var readTimeout = 30 * time.Second
+
 // checkPassword checks a password typed on the sign-in or the consent page,
 // in its turn among everyone's: busy means the turn did not come within a
 // few seconds. A right password clears the address's wrong tries and gives
@@ -257,6 +335,9 @@ func (s *Server) checkPassword(ctx context.Context, pr peer, hash, password stri
 	}
 	return right, false
 }
+
+// authenticate looks a Bearer credential up; tests count the lookups.
+var authenticate = (*access).authenticate
 
 // verifyPassword is verify, replaceable in tests.
 var verifyPassword = verify

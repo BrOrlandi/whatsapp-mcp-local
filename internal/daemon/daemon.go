@@ -181,7 +181,7 @@ func Start(cfg Config) (*Daemon, error) {
 		d.public.UseState(primary.st)
 		d.public.UseMediaLinks(primary.server.Links().Live)
 		d.panel.Logins = d.public.Logins
-		d.publicSrv, d.publicAddr = httpserver.NewServer(d.public), publicLn.Addr().String()
+		d.publicSrv, d.publicAddr = public.NewHTTPServer(d.public), publicLn.Addr().String()
 		go func() {
 			if err := d.publicSrv.Serve(publicLn); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				logger.Error("the public listener stopped", "error", err)
