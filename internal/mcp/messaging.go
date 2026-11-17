@@ -8,6 +8,7 @@ import (
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/webhook"
 )
 
 // delegatedOrExclusive runs a chat-state command through the running sync,
@@ -192,7 +193,11 @@ func (s *Server) forwardMessage(ctx context.Context, a arguments) map[string]any
 	}
 	var out map[string]any
 	err := s.exclusive(ctx, "forward message", &out, "messages", "forward", "--chat", m.ChatJID, "--id", m.ID, "--to", a.To)
-	return sendResult(out, err)
+	fwd := webhook.Sent{Text: m.Text, Forwarded: true}
+	if m.MediaType != "" {
+		fwd.Media = &webhook.Media{Type: m.MediaType, Filename: m.Filename, Caption: m.Text}
+	}
+	return s.sent(ctx, out, err, fwd)
 }
 
 func (s *Server) markChatRead(ctx context.Context, a arguments) map[string]any {

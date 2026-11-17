@@ -149,6 +149,9 @@ type Manager struct {
 	mu      sync.Mutex
 	workers map[string]*worker
 	ctx     context.Context
+	// seen keeps the account's own messages dispatched lately, so one
+	// reported by the tools and also seen by sync goes out once.
+	seen map[string]time.Time
 }
 
 type worker struct {
@@ -226,6 +229,10 @@ func (m *Manager) halt(id string) {
 // Dispatch queues an event for every enabled webhook that wants it.
 func (m *Manager) Dispatch(ctx context.Context, ev Event) {
 	m.mu.Lock()
+	if m.duplicate(ev) {
+		m.mu.Unlock()
+		return
+	}
 	workers := make([]*worker, 0, len(m.workers))
 	for _, w := range m.workers {
 		workers = append(workers, w)
@@ -250,6 +257,30 @@ func (m *Manager) Dispatch(ctx context.Context, ev Event) {
 		default:
 		}
 	}
+}
+
+// duplicate says whether an own message went out already, and remembers it.
+// Called with mu held.
+func (m *Manager) duplicate(ev Event) bool {
+	if !ev.fromMe || ev.Message == nil || ev.Message.ID == "" {
+		return false
+	}
+	now := time.Now()
+	key := ev.Kind + "/" + ev.Message.ID
+	if ev.Message.Edited {
+		key += "/edited"
+	}
+	if ev.Message.Revoked {
+		key += "/revoked"
+	}
+	if at, ok := m.seen[key]; ok && now.Sub(at) < 10*time.Minute {
+		return true
+	}
+	if m.seen == nil || len(m.seen) > 1000 {
+		m.seen = map[string]time.Time{}
+	}
+	m.seen[key] = now
+	return false
 }
 
 func (m *Manager) wants(ctx context.Context, h state.Webhook, ev Event) bool {

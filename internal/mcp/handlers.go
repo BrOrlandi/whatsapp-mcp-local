@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/webhook"
 )
 
 // arguments is the shared decoding of every tool input.
@@ -600,6 +602,37 @@ func (s *Server) exclusive(ctx context.Context, reason string, v any, args ...st
 	})
 }
 
+// SetOnSent sets who hears the messages the tools send (the webhooks).
+func (s *Server) SetOnSent(f func(context.Context, webhook.Sent)) {
+	s.sentMu.Lock()
+	s.onSent = f
+	s.sentMu.Unlock()
+}
+
+// sent answers a send and reports it to the webhooks. wacli answers with the
+// recipient as WhatsApp addresses it, often a LID; chat_jid is the
+// conversation as the reading tools know it, to pass on to them.
+func (s *Server) sent(ctx context.Context, out map[string]any, err error, msg webhook.Sent) map[string]any {
+	if err == nil && out != nil {
+		id, _ := out["id"].(string)
+		to, _ := out["to"].(string)
+		if msg.Chat == "" {
+			msg.Chat = to
+		}
+		if msg.Chat != "" {
+			out["chat_jid"] = s.index.Names.Canonical(ctx, msg.Chat)
+		}
+		s.sentMu.RLock()
+		f := s.onSent
+		s.sentMu.RUnlock()
+		if f != nil && id != "" {
+			msg.ID = id
+			f(context.WithoutCancel(ctx), msg)
+		}
+	}
+	return sendResult(out, err)
+}
+
 func sendResult(out map[string]any, err error) map[string]any {
 	if err != nil {
 		return toolError("%v", err)
@@ -640,7 +673,8 @@ func (s *Server) sendText(ctx context.Context, a arguments) map[string]any {
 	if a.DryRun {
 		return s.dryRun(ctx, a.To, draft)
 	}
-	return sendResult(s.delegated(ctx, args...))
+	out, err := s.delegated(ctx, args...)
+	return s.sent(ctx, out, err, webhook.Sent{Text: a.Text, ReplyTo: strings.TrimSpace(a.ReplyTo)})
 }
 
 const maxMedia = 100 << 20
@@ -692,7 +726,8 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 		if reply != nil {
 			args = append(args, reply.args...)
 		}
-		return sendResult(s.delegated(ctx, args...))
+		out, err := s.delegated(ctx, args...)
+		return s.sent(ctx, out, err, webhook.Sent{ReplyTo: strings.TrimSpace(a.ReplyTo), Media: sentMedia(as, path, "", "")})
 	}
 	args := []string{"send", "file", "--to", a.To, "--file", path, "--as", as}
 	if a.Caption != "" {
@@ -704,7 +739,21 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 	if reply != nil {
 		args = append(args, reply.args...)
 	}
-	return sendResult(s.delegated(ctx, args...))
+	out, err := s.delegated(ctx, args...)
+	return s.sent(ctx, out, err, webhook.Sent{ReplyTo: strings.TrimSpace(a.ReplyTo), Media: sentMedia(as, path, a.Filename, a.Caption)})
+}
+
+// sentMedia describes a file the tools sent, for the webhooks.
+func sentMedia(kind, path, filename, caption string) *webhook.Media {
+	m := &webhook.Media{Type: kind, Filename: filename, Caption: caption}
+	if m.Filename == "" && kind == "document" {
+		m.Filename = filepath.Base(path)
+	}
+	if info, err := os.Stat(path); err == nil {
+		m.Bytes = uint64(info.Size())
+	}
+	m.MimeType = mime.TypeByExtension(strings.ToLower(filepath.Ext(path)))
+	return m
 }
 
 // isWebP reports whether a file starts like a WebP image, the only format
@@ -807,7 +856,9 @@ func (s *Server) sendLocation(ctx context.Context, a arguments) map[string]any {
 	if label != "" {
 		args = append(args, "--name", label)
 	}
-	return sendResult(s.delegated(ctx, args...))
+	out, err := s.delegated(ctx, args...)
+	return s.sent(ctx, out, err, webhook.Sent{Location: map[string]any{"latitude": *a.Latitude, "longitude": *a.Longitude,
+		"name": strings.TrimSpace(a.Name), "address": strings.TrimSpace(a.Address), "live": false}})
 }
 
 func (s *Server) sendPoll(ctx context.Context, a arguments) map[string]any {
@@ -821,10 +872,13 @@ func (s *Server) sendPoll(ctx context.Context, a arguments) map[string]any {
 	for _, o := range a.Options {
 		args = append(args, "--option", o)
 	}
+	maxAnswers := 1
 	if a.MaxAnswers > 1 {
-		args = append(args, "--multi", strconv.Itoa(min(a.MaxAnswers, len(a.Options))))
+		maxAnswers = min(a.MaxAnswers, len(a.Options))
+		args = append(args, "--multi", strconv.Itoa(maxAnswers))
 	}
-	return sendResult(s.delegated(ctx, args...))
+	out, err := s.delegated(ctx, args...)
+	return s.sent(ctx, out, err, webhook.Sent{Poll: map[string]any{"question": a.Question, "options": a.Options, "max_answers": maxAnswers}})
 }
 
 func (s *Server) editMessage(ctx context.Context, a arguments) map[string]any {
@@ -858,7 +912,8 @@ func (s *Server) react(ctx context.Context, a arguments) map[string]any {
 	if sender != "" {
 		args = append(args, "--sender", sender)
 	}
-	return sendResult(s.delegated(ctx, args...))
+	out, err := s.delegated(ctx, args...)
+	return s.sent(ctx, out, err, webhook.Sent{Chat: m.ChatJID, ReactionTo: m.ID, Emoji: emoji})
 }
 
 // reactionSender is who wrote the message a reaction points at, as whatsmeow

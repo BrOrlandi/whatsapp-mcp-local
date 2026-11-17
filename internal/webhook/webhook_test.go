@@ -274,3 +274,53 @@ func TestEventsCarryTheNumber(t *testing.T) {
 		t.Errorf("account on the test event: %+v", got)
 	}
 }
+
+// The tools report what they send, since sync never sees the account's own
+// sends from this device; only webhooks that include own messages get them,
+// and one also posted by sync goes out once.
+func TestSentByTheTools(t *testing.T) {
+	m, _ := manager(t)
+	own := newReceiver(t, func(int32) int { return http.StatusOK })
+	_, secret, _ := m.Create(context.Background(), Settings{URL: ptr(own.srv.URL), Events: ptr(Events), IncludeOwn: ptr(true)})
+	own.secret = secret
+	others := newReceiver(t, func(int32) int { return http.StatusOK })
+	_, secret2, _ := m.Create(context.Background(), Settings{URL: ptr(others.srv.URL), Events: ptr(Events)})
+	others.secret = secret2
+	relay, err := NewRelay(m, names{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer relay.Close()
+
+	relay.Sent(context.Background(), Sent{ID: "S1", Chat: "5511900000001@s.whatsapp.net", Text: "oi", ReplyTo: "Q"})
+	relay.Sent(context.Background(), Sent{ID: "S1", Chat: "5511900000001@s.whatsapp.net", Text: "oi"}) // twice: once
+	relay.Sent(context.Background(), Sent{ID: "S2", Chat: "5511900000001@s.whatsapp.net", ReactionTo: "S1", Emoji: "👍"})
+	relay.Sent(context.Background(), Sent{ID: "S3", Chat: "5511900000001@s.whatsapp.net",
+		Media: &Media{Type: "image", Caption: "foto"}})
+	// The same message posted by sync afterwards is not delivered again.
+	echo := `{"Chat":"5511900000001@s.whatsapp.net","ID":"S1","FromMe":true,"Timestamp":"2026-10-07T10:00:00Z","Text":"oi"}`
+	req, _ := http.NewRequest(http.MethodPost, relay.URL(), bytes.NewReader([]byte(echo)))
+	req.Header.Set("X-Wacli-Signature", Sign(relay.Secret(), []byte(echo)))
+	if resp, err := http.DefaultClient.Do(req); err == nil {
+		resp.Body.Close()
+	}
+
+	waitFor(t, "three deliveries", func() bool { return len(own.events()) >= 3 })
+	time.Sleep(100 * time.Millisecond)
+	evs := own.events()
+	if len(evs) != 3 {
+		t.Fatalf("delivered %d events, want 3", len(evs))
+	}
+	if m := evs[0].Message; evs[0].Kind != "message" || m.ID != "S1" || !m.FromMe || m.Text != "oi" || m.ReplyTo == nil || m.ReplyTo.ID != "Q" {
+		t.Errorf("text: %+v", m)
+	}
+	if evs[1].Kind != "reaction" || evs[1].Message.Reaction.To != "S1" || evs[1].Message.Reaction.Emoji != "👍" {
+		t.Errorf("reaction: %+v", evs[1].Message)
+	}
+	if m := evs[2].Message; m.Media == nil || m.Media.Type != "image" || m.Text != "foto" {
+		t.Errorf("media: %+v", m)
+	}
+	if n := len(others.events()); n != 0 {
+		t.Errorf("a webhook without include_own got %d of the account's own messages", n)
+	}
+}

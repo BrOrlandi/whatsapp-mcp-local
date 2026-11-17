@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/webhook"
 	"log/slog"
 	"strings"
 	"sync"
@@ -41,6 +42,11 @@ type Server struct {
 	history   *HistoryJob
 
 	asr *localasr.Engine
+
+	// onSent hears every message the tools send, for the webhooks: sync
+	// never sees the account's own sends from this device.
+	sentMu sync.RWMutex
+	onSent func(context.Context, webhook.Sent)
 
 	// account says which number this server is; accounts counts the numbers
 	// the app has, each behind its own server.
