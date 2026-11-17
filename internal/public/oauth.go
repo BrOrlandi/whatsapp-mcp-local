@@ -200,9 +200,17 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request, pr peer) {
 		oauthError(w, http.StatusTooManyRequests, "too_many_requests", "too many clients from this address are waiting for a sign-in; try again later")
 		return
 	}
-	if n, err := s.state.OAuthClientCount(ctx); err == nil && n >= maxClients {
+	// The cap counts the clients someone signed in with. When the table is
+	// full, the oldest registration nobody signed in with makes room, so
+	// registrations alone never keep a new client out.
+	if n, err := s.state.UsedOAuthClientCount(ctx); err == nil && n >= maxClients {
 		oauthError(w, http.StatusServiceUnavailable, "temporarily_unavailable", "too many clients are registered; try again later")
 		return
+	}
+	for n, err := s.state.OAuthClientCount(ctx); err == nil && n >= maxClients; n-- {
+		if dropped, _ := s.state.DropOldestUnusedOAuthClient(ctx); dropped == 0 {
+			break
+		}
 	}
 	host := ""
 	if u, err := url.Parse(req.RedirectURIs[0]); err == nil {
@@ -386,7 +394,7 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 	s.oauth.codes[hashSecret(code)] = &pending{clientID: c.ID, clientName: c.Name, redirectURI: ar.RedirectURI,
 		challenge: ar.Challenge, resource: ar.Resource, readOnly: access == "read", expires: now.Add(codeTTL)}
 	s.oauth.mu.Unlock()
-	_ = s.state.Approve(r.Context(), c.ID, redirectHost(ar.RedirectURI), now)
+	_ = s.state.Approve(r.Context(), c.ID, redirectHost(ar.RedirectURI), passwordFingerprint(hash), now)
 	s.logger.Info("oauth: access approved", "client", c.Name, "host", clientHost(c, ar.RedirectURI), "read_only", access == "read", "address", pr.client)
 	s.sendBack(w, r, ar, url.Values{"code": {code}})
 }
@@ -612,7 +620,11 @@ func (s *Server) needsPassword(r *http.Request, ar authRequest) bool {
 	if !s.signedIn(r) {
 		return true
 	}
-	ok, err := s.state.Approved(r.Context(), ar.ClientID, redirectHost(ar.RedirectURI))
+	hash, err := s.cfg.Password.Current()
+	if err != nil {
+		return true
+	}
+	ok, err := s.state.Approved(r.Context(), ar.ClientID, redirectHost(ar.RedirectURI), passwordFingerprint(hash))
 	return err != nil || !ok
 }
 

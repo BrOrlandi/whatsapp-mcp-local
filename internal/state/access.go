@@ -104,7 +104,15 @@ func (s *State) migrateAccess() error {
 	var n int
 	_ = s.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('oauth_clients') WHERE name = 'registered_from'`).Scan(&n)
 	if n == 0 {
-		_, err = s.db.Exec(`ALTER TABLE oauth_clients ADD COLUMN registered_from TEXT NOT NULL DEFAULT ''`)
+		if _, err = s.db.Exec(`ALTER TABLE oauth_clients ADD COLUMN registered_from TEXT NOT NULL DEFAULT ''`); err != nil {
+			return err
+		}
+	}
+	// An approval names the password it was given with (1.9 betas had
+	// none: those ask for the password again).
+	_ = s.db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('oauth_approvals') WHERE name = 'password'`).Scan(&n)
+	if n == 0 {
+		_, err = s.db.Exec(`ALTER TABLE oauth_approvals ADD COLUMN password TEXT NOT NULL DEFAULT ''`)
 	}
 	return err
 }
@@ -203,18 +211,19 @@ func (s *State) UnusedOAuthClientsFrom(ctx context.Context, from string) (int, e
 }
 
 // Approved reports whether the person approved this client coming back to
-// this host before.
-func (s *State) Approved(ctx context.Context, clientID, host string) (bool, error) {
+// this host before, with the password whose fingerprint is given.
+func (s *State) Approved(ctx context.Context, clientID, host, password string) (bool, error) {
 	var n int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM oauth_approvals WHERE client_id = ? AND redirect_host = ?`, clientID, host).Scan(&n)
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM oauth_approvals WHERE client_id = ? AND redirect_host = ? AND password = ? AND password != ''`,
+		clientID, host, password).Scan(&n)
 	return n > 0, err
 }
 
 // Approve records that the person approved this client coming back to this
-// host.
-func (s *State) Approve(ctx context.Context, clientID, host string, at time.Time) error {
-	_, err := s.db.ExecContext(ctx, `INSERT OR REPLACE INTO oauth_approvals (client_id, redirect_host, approved_at) VALUES (?, ?, ?)`,
-		clientID, host, unix(at))
+// host, with the password whose fingerprint is given.
+func (s *State) Approve(ctx context.Context, clientID, host, password string, at time.Time) error {
+	_, err := s.db.ExecContext(ctx, `INSERT OR REPLACE INTO oauth_approvals (client_id, redirect_host, approved_at, password) VALUES (?, ?, ?, ?)`,
+		clientID, host, unix(at), password)
 	return err
 }
 
@@ -238,6 +247,13 @@ func (s *State) TouchOAuthClient(ctx context.Context, id string, at time.Time) e
 	return err
 }
 
+// UsedOAuthClientCount is how many clients led to a sign-in.
+func (s *State) UsedOAuthClientCount(ctx context.Context) (int, error) {
+	var n int
+	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM oauth_clients WHERE last_used_at != 0`).Scan(&n)
+	return n, err
+}
+
 // OAuthClientCount is how many clients are registered.
 func (s *State) OAuthClientCount(ctx context.Context) (int, error) {
 	var n int
@@ -246,14 +262,33 @@ func (s *State) OAuthClientCount(ctx context.Context) (int, error) {
 }
 
 // PruneOAuthClients drops the clients registered before the given time that
-// never led to a sign-in, and reports how many it dropped.
+// never led to a sign-in, with their approvals, and reports how many it
+// dropped.
 func (s *State) PruneOAuthClients(ctx context.Context, before time.Time) (int, error) {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM oauth_clients WHERE last_used_at = 0 AND created_at < ?`, unix(before))
+	return s.dropUnusedClients(ctx, `SELECT id FROM oauth_clients WHERE last_used_at = 0 AND created_at < ?`, unix(before))
+}
+
+// DropOldestUnusedOAuthClient drops the oldest client that never led to a
+// sign-in, with its approvals; 0 when there is none.
+func (s *State) DropOldestUnusedOAuthClient(ctx context.Context) (int, error) {
+	return s.dropUnusedClients(ctx, `SELECT id FROM oauth_clients WHERE last_used_at = 0 ORDER BY created_at, rowid LIMIT 1`)
+}
+
+func (s *State) dropUnusedClients(ctx context.Context, which string, args ...any) (int, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM oauth_approvals WHERE client_id IN (`+which+`)`, args...); err != nil {
+		return 0, err
+	}
+	res, err := tx.ExecContext(ctx, `DELETE FROM oauth_clients WHERE id IN (`+which+`)`, args...)
 	if err != nil {
 		return 0, err
 	}
 	n, _ := res.RowsAffected()
-	return int(n), nil
+	return int(n), tx.Commit()
 }
 
 // ---- connections ----
@@ -315,6 +350,10 @@ func (s *State) RevokeConnection(ctx context.Context, id string, at time.Time) e
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM oauth_tokens WHERE connection_id = ?`, id); err != nil {
+		return err
+	}
+	// Its client asks for the password again next time.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM oauth_approvals WHERE client_id = (SELECT client_id FROM oauth_connections WHERE id = ?)`, id); err != nil {
 		return err
 	}
 	return tx.Commit()
