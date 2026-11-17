@@ -34,11 +34,15 @@ const pageSource = `
 {{/* The way into Configurações, in the top right corner of every page. */}}
 {{define "settingslink"}}<a class="gear" href="/configuracoes" aria-label="{{t "Configurações"}}" title="{{t "Configurações"}}"{{if eq .Active "configuracoes"}} aria-current="page"{{end}}>{{icon "gear"}}</a>{{end}}
 
+{{define "signout"}}{{if .Remote}}<form class="signout" method="post" action="/sair"><button class="btn btn--quiet" type="submit">{{t "Sair do painel"}}</button></form>{{end}}{{end}}
+
+{{define "remotenote"}}{{if .Remote}}<p class="note" role="note">{{t "Você está vendo este painel de fora do servidor. Os passos abaixo ligam ferramentas de IA instaladas no próprio servidor; para usar o WhatsApp no seu computador ou no celular, a ligação pelo endereço do servidor chega numa próxima versão."}}</p>{{end}}{{end}}
+
 {{define "brandmark"}}<span class="brand__mark">{{logo}}</span><span class="brand__name">WhatsApp MCP</span>{{end}}
 
 {{define "nav"}}
 <header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
-<div class="masthead__tools">{{template "settingslink" .}}</div></header>
+<div class="masthead__tools">{{template "signout" .}}{{template "settingslink" .}}</div></header>
 <nav class="nav" aria-label="{{t "Seções"}}"{{if .LiveKey}} data-live="{{.LiveKey}}" data-live-tone="{{.HealthTone}}"{{if .LiveBusy}} data-live-busy{{end}}{{end}}>
 <a href="/"{{if eq .Active "conectar"}} aria-current="page"{{end}}>{{icon "plug"}}<span>{{t "Conectar MCP"}}</span></a>
 <a href="/whatsapp"{{if eq .Active "whatsapp"}} aria-current="page"{{end}}>{{icon "chat"}}<span>WhatsApp</span></a>
@@ -81,7 +85,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 
 {{define "flowhead"}}
 <header class="masthead"><a class="brand" href="/">{{template "brandmark"}}</a>
-<div class="masthead__tools">{{template "settingslink" .}}</div></header>
+<div class="masthead__tools">{{template "signout" .}}{{template "settingslink" .}}</div></header>
 <div class="flow">
 {{template "portbanner" .}}
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
@@ -98,6 +102,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <a class="flow__back" href="{{if .InSetup}}/instalacao{{else}}/{{end}}">{{icon "back"}}{{t "Voltar"}}</a>
 <h1>{{t "Conectar ferramenta de IA ao MCP"}}</h1>
 <p class="lead">{{t "Onde você vai usar o seu WhatsApp?"}}</p>
+{{template "remotenote" .}}
 {{template "toolpicks" .Tools}}
 <p class="muted flow__note">{{t "Não funciona no Claude pelo navegador ou pelo celular, nem no ChatGPT na web: só em programas instalados neste computador."}}</p>
 </div>
@@ -106,6 +111,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{define "conectarferramenta"}}{{template "head" .}}{{template "flowhead" .}}
 {{if not .Done}}<a class="flow__back" href="/conectar">{{icon "back"}}{{t "Escolher outra ferramenta"}}</a>{{end}}
 <div class="flow__title"><span class="toolpick__icon">{{toolmark .Tool.Mark}}</span><h1>{{t .Tool.Title}}</h1></div>
+{{template "remotenote" .}}
 
 {{if .Done}}
 <section class="card card--accent" data-connected>
@@ -239,6 +245,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{define "conectar"}}{{template "head" .}}{{template "nav" .}}
 <h1>{{t "Seu WhatsApp nas suas ferramentas de IA"}}</h1>
 <p class="lead">{{t "Aqui você vê se está tudo funcionando e liga o seu WhatsApp a uma ferramenta de inteligência artificial que aceite MCP, como o Claude, o Codex ou a que você usar."}}</p>
+{{template "remotenote" .}}
 
 <section class="overview" data-wait-client="{{if .LiveCount}}false{{else}}true{{end}}">
 <div class="overview__item overview__item--{{if eq .SyncTone "ok"}}ok{{else}}wait{{end}}" data-sync>
@@ -425,7 +432,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 
 {{define "instalacao"}}{{template "head" .}}
 <header class="masthead"><a class="brand" href="/instalacao">{{template "brandmark"}}</a>
-<div class="masthead__tools">{{template "settingslink" .}}</div></header>
+<div class="masthead__tools">{{template "signout" .}}{{template "settingslink" .}}</div></header>
 <div class="wizard-shell"{{if eq .Step 2}} style="max-width:620px"{{end}}>
 {{template "langpick" .}}
 {{template "portbanner" .}}

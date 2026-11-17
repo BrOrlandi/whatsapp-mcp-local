@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
 )
 
@@ -22,6 +23,10 @@ import (
 // program sends neither. When the daemon has a token, a program presents it,
 // as on /mcp.
 func (p *Panel) fromAgent(r *http.Request) bool {
+	// A program on this computer: never someone on the public listener.
+	if caller.From(r.Context()).Kind != caller.Local {
+		return false
+	}
 	if r.Header.Get("Sec-Fetch-Site") != "" || r.Header.Get("Origin") != "" {
 		return false
 	}

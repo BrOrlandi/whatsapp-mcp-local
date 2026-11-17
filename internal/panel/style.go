@@ -59,6 +59,7 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 .gear:hover{background:var(--surface-soft);color:var(--text)}
 .gear[aria-current=page]{background:var(--brand-soft);border-color:var(--brand);color:var(--brand)}
 .gear .icon{width:20px;height:20px}
+.signout{margin:0}
 .brand{display:flex;align-items:center;gap:12px;min-width:0;text-decoration:none;color:inherit}
 .brand__mark{width:38px;height:38px;flex:none}
 .brand__mark svg{width:100%;height:100%;display:block}

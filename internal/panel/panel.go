@@ -138,9 +138,33 @@ func (w *redirectWriter) Write(b []byte) (int, error) {
 
 func isInternal(r *http.Request) bool { return caller.From(r.Context()).Window }
 
-// mayUsePanel reports whether the request's caller reaches the panel: its
-// pages, forms, API and files.
-func mayUsePanel(r *http.Request) bool { return caller.From(r.Context()).May(caller.PanelAccess) }
+// routeAccess is the class of the panel route a request matched: PanelAccess,
+// or LocalOnly for what only makes sense on this computer
+// (internal/httpserver/routes.go says which).
+func routeAccess(r *http.Request) caller.Access {
+	if a, ok := httpserver.RouteAccess(r.Pattern); ok && a == caller.LocalOnly {
+		return a
+	}
+	return caller.PanelAccess
+}
+
+// mayUsePanel reports whether the request's caller reaches the panel route
+// it matched.
+func mayUsePanel(r *http.Request) bool { return caller.From(r.Context()).May(routeAccess(r)) }
+
+// callerRefused answers 403 when the request's caller does not reach the
+// route, and reports whether it did.
+func callerRefused(w http.ResponseWriter, r *http.Request) bool {
+	if mayUsePanel(r) {
+		return false
+	}
+	if routeAccess(r) == caller.LocalOnly {
+		http.Error(w, i18n.T("Isto só pode ser feito no próprio servidor, onde o WhatsApp MCP está instalado."), http.StatusForbidden)
+		return true
+	}
+	http.Error(w, "forbidden", http.StatusForbidden)
+	return true
+}
 
 const (
 	setupSetting     = "setup_step" // "done" once the first run is over
@@ -230,10 +254,22 @@ func sameOrigin(r *http.Request) bool {
 	if site != "" && site != "same-origin" && !(site == "none" && r.Method == http.MethodGet) {
 		return false
 	}
-	if origin != "" && origin != "http://"+r.Host {
+	// On the public listener the page's origin is the public address, which
+	// the proxy in front may not pass on as the Host.
+	who := caller.From(r.Context())
+	own := who.Origin
+	if own == "" {
+		own = "http://" + r.Host
+	}
+	if origin != "" && origin != own {
 		return false
 	}
 	if r.Method == http.MethodPost && site == "" && origin == "" {
+		return false
+	}
+	// From outside this computer, anything that changes something must name
+	// its origin, which a browser always does.
+	if who.Kind != caller.Local && r.Method != http.MethodGet && r.Method != http.MethodHead && origin == "" {
 		return false
 	}
 	return true
@@ -248,8 +284,7 @@ func (p *Panel) page(f func(http.ResponseWriter, *http.Request) (string, any)) h
 	// installer opening the browser, a link in the README): another origin can
 	// neither read nor frame it, so only the requests that act are guarded.
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !mayUsePanel(r) {
-			http.Error(w, "forbidden", http.StatusForbidden)
+		if callerRefused(w, r) {
 			return
 		}
 		name, data := f(w, r)
@@ -274,7 +309,10 @@ func (p *Panel) page(f func(http.ResponseWriter, *http.Request) (string, any)) h
 // form handles a plain HTML form post and redirects to where f says.
 func (p *Panel) form(f func(*http.Request) (string, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !mayUsePanel(r) || !sameOrigin(r) {
+		if callerRefused(w, r) {
+			return
+		}
+		if !sameOrigin(r) {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
@@ -294,7 +332,10 @@ func (p *Panel) form(f func(*http.Request) (string, error)) http.HandlerFunc {
 func (p *Panel) api(f func(*http.Request) (any, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		if !mayUsePanel(r) || (!sameOrigin(r) && !p.fromAgent(r)) {
+		if callerRefused(w, r) {
+			return
+		}
+		if !sameOrigin(r) && !p.fromAgent(r) {
 			http.Error(w, "this API answers its own page and programs on this computer", http.StatusForbidden)
 			return
 		}
@@ -336,6 +377,10 @@ type layout struct {
 	MCPProblem *PortProblem
 	Settings   HostSettings
 	Update     UpdateState
+	// Remote is set when the page is seen from outside the server, signed in
+	// on its public address: it offers to sign out, and the steps that only
+	// work on the server itself say so.
+	Remote bool
 }
 
 // snapshot is what most pages need about the account, gathered once.
@@ -472,6 +517,7 @@ func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout
 		l.Settings = p.Host.Settings()
 		l.Update = p.Host.Update()
 	}
+	l.Remote = caller.From(r.Context()).Kind != caller.Local
 	return l
 }
 
@@ -1215,7 +1261,10 @@ func (p *Panel) configuredIn(ctx context.Context, client string) (string, bool) 
 }
 
 func (p *Panel) qr(w http.ResponseWriter, r *http.Request) {
-	if !mayUsePanel(r) || !sameOrigin(r) {
+	if callerRefused(w, r) {
+		return
+	}
+	if !sameOrigin(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

@@ -29,6 +29,9 @@ const (
 	OAuth Kind = "oauth"
 	// APIKey is an agent with a valid API key.
 	APIKey Kind = "apikey"
+	// Anonymous is anyone on the public listener without a credential: it
+	// reaches only the Open routes.
+	Anonymous Kind = "anonymous"
 )
 
 // Access is the part of the server a route belongs to.
@@ -40,6 +43,10 @@ const (
 	// PanelAccess is the panel's pages, forms and JSON API, and the files
 	// it serves (the pairing QR code, the support log).
 	PanelAccess Access = "panel"
+	// LocalOnly is what only makes sense on the computer the server runs
+	// on: quitting or erasing the app, opening its folder, writing an AI
+	// tool's configuration there. Only the local caller reaches it.
+	LocalOnly Access = "local-only"
 	// MCP is the /mcp endpoint.
 	MCP Access = "mcp"
 	// Media is the temporary links download_media hands out.
@@ -67,6 +74,10 @@ type Caller struct {
 	// Window is set for the app's own window, which reaches the routes in
 	// memory rather than over the network.
 	Window bool
+	// Origin is the origin the panel's own pages are served from on the
+	// public listener (its public address), which the same-origin checks
+	// expect; empty on the local listener, where it is http:// and the Host.
+	Origin string
 	// Categories are the tool categories the caller may use; nil allows
 	// every one.
 	Categories []string
@@ -99,6 +110,8 @@ func (c Caller) May(a Access) bool {
 		return true
 	case PanelAccess:
 		return c.Kind == Local || c.Kind == Panel
+	case LocalOnly:
+		return c.Kind == Local
 	case MCP:
 		return c.Kind == Local || c.Kind == OAuth || c.Kind == APIKey
 	case Media, Health:

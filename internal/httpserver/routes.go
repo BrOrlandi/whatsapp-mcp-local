@@ -7,6 +7,10 @@ import "github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
 // TestEveryRouteIsClassified, rather than being born open on a listener that
 // faces the network.
 //
+// LocalOnly routes are the app's own (quit, erase, port, updates, open a
+// folder or the window) and writing an AI tool's configuration: they act on
+// the computer the server runs on, so only the local caller reaches them.
+//
 // The panel's pages, forms and API check the caller in their wrappers
 // (panel.page, panel.form, panel.api); the routes outside them check it
 // themselves.
@@ -46,9 +50,9 @@ var routeAccess = map[string]caller.Access{
 	"POST /whatsapp/nome":          caller.PanelAccess,
 	"POST /conexoes/remover":       caller.PanelAccess,
 	"POST /conexoes/renomear":      caller.PanelAccess,
-	"POST /configuracoes/porta":    caller.PanelAccess,
-	"POST /configuracoes/encerrar": caller.PanelAccess,
-	"POST /configuracoes/apagar":   caller.PanelAccess,
+	"POST /configuracoes/porta":    caller.LocalOnly,
+	"POST /configuracoes/encerrar": caller.LocalOnly,
+	"POST /configuracoes/apagar":   caller.LocalOnly,
 
 	// The panel's files.
 	"GET /api/pair/qr.png":      caller.PanelAccess,
@@ -64,7 +68,7 @@ var routeAccess = map[string]caller.Access{
 	"POST /api/pair":                  caller.PanelAccess,
 	"POST /api/pair/cancel":           caller.PanelAccess,
 	"POST /api/logout":                caller.PanelAccess,
-	"POST /api/clients/{client}":      caller.PanelAccess,
+	"POST /api/clients/{client}":      caller.LocalOnly,
 	"POST /api/idioma":                caller.PanelAccess,
 	"GET /api/asr":                    caller.PanelAccess,
 	"POST /api/asr/install":           caller.PanelAccess,
@@ -78,13 +82,13 @@ var routeAccess = map[string]caller.Access{
 	"GET /api/media":                  caller.PanelAccess,
 	"POST /api/media/retention":       caller.PanelAccess,
 	"POST /api/media/purge":           caller.PanelAccess,
-	"POST /api/configuracoes":         caller.PanelAccess,
-	"POST /api/abrir":                 caller.PanelAccess,
-	"POST /api/app/open":              caller.PanelAccess,
-	"POST /api/abrir-pasta":           caller.PanelAccess,
-	"GET /api/atualizacao":            caller.PanelAccess,
-	"POST /api/atualizacao/verificar": caller.PanelAccess,
-	"POST /api/atualizacao/instalar":  caller.PanelAccess,
+	"POST /api/configuracoes":         caller.LocalOnly,
+	"POST /api/abrir":                 caller.LocalOnly,
+	"POST /api/app/open":              caller.LocalOnly,
+	"POST /api/abrir-pasta":           caller.LocalOnly,
+	"GET /api/atualizacao":            caller.LocalOnly,
+	"POST /api/atualizacao/verificar": caller.LocalOnly,
+	"POST /api/atualizacao/instalar":  caller.LocalOnly,
 }
 
 // RouteAccess is how a registered pattern is classified; ok is false for a

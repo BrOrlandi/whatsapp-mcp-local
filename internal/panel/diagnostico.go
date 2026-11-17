@@ -36,7 +36,10 @@ const maxAppLogLines = 4000
 
 func (p *Panel) registerDiagnostic(mux httpserver.Mux) {
 	mux.HandleFunc("GET /diagnostico/logs.txt", func(w http.ResponseWriter, r *http.Request) {
-		if !mayUsePanel(r) || (!sameOrigin(r) && !p.fromAgent(r)) {
+		if callerRefused(w, r) {
+			return
+		}
+		if !sameOrigin(r) && !p.fromAgent(r) {
 			http.Error(w, "this file is for the panel and programs on this computer", http.StatusForbidden)
 			return
 		}

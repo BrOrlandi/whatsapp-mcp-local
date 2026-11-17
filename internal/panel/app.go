@@ -157,7 +157,10 @@ func (p *Panel) apiOpen(r *http.Request) (any, error) {
 }
 
 func (p *Panel) quit(w http.ResponseWriter, r *http.Request) {
-	if !mayUsePanel(r) || !sameOrigin(r) {
+	if callerRefused(w, r) {
+		return
+	}
+	if !sameOrigin(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -167,7 +170,10 @@ func (p *Panel) quit(w http.ResponseWriter, r *http.Request) {
 }
 
 func (p *Panel) erase(w http.ResponseWriter, r *http.Request) {
-	if !mayUsePanel(r) || !sameOrigin(r) {
+	if callerRefused(w, r) {
+		return
+	}
+	if !sameOrigin(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

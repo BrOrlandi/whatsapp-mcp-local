@@ -27,6 +27,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/public"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
 
@@ -51,6 +52,10 @@ type Config struct {
 	// CommandLine is set by the command line, which has no app window: the
 	// health checks' fixes name its commands.
 	CommandLine bool
+	// Public is the server mode: a second listener, where everything asks
+	// for a sign-in. Nil, as for everyone who does not set
+	// WHATSAPP_MCP_PUBLIC_URL, there is only the local listener.
+	Public *public.Config
 }
 
 // Daemon is a running gateway.
@@ -78,6 +83,10 @@ type Daemon struct {
 	port      int
 	srv       *http.Server
 	listenErr *PortProblem
+	// public and publicSrv are the server mode's listener, nil without it.
+	public     *public.Server
+	publicSrv  *http.Server
+	publicAddr string
 
 	watch watchers
 }
@@ -120,6 +129,16 @@ func Start(cfg Config) (*Daemon, error) {
 		logger.Warn("the MCP port is taken; WhatsApp runs, the MCP waits for another port", "port", cfg.Port, "error", err)
 	}
 
+	// The public listener's address is claimed here too: in server mode, a
+	// taken port stops the service rather than leaving it unreachable.
+	var publicLn net.Listener
+	if cfg.Public != nil {
+		if publicLn, err = net.Listen("tcp", cfg.Public.Listen); err != nil {
+			closeQuietly(ln)
+			return nil, fmt.Errorf("cannot listen on %s for the public address: %w", cfg.Public.Listen, err)
+		}
+	}
+
 	d := &Daemon{cfg: cfg, logger: logger, port: cfg.Port, listenErr: problem, watchDone: make(chan struct{})}
 	// In the data folder, on every system (the command line's log on Linux
 	// is the journal, not a file), so erasing the data erases it too.
@@ -138,6 +157,7 @@ func Start(cfg Config) (*Daemon, error) {
 	if err != nil {
 		cancel()
 		closeQuietly(ln)
+		closeQuietly(publicLn)
 		return nil, err
 	}
 	d.primary, d.accounts = primary, []*Account{primary}
@@ -153,6 +173,16 @@ func Start(cfg Config) (*Daemon, error) {
 	}
 	d.routes, d.patterns = httpserver.RoutesWithPatterns(primary.server, httpserver.Options{Token: cfg.Token, Logger: logger, Register: register})
 
+	if cfg.Public != nil {
+		d.public = public.New(cfg.Public, d.routes, logger)
+		d.publicSrv, d.publicAddr = httpserver.NewServer(d.public), publicLn.Addr().String()
+		go func() {
+			if err := d.publicSrv.Serve(publicLn); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				logger.Error("the public listener stopped", "error", err)
+			}
+		}()
+		logger.Info("serving the public address", "url", cfg.Public.URL.String(), "listen", publicLn.Addr().String())
+	}
 	if ln != nil {
 		d.serve(ln)
 		logger.Info("serving MCP", "url", d.MCPURL(), "wacli", cfg.WacliBin, "store", cfg.StoreDir, "token", cfg.Token != "")
@@ -208,6 +238,9 @@ func (d *Daemon) Stop() {
 	if srv != nil {
 		httpserver.Shutdown(srv)
 	}
+	if d.publicSrv != nil {
+		httpserver.Shutdown(d.publicSrv)
+	}
 	for _, a := range accounts {
 		a.stop()
 	}
@@ -253,6 +286,21 @@ func (d *Daemon) PortProblem() *PortProblem {
 
 // HTTPHandler is what the loopback listener serves, guard included.
 func (d *Daemon) HTTPHandler() http.Handler { return httpserver.Guard(d.routes, d.logger) }
+
+// PublicHandler is what the public listener serves, or nil without the
+// server mode.
+func (d *Daemon) PublicHandler() http.Handler {
+	if d.public == nil {
+		return nil
+	}
+	return d.public
+}
+
+// PublicAddr is where the public listener answers, empty without the server
+// mode.
+func (d *Daemon) PublicAddr() string {
+	return d.publicAddr
+}
 
 // AppHandler is what the app's window loads, in memory: the same routes,
 // trusted as the panel's own page.
