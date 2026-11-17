@@ -97,11 +97,17 @@ login.
   `/64`), de alguns segundos no endereço que todo mundo divide quando o proxy
   não diz quem é. Para todos juntos, um balde de verificações da senha (20 de
   uma vez, depois uma a cada 4 segundos, cerca de 21.600 por dia) e no máximo
-  duas verificações de bcrypt ao mesmo tempo. O endereço de onde a senha
-  certa veio tem uma reserva própria, então uma enxurrada atrasa o dono em
-  segundos, nunca em minutos, e a conta nunca é trancada. Estar ocupado não
-  conta como senha errada, e o limite batido aparece no registro uma vez por
-  minuto.
+  duas verificações de bcrypt ao mesmo tempo. Com o balde vazio, cada vez
+  vai para uma das verificações que esperam, sorteada (uma fila estrita com
+  desistência em 5 segundos deixa o fim dela sem vez numa enxurrada). O
+  navegador em que a senha certa foi digitada fica conhecido (um cookie
+  aleatório, só o hash dele no `state.db`, no máximo 20, encerrado pela troca
+  de senha) e tem uma reserva própria, de qualquer endereço e depois de um
+  reinício, sem a espera por endereço: uma enxurrada atrasa o dono em
+  segundos, e a conta nunca é trancada. Sem esse cookie, a vez chega na
+  proporção das tentativas. Estar ocupado não conta como senha errada, uma
+  vez que não chegou à verificação é devolvida, e o limite batido aparece no
+  registro uma vez por minuto.
 - É o mesmo painel de hoje. O que só faz sentido no computador da pessoa
   (escrever a configuração do Claude Desktop, abrir no login) some no modo
   servidor.
