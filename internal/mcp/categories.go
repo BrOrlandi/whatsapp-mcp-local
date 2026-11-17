@@ -93,9 +93,8 @@ func toolDefinitions() []any {
 
 // toolsFor is what tools/list answers a caller: the tools it may use.
 func toolsFor(c caller.Caller) []any {
-	defs := toolDefinitions()
-	out := defs[:0]
-	for _, d := range defs {
+	var out []any
+	for _, d := range toolDefinitions() {
 		name := d.(map[string]any)["name"].(string)
 		if c.MayUseTool(name, toolCategories[name]) {
 			out = append(out, d)
@@ -105,9 +104,10 @@ func toolsFor(c caller.Caller) []any {
 }
 
 // callAs is a tool call checked against the caller: a tool it may not use is
-// refused, as one it cannot see in its list.
+// refused, as one it cannot see in its list. Only a tool that does not exist
+// skips the check, to be answered as unknown.
 func (s *Server) callAs(ctx context.Context, params callParams) map[string]any {
-	if category, known := toolCategories[params.Name]; known && !caller.From(ctx).MayUseTool(params.Name, category) {
+	if _, exists := s.handlers()[params.Name]; exists && !caller.From(ctx).MayUseTool(params.Name, toolCategories[params.Name]) {
 		return toolError("the tool %q is not allowed for this connection", params.Name)
 	}
 	return s.call(ctx, params)

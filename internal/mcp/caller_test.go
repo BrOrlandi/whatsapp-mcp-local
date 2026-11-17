@@ -72,3 +72,32 @@ func TestAReadOnlyCallerOnlyReads(t *testing.T) {
 		t.Errorf("an unknown tool: %s", out)
 	}
 }
+
+// A restricted list leaves the next caller's list whole.
+func TestARestrictedListLeavesTheFullOne(t *testing.T) {
+	s := New(Config{})
+	ro := caller.With(context.Background(), caller.Caller{Kind: caller.APIKey, Categories: caller.ReadOnlyCategories()})
+	_ = listedTools(t, s, ro)
+	if got, want := len(listedTools(t, s, context.Background())), len(toolDefinitions()); got != want {
+		t.Fatalf("the local list has %d tools after a read-only one, want %d", got, want)
+	}
+}
+
+type noTools struct{}
+
+func (noTools) AllowTool(string, string) bool { return false }
+
+// A caller whose rules allow nothing sees no tool and calls none.
+func TestRulesThatAllowNothing(t *testing.T) {
+	s := New(Config{})
+	ctx := caller.With(context.Background(), caller.Caller{Kind: caller.OAuth, Rules: noTools{}})
+	if names := listedTools(t, s, ctx); len(names) != 0 {
+		t.Fatalf("sees %v", names)
+	}
+	for name := range s.handlers() {
+		out := string(s.Handle(ctx, []byte(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"`+name+`","arguments":{}}}`)))
+		if !strings.Contains(out, "not allowed for this connection") {
+			t.Errorf("%s was not refused: %.200s", name, out)
+		}
+	}
+}
