@@ -74,7 +74,8 @@ senha](#trocar-a-senha).
 
 A imagem é `ghcr.io/brorlandi/whatsapp-mcp-local`, para servidores `amd64` e
 `arm64` (Raspberry Pi 4 e 5, servidores ARM). No `amd64`, o processador
-precisa ser de 2013 em diante (com AVX2), uma exigência do wacli.
+precisa ter AVX2, uma exigência do wacli; para conferir, `grep -c avx2
+/proc/cpuinfo` precisa dar mais que zero.
 
 ### Tailscale Funnel
 
@@ -119,6 +120,10 @@ endereço a cada vez que sobe: não serve para um conector fixo.
 
 O certificado sai sozinho no primeiro acesso.
 
+> **A confirmar:** testado só com o certificado local do Caddy
+> (`https://localhost`). A emissão do certificado para um domínio de verdade
+> ainda não foi vista de ponta a ponta.
+
 ### Um proxy que você já tem
 
 Escolha `proxy` no instalador. A porta pública fica só no `127.0.0.1` do
@@ -135,9 +140,10 @@ senha não vale:
   faixa, e poderia mentir o próprio endereço. Confie só no endereço exato do
   proxy (ou no nome do contêiner dele).
 
-Com o **Traefik** num contêiner, o mais seguro é pôr o app na rede do
-Traefik, sem publicar porta nenhuma, e confiar só no contêiner dele
-(`WHATSAPP_MCP_TRUSTED_PROXY=traefik`, o nome do contêiner).
+O instalador cobre um proxy instalado no próprio servidor, que alcança
+`127.0.0.1:47822`. Um proxy que roda num contêiner (o Traefik, por exemplo)
+não chega a esse endereço e pede ajustes que o instalador não faz; esse caso
+não está coberto aqui.
 
 ## Instalar no Linux sem Docker
 
@@ -338,7 +344,7 @@ Sem Docker, os dados ficam em `~/.whatsapp-mcp` e na pasta do wacli
 | A ferramenta recebe *not allowed for this connection* | A conexão é *Só ler*. Para enviar, crie outra com *Tudo* |
 | A ferramenta recebe *asked WhatsApp about too many numbers or groups lately* | O limite das consultas ao WhatsApp. Espere o tempo que a mensagem diz |
 | O contêiner não fica `healthy` | `docker compose logs whatsapp-mcp` mostra o motivo |
-| `CPU ISA level is lower than required` no registro | O processador `amd64` é anterior a 2013 (sem AVX2), e o wacli não roda nele |
+| `CPU ISA level is lower than required` no registro | O processador `amd64` não tem AVX2 (`grep -c avx2 /proc/cpuinfo` dá zero), e o wacli não roda nele |
 
 O registro, com Docker: `docker compose logs -f whatsapp-mcp`. Sem Docker:
 `whatsapp-mcp logs -f`.

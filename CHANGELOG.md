@@ -4,7 +4,7 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
-## [Não lançado] (1.9.0)
+## [Não lançado]
 
 ### Adicionado
 

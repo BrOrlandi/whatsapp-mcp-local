@@ -86,15 +86,16 @@ installs it there and runs `integration/` (`go test -tags integration`) against 
 WhatsApp, covering the panel, the API, every MCP tool, the webhooks, the bridge and a restart.
 Only publish with it green. A new MCP tool must be added to `expectedTools` and tested there.
 Its settings (`TEST_MAC`, `WMCP_TO`…) live in the ignored `.env.integration`.
-The server mode has its own step, run locally with Docker and no WhatsApp account:
-`go test -tags integration_server -count=1 ./integration/` builds the image and drives sign-in,
-a key, OAuth and a tool call through the public listener. `scripts/release.sh` also builds the
-Docker image (amd64, arm64, named only in `compose.yml`) into the local store, never pushing it;
-`scripts/push-image.sh X.Y.Z` publishes it as a separate step.
 `docs/testes-integracao.md` has it and the end-to-end scripts with the real AI tools (Claude
 Desktop on Windows in a VMPal VM, and on the test Mac over SSH), which run only when Bruno asks.
 The repository is public: never write his addresses, IPs, numbers or user names there; the doc
 uses `TEST_MAC` and `VM` placeholders.
+
+The server mode has its own step, run locally with Docker and no WhatsApp account:
+`go test -tags integration_server -count=1 ./integration/` builds the image and drives sign-in,
+a key, OAuth and a tool call through the public listener. `scripts/release.sh` also builds the
+Docker image (amd64 and arm64; the scripts read its name from `compose.yml`) into the local
+store, never pushing it; `scripts/push-image.sh X.Y.Z` publishes it as a separate step.
 
 ## Git workflow
 
