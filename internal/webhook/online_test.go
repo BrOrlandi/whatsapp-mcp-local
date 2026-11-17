@@ -15,6 +15,7 @@ type fakeSync struct {
 	state     string
 	since     time.Time
 	historyAt time.Time
+	reads     int // how many times the watcher read the state
 	changes   chan struct{}
 }
 
@@ -37,6 +38,7 @@ func (f *fakeSync) history(at time.Time) {
 func (f *fakeSync) read() (string, time.Time, time.Time) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.reads++
 	return f.state, f.since, f.historyAt
 }
 
@@ -239,19 +241,36 @@ func TestOnlineOnlyForWebhooksThatWantIt(t *testing.T) {
 	}
 }
 
-// step changes sync's state and gives the watcher a moment to see it: the
-// change channel keeps one signal, so two changes in a row would merge.
-func step(fs *fakeSync, state string) {
+// step changes sync's state and waits until the watcher has read it: the
+// change channel keeps one signal and read returns only the latest state, so
+// two changes in a row would merge into one.
+func step(t *testing.T, fs *fakeSync, state string) {
+	t.Helper()
+	fs.mu.Lock()
+	before := fs.reads
+	fs.mu.Unlock()
 	fs.set(state)
-	time.Sleep(10 * time.Millisecond)
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		fs.mu.Lock()
+		seen := fs.reads > before
+		fs.mu.Unlock()
+		if seen {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the watcher did not read the %s state", state)
+		}
+		time.Sleep(time.Millisecond)
+	}
 }
 
 func TestOnlineOfflineSecondsStopAtTheReconnection(t *testing.T) {
 	r, fs := onlineSetup(t)
-	step(fs, "reconnecting")
+	step(t, fs, "reconnecting")
 	skew.Add(int64(5 * time.Minute)) // five minutes away
 	fs.history(wallNow())
-	step(fs, "connected")
+	step(t, fs, "connected")
 	skew.Add(int64(time.Minute)) // then a minute of history settling
 	got := waitOnline(t, r, 2)
 	if o := got[1].Online; o.Reason != "reconnected" || o.OfflineSeconds != 300 {
@@ -263,15 +282,15 @@ func TestOnlineDropWhileHistorySettles(t *testing.T) {
 	r, fs := onlineSetup(t)
 	// A short outage, then the connection holds while history arrives, then
 	// another short outage: the time it held is not away.
-	step(fs, "reconnecting")
+	step(t, fs, "reconnecting")
 	skew.Add(int64(50 * time.Millisecond))
 	fs.history(wallNow())
-	step(fs, "connected")
+	step(t, fs, "connected")
 	skew.Add(int64(125 * time.Millisecond))
 	fs.history(wallNow())
-	step(fs, "reconnecting")
+	step(t, fs, "reconnecting")
 	skew.Add(int64(5 * time.Millisecond))
-	step(fs, "connected")
+	step(t, fs, "connected")
 	time.Sleep(200 * time.Millisecond)
 	if got := onlineEvents(r); len(got) != 1 {
 		t.Fatalf("two short outages were announced as one long one: %+v", got[len(got)-1].Online)
