@@ -117,14 +117,16 @@ func globalLimitServer(t *testing.T) (*Server, *atomic.Int32, *bytes.Buffer) {
 func from(addr string) map[string]string { return map[string]string{"X-Forwarded-For": addr} }
 
 // Many addresses together get at most the global number of password checks;
-// the owner, from the address the right password came from before, still
+// the owner, from the browser the right password was typed in before, still
 // gets in, and the attack shows in the log once.
 func TestPasswordChecksHaveAGlobalLimit(t *testing.T) {
 	s, checked, log := globalLimitServer(t)
 	const owner = "203.0.113.50"
-	if rec := signIn(s, "127.0.0.1:40000", testPassword, from(owner)); rec.Code != http.StatusSeeOther {
-		t.Fatalf("the owner's first sign-in: %d", rec.Code)
+	first := signIn(s, "127.0.0.1:40000", testPassword, from(owner))
+	if first.Code != http.StatusSeeOther {
+		t.Fatalf("the owner's first sign-in: %d", first.Code)
 	}
+	known := browserCookie(t, first)
 	codes := map[int]int{}
 	for i := 1; i <= 60; i++ {
 		codes[signIn(s, "127.0.0.1:40000", "wrong password!", from(fmt.Sprintf("198.51.100.%d", i))).Code]++
@@ -132,8 +134,8 @@ func TestPasswordChecksHaveAGlobalLimit(t *testing.T) {
 	if int(checked.Load()) != checksBurst || codes[http.StatusTooManyRequests] != 60-(checksBurst-1) {
 		t.Fatalf("%d bcrypt checks for 61 tries, want %d: %v", checked.Load(), checksBurst, codes)
 	}
-	// The owner, from the same address as before, is not kept out.
-	if rec := signIn(s, "127.0.0.1:40000", testPassword, from(owner)); rec.Code != http.StatusSeeOther {
+	// The owner, from the same browser as before, is not kept out.
+	if rec := signIn(s, "127.0.0.1:40000", testPassword, map[string]string{"X-Forwarded-For": owner, "Cookie": known}); rec.Code != http.StatusSeeOther {
 		t.Fatalf("the owner during the flood: %d", rec.Code)
 	}
 	// Someone else still waits.
@@ -515,4 +517,17 @@ func TestRefusingNeedsNoChoice(t *testing.T) {
 	if loc, _ := url.Parse(rec.Header().Get("Location")); loc == nil || loc.Query().Get("error") != "access_denied" {
 		t.Fatalf("a refusal with no choice: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
+}
+
+// browserCookie is the known-browser cookie a right password set, as a
+// Cookie header.
+func browserCookie(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == BrowserCookie && c.Value != "" {
+			return c.Name + "=" + c.Value
+		}
+	}
+	t.Fatalf("no known-browser cookie: %d", rec.Code)
+	return ""
 }

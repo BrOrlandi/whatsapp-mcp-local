@@ -2,8 +2,6 @@ package public
 
 import (
 	"container/list"
-	"context"
-	"log/slog"
 	"sync"
 	"time"
 )
@@ -105,124 +103,6 @@ func (w *window) allow(addr string, limit int) bool {
 	}
 	w.hits.put(key, append(recent, now))
 	return true
-}
-
-// checks guards the password checks themselves, whoever sends them: a
-// token bucket for all of them together, and at most a couple of bcrypt
-// checks at once. An address the right password came from before has a
-// small bucket of its own, so a flood from elsewhere keeps the owner
-// waiting seconds, not minutes.
-type checks struct {
-	mu       sync.Mutex
-	tokens   float64
-	last     time.Time
-	capacity float64
-	perSec   float64
-	// owners are the addresses that signed in with the right password in
-	// the last month, each with its own reserve.
-	owners  *lru[*reserve]
-	running chan struct{}
-	// maxWait is how long a check waits for its turn before the answer is
-	// "try again in a few seconds".
-	maxWait time.Duration
-	now     func() time.Time
-	sleep   func(time.Duration)
-	logger  *slog.Logger
-	warned  time.Time
-}
-
-type reserve struct {
-	tokens float64
-	last   time.Time
-	since  time.Time
-}
-
-const (
-	// checksBurst and checksEvery bound the password checks of everyone
-	// together: 20 at once, then one every 4 seconds, 21,600 a day.
-	checksBurst = 20
-	checksEvery = 4 * time.Second
-	// The reserve of an address the right password came from: 3 at once,
-	// then one every 10 seconds.
-	reserveBurst = 3
-	reserveEvery = 10 * time.Second
-	ownerFor     = 30 * 24 * time.Hour
-	concurrent   = 2
-)
-
-func newChecks(logger *slog.Logger) *checks {
-	return &checks{tokens: checksBurst, capacity: checksBurst, perSec: 1 / checksEvery.Seconds(), owners: newLRU[*reserve](64),
-		running: make(chan struct{}, concurrent), maxWait: 5 * time.Second, now: time.Now, sleep: time.Sleep, logger: logger}
-}
-
-// take is one token for addr, from the bucket of everyone or from the
-// address's own reserve.
-func (c *checks) take(addr string) bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	now := c.now()
-	if !c.last.IsZero() {
-		c.tokens = min(c.capacity, c.tokens+now.Sub(c.last).Seconds()*c.perSec)
-	}
-	c.last = now
-	if c.tokens >= 1 {
-		c.tokens--
-		return true
-	}
-	if now.Sub(c.warned) > time.Minute {
-		c.warned = now
-		c.logger.Warn("the panel password is being checked more often than allowed: someone may be guessing it; checks wait their turn", "limit_per_day", int(24*time.Hour/checksEvery))
-	}
-	if r, ok := c.owners.get(addrKey(addr)); ok && now.Sub(r.since) < ownerFor {
-		r.tokens = min(reserveBurst, r.tokens+now.Sub(r.last).Seconds()/reserveEvery.Seconds())
-		r.last = now
-		if r.tokens >= 1 {
-			r.tokens--
-			return true
-		}
-	}
-	return false
-}
-
-// acquire waits up to maxWait for a check's turn, and returns the function
-// that ends it; false means busy.
-func (c *checks) acquire(ctx context.Context, addr string) (func(), bool) {
-	deadline := c.now().Add(c.maxWait)
-	for !c.take(addr) {
-		if !c.now().Before(deadline) || ctx.Err() != nil {
-			return nil, false
-		}
-		c.sleep(100 * time.Millisecond)
-	}
-	release := func() { <-c.running }
-	select {
-	case c.running <- struct{}{}:
-		return release, true
-	default:
-	}
-	timer := time.NewTimer(c.maxWait)
-	defer timer.Stop()
-	select {
-	case c.running <- struct{}{}:
-		return release, true
-	case <-ctx.Done():
-		return nil, false
-	case <-timer.C:
-		return nil, false
-	}
-}
-
-// trust records that the right password came from addr.
-func (c *checks) trust(addr string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	now := c.now()
-	key := addrKey(addr)
-	if r, ok := c.owners.get(key); ok {
-		r.since = now
-		return
-	}
-	c.owners.put(key, &reserve{tokens: reserveBurst, last: now, since: now})
 }
 
 // logLimiter keeps a repeated warning to one line a minute.

@@ -78,6 +78,10 @@ func Open(dir string) (*State, error) {
 		db.Close()
 		return nil, err
 	}
+	if err := st.migrateBrowsers(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return st, nil
 }
 

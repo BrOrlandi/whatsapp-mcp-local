@@ -363,7 +363,7 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 			s.consent(w, r, ar, c, i18n.Tf("Muitas tentativas com a senha errada. Tente de novo em %d segundos.", int(wait/time.Second)+1), http.StatusTooManyRequests)
 			return
 		}
-		right, busy := s.checkPassword(r.Context(), pr, hash, r.PostFormValue("password"))
+		right, busy := s.checkPassword(w, r, pr, hash, r.PostFormValue("password"))
 		if busy {
 			w.Header().Set("Retry-After", "5")
 			s.consent(w, r, ar, c, i18n.T("O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos."), http.StatusTooManyRequests)

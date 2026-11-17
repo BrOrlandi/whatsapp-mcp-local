@@ -47,6 +47,8 @@ type Server struct {
 	bearerLog, peerLog *logLimiter
 	// checks bounds the password checks of everyone together.
 	checks *checks
+	// browsers are the known browsers, which have a reserve in checks.
+	browsers browsers
 
 	// state keeps the keys, logins and tokens; nil, and no agent gets in.
 	state     *state.State
@@ -72,6 +74,9 @@ func New(cfg *Config, routes *http.ServeMux, logger *slog.Logger) *Server {
 func (s *Server) UseState(st *state.State) {
 	s.state = st
 	s.access = newAccess(s.cfg, st)
+	s.browsers.mu.Lock()
+	s.browsers.loaded = false
+	s.browsers.mu.Unlock()
 }
 
 // Logins are the OAuth logins still valid: one approved with an older
@@ -293,24 +298,22 @@ var readTimeout = 30 * time.Second
 
 // checkPassword checks a password typed on the sign-in or the consent page,
 // in its turn among everyone's: busy means the turn did not come within a
-// few seconds. A right password clears the address's wrong tries and gives
-// it a reserve of turns of its own.
-func (s *Server) checkPassword(ctx context.Context, pr peer, hash, password string) (right, busy bool) {
+// few seconds. A known browser draws on its own reserve of turns. A right
+// password clears the address's wrong tries and makes the browser known.
+func (s *Server) checkPassword(w http.ResponseWriter, r *http.Request, pr peer, hash, password string) (right, busy bool) {
 	if password == "" {
 		return false, false
 	}
-	release, ok := s.checks.acquire(ctx, pr.client)
+	release, ok := s.checks.acquire(r.Context(), s.knownBrowser(r, hash))
 	if !ok {
 		s.throttle.undo(pr.client, pr.shared)
 		return false, true
 	}
+	defer release()
 	right = verifyPassword(hash, password)
-	release()
 	if right {
 		s.throttle.ok(pr.client)
-		if !pr.shared {
-			s.checks.trust(pr.client)
-		}
+		s.rememberBrowser(w, r, hash)
 	}
 	return right, false
 }
@@ -363,7 +366,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, pr peer) {
 		s.loginPage(w, r, "", wait, http.StatusTooManyRequests)
 		return
 	}
-	right, busy := s.checkPassword(r.Context(), pr, hash, password)
+	right, busy := s.checkPassword(w, r, pr, hash, password)
 	if busy {
 		w.Header().Set("Retry-After", "5")
 		s.loginPage(w, r, i18n.T("O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos."), 0, http.StatusTooManyRequests)
