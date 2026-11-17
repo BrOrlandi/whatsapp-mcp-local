@@ -73,8 +73,11 @@ func (s *Server) RequestHistory(ctx context.Context, chatJID string, count, roun
 	s.historyMu.Lock()
 	s.history = job
 	s.historyMu.Unlock()
+	// The answer is a copy taken before the job runs, which writes to it.
+	started := *job
+	started.Failures = map[string]any{}
 	go s.runHistory(job, count, rounds)
-	return *job, true, nil
+	return started, true, nil
 }
 
 func (s *Server) runHistory(job *HistoryJob, count, rounds int) {
