@@ -109,13 +109,40 @@ func installLaunchd(spec Spec) (string, error) {
 	}
 	domain := "gui/" + strconv.Itoa(os.Getuid())
 	_ = exec.Command("launchctl", "bootout", domain, path).Run()
-	if err := os.WriteFile(path, []byte(plist), 0o644); err != nil {
+	if err := writeServiceFile(path, []byte(plist), hasSecret(spec.Env)); err != nil {
 		return "", err
 	}
 	if out, err := exec.Command("launchctl", "bootstrap", domain, path).CombinedOutput(); err != nil {
 		return "", fmt.Errorf("launchctl bootstrap: %v: %s", err, strings.TrimSpace(string(out)))
 	}
 	return path, nil
+}
+
+// hasSecret reports whether the environment carries a secret (the token, a
+// password): then the service file is readable by its owner only.
+func hasSecret(env map[string]string) bool {
+	for k := range env {
+		for _, w := range []string{"TOKEN", "PASSWORD", "SECRET", "KEY"} {
+			if strings.Contains(strings.ToUpper(k), w) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// writeServiceFile writes a service file: 0600 when it carries a secret,
+// 0644 as before otherwise. The mode is set on a file that already exists
+// too, since writing keeps the old one.
+func writeServiceFile(path string, content []byte, secret bool) error {
+	mode := os.FileMode(0o644)
+	if secret {
+		mode = 0o600
+	}
+	if err := os.WriteFile(path, content, mode); err != nil {
+		return err
+	}
+	return os.Chmod(path, mode)
 }
 
 func systemdPath() string {
@@ -147,7 +174,7 @@ WantedBy=default.target
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return "", err
 	}
-	if err := os.WriteFile(path, []byte(unit), 0o644); err != nil {
+	if err := writeServiceFile(path, []byte(unit), hasSecret(spec.Env)); err != nil {
 		return "", err
 	}
 	// restart, not enable --now: a unit already running would keep the old
