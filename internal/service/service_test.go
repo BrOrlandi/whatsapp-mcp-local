@@ -24,6 +24,14 @@ func TestAServiceFileWithASecretIsPrivate(t *testing.T) {
 	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o644 {
 		t.Fatalf("a unit without a secret: %v", fi.Mode().Perm())
 	}
+	// A mode the person tightened stays, without a secret.
+	_ = os.Chmod(path, 0o640)
+	if err := writeServiceFile(path, []byte("no secret"), false); err != nil {
+		t.Fatal(err)
+	}
+	if fi, _ := os.Stat(path); fi.Mode().Perm() != 0o640 {
+		t.Fatalf("a tightened unit without a secret: %v", fi.Mode().Perm())
+	}
 	if err := writeServiceFile(path, []byte("Environment=\"WHATSAPP_MCP_TOKEN=x\""), true); err != nil {
 		t.Fatal(err)
 	}

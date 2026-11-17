@@ -131,18 +131,18 @@ func hasSecret(env map[string]string) bool {
 	return false
 }
 
-// writeServiceFile writes a service file: 0600 when it carries a secret,
-// 0644 as before otherwise. The mode is set on a file that already exists
-// too, since writing keeps the old one.
+// writeServiceFile writes a service file as before (0644 when new), or 0600
+// when it carries a secret, a mode set on a file that already exists too,
+// since writing keeps the old one. Without a secret, the mode of an existing
+// file is left as the person set it.
 func writeServiceFile(path string, content []byte, secret bool) error {
-	mode := os.FileMode(0o644)
-	if secret {
-		mode = 0o600
+	if !secret {
+		return os.WriteFile(path, content, 0o644)
 	}
-	if err := os.WriteFile(path, content, mode); err != nil {
+	if err := os.WriteFile(path, content, 0o600); err != nil {
 		return err
 	}
-	return os.Chmod(path, mode)
+	return os.Chmod(path, 0o600)
 }
 
 func systemdPath() string {
