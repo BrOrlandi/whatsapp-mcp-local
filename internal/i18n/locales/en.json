@@ -737,7 +737,6 @@
  "nenhum webhook tem esse id": "no webhook has that id",
  "nenhuma ainda": "none yet",
  "nenhuma versão nova para instalar": "no new version to install",
- "no Docker, a atualização é a da imagem: docker compose build --pull && docker compose up -d (docs/servidor.md)": "in Docker, updating means updating the image: docker compose build --pull && docker compose up -d (docs/servidor.md)",
  "no Docker, o contêiner é o serviço: docker compose up -d, stop, restart": "in Docker, the container is the service: docker compose up -d, stop, restart",
  "no Docker, o registro sai na saída do contêiner: docker compose logs -f": "in Docker, the log goes to the container's output: docker compose logs -f",
  "no processador": "on the processor",
@@ -986,5 +985,19 @@
  "o pedido de acesso é para outro endereço, não para este servidor": "the access request is for another address, not for this server",
  "Escolha o que este aplicativo pode fazer: tudo, ou só ler.": "Choose what this app may do: everything, or read only.",
  "O aplicativo se apresenta como “%s”: esse nome é dele e não é verificado.": "The app calls itself “%s”: that name is its own and is not verified.",
- "O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos.": "The server is receiving many password attempts right now. Try again in a few seconds."
+ "O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos.": "The server is receiving many password attempts right now. Try again in a few seconds.",
+ "no Docker, a atualização é a da imagem: docker compose pull && docker compose up -d (ou, com a imagem montada do código, docker compose build --pull && docker compose up -d; docs/servidor.md)": "in Docker, updating is updating the image: docker compose pull && docker compose up -d (or, with the image built from the source, docker compose build --pull && docker compose up -d; docs/servidor.md)",
+ "A escuta pública atende em %s. Aponte para ela o seu proxy ou túnel com HTTPS (docs/servidor.md).": "The public listener answers on %s. Point your HTTPS proxy or tunnel at it (docs/servidor.md).",
+ "Endereço público do servidor (como https://whatsapp.example.com): ": "The server's public address (such as https://whatsapp.example.com): ",
+ "Modo servidor desligado: só a escuta local continua.": "Server mode off: only the local listener remains.",
+ "Modo servidor ligado: %s": "Server mode on: %s",
+ "Modo servidor ligado: %s, atendendo em %s.": "Server mode on: %s, answering on %s.",
+ "O modo servidor está desligado. Para ligar: whatsapp-mcp server setup": "Server mode is off. To turn it on: whatsapp-mcp server setup",
+ "O modo servidor está pela metade: %v": "Server mode is half set up: %v",
+ "O serviço não foi mexido: rode whatsapp-mcp service install, ou reinicie o whatsapp-mcp serve, para valer.": "The service was left alone: run whatsapp-mcp service install, or restart whatsapp-mcp serve, for it to take effect.",
+ "diga o endereço público: whatsapp-mcp server setup --url https://whatsapp.example.com": "give the public address: whatsapp-mcp server setup --url https://whatsapp.example.com",
+ "no Docker, o modo servidor vem do .env e do compose.yml (install-docker.sh)": "in Docker, the server mode comes from the .env and compose.yml (install-docker.sh)",
+ "no Docker, o modo servidor vem do .env e do compose.yml; mude lá": "in Docker, the server mode comes from the .env and compose.yml; change it there",
+ "o serviço foi instalado, mas ainda não responde: %v (whatsapp-mcp logs)": "the service was installed but does not answer yet: %v (whatsapp-mcp logs)",
+ "uso: whatsapp-mcp server [status|setup|off]": "usage: whatsapp-mcp server [status|setup|off]"
 }

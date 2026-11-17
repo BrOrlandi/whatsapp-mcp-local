@@ -593,7 +593,7 @@ func updateCmd(cfg config, args []string) error {
 		return err
 	}
 	if inContainer() {
-		return fail(exitConflict, "%s", i18n.T("no Docker, a atualização é a da imagem: docker compose build --pull && docker compose up -d (docs/servidor.md)"))
+		return fail(exitConflict, "%s", i18n.T("no Docker, a atualização é a da imagem: docker compose pull && docker compose up -d (ou, com a imagem montada do código, docker compose build --pull && docker compose up -d; docs/servidor.md)"))
 	}
 	u := &updater.Updater{Repo: "BrOrlandi/whatsapp-mcp-local", Version: version,
 		Dir: filepath.Join(cfg.DataDir, "updates"), Target: updater.Target{Kind: "cli", Path: platform.Executable()}}

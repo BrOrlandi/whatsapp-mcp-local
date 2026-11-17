@@ -311,6 +311,42 @@ Example, in Claude Desktop's configuration:
   "env": {"WHATSAPP_MCP_API_KEY": "wamcp_key_..."}
 `,
 
+	"server": `Usage: whatsapp-mcp server [status] [--json]
+       whatsapp-mcp server setup [--url <address>] [--listen <host:port>] [--trusted-proxy <list>]
+                                 [--new-password] [--no-service] [--json]
+       whatsapp-mcp server off [--no-service]
+
+The server mode on a computer without Docker: a second listener, for a proxy
+or a tunnel with HTTPS, where the panel asks for its password and agents on
+other computers come in with a key or a login (docs/servidor.md). With
+Docker, install-docker.sh does all of this instead.
+
+  status    whether the server mode is on, and its address
+  setup     asks the public address (or --url) and, the first time or with
+            --new-password, the panel's password twice without showing it
+            (or one line from a pipe; never an argument). It keeps them in
+            the data folder and installs the service, which then serves the
+            public listener too
+  off       the local listener only, as before
+
+  --listen         where the public listener answers (default 127.0.0.1:47822)
+  --trusted-proxy  the proxy's addresses, CIDR ranges or names, comma
+                   separated; by default a proxy on this computer (loopback)
+  --no-service     keep the settings without touching the service
+
+The variables WHATSAPP_MCP_PUBLIC_URL, _PUBLIC_LISTEN, _TRUSTED_PROXY and
+_PANEL_PASSWORD_HASH win over what setup kept.
+
+Example:
+  whatsapp-mcp server setup --url https://whatsapp.example.com
+`,
+
+	"healthcheck": `Usage: whatsapp-mcp healthcheck
+
+Exits 0 when the daemon answers on this computer, 3 when it does not: the
+Docker image's healthcheck. It does not look at WhatsApp; status does.
+`,
+
 	"apikey": `Usage: whatsapp-mcp apikey [list] [--json]
        whatsapp-mcp apikey create --name <name> [--read-only] [--json]
        whatsapp-mcp apikey revoke <id> [--json]

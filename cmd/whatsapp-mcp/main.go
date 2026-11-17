@@ -179,6 +179,10 @@ func main() {
 		err = passwordCmd(cfg, args)
 	case "apikey":
 		err = apikeyCmd(cfg, args)
+	case "server":
+		err = serverCmd(cfg, args)
+	case "healthcheck":
+		err = healthcheckCmd(cfg, args)
 	case "webhooks", "webhook":
 		err = webhooksCmd(cfg, args)
 	case "logs":
@@ -230,6 +234,7 @@ Settings:
   token [show|new|set <token>|clear]   the key /mcp and the API's actions ask for (restarts the service)
   password hash|set         the panel's password for the server mode: print its hash, or keep it here
   apikey [list|create --name <name> [--read-only]|revoke <id>]   keys for agents on other computers (server mode)
+  server [status|setup|off] the server mode without Docker: public address, password, service
   webhooks [list|add <url>|remove <id>|enable <id>|disable <id>|test <id>]
       add: [--events message,reaction,receipt,online] [--include-own] [--chats <jid>,<jid>]
   config                    print the configuration for Claude Code and Claude Desktop
@@ -294,7 +299,7 @@ func serve(cfg config) error {
 	}
 	// The server mode, when its variables are set; with a half-made
 	// configuration nothing starts, and the error says what is missing.
-	pub, err := public.FromEnv(os.Getenv, cfg.DataDir)
+	pub, err := public.FromEnv(serverEnv(cfg.DataDir), cfg.DataDir)
 	if err != nil {
 		return fail(exitUsage, "%v", err)
 	}

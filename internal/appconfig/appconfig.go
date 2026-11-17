@@ -35,6 +35,17 @@ type Config struct {
 	// Seen records one-time notices already shown, such as "close" for the
 	// one explaining that closing the window keeps the app in the tray.
 	Seen []string `json:"seen,omitempty"`
+	// Server is the server mode `whatsapp-mcp server setup` keeps, for a
+	// server without Docker; the WHATSAPP_MCP_* variables win over it.
+	Server *Server `json:"server,omitempty"`
+}
+
+// Server is the server mode's settings, as the variables of the same names
+// give them.
+type Server struct {
+	PublicURL    string `json:"public_url"`
+	Listen       string `json:"listen,omitempty"`
+	TrustedProxy string `json:"trusted_proxy,omitempty"`
 }
 
 // Defaults is the configuration of a first run.

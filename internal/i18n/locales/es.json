@@ -737,7 +737,6 @@
  "nenhum webhook tem esse id": "ningún webhook tiene ese id",
  "nenhuma ainda": "ninguna todavía",
  "nenhuma versão nova para instalar": "no hay ninguna versión nueva para instalar",
- "no Docker, a atualização é a da imagem: docker compose build --pull && docker compose up -d (docs/servidor.md)": "en Docker, la actualización es la de la imagen: docker compose build --pull && docker compose up -d (docs/servidor.md)",
  "no Docker, o contêiner é o serviço: docker compose up -d, stop, restart": "en Docker, el contenedor es el servicio: docker compose up -d, stop, restart",
  "no Docker, o registro sai na saída do contêiner: docker compose logs -f": "en Docker, el registro sale por la salida del contenedor: docker compose logs -f",
  "no processador": "en el procesador",
@@ -986,5 +985,19 @@
  "o pedido de acesso é para outro endereço, não para este servidor": "el pedido de acceso es para otra dirección, no para este servidor",
  "Escolha o que este aplicativo pode fazer: tudo, ou só ler.": "Elige lo que esta aplicación puede hacer: todo, o solo leer.",
  "O aplicativo se apresenta como “%s”: esse nome é dele e não é verificado.": "La aplicación se presenta como “%s”: ese nombre es suyo y no está verificado.",
- "O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos.": "El servidor está recibiendo muchos intentos de contraseña ahora. Inténtalo de nuevo en unos segundos."
+ "O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos.": "El servidor está recibiendo muchos intentos de contraseña ahora. Inténtalo de nuevo en unos segundos.",
+ "no Docker, a atualização é a da imagem: docker compose pull && docker compose up -d (ou, com a imagem montada do código, docker compose build --pull && docker compose up -d; docs/servidor.md)": "en Docker, actualizar es actualizar la imagen: docker compose pull && docker compose up -d (o, con la imagen armada desde el código, docker compose build --pull && docker compose up -d; docs/servidor.md)",
+ "A escuta pública atende em %s. Aponte para ela o seu proxy ou túnel com HTTPS (docs/servidor.md).": "La escucha pública atiende en %s. Apunta ahí tu proxy o túnel con HTTPS (docs/servidor.md).",
+ "Endereço público do servidor (como https://whatsapp.example.com): ": "Dirección pública del servidor (como https://whatsapp.example.com): ",
+ "Modo servidor desligado: só a escuta local continua.": "Modo servidor desactivado: solo sigue la escucha local.",
+ "Modo servidor ligado: %s": "Modo servidor activado: %s",
+ "Modo servidor ligado: %s, atendendo em %s.": "Modo servidor activado: %s, atendiendo en %s.",
+ "O modo servidor está desligado. Para ligar: whatsapp-mcp server setup": "El modo servidor está desactivado. Para activarlo: whatsapp-mcp server setup",
+ "O modo servidor está pela metade: %v": "El modo servidor está a medias: %v",
+ "O serviço não foi mexido: rode whatsapp-mcp service install, ou reinicie o whatsapp-mcp serve, para valer.": "El servicio no se tocó: ejecuta whatsapp-mcp service install, o reinicia whatsapp-mcp serve, para que valga.",
+ "diga o endereço público: whatsapp-mcp server setup --url https://whatsapp.example.com": "indica la dirección pública: whatsapp-mcp server setup --url https://whatsapp.example.com",
+ "no Docker, o modo servidor vem do .env e do compose.yml (install-docker.sh)": "en Docker, el modo servidor viene del .env y del compose.yml (install-docker.sh)",
+ "no Docker, o modo servidor vem do .env e do compose.yml; mude lá": "en Docker, el modo servidor viene del .env y del compose.yml; cámbialo ahí",
+ "o serviço foi instalado, mas ainda não responde: %v (whatsapp-mcp logs)": "el servicio se instaló, pero todavía no responde: %v (whatsapp-mcp logs)",
+ "uso: whatsapp-mcp server [status|setup|off]": "uso: whatsapp-mcp server [status|setup|off]"
 }
