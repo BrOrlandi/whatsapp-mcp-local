@@ -121,7 +121,7 @@ func (p *Panel) webhookDocs(w http.ResponseWriter, r *http.Request) (string, any
 		layout
 		Groups  []webhookExampleGroup
 		APIBase string
-	}{p.layout(r, i18n.N("Webhooks: documentação"), "configuracoes", s), webhookExamples(), strings.TrimSuffix(p.endpoint(), "/mcp")}
+	}{p.layout(r, i18n.N("Webhooks: documentação"), "configuracoes", s), webhookExamples(), strings.TrimSuffix(p.endpointFor(r.Context()), "/mcp")}
 }
 
 const webhookDocsSource = `{{define "webhookdocs"}}{{template "head" .}}{{template "nav" .}}

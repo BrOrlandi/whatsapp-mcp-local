@@ -1,6 +1,7 @@
 package panel
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"mime"
@@ -95,7 +96,7 @@ func (p *Panel) apiStatus(r *http.Request) (any, error) {
 	s := p.snapshot(r.Context())
 	st := agentStatus{
 		App: "WhatsApp MCP Local", Version: strings.TrimPrefix(mcp.Version, "v"),
-		Desktop: p.Host != nil, MCPURL: p.endpoint(),
+		Desktop: p.Host != nil, MCPURL: p.endpointFor(r.Context()),
 		WhatsApp: agentWhatsApp{
 			State: s.Sync.State, Paired: s.Account.Authenticated,
 			Connected: s.Sync.State == "connected" && s.Sync.Delegate,
@@ -109,13 +110,15 @@ func (p *Panel) apiStatus(r *http.Request) (any, error) {
 		st.WhatsApp.LastMessageAt = t
 	}
 	if s.Pairing.State == "qr" {
-		st.Pairing.QRPNG = p.qrURL()
+		st.Pairing.QRPNG = p.qrURL(r.Context())
 		st.Pairing.QR, st.Pairing.QRVersion = s.Pairing.QR, s.Pairing.QRVersion
 	}
 	return st, nil
 }
 
-func (p *Panel) qrURL() string { return strings.TrimSuffix(p.endpoint(), "/mcp") + "/api/pair/qr.png" }
+func (p *Panel) qrURL(ctx context.Context) string {
+	return strings.TrimSuffix(p.endpointFor(ctx), "/mcp") + "/api/pair/qr.png"
+}
 
 // nextStep is what an agent does next:
 //

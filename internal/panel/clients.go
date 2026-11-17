@@ -368,7 +368,7 @@ func (p *Panel) setup(ctx context.Context) setup {
 	snippet, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{ServerName: p.desktopEntry()}}, "", "  ")
 	cursor, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{ServerName: p.cursorEntry()}}, "", "  ")
 	return setup{
-		Endpoint:       p.endpoint(),
+		Endpoint:       p.endpointFor(ctx),
 		Command:        "claude " + shellJoin(p.codeArgs()),
 		JSON:           string(snippet),
 		DesktopPath:    DesktopConfigPath(),

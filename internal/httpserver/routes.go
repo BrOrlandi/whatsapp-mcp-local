@@ -43,6 +43,7 @@ var routeAccess = map[string]caller.Access{
 	"GET /ajuda":                 caller.PanelAccess,
 	"GET /configuracoes":         caller.PanelAccess,
 	"GET /webhooks/documentacao": caller.PanelAccess,
+	"GET /conexoes":              caller.PanelAccess,
 
 	// Forms.
 	"POST /instalacao/avancar":     caller.PanelAccess,
@@ -50,6 +51,8 @@ var routeAccess = map[string]caller.Access{
 	"POST /whatsapp/nome":          caller.PanelAccess,
 	"POST /conexoes/remover":       caller.PanelAccess,
 	"POST /conexoes/renomear":      caller.PanelAccess,
+	"POST /conexoes/chaves":        caller.PanelAccess,
+	"POST /conexoes/revogar":       caller.PanelAccess,
 	"POST /configuracoes/porta":    caller.LocalOnly,
 	"POST /configuracoes/encerrar": caller.LocalOnly,
 	"POST /configuracoes/apagar":   caller.LocalOnly,

@@ -66,6 +66,9 @@ type Panel struct {
 	DataDir string
 	// Diag is the diagnostic log the Configurações page exports, or nil.
 	Diag *diag.Log
+	// PublicURL is the server mode's public address (scheme and host), or
+	// empty without it.
+	PublicURL string
 
 	pages *template.Template
 	code  codeCache
@@ -91,6 +94,15 @@ type DesktopCommand struct {
 }
 
 func (p *Panel) endpoint() string { return p.Endpoint() }
+
+// endpointFor is the MCP's address as a caller sees it: the public one for
+// someone on the server mode's public address, this computer's otherwise.
+func (p *Panel) endpointFor(ctx context.Context) string {
+	if o := caller.From(ctx).Origin; o != "" {
+		return o + "/mcp"
+	}
+	return p.endpoint()
+}
 
 // Internal marks every request as coming from the app's own window: the
 // local caller, with its Window flag set. The window reaches the panel in
@@ -222,6 +234,7 @@ func (p *Panel) Register(mux httpserver.Mux) {
 		p.registerApp(mux)
 	}
 	p.registerDiagnostic(mux)
+	p.registerRemoteAccess(mux)
 	registerAssets(mux)
 }
 
@@ -389,6 +402,11 @@ type layout struct {
 	// on its public address: it offers to sign out, and the steps that only
 	// work on the server itself say so.
 	Remote bool
+	// ServerMode is set for a page seen on the server mode's public
+	// address (the local listener stays as it always was), and PublicMCP is
+	// then the MCP's public address.
+	ServerMode bool
+	PublicMCP  string
 }
 
 // snapshot is what most pages need about the account, gathered once.
@@ -433,7 +451,7 @@ type check struct {
 func (p *Panel) snapshot(ctx context.Context) snapshot {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	s := snapshot{Endpoint: p.endpoint(), LogPath: p.LogPath, InApp: p.Host != nil, Pairing: p.Supervisor.Pairing(), History: p.Server.HistoryStatus()}
+	s := snapshot{Endpoint: p.endpointFor(ctx), LogPath: p.LogPath, InApp: p.Host != nil, Pairing: p.Supervisor.Pairing(), History: p.Server.HistoryStatus()}
 	s.Account, _ = p.Supervisor.Account(ctx)
 	s.Label, _ = p.State.Setting(ctx, account.LabelSetting)
 	s.Sync = p.Supervisor.Status()
@@ -526,6 +544,9 @@ func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout
 		l.Update = p.Host.Update()
 	}
 	l.Remote = caller.From(r.Context()).Kind != caller.Local
+	if p.PublicURL != "" && l.Remote {
+		l.ServerMode, l.PublicMCP = true, p.PublicURL+"/mcp"
+	}
 	return l
 }
 
@@ -1087,7 +1108,7 @@ func (p *Panel) apiState(r *http.Request) (any, error) {
 		"arriving": s.Arriving, "arriving_count": s.ArrivingCount,
 		"account": s.Account, "name": s.Name, "phone": s.Phone,
 		"sync": sync, "pairing": s.Pairing, "health": s.Health,
-		"history": s.History, "clients_live": live, "clients": clients, "endpoint": p.endpoint(), "version": mcp.Version,
+		"history": s.History, "clients_live": live, "clients": clients, "endpoint": p.endpointFor(r.Context()), "version": mcp.Version,
 		"pairing_error": pairingError(s.Pairing.Error),
 	}, nil
 }
@@ -1185,12 +1206,12 @@ func (p *Panel) apiPair(r *http.Request) (any, error) {
 	if err := p.Supervisor.StartPairing(phone); err != nil && !errors.Is(err, wacli.ErrPairingRunning) {
 		return nil, err
 	}
-	return p.pairResponse(), nil
+	return p.pairResponse(r.Context()), nil
 }
 
 // pairResponse is the pairing as the API gives it: with the QR code's text
 // and image while there is one.
-func (p *Panel) pairResponse() any {
+func (p *Panel) pairResponse(ctx context.Context) any {
 	pairing := p.Supervisor.Pairing()
 	out := struct {
 		wacli.Pairing
@@ -1198,14 +1219,14 @@ func (p *Panel) pairResponse() any {
 		QRPNG string `json:"qr_png,omitempty"`
 	}{Pairing: pairing}
 	if pairing.State == "qr" {
-		out.QR, out.QRPNG = pairing.QR, p.qrURL()
+		out.QR, out.QRPNG = pairing.QR, p.qrURL(ctx)
 	}
 	return out
 }
 
 func (p *Panel) apiCancelPair(r *http.Request) (any, error) {
 	p.Supervisor.CancelPairing()
-	return p.pairResponse(), nil
+	return p.pairResponse(r.Context()), nil
 }
 
 // apiLogout unlinks this computer from WhatsApp, as the WhatsApp tab's

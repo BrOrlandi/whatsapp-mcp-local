@@ -36,7 +36,11 @@ const pageSource = `
 
 {{define "signout"}}{{if .Remote}}<form class="signout" method="post" action="/sair"><button class="btn btn--quiet" type="submit">{{t "Sair do painel"}}</button></form>{{end}}{{end}}
 
-{{define "remotenote"}}{{if .Remote}}<p class="note" role="note">{{t "Você está vendo este painel de fora do servidor. Os passos abaixo ligam ferramentas de IA instaladas no próprio servidor; para usar o WhatsApp no seu computador ou no celular, a ligação pelo endereço do servidor chega numa próxima versão."}}</p>{{end}}{{end}}
+{{define "remotenote"}}{{if .Remote}}<div class="note" role="note"><p><strong>{{t "Você está vendo este painel de fora do servidor."}}</strong> {{t "Para usar o WhatsApp numa ferramenta de IA em outro computador ou no celular, use o endereço do servidor:"}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço do MCP"}}</span></div><pre data-copy><code>{{.PublicMCP}}</code></pre></div>
+<p>{{t "Pelo login: cole o endereço no conector do Claude (navegador, celular ou app) ou do ChatGPT. Ele abre uma página deste servidor que pede a senha do painel."}}</p>
+<p>{{t "Com uma chave: para o Claude Code, o Codex ou um script, crie uma chave em <a href='/conexoes'>Conexões</a> e mande no cabeçalho Authorization: Bearer."}}</p>
+<p class="muted" style="margin-bottom:0">{{t "Os passos abaixo ligam ferramentas instaladas no próprio servidor."}}</p></div>{{end}}{{end}}
 
 {{define "brandmark"}}<span class="brand__mark">{{logo}}</span><span class="brand__name">WhatsApp MCP</span>{{end}}
 
@@ -50,6 +54,7 @@ const pageSource = `
 <a href="/funcoes"{{if eq .Active "funcoes"}} aria-current="page"{{end}}>{{icon "list"}}<span>{{t "Funções"}}</span></a>
 <a href="/receitas"{{if eq .Active "receitas"}} aria-current="page"{{end}}>{{icon "book"}}<span>{{t "Receitas"}}</span></a>
 <a href="/ajuda"{{if eq .Active "ajuda"}} aria-current="page"{{end}}>{{icon "help"}}<span>{{t "Ajuda"}}</span></a>
+{{if .ServerMode}}<a href="/conexoes"{{if eq .Active "conexoes"}} aria-current="page"{{end}}>{{icon "plug"}}<span>{{t "Conexões"}}</span></a>{{end}}
 </nav>
 {{template "portbanner" .}}
 {{with .Error}}<p class="alert" role="alert">{{.}}</p>{{end}}
@@ -824,4 +829,46 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <section class="card">
 <div class="card__head"><h2>{{t "Tudo apagado"}}</h2></div>
 <div class="card__body"><p class="muted">{{t "Este computador saiu dos dispositivos conectados do seu WhatsApp, e os dados foram apagados. O WhatsApp MCP vai fechar."}}</p></div>
-</section></div></div></body></html>{{end}}`
+</section></div></div></body></html>{{end}}
+
+{{/* The server mode: the agents that use the WhatsApp from outside, by a
+login or a key. */}}
+{{define "conexoes"}}{{template "head" .}}{{template "nav" .}}
+<h1>{{t "Conexões pelo endereço do servidor"}}</h1>
+<p class="lead">{{t "As ferramentas de IA que usam o seu WhatsApp de fora, pelo endereço do servidor. Cada uma entra de um jeito: pelo login, com a senha do painel, ou com uma chave."}}</p>
+{{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
+{{if .NewKey}}<section class="card">
+<div class="card__head"><h2>{{tf "Chave criada: %s" .NewKeyName}}</h2></div>
+<div class="card__body">
+<p>{{t "Copie a chave agora: ela não aparece de novo. Guarde como uma senha."}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Chave"}}</span></div><pre data-copy><code>{{.NewKey}}</code></pre></div>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço do MCP"}}</span></div><pre data-copy><code>{{.Address}}</code></pre></div>
+<p class="muted">{{t "A ferramenta manda a chave no cabeçalho Authorization: Bearer, como neste exemplo do Claude Code. Se ninguém usar a chave em 24 horas, ela deixa de valer."}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">Claude Code</span></div><pre data-copy><code>claude mcp add --transport http whatsapp {{.Address}} --header "Authorization: Bearer {{.NewKey}}"</code></pre></div>
+</div></section>{{end}}
+<section class="card">
+<div class="card__head"><h2>{{t "Com acesso agora"}}</h2></div>
+<div class="card__body">
+{{if .Items}}<ul class="rows">
+{{range .Items}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}</span>
+<span class="row__meta">{{.Kind}} · {{.Access}} · {{.Created}} · {{.Used}}</span></span>
+{{if .Expired}}<span class="pill pill--warn">{{t "Expirada"}}</span>{{end}}
+<form method="post" action="/conexoes/revogar"><input type="hidden" name="kind" value="{{.KindKey}}"><input type="hidden" name="id" value="{{.ID}}"><button class="btn btn--danger btn--small" type="submit">{{t "Cortar acesso"}}</button></form>
+</li>{{end}}
+</ul>
+<p class="muted">{{t "Cortar o acesso vale na hora. Trocar a senha do painel corta todos os logins, mas não as chaves."}}</p>
+{{else}}<div class="empty"><p class="empty__title">{{t "Nenhuma ferramenta entrou ainda"}}</p>
+<p class="muted">{{tf "Cole o endereço %s no conector do Claude ou do ChatGPT para entrar com a senha do painel, ou crie uma chave abaixo." .Address}}</p></div>{{end}}
+</div></section>
+<section class="card">
+<div class="card__head"><h2>{{t "Criar uma chave"}}</h2></div>
+<div class="card__body">
+<p class="muted">{{t "Para ferramentas que não fazem login, como o Claude Code, o Codex, o n8n ou um script. A chave aparece uma vez só, e se ninguém a usar em 24 horas ela deixa de valer."}}</p>
+<form method="post" action="/conexoes/chaves">
+<label class="field" for="chave-nome"><span class="field__label">{{t "Nome"}}</span><span class="field__hint">{{t "Para você reconhecer depois, como o nome da ferramenta."}}</span></label>
+<input id="chave-nome" type="text" name="name" maxlength="60" required autocomplete="off" spellcheck="false">
+<label class="check" style="margin-top:12px"><input type="checkbox" name="read_only" value="1"><span>{{t "Só ler: vê e busca, mas não envia, não apaga e não mexe em grupos"}}</span></label>
+<div class="actions" style="margin-top:14px"><button class="btn" type="submit">{{t "Criar chave"}}</button></div>
+</form>
+</div></section>
+{{template "foot" .}}{{end}}`
