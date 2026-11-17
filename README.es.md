@@ -174,6 +174,11 @@ para escribir en el celular), y hay comandos para el estado, el puerto, el
 token, los webhooks y las actualizaciones, también en un contenedor Docker.
 Consulta [En un servidor sin pantalla](docs/servidor.md) (en portugués).
 
+Para usar el WhatsApp del servidor en Claude desde el navegador y el celular, o
+en ChatGPT, el **modo servidor** pone el panel y el MCP en una dirección
+`https` protegida por contraseña, con Docker en un comando:
+[la guía del modo servidor](docs/servidor.md#modo-servidor) (en portugués).
+
 ## Bueno saber
 
 - **Los audios se vuelven texto en tu propia computadora, cuando lo pides.**

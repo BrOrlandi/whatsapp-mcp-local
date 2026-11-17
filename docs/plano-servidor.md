@@ -73,12 +73,12 @@ login.
 | `WHATSAPP_MCP_PUBLIC_URL` | O endereço `https` do servidor. Liga o modo servidor |
 | `WHATSAPP_MCP_PANEL_PASSWORD_HASH` | A senha do painel, em bcrypt (`$2a$`, `$2b$` ou `$2y$`, custo mínimo 10). Texto puro é recusado |
 | `WHATSAPP_MCP_PUBLIC_LISTEN` | Onde a escuta pública atende (padrão `127.0.0.1:47822`; no Docker, `0.0.0.0:47822`) |
-| `WHATSAPP_MCP_TRUSTED_PROXY` | Quem pode falar com a escuta pública, quando outros contêineres dividem a rede do proxy |
+| `WHATSAPP_MCP_TRUSTED_PROXY` | Quem pode falar com a escuta pública, quando outros contêineres dividem a rede do proxy: endereços, faixas CIDR ou nomes. Só dele se acreditam o `X-Forwarded-For` e o `X-Forwarded-Proto`. Sem a variável, quem está no loopback é o proxy (um túnel no próprio servidor chega por ali, e o loopback já alcança a escuta local, que não pede nada) |
 
 - Com só uma das duas primeiras, o serviço não sobe e diz qual falta.
 - `whatsapp-mcp password hash` pede a senha duas vezes e imprime o hash. No
-  `compose.yaml`, cada `$` do hash vira `$$`; o instalador grava no `.env`,
-  onde isso não é preciso.
+  `compose.yml`, cada `$` do hash vira `$$`; o instalador grava no `.env`
+  entre aspas simples, onde isso não é preciso.
 - Fora do Docker, `whatsapp-mcp password set` guarda o hash na pasta de
   dados. A variável vence o arquivo.
 - Sem senha definida (nem variável, nem arquivo), o modo servidor não sobe.
@@ -88,9 +88,20 @@ login.
 
 ### Painel na web
 
-- Tela de senha, cookie de sessão `Secure`, `HttpOnly` e `SameSite=Strict`,
-  proteção contra CSRF e checagem de `Origin`.
-- Espera crescente depois de senhas erradas, por IP e no total.
+- Tela de senha, cookie de sessão `Secure`, `HttpOnly` e `SameSite=Lax`
+  (decidido na fase 1: com `Strict`, um link para o painel aberto de um app de
+  conversa chegaria sem sessão), proteção contra CSRF e checagem de `Origin`
+  contra o endereço público.
+- Sessões só na memória: um reinício pede a senha de novo.
+- Espera crescente depois de senhas erradas, por endereço (o IPv6 pelo seu
+  `/64`), de alguns segundos no endereço que todo mundo divide quando o proxy
+  não diz quem é. Para todos juntos, um balde de verificações da senha (20 de
+  uma vez, depois uma a cada 4 segundos, cerca de 21.600 por dia) e no máximo
+  duas verificações de bcrypt ao mesmo tempo. O endereço de onde a senha
+  certa veio tem uma reserva própria, então uma enxurrada atrasa o dono em
+  segundos, nunca em minutos, e a conta nunca é trancada. Estar ocupado não
+  conta como senha errada, e o limite batido aparece no registro uma vez por
+  minuto.
 - É o mesmo painel de hoje. O que só faz sentido no computador da pessoa
   (escrever a configuração do Claude Desktop, abrir no login) some no modo
   servidor.
@@ -111,17 +122,28 @@ O login é um servidor OAuth 2.1 mínimo, dentro do daemon:
 
 - descoberta (`/.well-known/oauth-protected-resource` e
   `/.well-known/oauth-authorization-server`);
-- registro do cliente pelo próprio agente (`/oauth/register`), com limite de
-  pedidos;
-- código de autorização com PKCE `S256` obrigatório e `redirect_uri` conferido
-  por igualdade;
+- o cliente se identifica por um documento de metadados (*Client ID Metadata
+  Document*, o preferido na especificação do MCP de 2026-07-28, que o Claude e
+  o ChatGPT usam), buscado só na internet, com tempo e tamanho limitados, ou
+  pelo registro (`/oauth/register`, mantido para compatibilidade): limitado
+  por endereço, no máximo 10 registros sem uso por endereço, apagados depois
+  de uma hora;
+- código de autorização com PKCE `S256` obrigatório, o `resource` (RFC 8707)
+  conferido, o `iss` em toda resposta (RFC 9207) e o `redirect_uri` conferido
+  por igualdade, menos a porta num endereço de loopback (RFC 8252);
+- a página de autorização mostra em destaque o endereço para onde a pessoa
+  volta, porque o nome o aplicativo escolhe; a primeira aprovação de um
+  aplicativo para um endereço sempre pede a senha, e nada vem marcado;
 - token de acesso curto (1 hora) e token de renovação trocado a cada uso. A
   renovação é automática, feita pelo próprio agente, e não tem prazo: a
   conexão vale até ser revogada em *Conexões* ou até a senha mudar;
-- só o hash dos tokens fica no `state.db`.
+- só o hash dos tokens fica no `state.db`; reusar um código ou um token de
+  renovação já usado corta a conexão.
 
-As chaves de API vêm prontas da branch: só o SHA-256 é guardado, a chave
-aparece uma vez, e a que ninguém usa em 24 horas deixa de valer.
+As chaves de API, reescritas a partir da branch, ficam em tabelas do
+`state.db` (a branch usava um arquivo): só o SHA-256 é guardado, a chave
+aparece uma vez, e a que ninguém usa nas primeiras 24 horas deixa de valer.
+Trocar a senha não corta as chaves.
 
 O painel lista as duas coisas juntas em *Conexões* (agente, quando entrou,
 último uso) e corta qualquer uma na hora.
@@ -150,10 +172,16 @@ escolhe, na hora de deixar o agente entrar:
 ### O que muda nas ferramentas para um agente de fora
 
 - `send_media_message` com um caminho de arquivo é recusado: um agente de fora
-  não pode mandar ler arquivos do servidor. Vale endereço da internet (já
-  feito na branch, `internal/mcp/remotefetch.go`).
-- Os links do `download_media` saem com o endereço público e pedem a mesma
-  credencial.
+  não pode mandar ler arquivos do servidor. Vale endereço da internet, buscado
+  por um cliente que recusa o próprio servidor e a rede dele
+  (`internal/netguard`).
+- Os links do `download_media` saem com o endereço público e valem pelo
+  próprio segredo (192 bits, dez minutos), sem credencial. O resultado não
+  traz o caminho no servidor, e o `export_messages` dá um link em vez do
+  caminho.
+- `check_numbers`, a foto de perfil e o `get_group` atualizado perguntam ao
+  WhatsApp como o dono: para quem vem de fora, um limite por conexão (20 de
+  uma vez, depois um por minuto).
 
 ### Programas que só falam por comando
 
@@ -194,8 +222,12 @@ O levantamento mostra que quase tudo já passa por poucos lugares:
 
 1. **As rotas do painel passam por três embrulhos** em
    `internal/panel/panel.go`: `page` (páginas), `form` (formulários) e `api`
-   (a API em JSON). Cerca de 60 rotas, todas por eles. A checagem do chamador
-   entra nesses três, não rota por rota.
+   (a API em JSON). Quase todas, não todas (veja o ponto 4). A checagem do
+   chamador entra nesses três, não rota por rota, e a classe de cada rota
+   está numa tabela só (`internal/httpserver/routes.go`): o que só faz
+   sentido no computador do servidor (encerrar, apagar, a porta, as
+   atualizações, abrir pasta, escrever a configuração de uma ferramenta de
+   IA) é `LocalOnly`, que só o chamador `local` alcança.
 2. **O `/mcp`** em `internal/httpserver/server.go`, que hoje confere só o
    token.
 3. **A lista e a chamada de ferramentas** em `internal/mcp/server.go`. Cada
@@ -204,8 +236,10 @@ O levantamento mostra que quase tudo já passa por poucos lugares:
    um filtro por categoria nesses dois pontos.
 4. **O que fica fora dos embrulhos** e precisa de checagem própria na escuta
    pública: `/media/`, `/health`, `/api/pair/qr.png` (o QR code de conexão),
-   `/diagnostico/logs.txt`, e os arquivos estáticos (`/assets/`, ícones), que
-   podem ficar abertos por não terem dado nenhum.
+   `/diagnostico/logs.txt`, `POST /configuracoes/encerrar` e `/apagar`, os
+   redirecionamentos dos endereços antigos (`/estado`, `/documentacao`,
+   `/transcricao`, abertos por não terem dado nenhum), `/healthz` e os
+   arquivos estáticos (`/assets/`, ícones), que também ficam abertos.
 
 Um cuidado: o embrulho `page` hoje deixa qualquer navegação passar, de
 propósito, porque no computador da pessoa outra origem não consegue ler a
@@ -339,10 +373,12 @@ precisa estar publicada:
   antiga, e os servidores antigos puxam as tags `edge` e `latest` dela. Com
   um nome próprio, nenhum deles recebe este app por engano.
 - A imagem passa para `ghcr.io/brorlandi/whatsapp-mcp` junto com a troca de
-  nome do repositório. Até lá, o `install-docker.sh` e o `compose.yml` são o
-  único lugar que cita o nome, para a troca ser em um ponto só.
-- Publicada pelo `scripts/release.sh`, no Mac do Bruno, como o resto da
-  release.
+  nome do repositório. Até lá, o `compose.yml` é o único lugar que cita o
+  nome (o `install-docker.sh` e o `scripts/release.sh` o leem de lá), para a
+  troca ser em um ponto só.
+- Montada pelo `scripts/release.sh`, no Mac do Bruno, como o resto da
+  release, para `amd64` e `arm64`, no Docker local; publicada num passo à
+  parte, `scripts/push-image.sh`, que pede confirmação.
 - `whatsapp-mcp update` no Docker passa a dizer o comando certo
   (`docker compose pull && docker compose up -d`).
 
@@ -387,6 +423,8 @@ Cada fase termina com algo que roda e pode ser testado. As fases 1 a 4 são a
 
 ### Fase 0b: o chamador, sem mudar nada
 
+**Feita** (2026-11-17).
+
 Preparação, no `main`, antes de existir escuta pública. Pode sair numa
 versão de correção, porque não muda comportamento.
 
@@ -406,6 +444,9 @@ idêntica à de antes.
 
 ### Fase 1: escuta pública e painel com senha
 
+**Feita** (2026-11-17). O `SameSite` ficou `Lax`; a espera depois de erros
+ganhou o desenho da fase 2b.
+
 1. `WHATSAPP_MCP_PUBLIC_URL`, `_PUBLIC_LISTEN`, `_PANEL_PASSWORD_HASH` e
    `_TRUSTED_PROXY`; o serviço recusa subir com a configuração pela metade.
 2. A escuta pública, com o filtro de proxy confiável e de `https` da branch.
@@ -420,6 +461,14 @@ Pronto quando: num contêiner atrás de um proxy, dá para abrir o painel pelo
 navegador, entrar com a senha e conectar o WhatsApp.
 
 ### Fase 2: MCP por URL
+
+**Feita** (2026-11-17), menos os itens 6 e 7, os testes com o Tailscale
+Funnel e os conectores de verdade, que ficam para a fase 4. A página
+*Agentes remotos* virou *Conexões*. Depois veio a **fase 2b**, também feita:
+as correções de uma revisão de segurança (a página de autorização, a espera
+depois de erros, limites para o que um estranho faz o servidor guardar, a
+validação dos argumentos que chegam ao wacli, o limite das consultas ao
+WhatsApp por conexão).
 
 1. Trazer as chaves de API da branch para a escuta pública, com as páginas
    *Agentes remotos* e os comandos `apikey`.
@@ -438,6 +487,14 @@ Pronto quando: o Claude do celular lê e envia mensagens pelo servidor, e uma
 chave revogada para de funcionar na hora.
 
 ### Fase 3: instalar e atualizar
+
+**Feita** (2026-11-17), menos: a publicação da imagem, que é um passo à mão
+na release (`scripts/push-image.sh`); o guia "vindo da versão servidor"; a
+skill `whatsapp-mcp-servidor`. O `compose.yml` tem os perfis `tailscale`,
+`tunnel` e `caddy`, e a opção de um proxy existente. As partes não testadas
+de verdade (Funnel, túnel, conectores) estão marcadas "a confirmar" no
+`servidor.md`. A etapa de servidor da suíte de integração (fase 4, item 2)
+também já existe: `go test -tags integration_server ./integration/`.
 
 1. Imagem publicada no `ghcr.io`, montada pelo `scripts/release.sh`.
 2. `compose.yaml` com os perfis `tailscale`, `tunnel` e `caddy`, e o

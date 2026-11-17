@@ -169,6 +169,11 @@ to type on the phone), and there are commands for the status, the port, the
 token, webhooks and updates, in a Docker container too. See
 [On a server without a screen](docs/servidor.md) (in Portuguese).
 
+To use the server's WhatsApp in Claude on the web and on the phone, or in
+ChatGPT, the **server mode** puts the panel and the MCP at an `https` address
+behind a password, with Docker in one command:
+[the server mode guide](docs/servidor.md#modo-servidor) (in Portuguese).
+
 ## Good to know
 
 - **Voice messages become text on your own computer, when you ask.** Turn it

@@ -105,6 +105,25 @@ ou pareie o Mac de testes de novo.
 horas rodando lá. Se ele dormir mesmo assim, o SSH para de responder (o ping
 continua) e só acorda com alguém na máquina.
 
+## Modo servidor, com Docker
+
+O modo servidor tem uma etapa própria, que roda neste computador, com o Docker
+e sem conta do WhatsApp (o wacli da imagem, sem conectar). Ela não faz parte da
+suíte do Mac de testes, que não muda:
+
+```sh
+go test -tags integration_server -count=1 -v ./integration/
+```
+
+Ela monta a imagem a partir deste código (ou usa a que `WMCP_SERVER_IMAGE`
+nomear, como `ghcr.io/brorlandi/whatsapp-mcp-local:1.9.0`), sobe o
+`compose.yml` com a escuta pública no loopback, como para um proxy que já
+existe, e passa pelo que uma pessoa e uma ferramenta fazem pelo endereço
+público: a senha errada e a certa, uma chave criada em *Conexões*, uma chamada
+de ferramenta com ela, o login OAuth com PKCE (só leitura, e um envio
+recusado) e a chave valendo depois de `docker compose down` e `up`. No fim,
+apaga o volume.
+
 ## Preparar o Mac de testes
 
 Um Mac separado na rede, para não fechar o Claude Desktop de quem desenvolve.

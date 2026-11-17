@@ -4,6 +4,38 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/), com versões em
 [SemVer](https://semver.org/lang/pt-BR/).
 
+## [Não lançado] (1.9.0)
+
+### Adicionado
+
+- **Modo servidor.** O WhatsApp MCP pode rodar num servidor ligado o tempo
+  todo e atender num endereço `https`, onde o painel pede uma senha. Assim o
+  seu WhatsApp funciona no Claude pelo navegador e pelo celular, no ChatGPT e
+  em ferramentas de IA de outros computadores. Quem não liga o modo servidor
+  não vê nenhuma diferença: o app e a linha de comando continuam iguais.
+- **Instalação com Docker num comando** (`install-docker.sh`), com o `https`
+  pelo Tailscale Funnel, por um túnel da Cloudflare, pelo Caddy ou por um
+  proxy que você já tenha. A imagem é para servidores `amd64` e `arm64`. Sem
+  Docker, `whatsapp-mcp server setup` faz o mesmo no Linux.
+- **Duas formas de uma ferramenta entrar:** pelo login, em que você digita a
+  senha do painel na página do seu servidor e escolhe o que ela pode fazer, ou
+  com uma chave, para as ferramentas que não fazem login.
+- **Conexões**, no painel: quem entrou, quando, e o que pode fazer, com um
+  botão para cortar o acesso na hora. Um login ou uma chave pode ser *Só ler*.
+- **`whatsapp-mcp bridge --url`** liga o Claude Desktop (e outras ferramentas
+  que só iniciam um programa) a um servidor, sem o WhatsApp instalado no
+  computador.
+- Novos comandos: `password`, `apikey`, `server` e `healthcheck`.
+
+### Segurança
+
+- **Os números e termos que uma ferramenta de IA manda agora são conferidos
+  antes de chegar ao wacli.** Um valor escrito como opção de linha de comando
+  (por exemplo, um "número" começando com `--`) podia ser lido pelo wacli como
+  uma opção. Isso vale também para quem não usa o modo servidor.
+
+Inclui o wacli 0.26.1.
+
 ## [1.8.0] - 2026-11-17
 
 ### Adicionado
