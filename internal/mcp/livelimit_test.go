@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -49,6 +51,38 @@ func TestLiveToolsCheckTheLimitFirst(t *testing.T) {
 		out := string(s.Handle(ctx, []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"`+name+`","arguments":`+args+`}}`)))
 		if !strings.Contains(out, "too many numbers or groups") {
 			t.Errorf("%s: %.200s", name, out)
+		}
+	}
+}
+
+// From outside, a check of more numbers than the bucket holds is refused
+// for what it is, not with a wait that would never be enough.
+func TestTooManyNumbersInOneCallFromOutside(t *testing.T) {
+	s := New(Config{})
+	ctx := caller.With(context.Background(), caller.Caller{Kind: caller.APIKey, ConnectionID: "k_3"})
+	numbers := make([]string, liveBurst+1)
+	for i := range numbers {
+		numbers[i] = fmt.Sprintf("55119000000%02d", i)
+	}
+	b, _ := json.Marshal(map[string]any{"numbers": numbers})
+	out := string(s.Handle(ctx, []byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"check_numbers","arguments":`+string(b)+`}}`)))
+	if !strings.Contains(out, "at most 20 numbers per call") {
+		t.Fatalf("%.200s", out)
+	}
+}
+
+// Every server part WhatsApp uses is a JID, the ones to come included; a
+// value shaped like a flag is not.
+func TestJIDShapes(t *testing.T) {
+	for _, v := range []string{"5511900000001@s.whatsapp.net", "5511900000001:12@s.whatsapp.net", "120363000000000000@g.us",
+		"123456789012345@lid", "status@broadcast", "120363000000000000@newsletter", "123@bot", "123@hosted", "123@hosted.lid"} {
+		if !validJID(v) {
+			t.Errorf("%s is a JID", v)
+		}
+	}
+	for _, v := range []string{"--store=/x", "-h", "a b@s.whatsapp.net", "x@", "@g.us", "5511@S.WHATSAPP.NET --json"} {
+		if validJID(v) {
+			t.Errorf("%q is not a JID", v)
 		}
 	}
 }

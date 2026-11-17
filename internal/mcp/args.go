@@ -15,9 +15,11 @@ import (
 // flag (--to <value>) is read as that value whatever it looks like, and is
 // checked for its shape all the same.
 
-// jidPattern is a WhatsApp address: a user, a group, a LID, a broadcast or a
-// newsletter, with an optional device.
-var jidPattern = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z._\-]*(:[0-9]+)?@(s\.whatsapp\.net|g\.us|lid|broadcast|newsletter|c\.us)$`)
+// jidPattern is a WhatsApp address: a user part with an optional device,
+// and a server named by its shape (s.whatsapp.net, g.us, lid, broadcast,
+// newsletter, and any other form WhatsApp adds), so no address wacli hands
+// out is refused.
+var jidPattern = regexp.MustCompile(`^[0-9A-Za-z][0-9A-Za-z._\-]*(:[0-9]+)?@[a-z][a-z0-9.\-]*$`)
 
 // validJID reports whether v is a WhatsApp address.
 func validJID(v string) bool { return len(v) <= 128 && jidPattern.MatchString(v) }

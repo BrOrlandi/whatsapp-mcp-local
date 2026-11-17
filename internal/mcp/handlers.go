@@ -1019,6 +1019,9 @@ func (s *Server) checkNumbers(ctx context.Context, a arguments) map[string]any {
 			return toolError("%v", err)
 		}
 	}
+	if len(a.Numbers) > liveBurst && fromRemote(ctx) {
+		return toolError("from another computer, check at most %d numbers per call", liveBurst)
+	}
 	if fail := s.liveAllowed(ctx, len(a.Numbers)); fail != nil {
 		return fail
 	}

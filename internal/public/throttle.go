@@ -73,6 +73,23 @@ func (t *throttle) failLocked(key string, shared bool) {
 	}
 }
 
+// undo gives back a try that was counted but never checked (the server
+// was busy): being turned away is not a wrong password.
+func (t *throttle) undo(addr string, shared bool) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	e, ok := t.m.get(addrKey(addr))
+	if !ok || e.fails == 0 {
+		return
+	}
+	e.fails--
+	if e.fails >= freeTries {
+		e.until = e.last.Add(delay(e.fails, shared))
+	} else {
+		e.until = time.Time{}
+	}
+}
+
 // ok forgets addr's wrong passwords, after a right one.
 func (t *throttle) ok(addr string) {
 	t.mu.Lock()

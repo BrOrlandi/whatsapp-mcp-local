@@ -364,6 +364,10 @@ func TestThePublicServerBoundsSlowRequests(t *testing.T) {
 	key, _, _ := CreateKey(context.Background(), st, "x", false, time.Now())
 	mux := http.NewServeMux()
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
+		if _, err := io.ReadAll(r.Body); err != nil {
+			http.Error(w, "too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		select {
 		case <-time.After(800 * time.Millisecond):
 			_, _ = w.Write([]byte("alive"))
@@ -465,5 +469,50 @@ func TestWrongBearersAreCheapAndQuiet(t *testing.T) {
 	serve(s, fromTunnel("GET", secretLink, map[string]string{"Authorization": "Bearer nonsense"}, ""))
 	if !strings.Contains(log.String(), "path=/media/…") || strings.Contains(log.String(), strings.Repeat("ab", 5)) {
 		t.Fatalf("the media path in the log:\n%s", log.String())
+	}
+}
+
+// Being turned away while the server is busy is not a wrong password: an
+// owner who retries during a flood is not pushed into the long backoff.
+func TestBusyIsNotAWrongPassword(t *testing.T) {
+	s, _, _ := globalLimitServer(t)
+	now := time.Now()
+	s.checks.now = func() time.Time { return now }
+	s.throttle.now = func() time.Time { return now }
+	for i := 1; i <= checksBurst; i++ {
+		signIn(s, "127.0.0.1:40000", "wrong password!", from(fmt.Sprintf("198.51.100.%d", i)))
+	}
+	for i := 0; i < 10; i++ {
+		if rec := signIn(s, "127.0.0.1:40000", testPassword, from("203.0.113.77")); rec.Code != http.StatusTooManyRequests {
+			t.Fatalf("a busy server: %d", rec.Code)
+		}
+	}
+	if w := s.throttle.wait("203.0.113.77"); w > 0 {
+		t.Fatalf("ten busy answers put the address in a %v wait", w)
+	}
+	now = now.Add(checksEvery)
+	if rec := signIn(s, "127.0.0.1:40000", testPassword, from("203.0.113.77")); rec.Code != http.StatusSeeOther {
+		t.Fatalf("the right password once a turn came: %d", rec.Code)
+	}
+}
+
+// Refusing needs no access choice: the deny button skips the browser's
+// required check, and the server sends the refusal back.
+func TestRefusingNeedsNoChoice(t *testing.T) {
+	s, _, _ := agentServer(t)
+	c := registerClient(t, s, "https://claude.ai/api/mcp/auth_callback")
+	_, challenge := pkce("d")
+	q := c.authorizeQuery(challenge, c.redirect)
+	page := serve(s, fromTunnel("GET", "/oauth/authorize?"+q.Encode(), nil, "")).Body.String()
+	if !strings.Contains(page, `value="deny" formnovalidate`) {
+		t.Fatal("the deny button is held back by the required choice")
+	}
+	form := url.Values{"decision": {"deny"}}
+	for k, v := range q {
+		form[k] = v
+	}
+	rec := serve(s, fromTunnel("POST", "/oauth/authorize", map[string]string{"Origin": origin}, form.Encode()))
+	if loc, _ := url.Parse(rec.Header().Get("Location")); loc == nil || loc.Query().Get("error") != "access_denied" {
+		t.Fatalf("a refusal with no choice: %d %q", rec.Code, rec.Header().Get("Location"))
 	}
 }

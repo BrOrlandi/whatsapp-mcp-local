@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"html/template"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -114,11 +113,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, HTTPSRefused, http.StatusForbidden)
 		return
 	}
-	// The body is read here, whole and bounded, within the server's read
-	// timeout; then the timeout is lifted, so a long tool call runs on.
-	if !readBody(w, r) {
-		return
-	}
+	// Every body is bounded before anything reads it; the routes read what
+	// they need (a form, a JSON-RPC message) within the server's read
+	// timeout, which does not cut a long tool call short.
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
 	// Whoever this is, it is not local: the caller is set here, before any
 	// route runs, and a request with no credential is anonymous.
 	who := caller.Caller{Kind: caller.Anonymous, Origin: s.cfg.Origin}
@@ -254,26 +252,6 @@ func (s *Server) oauthRoute(w http.ResponseWriter, r *http.Request, pr peer) {
 // maxBody bounds every request body on the public address.
 const maxBody = 2 << 20
 
-// readBody reads a request's body into memory, at most maxBody, and then
-// lifts the connection's read deadline; false means it answered already.
-func readBody(w http.ResponseWriter, r *http.Request) bool {
-	if r.Body != nil && r.Body != http.NoBody {
-		body, err := io.ReadAll(io.LimitReader(r.Body, maxBody+1))
-		if err != nil {
-			http.Error(w, "the request body could not be read in time", http.StatusRequestTimeout)
-			return false
-		}
-		if len(body) > maxBody {
-			http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
-			return false
-		}
-		r.Body = io.NopCloser(bytes.NewReader(body))
-		r.ContentLength = int64(len(body))
-	}
-	_ = http.NewResponseController(w).SetReadDeadline(time.Time{})
-	return true
-}
-
 // wellFormed reports whether a Bearer credential has the shape of a key or
 // an access token this server hands out.
 func wellFormed(bearer string) bool {
@@ -323,6 +301,7 @@ func (s *Server) checkPassword(ctx context.Context, pr peer, hash, password stri
 	}
 	release, ok := s.checks.acquire(ctx, pr.client)
 	if !ok {
+		s.throttle.undo(pr.client, pr.shared)
 		return false, true
 	}
 	right = verifyPassword(hash, password)

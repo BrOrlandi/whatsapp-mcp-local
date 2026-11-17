@@ -556,7 +556,7 @@ input[type=password]{box-sizing:border-box;width:100%;padding:10px 12px;font:inh
 </fieldset>
 {{if .AskPassword}}<label class="field" for="password">{{.PasswordLabel}}</label>
 <input id="password" name="password" type="password" autocomplete="current-password" autofocus>{{end}}
-<div class="actions"><button class="deny" type="submit" name="decision" value="deny">{{.Deny}}</button>
+<div class="actions"><button class="deny" type="submit" name="decision" value="deny" formnovalidate>{{.Deny}}</button>
 <button class="allow" type="submit" name="decision" value="allow">{{.Allow}}</button></div>
 </form>
 <p class="muted" style="margin-top:14px">{{.Note}}</p>{{end}}
