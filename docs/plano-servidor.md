@@ -376,7 +376,7 @@ precisa estar publicada:
   nome do repositório. Até lá, o `compose.yml` é o único lugar que cita o
   nome (o `install-docker.sh` e o `scripts/release.sh` o leem de lá), para a
   troca ser em um ponto só.
-- Montada pelo `scripts/release.sh`, no Mac do Bruno, como o resto da
+- Montada pelo `scripts/release.sh`, no Mac de quem publica, como o resto da
   release, para `amd64` e `arm64`, no Docker local; publicada num passo à
   parte, `scripts/push-image.sh`, que pede confirmação.
 - `whatsapp-mcp update` no Docker passa a dizer o comando certo

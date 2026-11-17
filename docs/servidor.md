@@ -28,7 +28,7 @@ O app nunca atende a internet direto nem cuida de certificado: quem faz o
 | **Tailscale Funnel** (recomendada) | Uma conta grátis no Tailscale | Servidor em casa, sem domínio e sem abrir porta. O endereço fica como `https://whatsapp.sua-rede.ts.net` |
 | **Túnel da Cloudflare** | Conta na Cloudflare e um domínio nela | Quem quer o próprio domínio sem abrir porta |
 | **Caddy** | Um domínio apontado para o servidor, portas 80 e 443 abertas | VPS com IP público. O Caddy tira o certificado sozinho |
-| **Um proxy que você já tem** | nginx, Traefik ou outro | Quem já tem um servidor organizado |
+| **Um proxy que você já tem** | nginx, Caddy ou outro, instalado no próprio servidor | Quem já tem um servidor organizado |
 
 ### A senha do painel
 
