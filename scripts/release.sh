@@ -22,6 +22,9 @@ git rev-parse -q --verify "$TAG^{commit}" >/dev/null || { echo "there is no tag 
 for v in SIGN_IDENTITY NOTARY_KEY NOTARY_KEY_ID NOTARY_ISSUER; do
   [ -n "${!v:-}" ] || { echo "$v is not set: the .dmg must be signed and notarised" >&2; exit 1; }
 done
+# Docker must run and keep an image of two platforms before anything is
+# built or notarised: the server image is the release's last step.
+scripts/build-image.sh --check
 
 OUT="$PWD/dist/$TAG"
 # Under the repository rather than in a temporary folder, so Docker can mount
@@ -75,17 +78,9 @@ for target in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64 windows/amd64; d
 done
 
 # The Docker image, for linux/amd64 and linux/arm64, into this computer's
-# Docker store (which must keep images of several platforms: the containerd
-# image store). It is never pushed here: scripts/push-image.sh does that, as
+# Docker store. It is never pushed here: scripts/push-image.sh does that, as
 # its own step.
-IMAGE="$(scripts/image-name.sh)"
-echo "==> image $IMAGE:$VERSION"
-docker buildx build --platform linux/amd64,linux/arm64 -f build/docker/Dockerfile \
-  --build-arg VERSION="$TAG" --build-arg TAGS="$TAGS" \
-  -t "$IMAGE:$VERSION" -t "$IMAGE:latest" --load .
-for arch in amd64 arm64; do
-  echo "    $arch: $(docker run --rm --platform "linux/$arch" "$IMAGE:$VERSION" version)"
-done
+scripts/build-image.sh "$VERSION"
 
 cd "$OUT"
 shasum -a 256 -- * > checksums.txt

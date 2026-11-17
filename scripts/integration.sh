@@ -32,6 +32,7 @@ for a in "$@"; do
   esac
 done
 
+# shellcheck source=/dev/null # the settings are local and not in the repository
 if [ -f .env.integration ]; then set -a; . ./.env.integration; set +a; fi
 : "${TEST_MAC:?set TEST_MAC (user@host of the test Mac) in .env.integration}"
 APP="/Applications/WhatsApp MCP.app"
@@ -56,11 +57,13 @@ if [ "$install" = 1 ]; then
   [ -d "build/bin/WhatsApp MCP.app" ] || { echo "no build/bin/WhatsApp MCP.app to install" >&2; exit 1; }
   VERSION="${VERSION:-$(defaults read "$PWD/build/bin/WhatsApp MCP.app/Contents/Info" CFBundleShortVersionString 2>/dev/null || true)}"
   echo "==> installing on the test Mac"
+  # shellcheck disable=SC2016 # expanded by the shell on the test Mac
   ssh_ 'pkill -TERM -x "WhatsApp MCP"; for i in $(seq 1 20); do pgrep -x "WhatsApp MCP" >/dev/null || break; sleep 1; done
         pkill -KILL -x "WhatsApp MCP" 2>/dev/null; rm -rf "'"$APP"'"'
   tar -C build/bin -cf - "WhatsApp MCP.app" | ssh_ 'tar -C /Applications -xf - && open -a "'"$APP"'"'
 fi
 
+# shellcheck disable=SC2016 # expanded by the shell on the test Mac
 port=$(ssh_ 'f="$HOME/Library/Application Support/WhatsApp MCP/config.json"; [ -f "$f" ] && /usr/bin/plutil -extract port raw -o - "$f" 2>/dev/null || echo 47821')
 echo "==> waiting for the app on the test Mac (port $port) to be ready"
 status=""
