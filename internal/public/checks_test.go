@@ -228,3 +228,31 @@ func TestATurnWithNoCheckIsGivenBack(t *testing.T) {
 		t.Fatalf("%d slots still held after checks that panicked", n)
 	}
 }
+
+// Behind a proxy that forwards no visitor address, everyone shares one: a
+// flood of wrong passwords puts that address in a long wait and empties the
+// bucket, and the owner's known browser still signs in.
+func TestAKnownBrowserSignsInWhenTheProxyForwardsNoAddress(t *testing.T) {
+	st, err := state.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	s, _ := testServer(t, origin, "")
+	s.UseState(st)
+	known := browserCookie(t, signIn(s, "127.0.0.1:40000", testPassword, nil))
+	now := time.Now()
+	s.checks.now = func() time.Time { return now }
+	s.throttle.now = func() time.Time { return now }
+	s.checks.maxWait = 0
+	s.checks.logger = slog.New(slog.DiscardHandler)
+	for range checksBurst + 5 {
+		signIn(s, "127.0.0.1:40000", "wrong password!", nil)
+	}
+	if rec := signIn(s, "127.0.0.1:40000", testPassword, nil); rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("someone without the cookie, during the flood: %d", rec.Code)
+	}
+	if rec := signIn(s, "127.0.0.1:40000", testPassword, map[string]string{"Cookie": known}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("the known browser, with no forwarded address, during the flood: %d", rec.Code)
+	}
+}

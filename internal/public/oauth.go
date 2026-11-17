@@ -367,11 +367,12 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 	// back to this host before: a registered client chooses its own name,
 	// so a session alone never lets in one the person has not seen yet.
 	if s.needsPassword(r, ar) {
-		if wait := s.throttle.try(pr.client, pr.shared); wait > 0 {
+		known := s.knownBrowser(r, hash)
+		if wait := s.throttle.tryUnless(known != "", pr.client, pr.shared); wait > 0 {
 			s.consent(w, r, ar, c, i18n.Tf("Muitas tentativas com a senha errada. Tente de novo em %d segundos.", int(wait/time.Second)+1), http.StatusTooManyRequests)
 			return
 		}
-		right, busy := s.checkPassword(w, r, pr, hash, r.PostFormValue("password"))
+		right, busy := s.checkPassword(w, r, pr, hash, r.PostFormValue("password"), known)
 		if busy {
 			w.Header().Set("Retry-After", "5")
 			s.consent(w, r, ar, c, i18n.T("O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos."), http.StatusTooManyRequests)

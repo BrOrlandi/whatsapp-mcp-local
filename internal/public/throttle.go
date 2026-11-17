@@ -46,6 +46,14 @@ func (t *throttle) wait(addr string) time.Duration {
 
 // try is a sign-in from addr: how long it must still wait, or zero, and
 // then the try is counted as a wrong password until ok says otherwise.
+// tryUnless is try, skipped when skip is set.
+func (t *throttle) tryUnless(skip bool, addr string, shared bool) time.Duration {
+	if skip {
+		return 0
+	}
+	return t.try(addr, shared)
+}
+
 func (t *throttle) try(addr string, shared bool) time.Duration {
 	t.mu.Lock()
 	defer t.mu.Unlock()

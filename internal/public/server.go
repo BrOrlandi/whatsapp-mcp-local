@@ -298,15 +298,18 @@ var readTimeout = 30 * time.Second
 
 // checkPassword checks a password typed on the sign-in or the consent page,
 // in its turn among everyone's: busy means the turn did not come within a
-// few seconds. A known browser draws on its own reserve of turns. A right
+// few seconds. A known browser (known, the hash of its cookie, or "")
+// draws on its own reserve of turns. A right
 // password clears the address's wrong tries and makes the browser known.
-func (s *Server) checkPassword(w http.ResponseWriter, r *http.Request, pr peer, hash, password string) (right, busy bool) {
+func (s *Server) checkPassword(w http.ResponseWriter, r *http.Request, pr peer, hash, password, known string) (right, busy bool) {
 	if password == "" {
 		return false, false
 	}
-	release, ok := s.checks.acquire(r.Context(), s.knownBrowser(r, hash))
+	release, ok := s.checks.acquire(r.Context(), known)
 	if !ok {
-		s.throttle.undo(pr.client, pr.shared)
+		if known == "" {
+			s.throttle.undo(pr.client, pr.shared)
+		}
 		return false, true
 	}
 	defer release()
@@ -360,13 +363,17 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, pr peer) {
 		return
 	}
 	// The try is counted before the password is checked, in one step, so
-	// tries sent at once from one address do not all slip in.
-	if wait := s.throttle.try(pr.client, pr.shared); wait > 0 {
+	// tries sent at once from one address do not all slip in. A known
+	// browser skips the address's count (its own reserve bounds it): behind
+	// a proxy that forwards no address, everyone shares one, and a flood
+	// would lock the owner out.
+	known := s.knownBrowser(r, hash)
+	if wait := s.throttle.tryUnless(known != "", pr.client, pr.shared); wait > 0 {
 		w.Header().Set("Retry-After", strconv.Itoa(int(wait.Round(time.Second)/time.Second)+1))
 		s.loginPage(w, r, "", wait, http.StatusTooManyRequests)
 		return
 	}
-	right, busy := s.checkPassword(w, r, pr, hash, password)
+	right, busy := s.checkPassword(w, r, pr, hash, password, known)
 	if busy {
 		w.Header().Set("Retry-After", "5")
 		s.loginPage(w, r, i18n.T("O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos."), 0, http.StatusTooManyRequests)
