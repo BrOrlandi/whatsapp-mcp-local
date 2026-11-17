@@ -228,4 +228,3 @@ func TestATurnWithNoCheckIsGivenBack(t *testing.T) {
 		t.Fatalf("%d slots still held after checks that panicked", n)
 	}
 }
-
