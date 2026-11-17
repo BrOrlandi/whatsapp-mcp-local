@@ -1,0 +1,114 @@
+# WhatsApp MCP in server mode, with Docker (docs/servidor.md). install-docker.sh
+# writes the .env beside this file and starts it; run it again to change the
+# answers. Everything here reads the .env:
+#
+#   WHATSAPP_MCP_PUBLIC_URL           the server's https address
+#   WHATSAPP_MCP_PANEL_PASSWORD_HASH  the panel's password, as a bcrypt hash
+#   WHATSAPP_MCP_TRUSTED_PROXY        the one peer whose forwarded headers are believed
+#   COMPOSE_PROFILES                  how https arrives: tailscale, tunnel, caddy, or
+#                                     empty for a proxy you already run
+#
+# The app's public listener is never published on the host here: only the
+# container in front of it (Tailscale, cloudflared or Caddy) reaches it, on the
+# network below, and only that container is believed about the visitor's
+# address and about https. For a proxy you already run, install-docker.sh adds
+# compose.override.yml, which publishes it on the server's loopback only.
+#
+# This is the only place the image is named; scripts/release.sh reads it here.
+name: whatsapp-mcp
+
+services:
+  whatsapp-mcp:
+    image: ${WHATSAPP_MCP_IMAGE:-ghcr.io/brorlandi/whatsapp-mcp-local}:${WHATSAPP_MCP_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      WHATSAPP_MCP_PUBLIC_URL: ${WHATSAPP_MCP_PUBLIC_URL:?set WHATSAPP_MCP_PUBLIC_URL in .env (install-docker.sh)}
+      WHATSAPP_MCP_PANEL_PASSWORD_HASH: ${WHATSAPP_MCP_PANEL_PASSWORD_HASH:?set WHATSAPP_MCP_PANEL_PASSWORD_HASH in .env (install-docker.sh)}
+      WHATSAPP_MCP_TRUSTED_PROXY: ${WHATSAPP_MCP_TRUSTED_PROXY:?set WHATSAPP_MCP_TRUSTED_PROXY in .env (install-docker.sh)}
+      WHATSAPP_MCP_LANG: ${WHATSAPP_MCP_LANG:-pt-BR}
+      TZ: ${TZ:-America/Sao_Paulo}
+    volumes:
+      - data:/data
+    networks:
+      - wamcp
+
+  # Tailscale Funnel: a fixed https://<name>.<tailnet>.ts.net address, with its
+  # certificate, no domain and no open port. tailscaled runs in userspace (no
+  # extra privileges); Serve sets X-Forwarded-For to the visitor's address and
+  # X-Forwarded-Proto to https, replacing whatever the visitor sent.
+  tailscale:
+    profiles: [tailscale]
+    image: tailscale/tailscale:stable
+    restart: unless-stopped
+    hostname: ${TS_HOSTNAME:-whatsapp-mcp}
+    environment:
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_USERSPACE: "true"
+      TS_SERVE_CONFIG: /config/serve.json
+    configs:
+      - source: tailscale-serve
+        target: /config/serve.json
+    volumes:
+      - tailscale:/var/lib/tailscale
+    networks:
+      - wamcp
+
+  # A Cloudflare named tunnel: your own domain, no open port. The tunnel's
+  # public hostname points at http://whatsapp-mcp:47822 (in the Cloudflare
+  # dashboard). cloudflared appends the visitor's address to X-Forwarded-For.
+  cloudflared:
+    profiles: [tunnel]
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    networks:
+      - wamcp
+
+  # Caddy: a domain pointing at this server, ports 80 and 443 open; it gets the
+  # certificate by itself, and replaces any X-Forwarded-* the visitor sent.
+  caddy:
+    profiles: [caddy]
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - ${WHATSAPP_MCP_HTTP_PORT:-80}:80
+      - ${WHATSAPP_MCP_HTTPS_PORT:-443}:443
+      - ${WHATSAPP_MCP_HTTPS_PORT:-443}:443/udp
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - wamcp
+
+configs:
+  tailscale-serve:
+    content: |
+      {"TCP": {"443": {"HTTPS": true}},
+       "Web": {"$${TS_CERT_DOMAIN}:443": {"Handlers": {"/": {"Proxy": "http://whatsapp-mcp:47822"}}}},
+       "AllowFunnel": {"$${TS_CERT_DOMAIN}:443": true}}
+  caddyfile:
+    content: |
+      ${WHATSAPP_MCP_SITE:-localhost} {
+        reverse_proxy whatsapp-mcp:47822
+      }
+
+networks:
+  # A fixed range, so the address the app sees for the server's own loopback
+  # (the gateway, with compose.override.yml) is known in advance.
+  wamcp:
+    ipam:
+      config:
+        - subnet: ${WHATSAPP_MCP_SUBNET:-172.30.247.0/24}
+          gateway: ${WHATSAPP_MCP_GATEWAY:-172.30.247.1}
+
+volumes:
+  data:
+  tailscale:
+  caddy-data:
+  caddy-config:

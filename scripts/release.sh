@@ -2,6 +2,8 @@
 # Builds every file of a release on this Mac, into dist/vX.Y.Z: the signed and
 # notarised .dmg, the Windows installer and the Linux AppImage and .deb (amd64
 # and arm64) in Docker, the command line for each system, and checksums.txt.
+# It also builds the Docker image for linux/amd64 and linux/arm64 into this
+# computer's Docker store, without pushing it (scripts/push-image.sh does).
 # Releases are always built here, never by CI; publishing them with gh is the
 # next step (docs/desenvolvimento.md#publicar).
 #
@@ -70,6 +72,19 @@ for target in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64 windows/amd64; d
   else
     tar -C cli -czf "$OUT/whatsapp-mcp_${os}_${arch}.tar.gz" "$bin"
   fi
+done
+
+# The Docker image, for linux/amd64 and linux/arm64, into this computer's
+# Docker store (which must keep images of several platforms: the containerd
+# image store). It is never pushed here: scripts/push-image.sh does that, as
+# its own step.
+IMAGE="$(scripts/image-name.sh)"
+echo "==> image $IMAGE:$VERSION"
+docker buildx build --platform linux/amd64,linux/arm64 -f build/docker/Dockerfile \
+  --build-arg VERSION="$TAG" --build-arg TAGS="$TAGS" \
+  -t "$IMAGE:$VERSION" -t "$IMAGE:latest" --load .
+for arch in amd64 arm64; do
+  echo "    $arch: $(docker run --rm --platform "linux/$arch" "$IMAGE:$VERSION" version)"
 done
 
 cd "$OUT"
