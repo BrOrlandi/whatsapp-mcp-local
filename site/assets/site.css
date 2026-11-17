@@ -123,6 +123,11 @@ code {
 .nav__link svg { width: 20px; height: 20px; }
 .nav__link:hover { color: #fff; background: rgba(255, 255, 255, 0.07); }
 .nav .btn { margin-left: 10px; }
+/* Changelog only where it fits on one line with the other links. */
+.nav__link--wide { white-space: nowrap; }
+@media (max-width: 1100px) {
+  .nav__link--wide { display: none; }
+}
 @media (max-width: 760px) {
   .nav__link--page { display: none; }
   .nav__link--gh span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
