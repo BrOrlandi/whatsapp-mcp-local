@@ -16,6 +16,11 @@ desta versão é `ghcr.io/brorlandi/whatsapp-mcp-local:1.9.0-beta.1`
 (`WAMCP_VERSION=1.9.0-beta.1` no instalador); a tag `latest` só passa a
 existir na versão final.
 
+Quem tem um servidor numa `2.0.0-beta` (o modo remoto de teste) troca a
+imagem e mantém os dados: as chaves criadas lá continuam valendo no mesmo
+endereço `/mcp`, e aparecem em **Conexões**. O controle de um servidor pelo
+app do computador, que só existia nessas versões de teste, não existe mais.
+
 ### Adicionado
 
 - **Modo servidor.** O WhatsApp MCP pode rodar num servidor ligado o tempo

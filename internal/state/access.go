@@ -133,6 +133,19 @@ func (s *State) AddAPIKey(ctx context.Context, k APIKey, hash string) error {
 	return err
 }
 
+// ImportAPIKey keeps a key brought from an older version, by the hash of
+// its secret, with its last use (zero: never used); false when a key with
+// that hash or id is already there, revoked or not.
+func (s *State) ImportAPIKey(ctx context.Context, k APIKey, hash string, lastUsed time.Time) (bool, error) {
+	res, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO api_keys (id, hash, name, read_only, created_at, last_used_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		k.ID, hash, k.Name, k.ReadOnly, unix(k.CreatedAt), unix(lastUsed))
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}
+
 const apiKeyColumns = `id, name, read_only, created_at, last_used_at, revoked_at`
 
 func scanAPIKey(row interface{ Scan(...any) error }) (APIKey, error) {

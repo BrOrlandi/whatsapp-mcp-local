@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
@@ -49,6 +50,8 @@ type Server struct {
 	checks *checks
 	// browsers are the known browsers, which have a reserve in checks.
 	browsers browsers
+	// earlierKeys is set on a server that has keys of a 2.0.0-beta.
+	earlierKeys atomic.Bool
 
 	// state keeps the keys, logins and tokens; nil, and no agent gets in.
 	state     *state.State
@@ -176,7 +179,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// without looking it up: it cannot be a valid one.
 		var agent caller.Caller
 		valid := false
-		if s.access != nil && wellFormed(bearer) {
+		if s.access != nil && (wellFormed(bearer) || s.earlierKeys.Load() && earlierKeyShape(bearer)) {
 			agent, valid = authenticate(s.access, r.Context(), bearer)
 		}
 		if !valid {
@@ -276,6 +279,31 @@ func wellFormed(bearer string) bool {
 	}
 	return true
 }
+
+// earlierKeyShape reports whether a Bearer credential may be a key of a
+// 2.0.0-beta test version: those were any secret of 32 characters or more.
+// Only a server that has such keys looks one up (AcceptEarlierKeys).
+func earlierKeyShape(bearer string) bool {
+	if len(bearer) < legacyKeyMin || len(bearer) > 200 {
+		return false
+	}
+	for _, prefix := range []string{KeyPrefix, accessPrefix, refreshPrefix, codePrefix, clientPrefix} {
+		if strings.HasPrefix(bearer, prefix) {
+			return false
+		}
+	}
+	for _, c := range bearer {
+		if c <= ' ' || c > '~' {
+			return false
+		}
+	}
+	return true
+}
+
+// AcceptEarlierKeys lets in the keys a 2.0.0-beta test version made, which
+// ImportLegacyKeys brought into state.db: without it, a credential that is
+// not shaped like this version's is refused without being looked up.
+func (s *Server) AcceptEarlierKeys() { s.earlierKeys.Store(true) }
 
 // logPath is a path as the log shows it: a media link's secret is left out.
 func logPath(p string) string {

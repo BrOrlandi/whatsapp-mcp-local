@@ -153,6 +153,10 @@ func (a *access) authenticate(ctx context.Context, bearer string) (caller.Caller
 		return a.byKey(ctx, bearer)
 	case strings.HasPrefix(bearer, accessPrefix):
 		return a.byToken(ctx, bearer)
+	case earlierKeyShape(bearer):
+		// A key made by a 2.0.0-beta test version, which had another
+		// shape (legacykeys.go): found by its hash like any other.
+		return a.byKey(ctx, bearer)
 	}
 	return caller.Caller{}, false
 }

@@ -179,6 +179,17 @@ func Start(cfg Config) (*Daemon, error) {
 	if cfg.Public != nil {
 		d.public = public.New(cfg.Public, d.routes, logger)
 		d.public.UseState(primary.st)
+		// A server that comes from a 2.0.0-beta keeps the keys it had.
+		added, found, err := public.ImportLegacyKeys(context.Background(), primary.st, filepath.Join(cfg.DataDir, public.LegacyKeysFile), time.Now())
+		if err != nil {
+			logger.Warn("could not read the API keys of the earlier version", "error", err)
+		}
+		if found > 0 {
+			d.public.AcceptEarlierKeys()
+		}
+		if added > 0 {
+			logger.Info("kept the API keys of the earlier version", "keys", added)
+		}
 		d.public.UseMediaLinks(primary.server.Links().Live)
 		d.panel.Logins = d.public.Logins
 		d.publicSrv, d.publicAddr = public.NewHTTPServer(d.public), publicLn.Addr().String()
