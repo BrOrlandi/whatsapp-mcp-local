@@ -96,8 +96,12 @@ func toolsFor(c caller.Caller) []any {
 	// Never null: a caller that may use no tool gets an empty list.
 	out := []any{}
 	for _, d := range toolDefinitions() {
-		name := d.(map[string]any)["name"].(string)
+		def := d.(map[string]any)
+		name := def["name"].(string)
 		if c.MayUseTool(name, toolCategories[name]) {
+			if c.Kind != caller.Local {
+				forRemote(def)
+			}
 			out = append(out, d)
 		}
 	}

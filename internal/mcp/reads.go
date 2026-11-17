@@ -322,6 +322,14 @@ func (s *Server) exportMessages(ctx context.Context, a arguments) map[string]any
 	info, _ := os.Stat(path)
 	result := map[string]any{"path": path, "format": "ndjson", "count": count, "bytes": info.Size(),
 		"note": "one JSON message per line, oldest first, reactions and deleted messages left out; read the file from path rather than loading it whole"}
+	if fromRemote(ctx) {
+		// The file is on the server: an agent elsewhere downloads it.
+		delete(result, "path")
+		url := s.baseFor(ctx) + "/media/" + s.links.add(path, "application/x-ndjson", 10*time.Minute)
+		result["url"], result["expires_in_seconds"] = url, 600
+		result["curl"] = fmt.Sprintf("curl -sSf -o %q %q", filepath.Base(path), url)
+		result["note"] = "one JSON message per line, oldest first, reactions and deleted messages left out; the file is on the server: download it from url, valid for ten minutes"
+	}
 	if count > 0 {
 		result["first_timestamp"], result["last_timestamp"] = first, last
 	}

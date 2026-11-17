@@ -9,6 +9,7 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1135,6 +1136,12 @@ func (s *Server) downloadMedia(ctx context.Context, a arguments) map[string]any 
 	}
 	result := map[string]any{"message_id": m.ID, "chat_jid": m.ChatJID, "path": d.Path, "bytes": d.Bytes,
 		"media_type": m.MediaType, "mime_type": m.MimeType, "filename": m.Filename}
+	// A path on the server means nothing to an agent on another computer,
+	// and says how the server is laid out: it gets the content or a link.
+	remote := fromRemote(ctx)
+	if remote {
+		delete(result, "path")
+	}
 	if a.Link {
 		token := s.links.add(d.Path, m.MimeType, 10*time.Minute)
 		url := s.baseFor(ctx) + "/media/" + token
@@ -1150,6 +1157,9 @@ func (s *Server) downloadMedia(ctx context.Context, a arguments) map[string]any 
 		result["url"], result["expires_in_seconds"] = url, 600
 		result["curl"] = fmt.Sprintf("curl -sSf -o %q %q", filepath.Base(d.Path), url)
 		result["note"] = "the file is larger than 20 MiB, so it is not inlined: read it from path, or download it from url"
+		if remote {
+			result["note"] = "the file is larger than 20 MiB, so it is not inlined: download it from url"
+		}
 		return textResult(result, false)
 	}
 	body, err := os.ReadFile(d.Path)
@@ -1165,8 +1175,12 @@ func (s *Server) downloadMedia(ctx context.Context, a arguments) map[string]any 
 	case m.MediaType == "audio":
 		content = append(content, map[string]any{"type": "audio", "data": encoded, "mimeType": orDefault(m.MimeType, "audio/ogg")})
 	default:
+		uri := "file://" + d.Path
+		if remote {
+			uri = "whatsapp://media/" + url.PathEscape(m.ID) + extension(m)
+		}
 		content = append(content, map[string]any{"type": "resource", "resource": map[string]any{
-			"uri": "file://" + d.Path, "mimeType": orDefault(m.MimeType, "application/octet-stream"), "blob": encoded}})
+			"uri": uri, "mimeType": orDefault(m.MimeType, "application/octet-stream"), "blob": encoded}})
 	}
 	return map[string]any{"content": content, "isError": false}
 }
