@@ -14,7 +14,8 @@
 # address and about https. For a proxy you already run, install-docker.sh adds
 # compose.override.yml, which publishes it on the server's loopback only.
 #
-# This is the only place the image is named; scripts/release.sh reads it here.
+# The image is named here, and scripts/release.sh and push-image.sh read it
+# from here (docs/servidor.md repeats it for people).
 name: whatsapp-mcp
 
 services:

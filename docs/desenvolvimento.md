@@ -179,8 +179,8 @@ os testes. O instalador do Windows não é assinado.
   e abrir https://whatsapp-mcp.brorlandi.xyz/download para ver a versão nova
   em todos os sistemas.
 - **A imagem Docker do modo servidor:** o `scripts/release.sh` também a monta,
-  para `amd64` e `arm64`, no Docker deste Mac (o nome está só no
-  `compose.yml`), e nunca a publica. Antes, a etapa de servidor dos testes de
+  para `amd64` e `arm64`, no Docker deste Mac (os scripts leem o nome
+  no `compose.yml`), e nunca a publica. Antes, a etapa de servidor dos testes de
   integração sobe a imagem e passa pelo login, por uma chave, pelo OAuth e
   por uma chamada de ferramenta, sem conta do WhatsApp:
   `go test -tags integration_server -count=1 ./integration/`. Depois da
