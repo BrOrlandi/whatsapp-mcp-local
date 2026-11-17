@@ -1,0 +1,32 @@
+[
+  {
+    "file": "reuniao-pt.ogg",
+    "language": "pt",
+    "text": "Oi, Maria! A reunião de amanhã foi remarcada para as quinze horas, na sala três.",
+    "expect": ["reunião", "amanhã", "remarcada", "quinze|15", "sala"]
+  },
+  {
+    "file": "orcamento-pt.ogg",
+    "language": "pt",
+    "text": "Preciso que você me mande o orçamento atualizado até sexta-feira, por favor.",
+    "expect": ["preciso", "orçamento", "atualizado", "sexta", "favor"]
+  },
+  {
+    "file": "pedido-pt.ogg",
+    "language": "pt",
+    "text": "O pedido do cliente chegou ontem em Ribeirão Preto, mas a nota fiscal veio errada.",
+    "expect": ["pedido", "cliente", "chegou", "ontem", "ribeirão preto", "nota fiscal", "errada"]
+  },
+  {
+    "file": "envio-es.ogg",
+    "language": "es",
+    "text": "Hola, ¿puedes confirmar si el envío sale hoy por la tarde?",
+    "expect": ["hola", "confirmar", "envío", "hoy", "tarde"]
+  },
+  {
+    "file": "invoice-en.ogg",
+    "language": "en",
+    "text": "Hi, I'm just checking whether the invoice was paid this morning.",
+    "expect": ["checking", "invoice", "paid", "morning"]
+  }
+]

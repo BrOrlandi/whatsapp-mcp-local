@@ -17,6 +17,7 @@
         { "path": "CHANGELOG.md", "format": "keep-a-changelog", "audience": "public", "language": "pt-BR", "detail": "full" }
       ],
       "build": [
+        { "cmd": "scripts/integration.sh before tagging: every test green on the test Mac (settings in .env.integration, docs/testes-integracao.md)", "artifact": "build/integration/<timestamp>.log" },
         { "cmd": "SIGN_IDENTITY=… NOTARY_KEY=… NOTARY_KEY_ID=… NOTARY_ISSUER=… scripts/release.sh X.Y.Z (after tagging vX.Y.Z; always local, never CI)", "artifact": "dist/vX.Y.Z/*" }
       ],
       "publish": [

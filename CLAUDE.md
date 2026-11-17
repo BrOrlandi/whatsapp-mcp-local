@@ -81,10 +81,15 @@ Structured convention: `.claude/release.json` (read by the `release` skill). Pro
 
 ## Integration tests
 
-`docs/testes-integracao.md` has the end-to-end scripts with the real AI tools (Claude Desktop on
-Windows in a VMPal VM, and on a separate test Mac over SSH). Run them only when Bruno asks. The
-repository is public: never write his addresses, IPs or user names there; the doc uses
-`TEST_MAC` and `VM` placeholders.
+`scripts/integration.sh` runs before every release, on the test Mac: it builds this checkout,
+installs it there and runs `integration/` (`go test -tags integration`) against the real app and
+WhatsApp, covering the panel, the API, every MCP tool, the webhooks, the bridge and a restart.
+Only publish with it green. A new MCP tool must be added to `expectedTools` and tested there.
+Its settings (`TEST_MAC`, `WMCP_TO`…) live in the ignored `.env.integration`.
+`docs/testes-integracao.md` has it and the end-to-end scripts with the real AI tools (Claude
+Desktop on Windows in a VMPal VM, and on the test Mac over SSH), which run only when Bruno asks.
+The repository is public: never write his addresses, IPs, numbers or user names there; the doc
+uses `TEST_MAC` and `VM` placeholders.
 
 ## Git workflow
 

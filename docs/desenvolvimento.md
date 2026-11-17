@@ -157,6 +157,11 @@ sob demanda, e têm roteiro próprio: [testes-integracao.md](testes-integracao.m
 Toda versão é compilada e publicada à mão, neste Mac: o GitHub Actions só roda
 os testes. O instalador do Windows não é assinado.
 
+- **Antes de tudo, os testes de integração:** `scripts/integration.sh` compila
+  o que vai sair, instala no Mac de testes e passa por todas as funções do app
+  com o WhatsApp de verdade ([testes-integracao.md](testes-integracao.md#suíte-automática)).
+  Só se publica com tudo verde.
+
 - **Uma versão do app:** com o `CHANGELOG.md` escrito e a tag `vX.Y.Z` criada
   (anotada), `scripts/release.sh X.Y.Z` compila a tag num clone à parte e deixa
   em `dist/vX.Y.Z/` o `.dmg` assinado e notarizado, o instalador do Windows, o

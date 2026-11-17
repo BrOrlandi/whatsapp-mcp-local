@@ -1,14 +1,18 @@
 # Testes de integração
 
-Testes de ponta a ponta do app instalado de verdade, com o WhatsApp pareado e as
-ferramentas de IA reais (Claude Desktop, por enquanto). Eles **rodam só sob
-demanda**: quando o Bruno pede, antes de uma versão que mexe na instalação ou na
-conexão com as ferramentas. Não fazem parte do `go test` nem do CI, porque
-precisam de outra máquina, de uma conta do WhatsApp e de uma conta do Claude.
+Testes de ponta a ponta do app instalado de verdade, com o WhatsApp pareado.
+Não fazem parte do `go test ./...` nem do CI, porque precisam de outra máquina e
+de uma conta do WhatsApp. São duas partes:
 
-Cada roteiro abaixo é para ser seguido à mão ou por um agente, e diz o que
-conferir em cada passo. Os comandos usam estes nomes, que cada um define no seu
-ambiente (nunca registre aqui endereços, usuários ou IPs reais: o repositório é
+- **A suíte automática** (`scripts/integration.sh`), que **roda antes de toda
+  versão**, no Mac de testes: o painel, a API local, todas as ferramentas do
+  MCP, os webhooks, a ponte do Claude Desktop e um reinício do app.
+- **Os roteiros com as ferramentas de IA reais** (Claude Desktop no Mac e na VM
+  do Windows), mais abaixo, seguidos à mão ou por um agente quando o Bruno pede,
+  antes de uma versão que mexe na instalação ou na conexão com as ferramentas.
+
+Os comandos usam estes nomes, que cada um define no seu ambiente (nunca
+registre aqui endereços, usuários, números ou IPs reais: o repositório é
 público):
 
 | Nome | O que é |
@@ -16,6 +20,90 @@ público):
 | `TEST_MAC` | o Mac de testes, como `usuario@host` para o `ssh` |
 | `VM` | o id da VM do Windows no VMPal (`vmpal list` mostra) |
 | `vmpal` | o comando do VMPal: `/Applications/VMPal.app/Contents/Helpers/VMPalMachine.app/Contents/MacOS/VMPalMachine --cli` |
+
+## Suíte automática
+
+```sh
+scripts/integration.sh                    # compila este checkout, instala no Mac de testes e testa
+scripts/integration.sh --no-build         # instala o app que já está em build/bin
+scripts/integration.sh --no-install       # testa o app que está instalado lá, como está
+scripts/integration.sh -run 'TestApp/messaging'   # o resto vai para o go test
+```
+
+O script compila o app para arm64 com a versão `<git describe>-it`, troca o app
+do Mac de testes, espera o WhatsApp conectar, abre dois túneis SSH (o app do Mac
+de testes numa porta daqui e, no sentido contrário, um receptor de webhooks
+daqui numa porta de lá) e roda `go test -tags integration ./integration/`. O
+log fica em `build/integration/`. Tudo verde é condição para publicar.
+
+**Configuração.** Em `.env.integration`, na raiz (ignorado pelo git):
+
+| Variável | O que é |
+| --- | --- |
+| `TEST_MAC` | o Mac de testes (`usuario@host`), pareado com a conta de teste |
+| `WMCP_TO` | o número (com DDI) ou JID que recebe as mensagens de teste. O wacli não deixa a conta mandar para si mesma. Tudo o que a suíte manda é apagado para todos no fim. Sem ele, a parte que envia é pulada |
+| `WMCP_GROUP` | opcional: um grupo só de teste que a conta administra. A suíte muda a descrição e o nome dele e põe de volta, e pede o link de convite |
+| `WMCP_TOKEN` | a `WHATSAPP_MCP_TOKEN` do app, se ele tiver uma |
+
+**O que ela confere**, na ordem:
+
+1. **HTTP:** `/healthz`, `/api/status` (a versão é a compilada, `next` é
+   `ready`), `/health` (só a verificação `receiving` pode falhar, porque a conta
+   de teste recebe pouco), as páginas do painel sem sobra de template, as
+   leituras da API, os logs de suporte e a recusa de um pedido de outra origem.
+2. **Protocolo MCP:** `initialize` com instruções, `ping` e `tools/list`, que
+   tem de ser exatamente a lista de `expectedTools` em
+   `integration/app_test.go`. Uma ferramenta nova falha aqui até ganhar o seu
+   teste.
+3. **Leituras:** `health`, `whatsapp_status`, `list_chats` (com `fields`),
+   `get_chat_messages` (com `count_only`), `get_message_context`,
+   `search_messages`, `list_contacts`, `message_stats`, `list_unread`,
+   `list_unanswered`, `list_mentions`, `media_stats`, `export_messages` (o
+   arquivo existe lá), `check_numbers` e `get_profile_picture`.
+4. **API de webhooks:** criar, ler, alterar, a entrega de teste assinada, uma
+   URL inválida recusada, apagar.
+5. **Mensagens**, para `WMCP_TO`, com um webhook (`include_own`) recebendo tudo:
+   `dry_run`, `send_typing`, texto (o webhook chega, assinado, e a busca acha),
+   resposta citando, reação (e o webhook dela), edição, o recibo de entrega do
+   outro celular, localização, enquete e `get_poll_results`, encaminhar (com e
+   sem `dry_run`), imagem, documento e áudio feitos no Mac de testes (`sips`,
+   `say`), `download_media` com link, `transcribe_audio`, `save_transcript` (a busca
+   acha o texto salvo), `purge_media` da conversa, `sync_history`,
+   `mark_chat_read` e a prévia de `delete_message`, que não apaga. Cada envio
+   devolve em `chat_jid` a conversa como as leituras a conhecem. No fim, tudo
+   o que foi mandado é apagado para todos.
+6. **Transcrição:** os áudios de `integration/testdata/audio/` (feitos com a
+   ElevenLabs por `scripts/integration-audio.py`, e
+   guardados no repositório) vão como áudio para `WMCP_TO` e são transcritos no
+   Mac de testes. Cada transcrição tem de trazer as palavras de `expect` em
+   `cases.json` (com alternativas, como `quinze|15`), com uma falta tolerada
+   por áudio; a segunda chamada devolve a transcrição guardada. Precisa da
+   transcrição instalada lá (Configurações › Transcrição de áudio); para um
+   caso novo, acrescente-o a `cases.json` e rode
+   `ELEVENLABS_API_KEY=… scripts/integration-audio.py`, que só gera os que faltam
+   (`--force` refaz todos).
+7. **Estado local:** `organise_chat` (fixar, silenciar e arquivar, e desfazer),
+   `mark_handled` e `snooze_chat`, e limpar as marcas.
+8. **Grupos:** `list_groups` e `get_group`; com `WMCP_GROUP`, `update_group`,
+   `get_group_invite_link` (e o `reset` sem `confirm`, que não troca o link) e
+   `leave_group` sem `confirm`, que não sai.
+9. **API de mídia:** a retenção (mudada e posta de volta) e a prévia de
+   `purge_media`.
+10. **Ponte:** o `whatsapp-mcp-bridge` do app, rodado lá como o Claude Desktop
+   roda, responde `initialize`, `tools/list` e uma chamada.
+11. **Reinício:** o app é fechado e aberto de novo, volta a `ready`, manda o
+    aviso `online` com `reason` `started` e `offline_since` de pouco antes, e
+    fica um só `wacli sync` rodando.
+
+**A conta de teste não pode estar em outro lugar.** Uma cópia da mesma sessão
+do wacli (outro computador, um container) faz os dois se derrubarem a cada
+poucos segundos: o log de diagnóstico mostra `stream_replaced` ("another client
+took over this session"), e os envios falham com `not connected`. Pare a cópia
+ou pareie o Mac de testes de novo.
+
+**O Mac de testes não pode dormir.** O script deixa um `caffeinate` de duas
+horas rodando lá. Se ele dormir mesmo assim, o SSH para de responder (o ping
+continua) e só acorda com alguém na máquina.
 
 ## Preparar o Mac de testes
 
