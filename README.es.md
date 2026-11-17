@@ -178,6 +178,7 @@ Para usar el WhatsApp del servidor en Claude desde el navegador y el celular, o
 en ChatGPT, el **modo servidor** pone el panel y el MCP en una dirección
 `https` protegida por contraseña, con Docker en un comando:
 [la guía del modo servidor](docs/servidor.md#modo-servidor) (en portugués).
+Llega con la versión 1.9.0.
 
 ## Bueno saber
 

@@ -29,10 +29,13 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ### Segurança
 
-- **Os números e termos que uma ferramenta de IA manda agora são conferidos
-  antes de chegar ao wacli.** Um valor escrito como opção de linha de comando
-  (por exemplo, um "número" começando com `--`) podia ser lido pelo wacli como
-  uma opção. Isso vale também para quem não usa o modo servidor.
+- **Um valor que uma ferramenta de IA manda nunca vira opção do wacli.** Um
+  número ou termo de busca escrito como opção de linha de comando (por
+  exemplo, começando com `--`) podia ser lido pelo wacli como uma opção.
+  Nomes de contatos e grupos continuam valendo como destinatário. Isso vale
+  também para quem não usa o modo servidor.
+- **O arquivo do serviço que guarda o token** (`whatsapp-mcp service install`
+  com o token na variável de ambiente) agora só o seu usuário lê.
 
 Inclui o wacli 0.26.1.
 

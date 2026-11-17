@@ -173,6 +173,7 @@ To use the server's WhatsApp in Claude on the web and on the phone, or in
 ChatGPT, the **server mode** puts the panel and the MCP at an `https` address
 behind a password, with Docker in one command:
 [the server mode guide](docs/servidor.md#modo-servidor) (in Portuguese).
+It arrives with version 1.9.0.
 
 ## Good to know
 

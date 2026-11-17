@@ -13,6 +13,9 @@ computador em casa, um mini PC, uma VPS. Há dois jeitos:
 
 ## Modo servidor
 
+> **Chega com a versão 1.9.0.** Este guia já descreve o modo servidor, mas a
+> imagem Docker e os comandos `server` só existem a partir dela.
+
 O servidor passa a ter duas portas:
 
 - **A local**, como sempre: `127.0.0.1:47821`, sem senha, só para os
@@ -35,14 +38,20 @@ O app nunca atende a internet direto nem cuida de certificado: quem faz o
 A senha do painel é o que protege as suas conversas na internet: quem a
 souber entra no painel e libera qualquer ferramenta de IA. Use uma **senha
 longa e aleatória**, gerada por um gerenciador de senhas, com 16 caracteres
-ou mais. O app aceita a partir de 10, mas uma senha curta ou que já foi usada
-em outro lugar não serve aqui.
+ou mais. O app aceita a partir de 10 caracteres: isso é um piso, não uma
+recomendação. Uma senha curta ou que já foi usada em outro lugar não serve
+aqui.
 
 O porquê: o endereço está na internet, e qualquer pessoa pode tentar adivinhar
 a senha. O app dificulta (espera crescente depois de erros, por endereço, e um
 limite para todos juntos de cerca de 21 mil tentativas por dia), mas só uma
 senha longa e aleatória torna a adivinhação inútil. Quando alguém tenta
 demais, o registro mostra o aviso *"someone may be guessing it"*.
+
+Durante uma enxurrada de tentativas, o navegador em que você já entrou com a
+senha certa continua entrando em segundos, de qualquer endereço: ele fica
+conhecido por um cookie, que a troca de senha encerra. Num navegador novo, a
+espera é maior, mas a sua vez chega.
 
 A senha nunca fica gravada: o app guarda só um resumo dela (um hash bcrypt).
 
@@ -66,6 +75,14 @@ O instalador pergunta:
    precisa (veja as seções abaixo).
 4. **A senha do painel**, duas vezes. Ela não aparece na tela e não vai para
    nenhum arquivo: só o hash vai para o `.env`.
+
+Para rodar sem perguntas, as respostas vêm do ambiente (`WAMCP_DIR`,
+`WAMCP_URL`, `WAMCP_PROFILE`...), e cada segredo vem de um arquivo que só você
+lê: `WAMCP_PASSWORD_FILE` para a senha, `WAMCP_TS_AUTHKEY_FILE` para a chave do
+Tailscale e `WAMCP_TUNNEL_TOKEN_FILE` para o token do túnel. Não escreva um
+segredo direto na linha de comando: ele fica no histórico do shell e, enquanto
+o comando roda, aparece para os outros usuários do servidor. O começo do
+`install-docker.sh` lista todas as variáveis.
 
 Depois ele baixa a imagem, sobe tudo e diz o que fazer em seguida. Para mudar
 uma resposta, rode o instalador de novo: ele mostra as respostas de antes e
@@ -126,6 +143,13 @@ O certificado sai sozinho no primeiro acesso.
 
 ### Um proxy que você já tem
 
+> **Para um servidor em que você confia em todas as contas.** Nesta opção,
+> qualquer conta do próprio servidor alcança a porta pública como se fosse o
+> proxy, e pode dizer o endereço que quiser ao app. A porta local
+> (`127.0.0.1:47821`) também não pede senha a nenhuma conta do servidor, a
+> não ser que você defina um [token](#token). Num
+> servidor dividido com outras pessoas, use o Tailscale, o túnel ou o Caddy.
+
 Escolha `proxy` no instalador. A porta pública fica só no `127.0.0.1` do
 servidor (padrão `47822`), para o seu proxy encaminhar; nada mais na rede a
 alcança. Duas regras, sem as quais a proteção contra quem tenta adivinhar a
@@ -147,6 +171,15 @@ não está coberto aqui.
 
 ## Instalar no Linux sem Docker
 
+> **Para um servidor em que você confia em todas as contas.** Sem Docker, um
+> proxy no próprio servidor é reconhecido pelo endereço local, e qualquer conta
+> do servidor que fale com a porta pública é tratada como esse proxy, podendo
+> dizer o endereço que quiser. A porta local (`127.0.0.1:47821`) também não
+> pede senha a nenhuma conta do servidor, a não ser que você defina um
+> [token](#token). O arquivo do serviço, quando guarda o
+> token, só o seu usuário lê. Num servidor dividido com outras pessoas, prefira
+> o Docker com o Tailscale, o túnel ou o Caddy.
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/BrOrlandi/whatsapp-mcp-local/main/install.sh | bash
 whatsapp-mcp server setup
@@ -157,7 +190,10 @@ sem mostrar), guarda tudo na pasta de dados e reinstala o serviço, que passa a
 atender também a porta pública, em `127.0.0.1:47822`. Aponte para ela o seu
 `https`: o Caddy ou o nginx do servidor, o `tailscale funnel 47822`, ou o
 `cloudflared` instalados no próprio servidor. Um proxy no próprio servidor é
-reconhecido sozinho; um em outra máquina vai em `--trusted-proxy`.
+reconhecido sozinho; um em outra máquina vai em `--trusted-proxy`, mas só por
+uma rede privada ou com TLS entre ele e o app: o caminho entre os dois leva a
+senha e os tokens, e em HTTP simples numa rede que outros veem eles ficariam
+expostos.
 
 > **A confirmar:** o `tailscale funnel` e o `cloudflared` instalados direto no
 > servidor, sem Docker, ainda não foram testados com este modo.
@@ -281,7 +317,8 @@ arquivo (`--key-file`).
 
 A página *Conexões* do painel lista quem entrou pelo endereço público: os
 logins e as chaves, com o que cada um pode fazer, quando entrou e quando usou
-pela última vez. *Cortar acesso* vale na hora.
+pela última vez. *Cortar acesso* vale na hora, e o aplicativo que tinha
+aquele login passa a pedir a senha de novo se tentar voltar.
 
 - **Só ler:** um login ou uma chave *Só ler* vê e busca as conversas, mas não
   envia, não apaga e não mexe em grupos. Escolha na hora de aprovar o login ou
@@ -305,6 +342,13 @@ ou não usar mais.
 
 - Com Docker, na pasta da instalação:
   `docker compose pull && docker compose up -d`. Os dados ficam.
+- Os programas na frente do app (Tailscale, cloudflared, Caddy) estão presos a
+  uma versão no `compose.yml` (`tailscale/tailscale:v1.104`,
+  `cloudflare/cloudflared:2026.11.1`, `caddy:2.11`). Rodar o instalador de novo
+  traz o `compose.yml` da versão atual, com as versões novas deles. Para
+  avançar um por conta própria, troque a versão no `compose.yml` (as
+  disponíveis estão no Docker Hub de cada um) e rode o mesmo
+  `docker compose pull && docker compose up -d`.
 - Sem Docker: `whatsapp-mcp update`.
 
 ## Backup

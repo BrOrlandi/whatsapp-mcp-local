@@ -170,7 +170,8 @@ atualizações, inclusive num contêiner Docker. Veja
 Para usar o WhatsApp do servidor no Claude pelo navegador e pelo celular, ou
 no ChatGPT, o **modo servidor** põe o painel e o MCP num endereço `https`
 protegido por senha, com Docker num comando:
-[o guia do modo servidor](docs/servidor.md#modo-servidor).
+[o guia do modo servidor](docs/servidor.md#modo-servidor). Chega com a
+versão 1.9.0.
 
 ## Bom saber
 
