@@ -93,7 +93,8 @@ func toolDefinitions() []any {
 
 // toolsFor is what tools/list answers a caller: the tools it may use.
 func toolsFor(c caller.Caller) []any {
-	var out []any
+	// Never null: a caller that may use no tool gets an empty list.
+	out := []any{}
 	for _, d := range toolDefinitions() {
 		name := d.(map[string]any)["name"].(string)
 		if c.MayUseTool(name, toolCategories[name]) {
