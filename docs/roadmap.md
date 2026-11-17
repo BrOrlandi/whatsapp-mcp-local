@@ -5,6 +5,9 @@ para ele; os demais são só a ideia, registrada para não se perder.
 
 ## Com plano
 
+- **Modo servidor simples (1.9.0) e o caminho até a 2.0**: painel na web com
+  senha, MCP por endereço com login ou chave, Docker com um comando; substitui
+  a versão servidor antiga. [Plano](plano-servidor.md).
 - **Segurança das ferramentas**: a pessoa escolhe quais conversas a IA vê e
   que tipo de ação ela pode fazer. [Plano](plano-seguranca.md).
 - **Biblioteca de figurinhas**: o app guarda as figurinhas, mostra todas numa
@@ -16,6 +19,10 @@ para ele; os demais são só a ideia, registrada para não se perder.
 
 ## A revisar
 
+- **Enviar cartão de contato (`send_contact`).** A versão servidor tem, e o
+  Local não, porque o wacli não envia cartão de contato. Pedido ao wacli
+  (`wacli send contact`, um vCard) em andamento; quando sair numa release,
+  entra como ferramenta do MCP e nos `expectedTools` dos testes de integração.
 - **Onde roda a transcrição dos áudios.** Hoje ela é conferida só no Mac.
   Falta:
   - Testar o whisper.cpp no Windows e no Linux. O Handy, app em que a
