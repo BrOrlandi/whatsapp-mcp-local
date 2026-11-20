@@ -999,5 +999,19 @@
  "no Docker, o modo servidor vem do .env e do compose.yml (install-docker.sh)": "in Docker, the server mode comes from the .env and compose.yml (install-docker.sh)",
  "no Docker, o modo servidor vem do .env e do compose.yml; mude lá": "in Docker, the server mode comes from the .env and compose.yml; change it there",
  "o serviço foi instalado, mas ainda não responde: %v (whatsapp-mcp logs)": "the service was installed but does not answer yet: %v (whatsapp-mcp logs)",
- "uso: whatsapp-mcp server [status|setup|off]": "usage: whatsapp-mcp server [status|setup|off]"
+ "uso: whatsapp-mcp server [status|setup|off]": "usage: whatsapp-mcp server [status|setup|off]",
+ "O WhatsApp MCP %s está disponível.": "WhatsApp MCP %s is available.",
+ "Como atualizar": "How to update",
+ "Ver o que mudou": "See what changed",
+ "A versão %s está disponível.": "Version %s is available.",
+ "Para atualizar, rode no servidor, na pasta da instalação:": "To update, run on the server, in the install folder:",
+ "Para atualizar, rode no servidor:": "To update, run on the server:",
+ "Se o arquivo .env dessa pasta fixa uma versão (WHATSAPP_MCP_VERSION), troque-a pela nova antes. Suas conversas e configurações ficam.": "If the .env file in that folder pins a version (WHATSAPP_MCP_VERSION), change it to the new one first. Your conversations and settings stay.",
+ "Ele baixa a versão nova, confere o arquivo e reinicia o serviço. Suas conversas e configurações ficam.": "It downloads the new version, checks the file and restarts the service. Your conversations and settings stay.",
+ "Endereços do servidor": "Server addresses",
+ "Endereço público": "Public address",
+ "Endereço na rede interna": "Address on the internal network",
+ "O endereço interno é para onde aponta o programa que fica na frente do servidor (Traefik, Caddy, Dokploy, um túnel). Os dois são definidos na instalação e não mudam por aqui.": "The internal address is where the program in front of the server points (Traefik, Caddy, Dokploy, a tunnel). Both are set at install time and do not change here.",
+ "O QR code expirou. Clique em Tentar de novo para gerar outro.": "The QR code expired. Click Try again to get a new one.",
+ "Não foi possível conectar agora. Clique em Tentar de novo.": "Could not connect right now. Click Try again."
 }

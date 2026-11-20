@@ -308,6 +308,7 @@ func serve(cfg config) error {
 		WacliBin: cfg.WacliBin, StoreDir: cfg.StoreDir, DataDir: cfg.DataDir,
 		LogPath: logPath(), Version: version, Logger: logger,
 		Desktop: desktopCommand(cfg), CommandLine: true, Public: pub,
+		Panel: func(p *panel.Panel) { p.Release = newRelease(cfg, logger) },
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
 		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)

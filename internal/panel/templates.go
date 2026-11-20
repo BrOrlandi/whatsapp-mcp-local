@@ -18,7 +18,7 @@ const pageSource = `
 <a class="colophon__support" href="{{.}}" rel="noopener noreferrer" target="_blank">{{t "Apoie o projeto"}}</a>{{end}}
 </p>
 </footer>
-{{if .App}}{{template "updatebanner" .}}{{end}}
+{{if .App}}{{template "updatebanner" .}}{{else if .Release}}{{template "releasebanner" .}}{{end}}
 <script src="/assets/app.js" defer></script></div></body></html>{{end}}
 
 {{/* A new version, on every page of the app, in the bottom left corner. */}}
@@ -27,6 +27,14 @@ const pageSource = `
 <p class="update-banner__title">{{t "Nova versão disponível"}}</p>
 <p class="update-banner__text" data-update-banner-text>{{tf "O WhatsApp MCP %s está disponível. O aplicativo será reiniciado após a instalação." .Update.Latest}}</p>
 <div class="actions"><button class="btn btn--small" type="button" data-update-banner-install>{{t "Atualizar agora"}}</button><a class="btn btn--ghost btn--small" data-update-banner-page href="{{.Update.Page}}" target="_blank" rel="noopener" hidden>{{t "Baixar a versão nova"}}</a></div>
+</aside>{{end}}
+
+{{/* The same corner on a server, where the page cannot install: it points at the steps. */}}
+{{define "releasebanner"}}<aside class="update-banner" data-update-banner data-update-server aria-live="polite"{{if ne .Update.State "available"}} hidden{{end}}>
+<button class="update-banner__close" type="button" aria-label="{{t "Agora não"}}" data-update-banner-close>&times;</button>
+<p class="update-banner__title">{{t "Nova versão disponível"}}</p>
+<p class="update-banner__text" data-update-banner-text>{{tf "O WhatsApp MCP %s está disponível." .Update.Latest}}</p>
+<div class="actions"><a class="btn btn--small" href="/configuracoes#atualizacoes">{{t "Como atualizar"}}</a></div>
 </aside>{{end}}
 
 {{define "githubmark"}}<svg class="colophon__icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>{{end}}
@@ -747,6 +755,38 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 
 {{end}}
 
+{{if .ServerMode}}
+<section class="card" id="enderecos">
+<div class="card__head"><h2 class="card__title">{{icon "globe"}}{{t "Endereços do servidor"}}</h2></div>
+<div class="card__body stack">
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço público"}}</span></div><pre data-copy><code>{{.PublicURL}}</code></pre></div>
+{{with .InternalURL}}<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço na rede interna"}}</span></div><pre data-copy><code>{{.}}</code></pre></div>
+<p class="muted">{{t "O endereço interno é para onde aponta o programa que fica na frente do servidor (Traefik, Caddy, Dokploy, um túnel). Os dois são definidos na instalação e não mudam por aqui."}}</p>{{end}}
+</div></section>
+
+{{end}}
+{{if .Release}}
+<section class="card" id="atualizacoes" data-update data-update-server>
+<div class="card__head"><h2 class="card__title">{{icon "refresh"}}{{t "Versão e atualizações"}}</h2></div>
+<div class="card__body stack">
+<div class="version-bar">
+<div class="version"><span class="version__label">{{t "Versão instalada"}}</span>
+<div class="version__row"><span class="version__number">{{.Settings.Version}}</span><span class="pill" data-update-badge hidden></span></div></div>
+<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-update-check>{{t "Procurar atualização"}}</button><a class="btn btn--ghost btn--small" data-update-page href="{{.Update.Page}}" target="_blank" rel="noopener"{{if not (and (eq .Update.State "available") .Update.Page)}} hidden{{end}}>{{t "Ver o que mudou"}}</a></div>
+{{with .Settings.WacliVersion}}<span class="muted version-bar__wacli">{{tf "wacli %s" .}}</span>{{end}}
+</div>
+<p class="muted version__note" data-update-text hidden></p>
+<div class="stack" data-update-how{{if ne .Update.State "available"}} hidden{{end}}>
+{{if .Release.Container}}<p>{{t "Para atualizar, rode no servidor, na pasta da instalação:"}}</p>
+<div class="snippet"><pre data-copy><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
+<p class="muted">{{t "Se o arquivo .env dessa pasta fixa uma versão (WHATSAPP_MCP_VERSION), troque-a pela nova antes. Suas conversas e configurações ficam."}}</p>
+{{else}}<p>{{t "Para atualizar, rode no servidor:"}}</p>
+<div class="snippet"><pre data-copy><code>whatsapp-mcp update</code></pre></div>
+<p class="muted">{{t "Ele baixa a versão nova, confere o arquivo e reinicia o serviço. Suas conversas e configurações ficam."}}</p>
+{{end}}</div>
+</div></section>
+
+{{end}}
 <section class="card" id="aparencia" hidden data-theme-switch>
 <div class="card__head"><h2 class="card__title">{{icon "palette"}}{{t "Aparência"}}</h2></div>
 <div class="card__body">

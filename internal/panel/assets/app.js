@@ -464,7 +464,7 @@
           break;
         case "error":
           showOnly("error");
-          pairing.querySelector("[data-error-text]").textContent = t("Não foi possível conectar: %s", state.pairing_error || p.error);
+          pairing.querySelector("[data-error-text]").textContent = state.pairing_error || t("Não foi possível conectar agora. Clique em Tentar de novo.");
           break;
         case "done":
           window.location.reload();
@@ -886,6 +886,8 @@
   var card = document.querySelector("[data-update]");
   var banner = document.querySelector("[data-update-banner]");
   if (!card && !banner) return;
+  // On a server the page cannot install: it shows the command to run there.
+  var server = (card || banner).hasAttribute("data-update-server");
   var timer = null;
   var DISMISSED = "wamcp-update-dismissed";
 
@@ -923,6 +925,11 @@
   }
 
   function note(u) {
+    if (server) {
+      if (u.state === "available") return t("A versão %s está disponível.", u.latest);
+      if (u.state === "error") return t("Não foi possível procurar agora: %s", u.error);
+      return u.state === "unsupported" ? t("Ela não se atualiza sozinha.") : "";
+    }
     switch (u.state) {
       case "available": case "downloading": return t("O aplicativo será reiniciado após a instalação.");
       case "manual": return t("Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez.");
@@ -951,18 +958,27 @@
     var text = card.querySelector("[data-update-text]");
     text.textContent = note(u);
     text.hidden = !text.textContent;
-    install.hidden = u.state !== "available";
-    install.disabled = false;
-    page.hidden = !(u.state === "manual" && u.page);
+    if (install) {
+      install.hidden = u.state !== "available";
+      install.disabled = false;
+    }
+    var how = card.querySelector("[data-update-how]");
+    if (how) how.hidden = u.state !== "available";
+    page.hidden = !(u.state === (server ? "available" : "manual") && u.page);
     if (u.page) page.href = u.page;
   }
 
   function renderBanner(u) {
     if (!banner) return;
     var shown = (u.state === "available" || u.state === "manual") ? !dismissed(u.latest) : (u.state === "downloading" || u.state === "ready");
+    if (server) shown = u.state === "available" && !dismissed(u.latest);
     banner.hidden = !shown;
     if (!shown) return;
     var text = banner.querySelector("[data-update-banner-text]");
+    if (server) {
+      text.textContent = t("O WhatsApp MCP %s está disponível.", u.latest);
+      return;
+    }
     var install = banner.querySelector("[data-update-banner-install]");
     var page = banner.querySelector("[data-update-banner-page]");
     install.hidden = u.state === "manual";
@@ -1026,11 +1042,11 @@
       });
     });
     var cardInstall = card.querySelector("[data-update-install]");
-    cardInstall.addEventListener("click", function () { install(cardInstall); });
+    if (cardInstall) cardInstall.addEventListener("click", function () { install(cardInstall); });
   }
   if (banner) {
     var bannerInstall = banner.querySelector("[data-update-banner-install]");
-    bannerInstall.addEventListener("click", function () { install(bannerInstall); });
+    if (bannerInstall) bannerInstall.addEventListener("click", function () { install(bannerInstall); });
     banner.querySelector("[data-update-banner-close]").addEventListener("click", function () {
       banner.hidden = true;
       fetch("/api/atualizacao", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (u) {

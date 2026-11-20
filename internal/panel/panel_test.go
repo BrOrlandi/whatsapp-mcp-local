@@ -284,3 +284,65 @@ func TestRenameConnection(t *testing.T) {
 		t.Errorf("the name did not come back: %q", tool)
 	}
 }
+
+// A failed pairing is worded for the person: wacli is an inner part, and its
+// own text, with the command it suggests, never reaches the page.
+func TestPairingErrorsNeverShowWacli(t *testing.T) {
+	for raw, want := range map[string]string{
+		"QR code timed out; run `wacli auth` again to get a new code": "O QR code expirou. Clique em Tentar de novo para gerar outro.",
+		"wacli auth ended without pairing; try again":                 "Não foi possível conectar: a conexão terminou sem completar; tente de novo",
+		"some new failure of wacli auth":                              "Não foi possível conectar agora. Clique em Tentar de novo.",
+		"":                                                            "",
+	} {
+		got := pairingError(raw)
+		if got != want {
+			t.Errorf("pairingError(%q) = %q, want %q", raw, got, want)
+		}
+		if strings.Contains(got, "wacli") {
+			t.Errorf("pairingError(%q) names wacli: %q", raw, got)
+		}
+	}
+}
+
+// On a server the page shows its version and its two addresses, and how to
+// update; it never offers to install, change the port or erase the data.
+func TestSettingsOnAServer(t *testing.T) {
+	render := func(rel *Release, state string) string {
+		var b strings.Builder
+		l := layout{Title: "Configurações", Active: "configuracoes", ServerMode: true, Remote: true, Release: rel,
+			PublicURL: "https://wa.example.com", InternalURL: "http://whatsapp-mcp:47822",
+			Update: UpdateState{State: state, Latest: "1.9.1", Page: "https://example.com/release"}}
+		l.Settings.Version = rel.Version
+		if err := parseTemplates().ExecuteTemplate(&b, "configuracoes", struct {
+			layout
+			Setup       setup
+			Port        int
+			PortChanged bool
+			Local       localasr.Status
+			Total       int
+			Corrected   int
+		}{layout: l}); err != nil {
+			t.Fatal(err)
+		}
+		return b.String()
+	}
+	docker := render(&Release{Version: "1.9.0", Container: true}, "available")
+	for _, want := range []string{"Versão e atualizações", "1.9.0", "docker compose pull &amp;&amp; docker compose up -d", "WHATSAPP_MCP_VERSION",
+		"Endereços do servidor", "https://wa.example.com", "http://whatsapp-mcp:47822", `data-update-banner data-update-server`, `href="/configuracoes#atualizacoes"`} {
+		if !strings.Contains(docker, want) {
+			t.Errorf("Configurações on a Docker server lacks %q", want)
+		}
+	}
+	for _, unwanted := range []string{"data-update-install", "Instalar e reiniciar", "Porta do MCP", "Ao ligar e ao fechar", "Apagar tudo", "whatsapp-mcp update"} {
+		if strings.Contains(docker, unwanted) {
+			t.Errorf("Configurações on a Docker server shows %q", unwanted)
+		}
+	}
+	cli := render(&Release{Version: "1.9.0"}, "current")
+	if !strings.Contains(cli, "whatsapp-mcp update") || strings.Contains(cli, "docker compose") {
+		t.Error("a server without Docker should name its own update command, and only that")
+	}
+	if !strings.Contains(cli, `data-update-how hidden`) {
+		t.Error("the steps to update should stay hidden until a new version is out")
+	}
+}

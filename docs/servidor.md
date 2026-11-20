@@ -351,6 +351,16 @@ ou não usar mais.
   `docker compose pull && docker compose up -d`.
 - Sem Docker: `whatsapp-mcp update`.
 
+O painel avisa quando sai uma versão nova, num aviso no canto da página e em
+**Configurações › Versão e atualizações**, que mostra a versão instalada e o
+comando acima para o seu tipo de instalação. Ele só avisa: quem atualiza é
+você, no servidor. Se o `.env` fixa uma versão em `WHATSAPP_MCP_VERSION`,
+troque-a antes do `docker compose pull`.
+
+**Configurações › Endereços do servidor** mostra o endereço público e o
+endereço na rede interna (`http://whatsapp-mcp:47822` no Docker), que é para
+onde aponta o programa na frente do app. Os dois são só para consulta.
+
 ## Backup
 
 Com Docker, tudo o que importa está no volume `whatsapp-mcp_data`: a sessão

@@ -999,5 +999,19 @@
  "no Docker, o modo servidor vem do .env e do compose.yml (install-docker.sh)": "en Docker, el modo servidor viene del .env y del compose.yml (install-docker.sh)",
  "no Docker, o modo servidor vem do .env e do compose.yml; mude lá": "en Docker, el modo servidor viene del .env y del compose.yml; cámbialo ahí",
  "o serviço foi instalado, mas ainda não responde: %v (whatsapp-mcp logs)": "el servicio se instaló, pero todavía no responde: %v (whatsapp-mcp logs)",
- "uso: whatsapp-mcp server [status|setup|off]": "uso: whatsapp-mcp server [status|setup|off]"
+ "uso: whatsapp-mcp server [status|setup|off]": "uso: whatsapp-mcp server [status|setup|off]",
+ "O WhatsApp MCP %s está disponível.": "WhatsApp MCP %s está disponible.",
+ "Como atualizar": "Cómo actualizar",
+ "Ver o que mudou": "Ver qué cambió",
+ "A versão %s está disponível.": "La versión %s está disponible.",
+ "Para atualizar, rode no servidor, na pasta da instalação:": "Para actualizar, ejecuta en el servidor, en la carpeta de la instalación:",
+ "Para atualizar, rode no servidor:": "Para actualizar, ejecuta en el servidor:",
+ "Se o arquivo .env dessa pasta fixa uma versão (WHATSAPP_MCP_VERSION), troque-a pela nova antes. Suas conversas e configurações ficam.": "Si el archivo .env de esa carpeta fija una versión (WHATSAPP_MCP_VERSION), cámbiala por la nueva antes. Tus conversaciones y ajustes se conservan.",
+ "Ele baixa a versão nova, confere o arquivo e reinicia o serviço. Suas conversas e configurações ficam.": "Descarga la versión nueva, comprueba el archivo y reinicia el servicio. Tus conversaciones y ajustes se conservan.",
+ "Endereços do servidor": "Direcciones del servidor",
+ "Endereço público": "Dirección pública",
+ "Endereço na rede interna": "Dirección en la red interna",
+ "O endereço interno é para onde aponta o programa que fica na frente do servidor (Traefik, Caddy, Dokploy, um túnel). Os dois são definidos na instalação e não mudam por aqui.": "La dirección interna es a donde apunta el programa que está delante del servidor (Traefik, Caddy, Dokploy, un túnel). Las dos se definen en la instalación y no se cambian aquí.",
+ "O QR code expirou. Clique em Tentar de novo para gerar outro.": "El código QR caducó. Haz clic en Intentar de nuevo para generar otro.",
+ "Não foi possível conectar agora. Clique em Tentar de novo.": "No se pudo conectar ahora. Haz clic en Intentar de nuevo."
 }

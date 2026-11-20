@@ -166,6 +166,7 @@ func Start(cfg Config) (*Daemon, error) {
 		Endpoint: d.MCPURL, Desktop: cfg.Desktop, LogPath: cfg.LogPath, MCPProblem: d.PortProblem, DataDir: cfg.DataDir, Diag: d.diag}
 	if cfg.Public != nil {
 		d.panel.PublicURL = cfg.Public.Origin
+		d.panel.InternalURL = internalURL(cfg.Public.Listen)
 	}
 	if cfg.Panel != nil {
 		cfg.Panel(d.panel)
@@ -393,4 +394,20 @@ func describePortProblem(port int) *PortProblem {
 		p.OtherGateway = resp.StatusCode == http.StatusOK && strings.TrimSpace(string(body)) == "ok"
 	}
 	return p
+}
+
+// internalURL is the public listener's address as the server's own network
+// sees it: the listener's host and port, or this machine's name (in Docker,
+// the container's) when it listens on every interface.
+func internalURL(listen string) string {
+	host, port, err := net.SplitHostPort(listen)
+	if err != nil {
+		return ""
+	}
+	if ip := net.ParseIP(host); host == "" || (ip != nil && ip.IsUnspecified()) {
+		if host, err = os.Hostname(); err != nil || host == "" {
+			return ""
+		}
+	}
+	return "http://" + net.JoinHostPort(host, port)
 }

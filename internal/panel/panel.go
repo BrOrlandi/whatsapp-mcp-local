@@ -61,6 +61,8 @@ type Panel struct {
 	MCPProblem func() *PortProblem
 	// Host is the desktop app around the panel; nil on the command line.
 	Host Host
+	// Release is the version card outside the desktop app; nil shows none.
+	Release *Release
 	// DataDir is the data folder, whose config.json keeps the language
 	// picked on the command line, where there is no Host to keep it.
 	DataDir string
@@ -69,6 +71,10 @@ type Panel struct {
 	// PublicURL is the server mode's public address (scheme and host), or
 	// empty without it.
 	PublicURL string
+	// InternalURL is where the public listener answers inside the server's
+	// own network, the address a proxy in front of it points at; shown in
+	// Configurações, never changed there.
+	InternalURL string
 	// Logins are the server mode's OAuth logins still valid.
 	Logins func(context.Context) ([]state.Connection, error)
 
@@ -234,6 +240,8 @@ func (p *Panel) Register(mux httpserver.Mux) {
 	mux.HandleFunc("POST /api/idioma", p.api(p.apiLanguage))
 	if p.Host != nil {
 		p.registerApp(mux)
+	} else if p.Release != nil {
+		p.registerRelease(mux)
 	}
 	p.registerDiagnostic(mux)
 	p.registerRemoteAccess(mux)
@@ -400,6 +408,13 @@ type layout struct {
 	MCPProblem *PortProblem
 	Settings   HostSettings
 	Update     UpdateState
+	// PublicURL and InternalURL are the server's two addresses, for the
+	// card that shows them in Configurações.
+	PublicURL   string
+	InternalURL string
+	// Release is set outside the desktop app, when the program knows its
+	// version: the page then says how to update instead of doing it.
+	Release *Release
 	// Remote is set when the page is seen from outside the server, signed in
 	// on its public address: it offers to sign out, and the steps that only
 	// work on the server itself say so.
@@ -544,10 +559,15 @@ func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout
 		l.App = true
 		l.Settings = p.Host.Settings()
 		l.Update = p.Host.Update()
+	} else if p.Release != nil {
+		l.Release = p.Release
+		l.Settings.Version, l.Settings.WacliVersion = p.Release.Version, p.Release.WacliVersion
+		l.Update = p.Release.Update()
 	}
 	l.Remote = caller.From(r.Context()).Kind != caller.Local
 	if p.PublicURL != "" && l.Remote {
 		l.ServerMode, l.PublicMCP = true, p.PublicURL+"/mcp"
+		l.PublicURL, l.InternalURL = p.PublicURL, p.InternalURL
 	}
 	return l
 }
@@ -668,11 +688,20 @@ var pairingErrors = map[string]string{
 	"wacli auth ended without pairing; try again":         i18n.N("a conexão terminou sem completar; tente de novo"),
 }
 
+// pairingError is what the page says when a pairing fails, as a whole
+// sentence. wacli is an inner part the person never ran: its own words (and
+// its advice to run a command) stay in the log, and anything the page does
+// not know becomes a plain "try again".
 func pairingError(err string) string {
-	if pt, ok := pairingErrors[err]; ok {
-		return i18n.T(pt)
+	switch pt, known := pairingErrors[err]; {
+	case err == "":
+		return ""
+	case strings.Contains(err, "QR code timed out"):
+		return i18n.T("O QR code expirou. Clique em Tentar de novo para gerar outro.")
+	case known:
+		return i18n.Tf("Não foi possível conectar: %s", i18n.T(pt))
 	}
-	return err
+	return i18n.T("Não foi possível conectar agora. Clique em Tentar de novo.")
 }
 
 // pauseReasons says what wacli pauses for, completing "Pausada por alguns

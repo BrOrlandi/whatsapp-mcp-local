@@ -207,6 +207,29 @@ func TestServerMode(t *testing.T) {
 		}
 	})
 
+	t.Run("Configurações shows the version and the addresses", func(t *testing.T) {
+		resp, body := s.do("GET", "/configuracoes", "", map[string]string{"Cookie": cookie})
+		if resp.StatusCode != 200 {
+			t.Fatalf("/configuracoes: %d", resp.StatusCode)
+		}
+		for _, want := range []string{`id="atualizacoes"`, "docker compose pull", `id="enderecos"`, srvOrigin, "http://whatsapp-mcp:47822"} {
+			if !strings.Contains(body, want) {
+				t.Errorf("Configurações lacks %q", want)
+			}
+		}
+		for _, unwanted := range []string{"data-update-install", `id="dados"`, "/configuracoes/porta"} {
+			if strings.Contains(body, unwanted) {
+				t.Errorf("Configurações on a server shows %q", unwanted)
+			}
+		}
+		if resp, body := s.do("GET", "/api/atualizacao", "", map[string]string{"Cookie": cookie}); resp.StatusCode != 200 || !strings.Contains(body, `"state"`) {
+			t.Errorf("/api/atualizacao signed in: %d %s", resp.StatusCode, body)
+		}
+		if resp, _ := s.do("GET", "/api/atualizacao", "", nil); resp.StatusCode == 200 {
+			t.Error("/api/atualizacao answers without a session")
+		}
+	})
+
 	t.Run("a key from the Conexões page", func(t *testing.T) {
 		resp, body := s.do("POST", "/conexoes/chaves", url.Values{"name": {"integration"}}.Encode(), map[string]string{
 			"Origin": srvOrigin, "Sec-Fetch-Site": "same-origin", "Cookie": cookie, "Content-Type": "application/x-www-form-urlencoded"})

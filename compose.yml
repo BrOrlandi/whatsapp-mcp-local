@@ -24,6 +24,9 @@ services:
   whatsapp-mcp:
     image: ${WHATSAPP_MCP_IMAGE:-ghcr.io/brorlandi/whatsapp-mcp-local}:${WHATSAPP_MCP_VERSION:-latest}
     restart: unless-stopped
+    # The name the panel shows as the address inside this network
+    # (Configurações › Endereços do servidor), the same as the service's.
+    hostname: whatsapp-mcp
     environment:
       WHATSAPP_MCP_PUBLIC_URL: ${WHATSAPP_MCP_PUBLIC_URL:?set WHATSAPP_MCP_PUBLIC_URL in .env (install-docker.sh)}
       WHATSAPP_MCP_PANEL_PASSWORD_HASH: ${WHATSAPP_MCP_PANEL_PASSWORD_HASH:?set WHATSAPP_MCP_PANEL_PASSWORD_HASH in .env (install-docker.sh)}

@@ -54,6 +54,25 @@ type HostSettings struct {
 	WacliVersion string
 }
 
+// Release is the version card outside the desktop app, for the command line
+// and the Docker image: what is installed, whether a newer version is out,
+// and how this kind of install moves to it. Nothing here installs: the page
+// says which command to run on the server.
+type Release struct {
+	Version      string
+	WacliVersion string
+	// Container is set in the Docker image, which is updated by pulling a
+	// new image instead of replacing the program.
+	Container bool
+	Update    func() UpdateState
+	Check     func()
+}
+
+func (p *Panel) registerRelease(mux httpserver.Mux) {
+	mux.HandleFunc("GET /api/atualizacao", p.api(func(*http.Request) (any, error) { return p.Release.Update(), nil }))
+	mux.HandleFunc("POST /api/atualizacao/verificar", p.api(func(*http.Request) (any, error) { p.Release.Check(); return p.Release.Update(), nil }))
+}
+
 // UpdateState is where the app's update stands.
 type UpdateState struct {
 	// State is idle, checking, current, available, downloading, ready,

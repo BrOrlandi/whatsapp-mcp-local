@@ -89,8 +89,8 @@ var routeAccess = map[string]caller.Access{
 	"POST /api/abrir":                 caller.LocalOnly,
 	"POST /api/app/open":              caller.LocalOnly,
 	"POST /api/abrir-pasta":           caller.LocalOnly,
-	"GET /api/atualizacao":            caller.LocalOnly,
-	"POST /api/atualizacao/verificar": caller.LocalOnly,
+	"GET /api/atualizacao":            caller.PanelAccess,
+	"POST /api/atualizacao/verificar": caller.PanelAccess,
 	"POST /api/atualizacao/instalar":  caller.LocalOnly,
 }
 
