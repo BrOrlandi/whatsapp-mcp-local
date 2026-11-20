@@ -6,6 +6,30 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ## [Não lançado]
 
+## [1.9.0-beta.2] - 2026-11-20
+
+Segunda versão de teste do modo servidor, só como imagem Docker:
+`ghcr.io/brorlandi/whatsapp-mcp-local:1.9.0-beta.2`
+(`WHATSAPP_MCP_VERSION=1.9.0-beta.2` no `.env`). A tag `latest` só passa a
+existir na versão final. Para atualizar um servidor na 1.9.0-beta.1, troque a
+versão no `.env` e rode `docker compose pull && docker compose up -d`; as
+conversas, a conexão com o WhatsApp e as chaves continuam. O `compose.yml`
+novo acrescenta só `hostname: whatsapp-mcp` ao app, para o painel mostrar o
+endereço na rede interna com esse nome.
+
+### Adicionado
+
+- No servidor, **Configurações** mostra a versão instalada, avisa quando sai
+  uma versão nova e diz como atualizar (o painel não atualiza sozinho), e
+  mostra o endereço público e o da rede interna.
+
+### Corrigido
+
+- Quando o QR code expira ao conectar o WhatsApp, a tela diz isso e pede para
+  tentar de novo, em vez de mostrar uma mensagem técnica em inglês.
+
+Inclui o wacli 0.26.1.
+
 ## [1.9.0-beta.1] - 2026-11-17
 
 Versão de teste do modo servidor, para quem foi convidado a testar. O app só
