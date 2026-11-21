@@ -2,6 +2,8 @@ package mcp
 
 import (
 	"context"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -27,6 +29,15 @@ var (
 	// retryAfter is when a call answered "still going" is told to ask again.
 	retryAfter = 30 * time.Second
 )
+
+// waitLimit is transcribeWait, or WHATSAPP_MCP_TRANSCRIPTION_WAIT (seconds)
+// for AI tools that give up sooner than five minutes.
+func waitLimit() time.Duration {
+	if v, err := strconv.Atoi(os.Getenv("WHATSAPP_MCP_TRANSCRIPTION_WAIT")); err == nil && v > 0 {
+		return time.Duration(v) * time.Second
+	}
+	return transcribeWait
+}
 
 // transcription is one voice note being transcribed.
 type transcription struct {
@@ -87,7 +98,7 @@ func (ts *transcriptions) running() int {
 // wait waits for the transcription for up to transcribeWait, and less when
 // the call's own deadline comes first. It reports whether it finished.
 func (j *transcription) wait(ctx context.Context) bool {
-	limit := transcribeWait
+	limit := waitLimit()
 	if dl, ok := ctx.Deadline(); ok {
 		// Answer a little before the caller gives up, so "still going"
 		// reaches it.

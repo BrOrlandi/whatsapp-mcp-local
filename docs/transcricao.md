@@ -183,7 +183,8 @@ manter na mesma versão.
 - **Onde ver**: `whatsapp_status` mostra `transcription.backend`
   (`remote`, `remote+local`, `local` ou `none`) e `transcription.remote` (se
   responde, a aceleração, a versão, o último erro); `health` ganha a checagem
-  `transcription`, em aviso quando o servidor não responde;
+  `transcription`, que descreve o servidor e só fica em aviso quando ele não
+  responde e não há transcrição neste computador para cobrir;
   `whatsapp-mcp transcription status` testa na hora.
 
 ## Uma transcrição longa não se perde
@@ -196,9 +197,11 @@ tentativa recomeçava do zero, sem nunca terminar num computador lento. Agora:
   depois que pega a vez), e guarda o texto quando termina;
 - uma chamada para a mesma mensagem enquanto ela roda se junta a ela, em vez de
   começar outra; depois que termina, a chamada acha o texto guardado;
-- depois de 240 s (ou um pouco antes do prazo da chamada, se for menor) a
-  resposta é `status: in_progress` com `retry_after_seconds`, e não um erro: a
-  ferramenta de IA chama de novo e recebe o texto;
+- depois de 240 s (ou um pouco antes do prazo da chamada, se for menor; a
+  variável `WHATSAPP_MCP_TRANSCRIPTION_WAIT`, em segundos, muda esse limite
+  para clientes que desistem antes) a resposta é `status: in_progress` com
+  `retry_after_seconds`, e não um erro: a ferramenta de IA chama de novo e
+  recebe o texto;
 - a fila do motor (um áudio por vez) espera a vez respeitando o prazo de quem
   pediu, e áudios diferentes não ficam presos atrás de uma chamada.
 

@@ -722,7 +722,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="card__head"><h2 class="card__title">{{icon "mic"}}{{t "Transcrição de áudio"}}</h2>{{if or .Local.Ready .ASRRemote.URL}}<span class="pill pill--ok">{{t "Ativa"}}</span>{{else if .Local.Supported}}<span class="pill pill--off">{{t "Não instalada"}}</span>{{else}}<span class="pill pill--off">{{t "Indisponível"}}</span>{{end}}</div>
 <div class="card__body stack">
 {{if .Local.Ready}}
-<p class="muted">{{tf "Os áudios viram texto neste computador, com o Whisper rodando %s, só quando você pede." (accel .Local.Accel)}}</p>
+{{if not .ASRRemote.URL}}<p class="muted">{{tf "Os áudios viram texto neste computador, com o Whisper rodando %s, só quando você pede." (accel .Local.Accel)}}</p>{{end}}
 {{else if .Local.Supported}}
 <p class="muted">{{t "Este computador consegue transcrever os áudios sem que eles saiam daqui. A instalação baixa cerca de 600 MB, uma vez só."}}</p>
 <div class="actions"><button class="btn" type="button" data-asr-install>{{t "Instalar a transcrição local"}}</button></div>

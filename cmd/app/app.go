@@ -124,11 +124,18 @@ func (a *App) updateConfig(f func(*appconfig.Config)) error {
 	defer a.cfgMu.Unlock()
 	f(&a.cfg)
 	saved := a.cfg
+	disk, diskErr := appconfig.Load(a.dataDir)
 	if a.portLocked {
 		saved.Port = appconfig.DefaultPort
-		if disk, err := appconfig.Load(a.dataDir); err == nil {
+		if diskErr == nil {
 			saved.Port = disk.Port
 		}
+	}
+	// The transcription server is the panel's and the command line's to
+	// change (localasr.SetRemote), straight in config.json: what is there now
+	// is kept, not what was there when the app started.
+	if diskErr == nil {
+		saved.Transcription = disk.Transcription
 	}
 	return appconfig.Save(a.dataDir, saved)
 }
