@@ -43,6 +43,8 @@ type Server struct {
 	history   *HistoryJob
 
 	asr *localasr.Engine
+	// transcribing are the voice notes being transcribed (jobs.go).
+	transcribing transcriptions
 
 	// onSent hears every message the tools send, for the webhooks: sync
 	// never sees the account's own sends from this device.

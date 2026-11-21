@@ -151,6 +151,7 @@ func TestSettingsOnTheCommandLine(t *testing.T) {
 		Port        int
 		PortChanged bool
 		Local       localasr.Status
+		ASRRemote   remoteView
 		Total       int
 		Corrected   int
 	}{layout: layout{Title: "Configurações", Active: "configuracoes"}, PortChanged: true}); err != nil {
@@ -319,6 +320,7 @@ func TestSettingsOnAServer(t *testing.T) {
 			Port        int
 			PortChanged bool
 			Local       localasr.Status
+			ASRRemote   remoteView
 			Total       int
 			Corrected   int
 		}{layout: l}); err != nil {

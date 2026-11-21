@@ -214,6 +214,7 @@ func (p *Panel) Register(mux httpserver.Mux) {
 	mux.HandleFunc("GET /status", p.page(p.status))
 	mux.HandleFunc("GET /api/asr", p.api(p.apiASR))
 	mux.HandleFunc("POST /api/asr/install", p.api(p.apiASRInstall))
+	mux.HandleFunc("POST /api/asr/remote", p.api(p.apiASRRemote))
 	mux.HandleFunc("GET /funcoes", p.page(p.funcoes))
 	mux.HandleFunc("GET /receitas", p.page(p.receitas))
 	mux.HandleFunc("GET /ajuda", p.page(p.ajuda))
@@ -990,8 +991,9 @@ func (p *Panel) status(w http.ResponseWriter, r *http.Request) (string, any) {
 func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, any) {
 	s := p.snapshot(r.Context())
 	var local localasr.Status
+	var remote localasr.Remote
 	if asr := p.Server.ASR(); asr != nil {
-		local = asr.Status()
+		local, remote = asr.Status(), asr.Remote()
 	}
 	total, corrected, _ := p.State.TranscriptCount(r.Context())
 	return "configuracoes", struct {
@@ -1000,9 +1002,19 @@ func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, a
 		Port        int
 		PortChanged bool
 		Local       localasr.Status
+		ASRRemote   remoteView
 		Total       int
 		Corrected   int
-	}{p.layout(r, i18n.N("Configurações"), "configuracoes", s), p.setup(r.Context()), portOf(p.endpoint()), r.URL.Query().Get("porta") == "1", local, total, corrected}
+	}{p.layout(r, i18n.N("Configurações"), "configuracoes", s), p.setup(r.Context()), portOf(p.endpoint()), r.URL.Query().Get("porta") == "1", local,
+		remoteView{URL: remote.URL, FromEnv: remote.FromEnv, HasToken: remote.Token != ""}, total, corrected}
+}
+
+// remoteView is the transcription server as the settings page shows it,
+// without its token.
+type remoteView struct {
+	URL      string
+	FromEnv  bool
+	HasToken bool
 }
 
 func (p *Panel) apiASR(r *http.Request) (any, error) {
@@ -1010,7 +1022,34 @@ func (p *Panel) apiASR(r *http.Request) (any, error) {
 	if asr == nil {
 		return localasr.Status{}, nil
 	}
-	return map[string]any{"status": asr.Status()}, nil
+	out := map[string]any{"status": asr.Status(), "backend": asr.Backend()}
+	if r.URL.Query().Get("remote") == "1" {
+		out["remote"] = asr.RemoteStatus(r.Context(), true)
+	}
+	return out, nil
+}
+
+// apiASRRemote keeps the transcription server's address and token, or
+// forgets them when the address is empty, and checks it at once.
+func (p *Panel) apiASRRemote(r *http.Request) (any, error) {
+	asr := p.Server.ASR()
+	if asr == nil {
+		return nil, userError{i18n.T("a transcrição local não está disponível")}
+	}
+	var body struct {
+		URL   string `json:"url"`
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return nil, userError{err.Error()}
+	}
+	if err := asr.SetRemote(body.URL, body.Token); err != nil {
+		if errors.Is(err, localasr.ErrRemoteFromEnv) {
+			return nil, userError{i18n.T("o servidor de transcrição está definido por variável de ambiente e não pode ser trocado aqui")}
+		}
+		return nil, userError{err.Error()}
+	}
+	return map[string]any{"remote": asr.RemoteStatus(r.Context(), true), "backend": asr.Backend()}, nil
 }
 
 func (p *Panel) apiASRInstall(r *http.Request) (any, error) {

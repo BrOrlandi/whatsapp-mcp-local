@@ -719,7 +719,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div></section>
 
 <section class="card" id="transcricao" data-asr>
-<div class="card__head"><h2 class="card__title">{{icon "mic"}}{{t "Transcrição de áudio"}}</h2>{{if .Local.Ready}}<span class="pill pill--ok">{{t "Ativa"}}</span>{{else if .Local.Supported}}<span class="pill pill--off">{{t "Não instalada"}}</span>{{else}}<span class="pill pill--off">{{t "Indisponível"}}</span>{{end}}</div>
+<div class="card__head"><h2 class="card__title">{{icon "mic"}}{{t "Transcrição de áudio"}}</h2>{{if or .Local.Ready .ASRRemote.URL}}<span class="pill pill--ok">{{t "Ativa"}}</span>{{else if .Local.Supported}}<span class="pill pill--off">{{t "Não instalada"}}</span>{{else}}<span class="pill pill--off">{{t "Indisponível"}}</span>{{end}}</div>
 <div class="card__body stack">
 {{if .Local.Ready}}
 <p class="muted">{{tf "Os áudios viram texto neste computador, com o Whisper rodando %s, só quando você pede." (accel .Local.Accel)}}</p>
@@ -738,6 +738,19 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="snippet"><pre class="plain" data-copy><code>{{t "Transcreva os áudios que recebi hoje no WhatsApp."}}</code></pre></div>
 <p class="muted" style="margin:0">{{t "Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado. Mais detalhes na <a href='/ajuda#transcrever'>Ajuda</a>."}}</p>
 </div></details>{{end}}
+<div class="stack" data-asr-remote{{if .ASRRemote.URL}} data-asr-remote-on{{end}}>
+<h3 class="card__sub">{{t "Transcrever em outro computador"}} <span class="tip" tabindex="0" aria-describedby="tip-asr-remote"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-remote">{{t "Um Mac com chip Apple ou um computador com placa de vídeo transcreve em segundos o que um processador comum leva minutos. Nele, rode <code>whatsapp-mcp transcription serve</code>: ele mostra o endereço e a chave para colar aqui. Os áudios vão para lá pela sua rede, e, se ele não responder, são transcritos aqui mesmo."}}</span></span></h3>
+<p class="muted" style="margin:0" data-asr-remote-state>{{if .ASRRemote.URL}}{{tf "Os áudios vão para %s." .ASRRemote.URL}}{{else}}{{t "Os áudios são transcritos neste computador."}}{{end}}</p>
+{{if .ASRRemote.FromEnv}}<p class="note">{{t "O servidor de transcrição está definido por variável de ambiente e não pode ser trocado aqui."}}</p>
+{{else}}<form class="stack" data-asr-remote-form>
+<label class="field" for="asr-remote-url"><span class="field__label">{{t "Endereço"}}</span><span class="field__hint">{{t "O que o outro computador mostrou, como http://192.168.0.10:47823. Deixe em branco para transcrever só aqui."}}</span></label>
+<input id="asr-remote-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://192.168.0.10:47823" value="{{.ASRRemote.URL}}" data-asr-remote-url>
+<label class="field" for="asr-remote-token"><span class="field__label">{{t "Chave"}}</span><span class="field__hint">{{if .ASRRemote.HasToken}}{{t "Guardada. Deixe em branco para manter a mesma."}}{{else}}{{t "A chave que o outro computador mostrou."}}{{end}}</span></label>
+<input id="asr-remote-token" type="password" autocomplete="off" spellcheck="false" data-asr-remote-token>
+<div class="actions"><button class="btn btn--small" type="submit">{{t "Salvar e testar"}}</button></div>
+<p class="alert" role="alert" data-asr-remote-error hidden></p>
+</form>{{end}}
+</div>
 </div></section>
 
 {{if .App}}

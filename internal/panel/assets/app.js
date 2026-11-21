@@ -814,6 +814,46 @@
   if (!progress.hidden) poll();
 })();
 
+// The transcription server: where voice notes go when not transcribed here.
+(function () {
+  var box = document.querySelector("[data-asr-remote]");
+  if (!box) return;
+  var state = box.querySelector("[data-asr-remote-state]");
+  var form = box.querySelector("[data-asr-remote-form]");
+  var error = box.querySelector("[data-asr-remote-error]");
+  function show(remote) {
+    if (!remote || !remote.configured) {
+      state.textContent = t("Os áudios são transcritos neste computador.");
+      return;
+    }
+    if (remote.reachable && remote.ready) {
+      state.textContent = t("Os áudios vão para %s, que está respondendo.").replace("%s", remote.url);
+    } else {
+      state.textContent = t("%s não está respondendo agora. Enquanto isso, os áudios são transcritos neste computador, se a transcrição estiver instalada aqui.").replace("%s", remote.url);
+    }
+  }
+  if (box.hasAttribute("data-asr-remote-on")) {
+    fetch("/api/asr?remote=1", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) { show(d.remote); }).catch(function () {});
+  }
+  if (!form) return;
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    error.hidden = true;
+    var button = form.querySelector("button[type=submit]");
+    button.disabled = true;
+    var body = { url: form.querySelector("[data-asr-remote-url]").value, token: form.querySelector("[data-asr-remote-token]").value };
+    fetch("/api/asr/remote", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        button.disabled = false;
+        if (!res.ok) { error.textContent = res.d.error || t("Não foi possível salvar."); error.hidden = false; return; }
+        form.querySelector("[data-asr-remote-token]").value = "";
+        show(res.d.remote);
+      })
+      .catch(function () { button.disabled = false; error.textContent = t("Não foi possível salvar."); error.hidden = false; });
+  });
+})();
+
 // Inside the desktop app: links leave for the browser, settings save as they
 // change, and updates are looked for and installed from the Configurações page.
 (function () {

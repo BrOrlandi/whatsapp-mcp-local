@@ -24,7 +24,6 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/bridge"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/daemon"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
-	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/panel"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/public"
@@ -239,6 +238,8 @@ Settings:
       add: [--events message,reaction,receipt,online] [--include-own] [--chats <jid>,<jid>]
   config                    print the configuration for Claude Code and Claude Desktop
   transcription install     set up voice-note transcription on this computer (whisper.cpp)
+  transcription serve       transcribe for another computer (a Mac with a GPU, say)
+  transcription remote      send voice notes to a transcription server
   open                      open the control panel in the browser
 
   bridge [--url <address>]  stdio MCP server for Claude Desktop that forwards to the daemon, or to a server
@@ -473,23 +474,4 @@ func printConfig(cfg config) {
 	body, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{"whatsapp": server}}, "  ", "  ")
 	fmt.Println("Claude Desktop (Chat and Cowork) — " + panel.DesktopConfigPath() + ":")
 	fmt.Println("  " + string(body))
-}
-
-func transcriptionCmd(cfg config, args []string) error {
-	if len(args) == 0 || args[0] != "install" {
-		return errors.New("usage: whatsapp-mcp transcription install")
-	}
-	engine := localasr.New(cfg.DataDir)
-	if st := engine.Status(); !st.Supported {
-		return errors.New("local transcription is not available on this system")
-	} else if st.Ready {
-		fmt.Println("local transcription is already installed")
-		return nil
-	}
-	fmt.Println("setting up local transcription (whisper.cpp, about 600 MB)…")
-	if err := engine.InstallNow(context.Background(), os.Stdout); err != nil {
-		return err
-	}
-	fmt.Println("local transcription is ready: voice notes are now transcribed on this computer")
-	return nil
 }

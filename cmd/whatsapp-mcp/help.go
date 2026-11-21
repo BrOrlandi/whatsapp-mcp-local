@@ -269,14 +269,37 @@ Example:
 `,
 
 	"transcription": `Usage: whatsapp-mcp transcription install
+       whatsapp-mcp transcription status
+       whatsapp-mcp transcription remote <address> [--token <token>]
+       whatsapp-mcp transcription remote off
+       whatsapp-mcp transcription serve [--listen <host:port>] [--token <token>]
 
-Sets up voice-note transcription on this computer, with whisper.cpp: it
+install sets up voice-note transcription on this computer, with whisper.cpp: it
 downloads the program and its model (about 600 MB) into the data folder. After
 that the AI tools can read voice notes as text, without sending the audio
 anywhere. It says so when this system is not supported.
 
-Example:
+serve makes this computer a transcription server for another one: a Mac with
+Apple Silicon (or a computer with an NVIDIA GPU) transcribes in seconds what a
+server's processor takes minutes on. It needs install first, and listens on
+0.0.0.0:47823 by default. Every request needs the token: --token, else
+WHATSAPP_MCP_TRANSCRIPTION_TOKEN, else the one kept in the data folder
+(transcription-server.token), made the first time. It prints the address and
+token to give the other computer. It runs until stopped; keep it running with
+launchd or systemd (see the README).
+
+remote points this computer's voice notes at a transcription server; off stops.
+The variables WHATSAPP_MCP_TRANSCRIPTION_URL and WHATSAPP_MCP_TRANSCRIPTION_TOKEN
+win over it (Docker). When the server does not answer in a few seconds, voice
+notes are transcribed here, if install was run here.
+
+status says where voice notes are transcribed and whether the server answers.
+
+Examples:
   whatsapp-mcp transcription install
+  whatsapp-mcp transcription serve
+  whatsapp-mcp transcription remote http://192.168.0.10:47823 --token <token>
+  whatsapp-mcp transcription status
 `,
 
 	"open": `Usage: whatsapp-mcp open

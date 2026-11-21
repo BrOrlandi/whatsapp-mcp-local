@@ -53,6 +53,15 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	if s.asr != nil {
 		st := s.asr.Status()
 		transcription["local"] = map[string]any{"ready": st.Ready, "supported": st.Supported, "missing": st.Missing, "accel": st.Accel, "engine": "whisper.cpp large-v3-turbo"}
+		// backend: remote, remote+local (this computer when the server
+		// does not answer), local or none.
+		transcription["backend"] = s.asr.Backend()
+		if rs := s.asr.RemoteStatus(ctx, false); rs.Configured {
+			transcription["remote"] = rs
+		}
+	}
+	if n := s.transcribing.running(); n > 0 {
+		transcription["in_progress"] = n
 	}
 	if total, corrected, err := s.state.TranscriptCount(ctx); err == nil {
 		transcription["transcripts"] = total

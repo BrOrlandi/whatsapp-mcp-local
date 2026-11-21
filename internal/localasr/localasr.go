@@ -42,13 +42,24 @@ const (
 	Label = "whisper.cpp large-v3-turbo (local)"
 )
 
+// RunTimeout is the most one transcription may take on this computer once it
+// starts. A CPU without a GPU the engine uses takes about as long as the audio
+// lasts, often more, so it is generous: what bounds the wait of an AI tool is
+// the MCP's own limit (mcp.Server), not this.
+var RunTimeout = time.Hour
+
 type Engine struct {
 	data string // the data folder: the programs go in bin/, the model in models/
 	dir  string // where the model lives
 
 	mu      sync.Mutex
 	install Install
-	busy    sync.Mutex // one transcription at a time: the GPU is shared
+	// slot lets one transcription run at a time (the GPU, or the CPU, is
+	// shared); a caller waits for it only as long as its context allows.
+	slot chan struct{}
+
+	probeMu sync.Mutex
+	probe   RemoteStatus // the last check of the remote server, see RemoteStatus
 }
 
 // Install is the state of setting the engine up, for the panel.
@@ -78,7 +89,7 @@ type Status struct {
 }
 
 func New(dataDir string) *Engine {
-	return &Engine{data: dataDir, dir: filepath.Join(dataDir, "models")}
+	return &Engine{data: dataDir, dir: filepath.Join(dataDir, "models"), slot: make(chan struct{}, 1)}
 }
 
 // tools finds the programs: the ones this app installed, checked against
@@ -285,8 +296,16 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 	if !s.Ready {
 		return "", fmt.Errorf("a transcrição local não está instalada (falta: %s)", strings.Join(s.Missing, ", "))
 	}
-	e.busy.Lock()
-	defer e.busy.Unlock()
+	select {
+	case e.slot <- struct{}{}:
+	case <-ctx.Done():
+		return "", fmt.Errorf("the transcription waited for its turn and gave up: %w", ctx.Err())
+	}
+	defer func() { <-e.slot }()
+	// The run's own limit starts once it has the engine, not while it waits:
+	// on a slow processor a long voice note takes many minutes.
+	ctx, cancel := context.WithTimeout(ctx, RunTimeout)
+	defer cancel()
 
 	dir, err := os.MkdirTemp("", "wamcp-asr-")
 	if err != nil {

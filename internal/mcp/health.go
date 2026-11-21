@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
@@ -44,6 +45,10 @@ type healthInputs struct {
 	// CommandLine: the fixes name the command that connects WhatsApp, not
 	// the app's screen.
 	CommandLine bool
+	// Transcription is the transcription server's check, when one is set
+	// up; LocalTranscription says this computer can transcribe too.
+	Transcription      *localasr.RemoteStatus
+	LocalTranscription bool
 }
 
 const defaultMaxSilence = 6 * time.Hour
@@ -64,6 +69,11 @@ func (s *Server) Health(ctx context.Context, maxSilence time.Duration) Health {
 	in.Authenticated, in.SessionRevoked = doctor.Authenticated, doctor.SessionRevoked
 	in.Activity, in.ActivityErr = s.index.Activity(ctx, now)
 	in.Gaps, _ = s.index.Gaps(ctx, gapThreshold, 7*24*time.Hour, 20)
+	if s.asr != nil {
+		if rs := s.asr.RemoteStatus(ctx, false); rs.Configured {
+			in.Transcription, in.LocalTranscription = &rs, s.asr.Status().Ready
+		}
+	}
 	return evaluate(in)
 }
 
@@ -156,6 +166,20 @@ func evaluate(in healthInputs) Health {
 	if job := in.History; job != nil && len(job.Failures) > 0 {
 		add("history_request", "warn", fmt.Sprintf("the last sync_history request failed for %d of %d conversations", len(job.Failures), len(job.Chats)),
 			"the phone must be online to answer; whatsapp_status shows each failure")
+	}
+
+	if rs := in.Transcription; rs != nil {
+		fallback := "voice notes are transcribed on this computer meanwhile, which can be much slower"
+		if !in.LocalTranscription {
+			fallback = "voice notes cannot be transcribed meanwhile: transcription is not installed on this computer"
+		}
+		switch {
+		case rs.Reachable && rs.Ready:
+			add("transcription", "ok", fmt.Sprintf("voice notes go to the transcription server at %s (%s)", rs.URL, rs.Accel), "")
+		default:
+			add("transcription", "warn", fmt.Sprintf("the transcription server at %s is not usable: %s; %s", rs.URL, rs.Error, fallback),
+				"check that the computer running `whatsapp-mcp transcription serve` is on and awake, and that the address and token in Configurações › Transcrição de áudio match it")
+		}
 	}
 
 	h.Status = "ok"

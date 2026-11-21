@@ -32,6 +32,11 @@ services:
       WHATSAPP_MCP_PANEL_PASSWORD_HASH: ${WHATSAPP_MCP_PANEL_PASSWORD_HASH:?set WHATSAPP_MCP_PANEL_PASSWORD_HASH in .env (install-docker.sh)}
       WHATSAPP_MCP_TRUSTED_PROXY: ${WHATSAPP_MCP_TRUSTED_PROXY:?set WHATSAPP_MCP_TRUSTED_PROXY in .env (install-docker.sh)}
       WHATSAPP_MCP_LANG: ${WHATSAPP_MCP_LANG:-pt-BR}
+      # Optional: a transcription server on a computer with a GPU
+      # (`whatsapp-mcp transcription serve` there), for voice notes; when it
+      # does not answer they are transcribed here.
+      WHATSAPP_MCP_TRANSCRIPTION_URL: ${WHATSAPP_MCP_TRANSCRIPTION_URL:-}
+      WHATSAPP_MCP_TRANSCRIPTION_TOKEN: ${WHATSAPP_MCP_TRANSCRIPTION_TOKEN:-}
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - data:/data

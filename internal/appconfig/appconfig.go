@@ -38,6 +38,17 @@ type Config struct {
 	// Server is the server mode `whatsapp-mcp server setup` keeps, for a
 	// server without Docker; the WHATSAPP_MCP_* variables win over it.
 	Server *Server `json:"server,omitempty"`
+	// Transcription points voice notes at a transcription server on another
+	// computer (`whatsapp-mcp transcription serve`); the
+	// WHATSAPP_MCP_TRANSCRIPTION_* variables win over it.
+	Transcription *Transcription `json:"transcription,omitempty"`
+}
+
+// Transcription is where voice notes are sent to be transcribed, when not
+// on this computer.
+type Transcription struct {
+	RemoteURL   string `json:"remote_url,omitempty"`
+	RemoteToken string `json:"remote_token,omitempty"`
 }
 
 // Server is the server mode's settings, as the variables of the same names

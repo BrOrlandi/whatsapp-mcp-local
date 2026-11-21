@@ -1013,5 +1013,19 @@
  "Endereço na rede interna": "Dirección en la red interna",
  "O endereço interno é para onde aponta o programa que fica na frente do servidor (Traefik, Caddy, Dokploy, um túnel). Os dois são definidos na instalação e não mudam por aqui.": "La dirección interna es a donde apunta el programa que está delante del servidor (Traefik, Caddy, Dokploy, un túnel). Las dos se definen en la instalación y no se cambian aquí.",
  "O QR code expirou. Clique em Tentar de novo para gerar outro.": "El código QR caducó. Haz clic en Intentar de nuevo para generar otro.",
- "Não foi possível conectar agora. Clique em Tentar de novo.": "No se pudo conectar ahora. Haz clic en Intentar de nuevo."
+ "Não foi possível conectar agora. Clique em Tentar de novo.": "No se pudo conectar ahora. Haz clic en Intentar de nuevo.",
+ "o endereço do servidor de transcrição precisa ser como http://192.168.0.10:47823": "la dirección del servidor de transcripción debe ser como http://192.168.0.10:47823",
+ "o servidor de transcrição está definido por variável de ambiente e não pode ser trocado aqui": "el servidor de transcripción está definido por una variable de entorno y no se puede cambiar aquí",
+ "Transcrever em outro computador": "Transcribir en otra computadora",
+ "Um Mac com chip Apple ou um computador com placa de vídeo transcreve em segundos o que um processador comum leva minutos. Nele, rode <code>whatsapp-mcp transcription serve</code>: ele mostra o endereço e a chave para colar aqui. Os áudios vão para lá pela sua rede, e, se ele não responder, são transcritos aqui mesmo.": "Una Mac con chip Apple o una computadora con tarjeta gráfica transcribe en segundos lo que un procesador común tarda minutos. En ella, ejecuta <code>whatsapp-mcp transcription serve</code>: muestra la dirección y la clave para pegar aquí. Los audios van allí por tu red y, si no responde, se transcriben aquí mismo.",
+ "Os áudios vão para %s.": "Los audios van a %s.",
+ "Os áudios são transcritos neste computador.": "Los audios se transcriben en esta computadora.",
+ "O servidor de transcrição está definido por variável de ambiente e não pode ser trocado aqui.": "El servidor de transcripción está definido por una variable de entorno y no se puede cambiar aquí.",
+ "O que o outro computador mostrou, como http://192.168.0.10:47823. Deixe em branco para transcrever só aqui.": "Lo que mostró la otra computadora, como http://192.168.0.10:47823. Déjalo en blanco para transcribir solo aquí.",
+ "Guardada. Deixe em branco para manter a mesma.": "Guardada. Déjala en blanco para mantenerla.",
+ "A chave que o outro computador mostrou.": "La clave que mostró la otra computadora.",
+ "Salvar e testar": "Guardar y probar",
+ "Os áudios vão para %s, que está respondendo.": "Los audios van a %s, que está respondiendo.",
+ "%s não está respondendo agora. Enquanto isso, os áudios são transcritos neste computador, se a transcrição estiver instalada aqui.": "%s no está respondiendo ahora. Mientras tanto, los audios se transcriben en esta computadora, si la transcripción está instalada aquí.",
+ "Não foi possível salvar.": "No se pudo guardar."
 }

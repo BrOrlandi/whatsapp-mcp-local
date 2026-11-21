@@ -75,6 +75,7 @@ var routeAccess = map[string]caller.Access{
 	"POST /api/idioma":                caller.PanelAccess,
 	"GET /api/asr":                    caller.PanelAccess,
 	"POST /api/asr/install":           caller.PanelAccess,
+	"POST /api/asr/remote":            caller.PanelAccess,
 	"POST /api/diagnostico":           caller.PanelAccess,
 	"GET /api/webhooks":               caller.PanelAccess,
 	"POST /api/webhooks":              caller.PanelAccess,
