@@ -86,3 +86,38 @@ func TestInstallAndTranscribe(t *testing.T) {
 		t.Fatalf("a tampered program must not be used: %+v", st)
 	}
 }
+
+// TestRemoteTranscription transcribes a voice note on a running transcription
+// server (`whatsapp-mcp transcription serve` on another computer), through
+// the same path the app uses, and times it. It only runs when asked:
+//
+//	WAMCP_E2E_REMOTE=<the server's address>  WAMCP_E2E_REMOTE_TOKEN=<its token>
+//	WAMCP_E2E_AUDIO=<an Ogg/Opus voice note>  WAMCP_E2E_EXPECT=<a word it says>
+func TestRemoteTranscription(t *testing.T) {
+	addr := os.Getenv("WAMCP_E2E_REMOTE")
+	if addr == "" {
+		t.Skip("set WAMCP_E2E_REMOTE to run")
+	}
+	t.Setenv(EnvRemoteURL, "")
+	e := New(t.TempDir()) // nothing installed here: it is the server or nothing
+	if err := e.SetRemote(addr, os.Getenv("WAMCP_E2E_REMOTE_TOKEN")); err != nil {
+		t.Fatal(err)
+	}
+	st := e.RemoteStatus(context.Background(), true)
+	if !st.Reachable || !st.Ready {
+		t.Fatalf("the server is not usable: %+v", st)
+	}
+	audio := os.Getenv("WAMCP_E2E_AUDIO")
+	start := time.Now()
+	r, err := e.TranscribeAny(context.Background(), audio, "pt", "Conversa com Bruno sobre a Birdie")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("%s transcribed by %s (%s) in %s: %s", filepath.Base(audio), st.URL, st.Accel, time.Since(start).Round(time.Millisecond), r.Text)
+	if r.Backend != "remote" {
+		t.Fatalf("backend = %s", r.Backend)
+	}
+	if want := os.Getenv("WAMCP_E2E_EXPECT"); want != "" && !strings.Contains(strings.ToLower(r.Text), strings.ToLower(want)) {
+		t.Fatalf("transcript lacks %q", want)
+	}
+}

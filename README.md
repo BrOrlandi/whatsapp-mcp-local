@@ -173,6 +173,81 @@ protegido por senha, com Docker num comando:
 [o guia do modo servidor](docs/servidor.md#modo-servidor). Chega com a
 versão 1.9.0.
 
+## Transcrever em outro computador
+
+Num computador sem GPU (um servidor, um mini PC), um áudio de alguns minutos
+leva minutos para virar texto. Um Mac com chip Apple faz o mesmo em segundos.
+Dá para deixar o Mac transcrevendo para o outro, pela rede de casa: o áudio vai
+para o Mac, volta como texto, e nada passa pela internet. Se o Mac estiver
+desligado ou dormindo, o áudio é transcrito no próprio computador, como antes.
+
+**No Mac** (com o app instalado e a transcrição ativada nele):
+
+1. Baixe a linha de comando, sem instalar o serviço:
+
+   ```sh
+   mkdir -p ~/.local/bin
+   curl -fsSL https://github.com/BrOrlandi/whatsapp-mcp-local/releases/latest/download/whatsapp-mcp_darwin_arm64.tar.gz | tar -xz -C ~/.local/bin
+   xattr -d com.apple.quarantine ~/.local/bin/whatsapp-mcp 2>/dev/null || true
+   ```
+
+2. Teste, usando o modelo que o app já baixou:
+
+   ```sh
+   WHATSAPP_MCP_DATA="$HOME/Library/Application Support/WhatsApp MCP" ~/.local/bin/whatsapp-mcp transcription serve
+   ```
+
+   Ele mostra o endereço (`http://<ip-do-mac>:47823`) e a chave. Se o macOS
+   perguntar, permita conexões de entrada. `Ctrl+C` para.
+
+3. Para deixar no ar sempre que você entrar no Mac, salve o arquivo abaixo em
+   `~/Library/LaunchAgents/com.brorlandi.whatsapp-mcp-transcription.plist`,
+   trocando `YOU` pelo seu usuário, e carregue:
+
+   ```sh
+   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.brorlandi.whatsapp-mcp-transcription.plist
+   cat "$HOME/Library/Application Support/WhatsApp MCP/transcription-server.token"   # a chave
+   ```
+
+   <details><summary>O arquivo do launchd</summary>
+
+   ```xml
+   <?xml version="1.0" encoding="UTF-8"?>
+   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+   <plist version="1.0">
+   <dict>
+     <key>Label</key><string>com.brorlandi.whatsapp-mcp-transcription</string>
+     <key>ProgramArguments</key>
+     <array>
+       <string>/Users/YOU/.local/bin/whatsapp-mcp</string>
+       <string>transcription</string>
+       <string>serve</string>
+     </array>
+     <key>EnvironmentVariables</key>
+     <dict>
+       <key>WHATSAPP_MCP_DATA</key><string>/Users/YOU/Library/Application Support/WhatsApp MCP</string>
+     </dict>
+     <key>RunAtLoad</key><true/>
+     <key>KeepAlive</key><true/>
+     <key>StandardOutPath</key><string>/Users/YOU/Library/Logs/whatsapp-mcp-transcription.log</string>
+     <key>StandardErrorPath</key><string>/Users/YOU/Library/Logs/whatsapp-mcp-transcription.log</string>
+   </dict>
+   </plist>
+   ```
+
+   </details>
+
+   Para tirar: `launchctl bootout gui/$(id -u)/com.brorlandi.whatsapp-mcp-transcription`
+   e apague o arquivo.
+
+**No outro computador**, em *Configurações › Transcrição de áudio ›
+Transcrever em outro computador*, cole o endereço e a chave e clique em
+**Salvar e testar**. Pelo terminal: `whatsapp-mcp transcription remote
+http://<ip-do-mac>:47823 --token <chave>` e `whatsapp-mcp transcription status`.
+No Docker, ponha `WHATSAPP_MCP_TRANSCRIPTION_URL` e
+`WHATSAPP_MCP_TRANSCRIPTION_TOKEN` no `.env` e rode `docker compose up -d`.
+Detalhes em [Transcrição](docs/transcricao.md#servidor-de-transcrição).
+
 ## Bom saber
 
 - **Áudios viram texto no próprio computador, quando você pede.** Ative em

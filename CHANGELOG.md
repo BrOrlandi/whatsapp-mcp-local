@@ -6,6 +6,27 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Transcrever em outro computador.** Um Mac com chip Apple pode transcrever
+  os áudios para um computador sem GPU (um servidor, um mini PC) pela rede de
+  casa, em segundos em vez de minutos: rode `whatsapp-mcp transcription serve`
+  no Mac e cole o endereço e a chave em *Configurações › Transcrição de áudio*
+  (ou `whatsapp-mcp transcription remote`, ou as variáveis
+  `WHATSAPP_MCP_TRANSCRIPTION_URL` e `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` no
+  Docker). Se o Mac não responder, o áudio é transcrito no próprio computador.
+  O status e a checagem de saúde dizem onde os áudios estão sendo transcritos e
+  se o Mac está respondendo.
+
+### Corrigido
+
+- Um áudio longo num computador lento não fica mais sem transcrição para
+  sempre. Quando a ferramenta de IA cansava de esperar, a transcrição parava e
+  a próxima tentativa recomeçava do zero. Agora ela continua sozinha e guarda o
+  texto; pedir de novo pega o resultado ou espera a mesma transcrição, e depois
+  de 4 minutos a resposta diz que ainda está em andamento e quando pedir de
+  novo, em vez de estourar o tempo.
+
 ## [1.9.0-beta.2] - 2026-11-20
 
 Segunda versão de teste do modo servidor, só como imagem Docker:

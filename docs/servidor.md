@@ -593,5 +593,11 @@ celular, ou o ChatGPT, use o [modo servidor](#modo-servidor).
 
 No servidor, a transcrição roda só no processador: a mesma
 `whatsapp-mcp transcription install` baixa o whisper.cpp e o modelo (cerca de
-600 MB). Um áudio leva mais ou menos a sua própria duração para virar texto
-([Transcrição](transcricao.md)).
+600 MB). Um áudio leva mais ou menos a sua própria duração para virar texto, ou
+mais num processador fraco ([Transcrição](transcricao.md)). Se há um Mac com
+chip Apple na mesma rede, ele pode transcrever para o servidor em segundos:
+`whatsapp-mcp transcription serve` no Mac e, no servidor,
+`WHATSAPP_MCP_TRANSCRIPTION_URL` e `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` no `.env`
+(ou *Configurações › Transcrição de áudio*). Quando o Mac não responde, o áudio
+é transcrito no servidor ([Transcrever em outro
+computador](../README.md#transcrever-em-outro-computador)).

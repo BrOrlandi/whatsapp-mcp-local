@@ -143,10 +143,70 @@ Se o `whisper-cli` e o `ffmpeg` já estiverem instalados no computador (pelo
 Homebrew, por exemplo), o app usa esses e só baixa o modelo. O motor está
 pronto quando os três existem.
 
+## Servidor de transcrição
+
+Um computador sem GPU leva minutos num áudio de poucos minutos (num servidor
+com 4 núcleos fracos, mais de 300 s para 2 a 3 min de fala). O
+`whatsapp-mcp transcription serve` deixa outro computador, um Mac com chip
+Apple, fazer esse trabalho pela rede: é o mesmo motor (o `whisper-cli`, o
+`ffmpeg` e o modelo que a transcrição local já instalou ali), atrás de um
+servidor HTTP com chave. O passo a passo para subir no Mac, com o launchd, está
+no [README](../README.md#transcrever-em-outro-computador).
+
+Por que o próprio app, e não o `whisper-server` do whisper.cpp: o Mac que já
+tem o app tem também o motor, conferido por sha256, e o modelo; o servidor do
+app recebe o áudio do WhatsApp como veio (Ogg Opus) e converte lá, aplica o
+contexto e o idioma do mesmo jeito que a transcrição local, e exige uma chave,
+o que o `whisper-server` não faz. Não há outro programa para instalar nem para
+manter na mesma versão.
+
+- **Protocolo**: `GET /v1/health` responde `ready`, `accel` e `version`;
+  `POST /v1/transcribe` recebe `multipart/form-data` com `audio` (o arquivo),
+  `language` e `prompt` (o contexto da conversa) e responde `text`. Toda
+  requisição leva `Authorization: Bearer <chave>`, comparada em tempo
+  constante. A chave vem de `--token`, de `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` ou
+  do arquivo `transcription-server.token` na pasta de dados, criado na primeira
+  vez. O áudio vai sem TLS pela rede local: use numa rede de confiança (ou por
+  uma VPN como o Tailscale).
+- **Configuração**: em *Configurações › Transcrição de áudio*, por
+  `whatsapp-mcp transcription remote <endereço> --token <chave>` (guardado no
+  `config.json`, em `transcription`) ou pelas variáveis
+  `WHATSAPP_MCP_TRANSCRIPTION_URL` e `WHATSAPP_MCP_TRANSCRIPTION_TOKEN`, que
+  vencem e que o `compose.yml` repassa ao contêiner.
+- **Quando o servidor falha**: a conexão tem 3 s para abrir, e a transcrição lá
+  tem até 10 min. Se a conexão não abre (o Mac dorme ou está desligado), a
+  chave é recusada, o servidor responde erro ou passa do tempo, o áudio é
+  transcrito neste computador, se a transcrição estiver instalada aqui; se não
+  estiver, o erro diz o que falhou. A resposta de `transcribe_audio` diz
+  `backend` (`remote` ou `local`) e, quando caiu para cá, `fallback` com o
+  motivo; o modelo guardado no transcript diz qual motor o fez.
+- **Onde ver**: `whatsapp_status` mostra `transcription.backend`
+  (`remote`, `remote+local`, `local` ou `none`) e `transcription.remote` (se
+  responde, a aceleração, a versão, o último erro); `health` ganha a checagem
+  `transcription`, em aviso quando o servidor não responde;
+  `whatsapp-mcp transcription status` testa na hora.
+
+## Uma transcrição longa não se perde
+
+Os clientes de MCP desistem de uma chamada depois de alguns minutos (5 min é
+comum). Antes, a transcrição era morta quando o cliente desistia, e a próxima
+tentativa recomeçava do zero, sem nunca terminar num computador lento. Agora:
+
+- a transcrição roda fora da chamada, com limite próprio (o motor tem até 1 h
+  depois que pega a vez), e guarda o texto quando termina;
+- uma chamada para a mesma mensagem enquanto ela roda se junta a ela, em vez de
+  começar outra; depois que termina, a chamada acha o texto guardado;
+- depois de 240 s (ou um pouco antes do prazo da chamada, se for menor) a
+  resposta é `status: in_progress` com `retry_after_seconds`, e não um erro: a
+  ferramenta de IA chama de novo e recebe o texto;
+- a fila do motor (um áudio por vez) espera a vez respeitando o prazo de quem
+  pediu, e áudios diferentes não ficam presos atrás de uma chamada.
+
 ## Sem o motor local
 
-A primeira versão do app transcreve só no computador. Sem o motor instalado, a
-tool `transcribe_audio` devolve o passo a passo para instalar, e a ferramenta de
+Sem o motor instalado e sem um servidor de transcrição, a tool
+`transcribe_audio` devolve o passo a passo para instalar ou apontar para um
+servidor, e a ferramenta de
 IA pode baixar o áudio com `download_media` (o arquivo fica no disco, com o
 caminho na resposta) e transcrever do jeito que preferir. A opção de usar uma
 chave da OpenAI, útil em computadores sem GPU, volta numa versão futura.
