@@ -38,17 +38,24 @@ type Config struct {
 	// Server is the server mode `whatsapp-mcp server setup` keeps, for a
 	// server without Docker; the WHATSAPP_MCP_* variables win over it.
 	Server *Server `json:"server,omitempty"`
-	// Transcription points voice notes at a transcription server on another
-	// computer (`whatsapp-mcp transcription serve`); the
-	// WHATSAPP_MCP_TRANSCRIPTION_* variables win over it.
+	// Transcription is how voice notes are transcribed: here, on a server
+	// that speaks OpenAI's API (`whatsapp-mcp transcription serve` on
+	// another computer, say) or by OpenAI; the WHATSAPP_MCP_TRANSCRIPTION_*
+	// variables win over it.
 	Transcription *Transcription `json:"transcription,omitempty"`
 }
 
-// Transcription is where voice notes are sent to be transcribed, when not
-// on this computer.
+// Transcription is the transcription mode and what each offsite mode needs.
+// Each mode keeps its own, so switching back does not ask for it again.
 type Transcription struct {
+	// Mode is local, remote or openai; empty (1.9.0-beta) is remote when
+	// there is a RemoteURL.
+	Mode        string `json:"mode,omitempty"`
 	RemoteURL   string `json:"remote_url,omitempty"`
 	RemoteToken string `json:"remote_token,omitempty"`
+	RemoteModel string `json:"remote_model,omitempty"`
+	OpenAIKey   string `json:"openai_key,omitempty"`
+	OpenAIModel string `json:"openai_model,omitempty"`
 }
 
 // Server is the server mode's settings, as the variables of the same names

@@ -97,7 +97,7 @@ No `state.db` da pasta de dados, tabela `transcripts`, uma linha por áudio:
 |---|---|
 | `text` | a transcrição atual (corrigida, se houve correção) |
 | `raw_text` | o que o motor ouviu, preservado quando há correção |
-| `source` | `local`, `corrected` (revisada) ou `client` (feita pela própria ferramenta de IA); transcrições antigas podem ter `openai` |
+| `source` | `local`, `remote` (outro computador ou servidor), `openai`, `corrected` (revisada) ou `client` (feita pela própria ferramenta de IA) |
 | `model` | o motor que gerou |
 | `language`, `created_at` | idioma pedido e data |
 
@@ -143,6 +143,78 @@ Se o `whisper-cli` e o `ffmpeg` já estiverem instalados no computador (pelo
 Homebrew, por exemplo), o app usa esses e só baixa o modelo. O motor está
 pronto quando os três existem.
 
+## Os três modos
+
+| Modo | Onde o áudio vira texto | Configuração |
+|---|---|---|
+| `local` (padrão) | neste computador, com o whisper.cpp acima | `whatsapp-mcp transcription install` |
+| `remote` | num servidor compatível com a API de transcrição da OpenAI, no endereço que você informar: o `whatsapp-mcp transcription serve` num Mac (abaixo), o `whisper-server` do whisper.cpp, o speaches… | endereço, chave opcional, modelo opcional (padrão `whisper-1`) |
+| `openai` | na API da OpenAI (`https://api.openai.com/v1`) | chave da API, modelo (`whisper-1` padrão, `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`) |
+
+`remote` e `openai` são o mesmo cliente: só mudam o endereço, a chave e o
+modelo. O app manda `POST <base>/audio/transcriptions` em `multipart/form-data`
+com `file` (o Ogg Opus do WhatsApp, com nome `.ogg`), `model`,
+`response_format=json`, `language` (só quando a chamada pede um idioma; sem
+ele, o servidor detecta) e `prompt` (o contexto da conversa), com
+`Authorization: Bearer <chave>` quando há chave, e lê `text` da resposta. A
+`<base>` é o endereço informado; um endereço sem caminho (`http://mac:47823`) é
+a raiz do servidor, e a base vira `http://mac:47823/v1`. A OpenAI aceita
+arquivos de até 25 MB.
+
+No modo `openai`, o áudio **e o contexto da conversa** (nomes e as mensagens
+ao redor) vão para a OpenAI, que cobra por minuto de áudio. Os outros dois
+modos não mandam nada para a internet.
+
+**Onde se escolhe**, do que vence para o que perde:
+
+1. as variáveis de ambiente, que é como o modo servidor (Docker) configura:
+
+   | Variável | O quê |
+   |---|---|
+   | `WHATSAPP_MCP_TRANSCRIPTION_MODE` | `local`, `remote` ou `openai`; sem ela, basta `_URL` para ser `remote` |
+   | `WHATSAPP_MCP_TRANSCRIPTION_URL` | o endereço do servidor (modo `remote`) |
+   | `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` | a chave do servidor (modo `remote`) |
+   | `WHATSAPP_MCP_TRANSCRIPTION_MODEL` | o modelo pedido (`remote` e `openai`; padrão `whisper-1`) |
+   | `WHATSAPP_MCP_TRANSCRIPTION_OPENAI_KEY` | a chave da API da OpenAI (modo `openai`; sem ela, vale `OPENAI_API_KEY`) |
+
+   Quando `_MODE` ou `_URL` está definida, as variáveis mandam e o painel só
+   mostra a configuração, sem deixar trocar;
+2. o painel, em *Configurações › Transcrição de áudio › Onde transcrever*, ou a
+   linha de comando (`whatsapp-mcp transcription local`, `transcription remote
+   <endereço> [--model <modelo>]`, `transcription openai [--model <modelo>]`),
+   que guardam no `config.json`, em `transcription` (`mode`, `remote_url`,
+   `remote_token`, `remote_model`, `openai_key`, `openai_model`). Cada modo
+   guarda o seu, então voltar para um modo não pede tudo de novo. Um
+   `config.json` da 1.9.0-beta, só com `remote_url`, vale como `remote`.
+
+Segredos nunca entram em argumento de linha de comando, que outros usuários
+do computador conseguem ver, nem em log: a linha de comando lê a chave da
+entrada padrão (digitada sem aparecer, ou de um arquivo com `<`), o painel
+nunca a mostra de volta, e no Docker ela vem de variável de ambiente. O
+`config.json` só pode ser lido pelo dono.
+
+**Quando o servidor ou a OpenAI falha**: a conexão tem 3 s para abrir, e a
+transcrição lá tem até 10 min. Se a conexão não abre (o Mac dorme ou está
+desligado), a chave é recusada, o servidor responde erro ou passa do tempo, o
+áudio é transcrito neste computador, se a transcrição estiver instalada aqui;
+se não estiver, o erro diz o que falhou. A resposta de `transcribe_audio` diz
+`backend` (`remote`, `openai` ou `local`) e, quando caiu para cá, `fallback`
+com o motivo. A transcrição guardada diz em `source` qual motor a fez
+(`remote`, `openai` ou `local`) e em `model` o nome dele (por exemplo
+`OpenAI whisper-1` ou `whisper.cpp large-v3-turbo (transcription server
+192.168.0.10:47823)`).
+
+**Onde ver**: `whatsapp_status` mostra `transcription.mode`,
+`transcription.backend` (`remote`, `openai`, cada um com `+local` quando este
+computador cobre as falhas, `local` ou `none`) e `transcription.remote` (se
+responde, o modelo, a aceleração e a versão quando o servidor diz, o último
+erro); `health` ganha a checagem `transcription`, que descreve o destino e só
+fica em aviso quando ele não responde e não há transcrição neste computador
+para cobrir; `whatsapp-mcp transcription status` testa na hora. A checagem é
+um `GET <base>/models`: responder (mesmo 404, como o `whisper-server`, que não
+lista modelos) quer dizer que o servidor está de pé e aceitou a chave; no modo
+`openai`, ela confere também que a chave pode usar o modelo escolhido.
+
 ## Servidor de transcrição
 
 Um computador sem GPU leva minutos num áudio de poucos minutos (num servidor
@@ -150,42 +222,39 @@ com 4 núcleos fracos, mais de 300 s para 2 a 3 min de fala). O
 `whatsapp-mcp transcription serve` deixa outro computador, um Mac com chip
 Apple, fazer esse trabalho pela rede: é o mesmo motor (o `whisper-cli`, o
 `ffmpeg` e o modelo que a transcrição local já instalou ali), atrás de um
-servidor HTTP com chave. O passo a passo para subir no Mac, com o launchd, está
-no [README](../README.md#transcrever-em-outro-computador).
+servidor HTTP com chave que fala a API de transcrição da OpenAI. O passo a
+passo para subir no Mac, com o launchd, está no
+[README](../README.md#transcrever-em-outro-computador).
 
-Por que o próprio app, e não o `whisper-server` do whisper.cpp: o Mac que já
-tem o app tem também o motor, conferido por sha256, e o modelo; o servidor do
-app recebe o áudio do WhatsApp como veio (Ogg Opus) e converte lá, aplica o
+Por que o próprio app, e não só o `whisper-server` do whisper.cpp: o Mac que
+já tem o app tem também o motor, conferido por sha256, e o modelo; o servidor
+do app recebe o áudio do WhatsApp como veio (Ogg Opus) e converte lá, aplica o
 contexto e o idioma do mesmo jeito que a transcrição local, e exige uma chave,
-o que o `whisper-server` não faz. Não há outro programa para instalar nem para
-manter na mesma versão.
+o que o `whisper-server` não faz. Como fala o protocolo da OpenAI, o
+`whisper-server` serve no lugar dele quando se quer (rodado com
+`--inference-path /v1/audio/transcriptions --convert`, o `--convert` para ele
+aceitar Ogg com o `ffmpeg` do sistema), e qualquer cliente da OpenAI (o SDK
+oficial, por exemplo, com `base_url=http://<mac>:47823/v1`) usa o Mac.
 
-- **Protocolo**: `GET /v1/health` responde `ready`, `accel` e `version`;
-  `POST /v1/transcribe` recebe `multipart/form-data` com `audio` (o arquivo),
-  `language` e `prompt` (o contexto da conversa) e responde `text`. Toda
-  requisição leva `Authorization: Bearer <chave>`, comparada em tempo
-  constante. A chave vem de `--token`, de `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` ou
-  do arquivo `transcription-server.token` na pasta de dados, criado na primeira
-  vez. O áudio vai sem TLS pela rede local: use numa rede de confiança (ou por
-  uma VPN como o Tailscale).
-- **Configuração**: em *Configurações › Transcrição de áudio*, por
-  `whatsapp-mcp transcription remote <endereço> --token <chave>` (guardado no
-  `config.json`, em `transcription`) ou pelas variáveis
-  `WHATSAPP_MCP_TRANSCRIPTION_URL` e `WHATSAPP_MCP_TRANSCRIPTION_TOKEN`, que
-  vencem e que o `compose.yml` repassa ao contêiner.
-- **Quando o servidor falha**: a conexão tem 3 s para abrir, e a transcrição lá
-  tem até 10 min. Se a conexão não abre (o Mac dorme ou está desligado), a
-  chave é recusada, o servidor responde erro ou passa do tempo, o áudio é
-  transcrito neste computador, se a transcrição estiver instalada aqui; se não
-  estiver, o erro diz o que falhou. A resposta de `transcribe_audio` diz
-  `backend` (`remote` ou `local`) e, quando caiu para cá, `fallback` com o
-  motivo; o modelo guardado no transcript diz qual motor o fez.
-- **Onde ver**: `whatsapp_status` mostra `transcription.backend`
-  (`remote`, `remote+local`, `local` ou `none`) e `transcription.remote` (se
-  responde, a aceleração, a versão, o último erro); `health` ganha a checagem
-  `transcription`, que descreve o servidor e só fica em aviso quando ele não
-  responde e não há transcrição neste computador para cobrir;
-  `whatsapp-mcp transcription status` testa na hora.
+O protocolo:
+
+| Pedido | Resposta |
+|---|---|
+| `POST /v1/audio/transcriptions`, `multipart/form-data` com `file`, `model` (qualquer valor), `language`, `prompt`, `response_format` | `json` (padrão): `{"text"}`; `text`: o texto puro; `verbose_json`: `{"text", "language", "duration"}`. Os três levam também `engine` |
+| `GET /v1/models` | a lista da OpenAI (`whisper-1` e `whisper-large-v3-turbo`, vazia quando o motor não está instalado), mais `ready`, `accel`, `engine` e `version`: é a checagem que o painel e o `whatsapp_status` usam |
+| `GET /v1/health` | `{"ready", "accel", "engine", "version"}`, para quem monitora |
+
+Erros vêm no formato da OpenAI, `{"error": {"message", "type", "code"}}`: `401`
+com `invalid_api_key` para chave errada, `400` para um pedido sem `file` ou com
+outro `response_format`, `413` para um arquivo grande demais, `503` quando o
+motor não está instalado. Toda requisição leva `Authorization: Bearer
+<chave>`, comparada em tempo constante. A chave vem de
+`WHATSAPP_MCP_TRANSCRIPTION_TOKEN` ou do arquivo de `--token-file` (padrão:
+`transcription-server.token` na pasta de dados), criado na primeira vez, com
+permissão só para o dono; o servidor nunca a imprime, só diz em que arquivo
+está. O áudio vai sem TLS pela rede local: use numa rede de confiança (ou por
+uma VPN como o Tailscale). O endpoint antigo da 1.9.0-beta (`/v1/transcribe`,
+com o campo `audio`) não existe mais.
 
 ## Uma transcrição longa não se perde
 
@@ -207,9 +276,8 @@ tentativa recomeçava do zero, sem nunca terminar num computador lento. Agora:
 
 ## Sem o motor local
 
-Sem o motor instalado e sem um servidor de transcrição, a tool
+Sem o motor instalado e sem um servidor de transcrição ou a OpenAI, a tool
 `transcribe_audio` devolve o passo a passo para instalar ou apontar para um
 servidor, e a ferramenta de
 IA pode baixar o áudio com `download_media` (o arquivo fica no disco, com o
-caminho na resposta) e transcrever do jeito que preferir. A opção de usar uma
-chave da OpenAI, útil em computadores sem GPU, volta numa versão futura.
+caminho na resposta) e transcrever do jeito que preferir.

@@ -205,7 +205,8 @@ como antes.
    WHATSAPP_MCP_DATA="$HOME/Library/Application Support/WhatsApp MCP" ~/.local/bin/whatsapp-mcp transcription serve
    ```
 
-   Muestra la dirección (`http://<ip-de-la-mac>:47823`) y la clave. Si macOS
+   Muestra la dirección (`http://<ip-de-la-mac>:47823`) y el archivo donde
+   guarda la clave (la clave nunca aparece en pantalla ni en el log). Si macOS
    pregunta, permite las conexiones entrantes. `Ctrl+C` la detiene.
 
 3. Para dejarla funcionando siempre que entres en la Mac, guarda el archivo de
@@ -214,7 +215,7 @@ como antes.
 
    ```sh
    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.brorlandi.whatsapp-mcp-transcription.plist
-   cat "$HOME/Library/Application Support/WhatsApp MCP/transcription-server.token"   # la clave
+   pbcopy < "$HOME/Library/Application Support/WhatsApp MCP/transcription-server.token"   # copia la clave, sin mostrarla
    ```
 
    <details><summary>El archivo de launchd</summary>
@@ -248,13 +249,29 @@ como antes.
    Para quitarla: `launchctl bootout gui/$(id -u)/com.brorlandi.whatsapp-mcp-transcription`
    y borra el archivo.
 
-**En la otra computadora**, en *Configuración › Transcripción de audio ›
-Transcribir en otra computadora*, pega la dirección y la clave y haz clic en
-**Guardar y probar**. Desde la terminal: `whatsapp-mcp transcription remote
-http://<ip-de-la-mac>:47823 --token <clave>` y `whatsapp-mcp transcription status`.
-Con Docker, pon `WHATSAPP_MCP_TRANSCRIPTION_URL` y
-`WHATSAPP_MCP_TRANSCRIPTION_TOKEN` en el `.env` y ejecuta `docker compose up -d`.
-Detalles en [Transcripción](docs/transcricao.md#servidor-de-transcrição) (en portugués).
+**En la otra computadora**, en *Configuración › Transcripción de audio › Dónde
+transcribir*, elige **En otra computadora**, pega la dirección y la clave y haz
+clic en **Guardar y probar**. Desde la terminal: `whatsapp-mcp transcription
+remote http://<ip-de-la-mac>:47823` (pide la clave sin mostrarla) y
+`whatsapp-mcp transcription status`. Con Docker, pon
+`WHATSAPP_MCP_TRANSCRIPTION_URL` y `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` en el
+`.env` y ejecuta `docker compose up -d`.
+
+El servidor de la Mac habla la API de transcripción de OpenAI, así que la app
+también acepta otro servidor compatible en su lugar (el `whisper-server` de
+whisper.cpp, speaches), y cualquier programa que hable con OpenAI puede usar la
+Mac.
+
+**O en OpenAI.** Sin una Mac cerca, los audios pueden ir a OpenAI, con tu clave
+de la API: en *Dónde transcribir*, elige **En OpenAI**, pega la clave y, si
+quieres, cambia el modelo (`whisper-1`, `gpt-4o-transcribe` o
+`gpt-4o-mini-transcribe`). El audio y los mensajes a su alrededor van a OpenAI,
+que cobra por minuto de audio. Desde la terminal: `whatsapp-mcp transcription
+openai`; con Docker, `WHATSAPP_MCP_TRANSCRIPTION_MODE=openai` y
+`WHATSAPP_MCP_TRANSCRIPTION_OPENAI_KEY`. Si OpenAI falla, el audio también se
+transcribe en la propia computadora, cuando la transcripción está instalada en
+ella. Detalles en [Transcripción](docs/transcricao.md#os-três-modos) (en
+portugués).
 
 ## Bueno saber
 

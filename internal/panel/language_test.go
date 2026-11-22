@@ -107,7 +107,7 @@ func TestLanguagePickers(t *testing.T) {
 		Port        int
 		PortChanged bool
 		Local       localasr.Status
-		ASRRemote   remoteView
+		ASR         transcriptionView
 		Total       int
 		Corrected   int
 	}{layout: layout{Title: "Configurações", Active: "configuracoes", Language: "es"}}); err != nil {

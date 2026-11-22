@@ -292,14 +292,21 @@ func (e *Engine) download(ctx context.Context) error {
 // ISO-639-1 code or empty for automatic detection. Its errors reach the AI
 // through transcribe_audio, so they do not follow the panel's language.
 func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string) (string, error) {
+	text, _, err := e.transcribe(ctx, audio, language, prompt)
+	return text, err
+}
+
+// transcribe is Transcribe that also says how long the voice note is, in
+// seconds, for the transcription server's verbose answer.
+func (e *Engine) transcribe(ctx context.Context, audio, language, prompt string) (string, float64, error) {
 	s := e.Status()
 	if !s.Ready {
-		return "", fmt.Errorf("a transcrição local não está instalada (falta: %s)", strings.Join(s.Missing, ", "))
+		return "", 0, fmt.Errorf("a transcrição local não está instalada (falta: %s)", strings.Join(s.Missing, ", "))
 	}
 	select {
 	case e.slot <- struct{}{}:
 	case <-ctx.Done():
-		return "", fmt.Errorf("the transcription waited for its turn and gave up: %w", ctx.Err())
+		return "", 0, fmt.Errorf("the transcription waited for its turn and gave up: %w", ctx.Err())
 	}
 	defer func() { <-e.slot }()
 	// The run's own limit starts once it has the engine, not while it waits:
@@ -309,7 +316,7 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 
 	dir, err := os.MkdirTemp("", "wamcp-asr-")
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer os.RemoveAll(dir)
 	wav := filepath.Join(dir, "audio.wav")
@@ -317,7 +324,7 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 	conv := exec.CommandContext(ctx, s.FFmpeg, "-nostdin", "-loglevel", "error", "-i", audio, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav)
 	platform.Background(conv)
 	if out, err := conv.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("ffmpeg não conseguiu ler o áudio: %s", lastLines(string(out), 2))
+		return "", 0, fmt.Errorf("ffmpeg não conseguiu ler o áudio: %s", lastLines(string(out), 2))
 	}
 	if language == "" {
 		language = "auto"
@@ -336,13 +343,18 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 	run := exec.CommandContext(ctx, s.Whisper, args...)
 	platform.Background(run)
 	if out, err := run.CombinedOutput(); err != nil {
-		return "", fmt.Errorf("whisper.cpp falhou: %s", lastLines(string(out), 3))
+		return "", 0, fmt.Errorf("whisper.cpp falhou: %s", lastLines(string(out), 3))
 	}
 	text, err := os.ReadFile(base + ".txt")
 	if err != nil {
-		return "", fmt.Errorf("whisper.cpp não devolveu texto: %w", err)
+		return "", 0, fmt.Errorf("whisper.cpp não devolveu texto: %w", err)
 	}
-	return cleanTranscript(string(text)), nil
+	// 16 kHz mono, 16 bits a sample: 32000 bytes a second after the header.
+	var seconds float64
+	if fi, err := os.Stat(wav); err == nil && fi.Size() > 44 {
+		seconds = float64(fi.Size()-44) / 32000
+	}
+	return cleanTranscript(string(text)), seconds, nil
 }
 
 // cleanTranscript joins Whisper's segments into one paragraph and drops the

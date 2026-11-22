@@ -41,8 +41,9 @@ printf 'heard [%s] [%s]\n[BLANK_AUDIO]\n' "$l" "$p" > "$of.txt"
 	old := systemTools
 	systemTools = func() sidecar.Tools { return sidecar.Tools{Whisper: whisper, FFmpeg: ffmpeg, Accel: "cpu"} }
 	t.Cleanup(func() { systemTools = old })
-	t.Setenv(EnvRemoteURL, "")
-	t.Setenv(EnvRemoteToken, "")
+	for _, v := range []string{EnvMode, EnvRemoteURL, EnvRemoteToken, EnvModel, EnvOpenAIKey, "OPENAI_API_KEY"} {
+		t.Setenv(v, "")
+	}
 }
 
 // engine is an Engine in a temporary data folder, with the model in place
@@ -103,14 +104,14 @@ func TestRemoteTranscribesWithContextAndLanguage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.Backend != "remote" || r.Model != RemoteLabel || r.Fallback != "" {
+	if r.Backend != "remote" || !strings.HasPrefix(r.Model, "whisper.cpp large-v3-turbo (transcription server 127.0.0.1:") || r.Fallback != "" {
 		t.Errorf("result = %+v", r)
 	}
 	if r.Text != "heard [pt] [Conversa com Ana sobre a Birdie]" {
 		t.Errorf("text = %q: the language and the context must reach whisper on the server", r.Text)
 	}
 	st := e.RemoteStatus(context.Background(), true)
-	if !st.Configured || !st.Reachable || !st.Ready || st.Accel != "cpu" || st.Version != "test" {
+	if !st.Configured || !st.Reachable || !st.Ready || st.Accel != "cpu" || st.Version != "test" || st.Mode != ModeRemote || st.Model != DefaultModel {
 		t.Errorf("status = %+v", st)
 	}
 }
@@ -234,22 +235,22 @@ func TestTheVariablesWin(t *testing.T) {
 	if err := e.SetRemote("http://192.168.0.10:47823", ""); err != nil {
 		t.Fatal(err)
 	}
-	if r := e.Remote(); r.Token != token {
+	if r := e.Settings(); r.Token != token {
 		t.Errorf("token = %q", r.Token)
 	}
 	t.Setenv(EnvRemoteURL, "http://10.0.0.2:47823/")
 	t.Setenv(EnvRemoteToken, "from-env")
-	if r := e.Remote(); r.URL != "http://10.0.0.2:47823" || r.Token != "from-env" || !r.FromEnv {
+	if r := e.Settings(); r.Mode != ModeRemote || r.URL != "http://10.0.0.2:47823" || r.Token != "from-env" || !r.FromEnv || r.Model != DefaultModel {
 		t.Errorf("remote = %+v", r)
 	}
-	if err := e.SetRemote("", ""); !errors.Is(err, ErrRemoteFromEnv) {
+	if err := e.SetRemote("", ""); !errors.Is(err, ErrFromEnv) {
 		t.Errorf("err = %v", err)
 	}
 	t.Setenv(EnvRemoteURL, "")
 	if err := e.SetRemote("", ""); err != nil {
 		t.Fatal(err)
 	}
-	if r := e.Remote(); r.URL != "" {
+	if r := e.Settings(); r.Mode != ModeLocal || r.URL != "" {
 		t.Errorf("remote = %+v", r)
 	}
 }

@@ -239,7 +239,8 @@ Settings:
   config                    print the configuration for Claude Code and Claude Desktop
   transcription install     set up voice-note transcription on this computer (whisper.cpp)
   transcription serve       transcribe for another computer (a Mac with a GPU, say)
-  transcription remote      send voice notes to a transcription server
+  transcription remote      send voice notes to an OpenAI-compatible server
+  transcription openai      send voice notes to OpenAI, with your API key
   open                      open the control panel in the browser
 
   bridge [--url <address>]  stdio MCP server for Claude Desktop that forwards to the daemon, or to a server

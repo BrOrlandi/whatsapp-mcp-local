@@ -30,6 +30,7 @@ import (
 	qrcode "github.com/skip2/go-qrcode"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/appconfig"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/brand"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
@@ -991,9 +992,10 @@ func (p *Panel) status(w http.ResponseWriter, r *http.Request) (string, any) {
 func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, any) {
 	s := p.snapshot(r.Context())
 	var local localasr.Status
-	var remote localasr.Remote
+	asrView := transcriptionView{Mode: localasr.ModeLocal, OpenAIModels: localasr.OpenAIModels}
 	if asr := p.Server.ASR(); asr != nil {
-		local, remote = asr.Status(), asr.Remote()
+		local = asr.Status()
+		asrView = viewOf(asr.Settings(), p.DataDir)
 	}
 	total, corrected, _ := p.State.TranscriptCount(r.Context())
 	return "configuracoes", struct {
@@ -1002,19 +1004,37 @@ func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, a
 		Port        int
 		PortChanged bool
 		Local       localasr.Status
-		ASRRemote   remoteView
+		ASR         transcriptionView
 		Total       int
 		Corrected   int
 	}{p.layout(r, i18n.N("Configurações"), "configuracoes", s), p.setup(r.Context()), portOf(p.endpoint()), r.URL.Query().Get("porta") == "1", local,
-		remoteView{URL: remote.URL, FromEnv: remote.FromEnv, HasToken: remote.Token != ""}, total, corrected}
+		asrView, total, corrected}
 }
 
-// remoteView is the transcription server as the settings page shows it,
-// without its token.
-type remoteView struct {
-	URL      string
-	FromEnv  bool
-	HasToken bool
+// transcriptionView is the transcription mode as the settings page shows
+// it, without the token or the key: what each mode keeps, so switching
+// between them shows what is there.
+type transcriptionView struct {
+	Mode           string
+	Offsite        bool
+	FromEnv        bool
+	URL            string // where voice notes go, in the mode in use
+	RemoteURL      string
+	RemoteModel    string
+	HasRemoteToken bool
+	OpenAIModel    string
+	HasOpenAIKey   bool
+	OpenAIModels   []string
+}
+
+func viewOf(s localasr.Settings, dataDir string) transcriptionView {
+	v := transcriptionView{Mode: s.Mode, Offsite: s.Offsite(), FromEnv: s.FromEnv, URL: s.URL, OpenAIModels: localasr.OpenAIModels}
+	if c, err := appconfig.Load(dataDir); err == nil && c.Transcription != nil && !s.FromEnv {
+		t := c.Transcription
+		v.RemoteURL, v.RemoteModel, v.HasRemoteToken = t.RemoteURL, t.RemoteModel, t.RemoteToken != ""
+		v.OpenAIModel, v.HasOpenAIKey = t.OpenAIModel, t.OpenAIKey != ""
+	}
+	return v
 }
 
 func (p *Panel) apiASR(r *http.Request) (any, error) {
@@ -1022,34 +1042,43 @@ func (p *Panel) apiASR(r *http.Request) (any, error) {
 	if asr == nil {
 		return localasr.Status{}, nil
 	}
-	out := map[string]any{"status": asr.Status(), "backend": asr.Backend()}
+	out := map[string]any{"status": asr.Status(), "backend": asr.Backend(), "mode": asr.Settings().Mode}
 	if r.URL.Query().Get("remote") == "1" {
 		out["remote"] = asr.RemoteStatus(r.Context(), true)
 	}
 	return out, nil
 }
 
-// apiASRRemote keeps the transcription server's address and token, or
-// forgets them when the address is empty, and checks it at once.
+// apiASRRemote keeps the transcription mode, with the address, token and
+// model of a remote server or the key and model for OpenAI, and checks it at
+// once. An empty token or key keeps the one kept.
 func (p *Panel) apiASRRemote(r *http.Request) (any, error) {
 	asr := p.Server.ASR()
 	if asr == nil {
 		return nil, userError{i18n.T("a transcrição local não está disponível")}
 	}
 	var body struct {
+		Mode  string `json:"mode"`
 		URL   string `json:"url"`
 		Token string `json:"token"`
+		Model string `json:"model"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		return nil, userError{err.Error()}
 	}
-	if err := asr.SetRemote(body.URL, body.Token); err != nil {
-		if errors.Is(err, localasr.ErrRemoteFromEnv) {
-			return nil, userError{i18n.T("o servidor de transcrição está definido por variável de ambiente e não pode ser trocado aqui")}
+	if body.Mode == "" { // 1.9.0-beta's page: an address or none
+		body.Mode = localasr.ModeLocal
+		if strings.TrimSpace(body.URL) != "" {
+			body.Mode = localasr.ModeRemote
+		}
+	}
+	if err := asr.Configure(localasr.Change{Mode: body.Mode, URL: body.URL, Token: body.Token, Model: body.Model}); err != nil {
+		if errors.Is(err, localasr.ErrFromEnv) {
+			return nil, userError{i18n.T("a transcrição está definida por variável de ambiente e não pode ser trocada aqui")}
 		}
 		return nil, userError{err.Error()}
 	}
-	return map[string]any{"remote": asr.RemoteStatus(r.Context(), true), "backend": asr.Backend()}, nil
+	return map[string]any{"mode": asr.Settings().Mode, "remote": asr.RemoteStatus(r.Context(), true), "backend": asr.Backend()}, nil
 }
 
 func (p *Panel) apiASRInstall(r *http.Request) (any, error) {

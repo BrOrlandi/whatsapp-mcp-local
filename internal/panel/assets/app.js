@@ -814,41 +814,62 @@
   if (!progress.hidden) poll();
 })();
 
-// The transcription server: where voice notes go when not transcribed here.
+// Where voice notes are transcribed: here, on another computer, or by
+// OpenAI, with what each needs.
 (function () {
   var box = document.querySelector("[data-asr-remote]");
   if (!box) return;
   var state = box.querySelector("[data-asr-remote-state]");
   var form = box.querySelector("[data-asr-remote-form]");
   var error = box.querySelector("[data-asr-remote-error]");
-  function show(remote) {
+  function show(mode, remote) {
     if (!remote || !remote.configured) {
       state.textContent = t("Os áudios são transcritos neste computador.");
       return;
     }
+    var where = mode === "openai" ? t("a OpenAI") : remote.url;
     if (remote.reachable && remote.ready) {
-      state.textContent = t("Os áudios vão para %s, que está respondendo.").replace("%s", remote.url);
+      state.textContent = t("Os áudios vão para %s, que está respondendo.").replace("%s", where);
     } else {
-      state.textContent = t("%s não está respondendo agora. Enquanto isso, os áudios são transcritos neste computador, se a transcrição estiver instalada aqui.").replace("%s", remote.url);
+      state.textContent = t("%s não está respondendo agora. Enquanto isso, os áudios são transcritos neste computador, se a transcrição estiver instalada aqui.").replace("%s", where) + (remote.error ? " (" + remote.error + ")" : "");
     }
   }
   if (box.hasAttribute("data-asr-remote-on")) {
-    fetch("/api/asr?remote=1", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) { show(d.remote); }).catch(function () {});
+    fetch("/api/asr?remote=1", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) { show(d.mode, d.remote); }).catch(function () {});
   }
   if (!form) return;
+  function chosen() {
+    var c = form.querySelector("[data-asr-mode]:checked");
+    return c ? c.value : "local";
+  }
+  function fields() {
+    var mode = chosen();
+    form.querySelectorAll("[data-asr-fields]").forEach(function (f) { f.hidden = f.getAttribute("data-asr-fields") !== mode; });
+  }
+  form.querySelectorAll("[data-asr-mode]").forEach(function (r) { r.addEventListener("change", fields); });
+  fields();
   form.addEventListener("submit", function (e) {
     e.preventDefault();
     error.hidden = true;
     var button = form.querySelector("button[type=submit]");
     button.disabled = true;
-    var body = { url: form.querySelector("[data-asr-remote-url]").value, token: form.querySelector("[data-asr-remote-token]").value };
+    var mode = chosen();
+    var body = { mode: mode };
+    if (mode === "remote") {
+      body.url = form.querySelector("[data-asr-remote-url]").value;
+      body.token = form.querySelector("[data-asr-remote-token]").value;
+      body.model = form.querySelector("[data-asr-remote-model]").value;
+    } else if (mode === "openai") {
+      body.token = form.querySelector("[data-asr-openai-key]").value;
+      body.model = form.querySelector("[data-asr-openai-model]").value;
+    }
     fetch("/api/asr/remote", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
       .then(function (res) {
         button.disabled = false;
         if (!res.ok) { error.textContent = res.d.error || t("Não foi possível salvar."); error.hidden = false; return; }
-        form.querySelector("[data-asr-remote-token]").value = "";
-        show(res.d.remote);
+        form.querySelectorAll("input[type=password]").forEach(function (i) { i.value = ""; });
+        show(res.d.mode, res.d.remote);
       })
       .catch(function () { button.disabled = false; error.textContent = t("Não foi possível salvar."); error.hidden = false; });
   });

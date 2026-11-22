@@ -15,15 +15,15 @@ import (
 // the transcript against the conversation and fix what was misheard.
 const reviewGuidance = "This transcript was made by speech recognition, which mishears names, places and jargon. Read it against the context messages: where a word is clearly a mishearing of something the conversation mentions (a name, a place, a product, a term), call save_transcript with the corrected text. Change only what the context makes certain; keep the speaker's wording, slang and mistakes otherwise, and never add content. The original stays kept as raw_text."
 
-// ErrNoEngine means transcription is set up neither here nor on a
-// transcription server.
+// ErrNoEngine means transcription is set up neither here nor offsite (a
+// remote server or OpenAI).
 var ErrNoEngine = errors.New("transcription is not installed")
 
-// Transcribe makes and keeps the transcript of one voice note, on a
-// transcription server when one is set up, else on this computer. The
+// Transcribe makes and keeps the transcript of one voice note, on a remote
+// server or OpenAI when one is set up, else on this computer. The
 // conversation around the note is handed to the engine as context. backend
-// says which made it, and fallback why the server was not used, when it was
-// set up.
+// says which made it (remote, openai or local), and fallback why the remote
+// server or OpenAI was not used, when one was set up.
 func (s *Server) Transcribe(ctx context.Context, m index.Message, language string) (t state.Transcript, audioCtx index.AudioContext, backend, fallback string, err error) {
 	audioCtx, _ = s.index.AudioContext(ctx, m.ChatJID, m.ID, 12, 4)
 	t = state.Transcript{ChatJID: m.ChatJID, MessageID: m.ID, Language: language}
@@ -62,7 +62,7 @@ func (s *Server) transcribeAudio(ctx context.Context, a arguments) map[string]an
 	if s.asr == nil || !s.asr.Available() {
 		return textResult(map[string]any{"error": "transcription is not installed on this computer", "setup": []string{
 			"In the WhatsApp MCP app, open Configurações (the gear in the top right corner) and, under Transcrição de áudio, click the install button (in a browser: " + s.baseFor(ctx) + "/configuracoes#transcricao): it downloads about 600 MB once, and audio never leaves the computer. On the command line: `whatsapp-mcp transcription install`.",
-			"Or point it at a transcription server on a computer with a GPU (`whatsapp-mcp transcription serve` there), in the same section or with `whatsapp-mcp transcription remote <address> --token <token>`.",
+			"Or, in the same section, send voice notes to another computer with a GPU (`whatsapp-mcp transcription serve` there) or any OpenAI-compatible server, or to OpenAI with an API key; on the command line: `whatsapp-mcp transcription remote <address>` or `whatsapp-mcp transcription openai`.",
 			"Meanwhile, download_media gives this audio as a file, to transcribe it another way.",
 		}}, true)
 	}
@@ -85,7 +85,7 @@ func (s *Server) transcribeAudio(ctx context.Context, a arguments) map[string]an
 	}
 	out := map[string]any{"transcript": job.t, "cached": false, "joined": joined, "backend": job.backend, "context": job.audioCtx, "review": reviewGuidance, "untrusted_content": UntrustedContent}
 	if job.fallback != "" {
-		out["fallback"] = "the transcription server was not used: " + job.fallback
+		out["fallback"] = "transcribed on this computer because the configured " + s.asr.Settings().Mode + " transcription failed: " + job.fallback
 	}
 	return textResult(out, false)
 }

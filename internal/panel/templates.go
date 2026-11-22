@@ -719,10 +719,10 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div></section>
 
 <section class="card" id="transcricao" data-asr>
-<div class="card__head"><h2 class="card__title">{{icon "mic"}}{{t "Transcrição de áudio"}}</h2>{{if or .Local.Ready .ASRRemote.URL}}<span class="pill pill--ok">{{t "Ativa"}}</span>{{else if .Local.Supported}}<span class="pill pill--off">{{t "Não instalada"}}</span>{{else}}<span class="pill pill--off">{{t "Indisponível"}}</span>{{end}}</div>
+<div class="card__head"><h2 class="card__title">{{icon "mic"}}{{t "Transcrição de áudio"}}</h2>{{if or .Local.Ready .ASR.Offsite}}<span class="pill pill--ok">{{t "Ativa"}}</span>{{else if .Local.Supported}}<span class="pill pill--off">{{t "Não instalada"}}</span>{{else}}<span class="pill pill--off">{{t "Indisponível"}}</span>{{end}}</div>
 <div class="card__body stack">
 {{if .Local.Ready}}
-{{if not .ASRRemote.URL}}<p class="muted">{{tf "Os áudios viram texto neste computador, com o Whisper rodando %s, só quando você pede." (accel .Local.Accel)}}</p>{{end}}
+{{if not .ASR.Offsite}}<p class="muted">{{tf "Os áudios viram texto neste computador, com o Whisper rodando %s, só quando você pede." (accel .Local.Accel)}}</p>{{end}}
 {{else if .Local.Supported}}
 <p class="muted">{{t "Este computador consegue transcrever os áudios sem que eles saiam daqui. A instalação baixa cerca de 600 MB, uma vez só."}}</p>
 <div class="actions"><button class="btn" type="button" data-asr-install>{{t "Instalar a transcrição local"}}</button></div>
@@ -738,15 +738,31 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="snippet"><pre class="plain" data-copy><code>{{t "Transcreva os áudios que recebi hoje no WhatsApp."}}</code></pre></div>
 <p class="muted" style="margin:0">{{t "Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado. Mais detalhes na <a href='/ajuda#transcrever'>Ajuda</a>."}}</p>
 </div></details>{{end}}
-<div class="stack" data-asr-remote{{if .ASRRemote.URL}} data-asr-remote-on{{end}}>
-<h3 class="card__sub">{{t "Transcrever em outro computador"}} <span class="tip" tabindex="0" aria-describedby="tip-asr-remote"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-remote">{{t "Um Mac com chip Apple ou um computador com placa de vídeo transcreve em segundos o que um processador comum leva minutos. Nele, rode <code>whatsapp-mcp transcription serve</code>: ele mostra o endereço e a chave para colar aqui. Os áudios vão para lá pela sua rede, e, se ele não responder, são transcritos aqui mesmo."}}</span></span></h3>
-<p class="muted" style="margin:0" data-asr-remote-state>{{if .ASRRemote.URL}}{{tf "Os áudios vão para %s." .ASRRemote.URL}}{{else}}{{t "Os áudios são transcritos neste computador."}}{{end}}</p>
-{{if .ASRRemote.FromEnv}}<p class="note">{{t "O servidor de transcrição está definido por variável de ambiente e não pode ser trocado aqui."}}</p>
+<div class="stack" data-asr-remote{{if .ASR.Offsite}} data-asr-remote-on{{end}}>
+<h3 class="card__sub">{{t "Onde transcrever"}} <span class="tip" tabindex="0" aria-describedby="tip-asr-remote"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-remote">{{t "Um Mac com chip Apple ou um computador com placa de vídeo transcreve em segundos o que um processador comum leva minutos. Nele, rode <code>whatsapp-mcp transcription serve</code> e cole aqui o endereço e a chave que ele guarda. Também serve qualquer servidor compatível com a OpenAI. Se o outro computador ou a OpenAI não responder, o áudio é transcrito aqui mesmo, quando a transcrição está instalada."}}</span></span></h3>
+<p class="muted" style="margin:0" data-asr-remote-state>{{if eq .ASR.Mode "openai"}}{{t "Os áudios vão para a OpenAI."}}{{else if .ASR.Offsite}}{{tf "Os áudios vão para %s." .ASR.URL}}{{else}}{{t "Os áudios são transcritos neste computador."}}{{end}}</p>
+{{if .ASR.FromEnv}}<p class="note">{{t "A transcrição está definida por variável de ambiente e não pode ser trocada aqui."}}</p>
 {{else}}<form class="stack" data-asr-remote-form>
-<label class="field" for="asr-remote-url"><span class="field__label">{{t "Endereço"}}</span><span class="field__hint">{{t "O que o outro computador mostrou, como http://192.168.0.10:47823. Deixe em branco para transcrever só aqui."}}</span></label>
-<input id="asr-remote-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://192.168.0.10:47823" value="{{.ASRRemote.URL}}" data-asr-remote-url>
-<label class="field" for="asr-remote-token"><span class="field__label">{{t "Chave"}}</span><span class="field__hint">{{if .ASRRemote.HasToken}}{{t "Guardada. Deixe em branco para manter a mesma."}}{{else}}{{t "A chave que o outro computador mostrou."}}{{end}}</span></label>
+<fieldset class="stack"><legend class="sr-only">{{t "Onde transcrever"}}</legend>
+<label class="check"><input type="radio" name="asr-mode" value="local" data-asr-mode{{if eq .ASR.Mode "local"}} checked{{end}}><span><strong>{{t "Neste computador"}}</strong><span class="check__hint">{{t "O áudio não sai daqui."}}</span></span></label>
+<label class="check"><input type="radio" name="asr-mode" value="remote" data-asr-mode{{if eq .ASR.Mode "remote"}} checked{{end}}><span><strong>{{t "Em outro computador"}}</strong><span class="check__hint">{{t "Um Mac da sua rede ou um servidor compatível com a OpenAI."}}</span></span></label>
+<label class="check"><input type="radio" name="asr-mode" value="openai" data-asr-mode{{if eq .ASR.Mode "openai"}} checked{{end}}><span><strong>{{t "Na OpenAI"}}</strong><span class="check__hint">{{t "Com a sua chave da API. O áudio e as mensagens ao redor dele vão para a OpenAI, que cobra por minuto de áudio."}}</span></span></label>
+</fieldset>
+<div class="stack" data-asr-fields="remote"{{if ne .ASR.Mode "remote"}} hidden{{end}}>
+<label class="field" for="asr-remote-url"><span class="field__label">{{t "Endereço"}}</span><span class="field__hint">{{t "Como http://192.168.0.10:47823."}}</span></label>
+<input id="asr-remote-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://192.168.0.10:47823" value="{{.ASR.RemoteURL}}" data-asr-remote-url>
+<label class="field" for="asr-remote-token"><span class="field__label">{{t "Chave"}}</span><span class="field__hint">{{if .ASR.HasRemoteToken}}{{t "Guardada. Deixe em branco para manter a mesma."}}{{else}}{{t "A do outro computador, se ele pedir uma."}}{{end}}</span></label>
 <input id="asr-remote-token" type="password" autocomplete="off" spellcheck="false" data-asr-remote-token>
+<label class="field" for="asr-remote-model"><span class="field__label">{{t "Modelo"}}</span><span class="field__hint">{{t "Só se o servidor pedir um. Em branco, whisper-1."}}</span></label>
+<input id="asr-remote-model" type="text" autocomplete="off" spellcheck="false" placeholder="whisper-1" value="{{.ASR.RemoteModel}}" data-asr-remote-model>
+</div>
+<div class="stack" data-asr-fields="openai"{{if ne .ASR.Mode "openai"}} hidden{{end}}>
+<label class="field" for="asr-openai-key"><span class="field__label">{{t "Chave da API"}}</span><span class="field__hint">{{if .ASR.HasOpenAIKey}}{{t "Guardada. Deixe em branco para manter a mesma."}}{{else}}{{t "Crie uma em platform.openai.com, em API keys."}}{{end}}</span></label>
+<input id="asr-openai-key" type="password" autocomplete="off" spellcheck="false" data-asr-openai-key>
+<label class="field" for="asr-openai-model"><span class="field__label">{{t "Modelo"}}</span><span class="field__hint">{{t "whisper-1, gpt-4o-transcribe ou gpt-4o-mini-transcribe."}}</span></label>
+<input id="asr-openai-model" type="text" list="asr-openai-models" autocomplete="off" spellcheck="false" placeholder="whisper-1" value="{{.ASR.OpenAIModel}}" data-asr-openai-model>
+<datalist id="asr-openai-models">{{range .ASR.OpenAIModels}}<option value="{{.}}">{{end}}</datalist>
+</div>
 <div class="actions"><button class="btn btn--small" type="submit">{{t "Salvar e testar"}}</button></div>
 <p class="alert" role="alert" data-asr-remote-error hidden></p>
 </form>{{end}}

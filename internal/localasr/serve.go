@@ -20,35 +20,57 @@ const maxAudio = 64 << 20
 // keeps only its last 224 tokens.
 const maxPrompt = 8 << 10
 
+// serverEngine names this engine in the server's answers.
+const serverEngine = "whisper.cpp large-v3-turbo"
+
 // Handler is the transcription server `whatsapp-mcp transcription serve`
-// runs: this engine, over HTTP, for another computer's app.
+// runs: this engine, over HTTP, for another computer's app. It speaks
+// OpenAI's transcription API, so any client of that API can use it:
 //
-//	GET  /v1/health      {"ready", "accel", "engine", "version"}
-//	POST /v1/transcribe  multipart: audio (the file), language, prompt
-//	                     → {"text", "engine", "accel", "seconds"}
+//	POST /v1/audio/transcriptions  multipart: file, model (any), language,
+//	                               prompt, response_format (json, text or
+//	                               verbose_json) → {"text"}
+//	GET  /v1/models                OpenAI's list, plus "ready", "accel",
+//	                               "engine" and "version"
+//	GET  /v1/health                {"ready", "accel", "engine", "version"}
 //
-// Every request carries "Authorization: Bearer <token>"; token must not be
-// empty.
+// Errors come as OpenAI's {"error": {"message", "type", "code"}}. Every
+// request carries "Authorization: Bearer <token>"; token must not be empty.
 func (e *Engine) Handler(token, version string) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /v1/health", func(w http.ResponseWriter, r *http.Request) {
+	about := func() map[string]any {
 		st := e.Status()
-		writeJSON(w, http.StatusOK, health{Ready: st.Ready, Accel: st.Accel, Engine: "whisper.cpp large-v3-turbo", Version: version})
+		return map[string]any{"ready": st.Ready, "accel": st.Accel, "engine": serverEngine, "version": version}
+	}
+	mux.HandleFunc("GET /v1/health", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, about())
 	})
-	mux.HandleFunc("POST /v1/transcribe", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /v1/models", func(w http.ResponseWriter, r *http.Request) {
+		out := about()
+		data := []map[string]any{}
+		if e.Status().Ready {
+			// Any model name is taken; these are the ones it answers to.
+			for _, id := range []string{DefaultModel, "whisper-large-v3-turbo"} {
+				data = append(data, map[string]any{"id": id, "object": "model", "created": 0, "owned_by": "whatsapp-mcp"})
+			}
+		}
+		out["object"], out["data"] = "list", data
+		writeJSON(w, http.StatusOK, out)
+	})
+	mux.HandleFunc("POST /v1/audio/transcriptions", func(w http.ResponseWriter, r *http.Request) {
 		if !e.Status().Ready {
-			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "transcription is not installed on this computer: run `whatsapp-mcp transcription install`"})
+			apiError(w, http.StatusServiceUnavailable, "server_error", "engine_not_installed", "transcription is not installed on this computer: run `whatsapp-mcp transcription install`")
 			return
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, maxAudio+1<<20)
-		file, _, err := r.FormFile("audio")
+		file, _, err := r.FormFile("file")
 		if err != nil {
 			var tooBig *http.MaxBytesError
 			if errors.As(err, &tooBig) {
-				writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "the voice note is too large"})
+				apiError(w, http.StatusRequestEntityTooLarge, "invalid_request_error", "file_too_large", "the audio file is too large")
 				return
 			}
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "send the voice note as the multipart field audio"})
+			apiError(w, http.StatusBadRequest, "invalid_request_error", "missing_file", "send the audio as the multipart field file")
 			return
 		}
 		defer file.Close()
@@ -57,9 +79,16 @@ func (e *Engine) Handler(token, version string) http.Handler {
 				_ = r.MultipartForm.RemoveAll()
 			}
 		}()
+		format := r.FormValue("response_format")
+		switch format {
+		case "", "json", "text", "verbose_json":
+		default:
+			apiError(w, http.StatusBadRequest, "invalid_request_error", "unsupported_response_format", "response_format must be json, text or verbose_json")
+			return
+		}
 		dir, err := os.MkdirTemp("", "wamcp-asr-in-")
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			apiError(w, http.StatusInternalServerError, "server_error", "", err.Error())
 			return
 		}
 		defer os.RemoveAll(dir)
@@ -72,7 +101,7 @@ func (e *Engine) Handler(token, version string) http.Handler {
 			}
 		}
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			apiError(w, http.StatusInternalServerError, "server_error", "", err.Error())
 			return
 		}
 		language := strings.TrimSpace(r.FormValue("language"))
@@ -83,17 +112,36 @@ func (e *Engine) Handler(token, version string) http.Handler {
 		if len(prompt) > maxPrompt {
 			prompt = prompt[len(prompt)-maxPrompt:]
 		}
-		start := time.Now()
-		// The request's context: when the app gives up, the work stops here.
-		text, err := e.Transcribe(r.Context(), path, language, prompt)
+		// The request's context: when the client gives up, the work stops here.
+		text, seconds, err := e.transcribe(r.Context(), path, language, prompt)
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			apiError(w, http.StatusInternalServerError, "server_error", "transcription_failed", err.Error())
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]any{"text": text, "engine": "whisper.cpp large-v3-turbo", "accel": e.Status().Accel,
-			"seconds": time.Since(start).Seconds()})
+		switch format {
+		case "text":
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-store")
+			_, _ = io.WriteString(w, text+"\n")
+		case "verbose_json":
+			writeJSON(w, http.StatusOK, map[string]any{"task": "transcribe", "language": language, "duration": seconds, "text": text, "engine": serverEngine})
+		default:
+			writeJSON(w, http.StatusOK, map[string]any{"text": text, "engine": serverEngine})
+		}
+	})
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		apiError(w, http.StatusNotFound, "invalid_request_error", "unknown_url", "unknown request: "+r.Method+" "+r.URL.Path)
 	})
 	return requireToken(token, mux)
+}
+
+// apiError answers as OpenAI's API does.
+func apiError(w http.ResponseWriter, code int, kind, errCode, msg string) {
+	var c any
+	if errCode != "" {
+		c = errCode
+	}
+	writeJSON(w, code, map[string]any{"error": map[string]any{"message": msg, "type": kind, "param": nil, "code": c}})
 }
 
 func requireToken(token string, next http.Handler) http.Handler {
@@ -101,7 +149,7 @@ func requireToken(token string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got := []byte(r.Header.Get("Authorization"))
 		if token == "" || subtle.ConstantTimeCompare(got, want) != 1 {
-			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "missing or wrong token"})
+			apiError(w, http.StatusUnauthorized, "invalid_request_error", "invalid_api_key", "missing or wrong token")
 			return
 		}
 		next.ServeHTTP(w, r)

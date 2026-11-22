@@ -55,11 +55,11 @@ func TestTranscribeAudioOutlivesTheCall(t *testing.T) {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
-		case "/v1/health":
-			_ = json.NewEncoder(w).Encode(map[string]any{"ready": true, "accel": "metal", "version": "test"})
-		case "/v1/transcribe":
+		case "/v1/models":
+			_ = json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": []any{map[string]any{"id": "whisper-1"}}, "ready": true, "accel": "metal", "version": "test"})
+		case "/v1/audio/transcriptions":
 			requests.Add(1)
-			if r.FormValue("language") != "pt" || r.FormValue("prompt") == "" {
+			if _, _, err := r.FormFile("file"); err != nil || r.FormValue("model") == "" || r.FormValue("language") != "pt" || r.FormValue("prompt") == "" {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}

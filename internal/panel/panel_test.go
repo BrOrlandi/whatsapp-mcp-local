@@ -151,14 +151,14 @@ func TestSettingsOnTheCommandLine(t *testing.T) {
 		Port        int
 		PortChanged bool
 		Local       localasr.Status
-		ASRRemote   remoteView
+		ASR         transcriptionView
 		Total       int
 		Corrected   int
 	}{layout: layout{Title: "Configurações", Active: "configuracoes"}, PortChanged: true}); err != nil {
 		t.Fatal(err)
 	}
 	page := b.String()
-	for _, want := range []string{"Aparência", `data-theme-choice`, `id="idioma"`, `id="transcricao"`, "Transcrição de áudio", `class="gear" href="/configuracoes" aria-label="Configurações" title="Configurações" aria-current="page"`} {
+	for _, want := range []string{"Aparência", `data-theme-choice`, `id="idioma"`, `id="transcricao"`, "Transcrição de áudio", `value="openai" data-asr-mode`, `data-asr-fields="remote"`, `class="gear" href="/configuracoes" aria-label="Configurações" title="Configurações" aria-current="page"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("Configurações lacks %q", want)
 		}
@@ -320,7 +320,7 @@ func TestSettingsOnAServer(t *testing.T) {
 			Port        int
 			PortChanged bool
 			Local       localasr.Status
-			ASRRemote   remoteView
+			ASR         transcriptionView
 			Total       int
 			Corrected   int
 		}{layout: l}); err != nil {

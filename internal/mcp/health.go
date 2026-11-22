@@ -169,17 +169,20 @@ func evaluate(in healthInputs) Health {
 	}
 
 	if rs := in.Transcription; rs != nil {
+		fix := "check that the computer running `whatsapp-mcp transcription serve` is on and awake, and that the address and token in Configurações › Transcrição de áudio match it"
+		if rs.Mode == "openai" {
+			fix = "check the OpenAI API key and model in Configurações › Transcrição de áudio, and that the account has credit"
+		}
 		switch {
 		case rs.Reachable && rs.Ready:
-			add("transcription", "ok", fmt.Sprintf("voice notes go to the transcription server at %s (%s)", rs.URL, rs.Accel), "")
+			add("transcription", "ok", fmt.Sprintf("voice notes go to %s", rs.Where()), "")
 		case in.LocalTranscription:
 			// A laptop that sleeps is the usual transcription server: while
 			// this computer can stand in, the app is not less healthy.
-			add("transcription", "ok", fmt.Sprintf("the transcription server at %s is not usable (%s): voice notes are transcribed on this computer meanwhile, which can be much slower", rs.URL, rs.Error),
-				"if it should be answering: check that the computer running `whatsapp-mcp transcription serve` is on and awake, and that the address and token in Configurações › Transcrição de áudio match it")
+			add("transcription", "ok", fmt.Sprintf("%s is not usable (%s): voice notes are transcribed on this computer meanwhile, which can be much slower", rs.Where(), rs.Error),
+				"if it should be answering: "+fix)
 		default:
-			add("transcription", "warn", fmt.Sprintf("the transcription server at %s is not usable (%s), and transcription is not installed on this computer: voice notes cannot be transcribed meanwhile", rs.URL, rs.Error),
-				"check that the computer running `whatsapp-mcp transcription serve` is on and awake, and that the address and token in Configurações › Transcrição de áudio match it")
+			add("transcription", "warn", fmt.Sprintf("%s is not usable (%s), and transcription is not installed on this computer: voice notes cannot be transcribed meanwhile", rs.Where(), rs.Error), fix)
 		}
 	}
 

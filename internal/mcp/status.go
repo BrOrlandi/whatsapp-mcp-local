@@ -53,8 +53,10 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	if s.asr != nil {
 		st := s.asr.Status()
 		transcription["local"] = map[string]any{"ready": st.Ready, "supported": st.Supported, "missing": st.Missing, "accel": st.Accel, "engine": "whisper.cpp large-v3-turbo"}
-		// backend: remote, remote+local (this computer when the server
-		// does not answer), local or none.
+		// mode: local, remote or openai. backend: where voice notes go:
+		// remote or openai (with "+local" when this computer stands in
+		// when they fail), local or none.
+		transcription["mode"] = s.asr.Settings().Mode
 		transcription["backend"] = s.asr.Backend()
 		if rs := s.asr.RemoteStatus(ctx, false); rs.Configured {
 			transcription["remote"] = rs

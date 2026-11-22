@@ -270,35 +270,50 @@ Example:
 
 	"transcription": `Usage: whatsapp-mcp transcription install
        whatsapp-mcp transcription status
-       whatsapp-mcp transcription remote <address> [--token <token>]
+       whatsapp-mcp transcription local
+       whatsapp-mcp transcription remote <address> [--model <model>]
        whatsapp-mcp transcription remote off
-       whatsapp-mcp transcription serve [--listen <host:port>] [--token <token>]
+       whatsapp-mcp transcription openai [--model <model>]
+       whatsapp-mcp transcription serve [--listen <host:port>] [--token-file <file>]
 
-install sets up voice-note transcription on this computer, with whisper.cpp: it
-downloads the program and its model (about 600 MB) into the data folder. After
-that the AI tools can read voice notes as text, without sending the audio
-anywhere. It says so when this system is not supported.
+Voice notes are transcribed in one of three modes:
 
-serve makes this computer a transcription server for another one: a Mac with
+  local    on this computer, with whisper.cpp (install sets it up)
+  remote   on a server that speaks OpenAI's transcription API: another
+           computer running transcription serve, whisper.cpp's server,
+           speaches…
+  openai   by OpenAI, with your API key (whisper-1 by default;
+           gpt-4o-transcribe and gpt-4o-mini-transcribe also work). The
+           audio and the conversation's context go to OpenAI.
+
+install sets up transcription on this computer: it downloads whisper.cpp and
+its model (about 600 MB) into the data folder. It says so when this system is
+not supported.
+
+local, remote and openai choose the mode. remote and openai read the token or
+the API key from the standard input (typed without being shown, or piped),
+never from an argument; empty keeps the one already kept. When the server or
+OpenAI fails (off, asleep, slow, refused), voice notes are transcribed here,
+if install was run here. The variables WHATSAPP_MCP_TRANSCRIPTION_MODE,
+_URL, _TOKEN, _MODEL and _OPENAI_KEY win over these (Docker).
+
+serve makes this computer a transcription server for another one, speaking
+OpenAI's API (POST /v1/audio/transcriptions, GET /v1/models): a Mac with
 Apple Silicon (or a computer with an NVIDIA GPU) transcribes in seconds what a
 server's processor takes minutes on. It needs install first, and listens on
-0.0.0.0:47823 by default. Every request needs the token: --token, else
-WHATSAPP_MCP_TRANSCRIPTION_TOKEN, else the one kept in the data folder
-(transcription-server.token), made the first time. It prints the address and
-token to give the other computer. It runs until stopped; keep it running with
-launchd or systemd (see the README).
+0.0.0.0:47823 by default. Every request needs the token, as
+Authorization: Bearer <token>: WHATSAPP_MCP_TRANSCRIPTION_TOKEN, else the one
+in --token-file (default transcription-server.token in the data folder),
+made the first time and readable only by you. It never prints the token. It
+runs until stopped; keep it running with launchd or systemd (see the README).
 
-remote points this computer's voice notes at a transcription server; off stops.
-The variables WHATSAPP_MCP_TRANSCRIPTION_URL and WHATSAPP_MCP_TRANSCRIPTION_TOKEN
-win over it (Docker). When the server does not answer in a few seconds, voice
-notes are transcribed here, if install was run here.
-
-status says where voice notes are transcribed and whether the server answers.
+status says the mode, where voice notes go and whether the server answers.
 
 Examples:
   whatsapp-mcp transcription install
   whatsapp-mcp transcription serve
-  whatsapp-mcp transcription remote http://192.168.0.10:47823 --token <token>
+  whatsapp-mcp transcription remote http://192.168.0.10:47823 < token-file
+  whatsapp-mcp transcription openai --model gpt-4o-mini-transcribe
   whatsapp-mcp transcription status
 `,
 

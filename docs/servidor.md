@@ -594,10 +594,24 @@ celular, ou o ChatGPT, use o [modo servidor](#modo-servidor).
 No servidor, a transcrição roda só no processador: a mesma
 `whatsapp-mcp transcription install` baixa o whisper.cpp e o modelo (cerca de
 600 MB). Um áudio leva mais ou menos a sua própria duração para virar texto, ou
-mais num processador fraco ([Transcrição](transcricao.md)). Se há um Mac com
-chip Apple na mesma rede, ele pode transcrever para o servidor em segundos:
-`whatsapp-mcp transcription serve` no Mac e, no servidor,
-`WHATSAPP_MCP_TRANSCRIPTION_URL` e `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` no `.env`
-(ou *Configurações › Transcrição de áudio*). Quando o Mac não responde, o áudio
-é transcrito no servidor ([Transcrever em outro
-computador](../README.md#transcrever-em-outro-computador)).
+mais num processador fraco ([Transcrição](transcricao.md)). Há dois jeitos de
+tirar esse trabalho do servidor, escolhidos no `.env` (que vence o painel) ou em
+*Configurações › Transcrição de áudio*:
+
+- **Um Mac com chip Apple na mesma rede** transcreve em segundos:
+  `whatsapp-mcp transcription serve` no Mac e, no servidor,
+  `WHATSAPP_MCP_TRANSCRIPTION_URL=http://<ip-do-mac>:47823` e
+  `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` (a chave do arquivo
+  `transcription-server.token` do Mac). Qualquer servidor compatível com a API
+  de transcrição da OpenAI serve no lugar do Mac; `WHATSAPP_MCP_TRANSCRIPTION_MODEL`
+  escolhe o modelo quando ele pede um ([Transcrever em outro
+  computador](../README.md#transcrever-em-outro-computador)).
+- **A OpenAI**, com a sua chave: `WHATSAPP_MCP_TRANSCRIPTION_MODE=openai`,
+  `WHATSAPP_MCP_TRANSCRIPTION_OPENAI_KEY=sk-…` e, se quiser,
+  `WHATSAPP_MCP_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe` (padrão
+  `whisper-1`). O áudio e as mensagens ao redor dele vão para a OpenAI.
+
+Nos dois, quando o Mac ou a OpenAI não responde, o áudio é transcrito no
+próprio servidor, se a transcrição estiver instalada nele
+([Os três modos](transcricao.md#os-três-modos)). Depois de mudar o `.env`, rode
+`docker compose up -d`.
