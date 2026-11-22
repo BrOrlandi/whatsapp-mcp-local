@@ -6,17 +6,49 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ## [Não lançado]
 
+## [1.9.5] - 2026-11-22
+
+Primeira versão final desde a 1.8.0. Ela traz o **modo servidor**, testado nas
+versões 1.9.0-beta.1 e 1.9.0-beta.2 (detalhes nas entradas delas, abaixo), e
+três jeitos de transcrever os áudios. Quem usa o app no computador recebe esta
+versão pelo atualizador, e nada muda para quem não liga o modo servidor nem
+mexe na transcrição. A imagem Docker é
+`ghcr.io/brorlandi/whatsapp-mcp-local:1.9.5`, e a partir desta versão também
+`latest`; um servidor numa 1.9.0-beta atualiza trocando
+`WHATSAPP_MCP_VERSION` no `.env` (ou apagando a linha, para seguir a `latest`)
+e rodando `docker compose pull && docker compose up -d`.
+
 ### Adicionado
 
-- **Transcrever em outro computador.** Um Mac com chip Apple pode transcrever
-  os áudios para um computador sem GPU (um servidor, um mini PC) pela rede de
-  casa, em segundos em vez de minutos: rode `whatsapp-mcp transcription serve`
-  no Mac e cole o endereço e a chave em *Configurações › Transcrição de áudio*
-  (ou `whatsapp-mcp transcription remote`, ou as variáveis
-  `WHATSAPP_MCP_TRANSCRIPTION_URL` e `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` no
-  Docker). Se o Mac não responder, o áudio é transcrito no próprio computador.
-  O status e a checagem de saúde dizem onde os áudios estão sendo transcritos e
-  se o Mac está respondendo.
+- **Modo servidor.** O WhatsApp MCP pode rodar num servidor ligado o tempo
+  todo, com Docker (`install-docker.sh`) ou sem (`whatsapp-mcp server setup`),
+  e atender num endereço `https` com senha no painel. Assim o seu WhatsApp
+  funciona no Claude pelo navegador e pelo celular, no ChatGPT e em
+  ferramentas de IA de outros computadores, por login ou por chave, com
+  **Conexões** no painel para ver e cortar cada acesso.
+- **Três jeitos de transcrever os áudios**, em *Configurações › Transcrição de
+  áudio › Onde transcrever*:
+  - **neste computador**, como antes;
+  - **em outro computador**: um Mac com chip Apple transcreve em segundos o que
+    um servidor ou um mini PC leva minutos, pela rede de casa. Rode
+    `whatsapp-mcp transcription serve` no Mac e cole o endereço e a chave. Vale
+    também qualquer servidor compatível com a OpenAI, como o `whisper-server`
+    do whisper.cpp;
+  - **na OpenAI**, com a sua chave da API e o modelo que preferir
+    (`whisper-1`, `gpt-4o-transcribe` ou `gpt-4o-mini-transcribe`). O áudio e
+    as mensagens ao redor dele vão para a OpenAI.
+
+  Se o outro computador ou a OpenAI não responder (o Mac dormiu, a internet
+  caiu), o áudio é transcrito no próprio computador, quando a transcrição está
+  instalada nele. O status e a checagem de saúde dizem onde os áudios estão
+  sendo transcritos e se o destino está respondendo, e cada transcrição guarda
+  qual motor a fez. Pelo terminal: `whatsapp-mcp transcription local`,
+  `remote` e `openai`; no Docker, as variáveis
+  `WHATSAPP_MCP_TRANSCRIPTION_MODE`, `_URL`, `_TOKEN`, `_MODEL` e
+  `_OPENAI_KEY`.
+- **O servidor de transcrição fala a API da OpenAI**
+  (`POST /v1/audio/transcriptions`), então qualquer programa que use a OpenAI
+  consegue transcrever no seu Mac.
 
 ### Corrigido
 
@@ -26,6 +58,14 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
   texto; pedir de novo pega o resultado ou espera a mesma transcrição, e depois
   de 4 minutos a resposta diz que ainda está em andamento e quando pedir de
   novo, em vez de estourar o tempo.
+
+### Segurança
+
+- A chave do servidor de transcrição e a chave da OpenAI nunca aparecem na
+  tela, no log nem em argumento de linha de comando: o terminal pede a chave
+  sem mostrá-la, e o servidor só diz em que arquivo ela está guardada.
+
+Inclui o wacli 0.26.1.
 
 ## [1.9.0-beta.2] - 2026-11-20
 
@@ -542,6 +582,7 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.9.5]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.9.5
 [1.8.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.8.0
 [1.7.6]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.7.6
 [1.7.5]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.7.5
