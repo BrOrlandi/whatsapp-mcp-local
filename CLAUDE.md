@@ -2,19 +2,24 @@
 
 The local version of WhatsApp MCP: a desktop app (and a command line) that runs on the person's
 own computer, over wacli. It is a rewrite from scratch, not a "v2" of the server version
-(`BrOrlandi/whatsapp-mcp`, Evolution API on a VPS), which stays maintained for running 24 hours.
+(`BrOrlandi/whatsapp-mcp-server`, Evolution API on a VPS), which is being retired in favour of this one;
+its migration guide lives in that repository. In 1 to 2 months this repository takes the
+`BrOrlandi/whatsapp-mcp` name (the server one was renamed on 2026-11-17).
 Nothing keeps the old "v2" name: the command line's folder is `~/.whatsapp-mcp`, its service
 `com.brorlandi.whatsapp-mcp` (`whatsapp-mcp.service` on Linux).
 
 ## Site
 
-`site/` is the static landing page at https://whatsapp-mcp.brorlandi.xyz (Vercel project
-`whatsapp-mcp-site`, Root Directory `site`). A push to `main` that changes `site/` publishes it;
-pushes that don't are skipped by the Ignored Build Step (`git diff --quiet HEAD^ HEAD -- .`).
-Other branches get preview deployments. A manual deploy runs from the repository root
-(`vercel deploy --prod`), not from `site/`. It covers both versions: the downloads point at
-this repository's latest release by the fixed asset names, and `/servidor` is a separate page
-for the server project, whose links all point at `BrOrlandi/whatsapp-mcp`.
+`site/` is the static landing page at https://whatsappmcp.com.br (Vercel project
+`whatsapp-mcp-site`, Root Directory `site`). The domain's DNS is on Bruno's personal Cloudflare
+account (registered at GoDaddy); `www` and the old address, `whatsapp-mcp.brorlandi.xyz`, are
+Vercel domain redirects to it that keep the path, so links already out there keep working. A
+push to `main` that changes `site/` publishes it; pushes that don't are skipped by the Ignored
+Build Step (`git diff --quiet HEAD^ HEAD -- .`). Other branches get preview deployments. A manual
+deploy runs from the repository root (`vercel deploy --prod`), not from `site/`. It covers both
+versions: the downloads point at this repository's latest release by the fixed asset names, and
+`/servidor` is a separate page for the server project, whose links all point at
+`BrOrlandi/whatsapp-mcp-server`.
 
 The "Veja como funciona" video on the home page (autoplays muted, with a button for the sound)
 lives in `site/assets/video/`. Its source, a Remotion project, is kept out of the repository, in
@@ -45,10 +50,18 @@ code, check whether a newer wacli is out:
 ```
 
 If it is newer, read its release notes and tell Bruno. Every new wacli release is shipped as its
-own patch release of the app that only bumps `build/wacli.env` (after the checks below), and
+own patch release of the app that only bumps the wacli pin (after the checks below), and
 every release note names the wacli version. Before bumping, run the tests and check the Status
 tab and the chat previews: the database schema can change between versions
-(`docs/dependencias.md#wacli`).
+(`docs/dependencias.md#wacli`). A bump changes `build/wacli.env` and, in the same commit, the
+`WACLI_VERSION` and `WACLI_SHA256_*` lines of `install.sh` (the command-line installer installs
+that same wacli and checks its sha256); `TestInstallShPinsTheWacliOfTheRelease`
+(`cmd/whatsapp-mcp/pins_test.go`) fails when they differ.
+
+The Go every release is built with is pinned the same way, in `build/go.env`: `scripts/release.sh`
+builds with exactly that one (`GOTOOLCHAIN`) and refuses a binary made with another, and the
+`GO_VERSION` defaults of `build/docker/Dockerfile` and `build/linux/Dockerfile` must match it (also
+enforced in `pins_test.go`). Moving Go on is a change in those three files.
 
 ## Release & Changelog
 
@@ -70,7 +83,7 @@ Structured convention: `.claude/release.json` (read by the `release` skill). Pro
   updater looks them up. The transcription programs ship in separate `sidecars-N` releases,
   never marked latest, pinned in `internal/sidecar/manifest.json`.
 - **Landing page downloads**: every release must reach the download page
-  (https://whatsapp-mcp.brorlandi.xyz/download), which is where the README's download button
+  (https://whatsappmcp.com.br/download), which is where the README's download button
   goes, never to a GitHub release. Its buttons point at `releases/latest/download/<fixed name>`,
   and `site/assets/site.js` reads the latest release from the GitHub API for the version, the
   sizes and the `.deb` links (their names carry the version). After publishing, open the page and
@@ -96,6 +109,27 @@ The server mode has its own step, run locally with Docker and no WhatsApp accoun
 a key, OAuth and a tool call through the public listener. `scripts/release.sh` also builds the
 Docker image (amd64 and arm64; the scripts read its name from `compose.yml`) into the local
 store, never pushing it; `scripts/push-image.sh X.Y.Z` publishes it as a separate step.
+
+## Panel interface
+
+Before changing any panel screen (`internal/panel/templates.go`, `style.go`, `assets/*.js`), read
+`docs/interface.md`: the owner's design rules, the classes to reuse, a checklist, and what the code
+does not follow yet. The rules that matter most:
+
+- Plain language for a non-technical person; technical detail goes in a `(?)` tooltip (`tip`).
+- Never name wacli or another internal part to the user; an error says what happened and what to
+  click next, an unknown one is generic and the raw text goes only to the log.
+- Say the good news ("Você já tem a versão mais recente."); every string in pt-BR, es and en.
+- No blue: gold (`--accent`) for notices, green for positive states, red only for errors and
+  destructive actions; readable in light, dark and at phone width.
+- A card: the main fact and at most one main action on top, one status line below, and anything
+  needing attention in a separate green box that holds all of it (`update-found`).
+- Adding and editing share one modal; no inline forms in cards; Escape, × and Cancelar close it and
+  focus returns; delete is a red button inside the edit modal, with a confirmation.
+- Rows say their configuration in words; never a row of identical buttons (switch for on/off, one
+  outlined main action, quiet occasional ones); a filled button only finishes a flow.
+- Changing a setting must not make the page jump; check every screen on the desktop app and the
+  server version.
 
 ## Git workflow
 

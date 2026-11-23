@@ -98,7 +98,7 @@ agente chama as duas conexões.
 ## 5. Assinatura
 
 - **Worker de assinaturas na Cloudflare**, `whatsapp-mcp-assinaturas`, em
-  `assinatura.whatsapp-mcp.brorlandi.xyz` (o nome evita confusão com o
+  `assinatura.whatsappmcp.com.br` (o nome evita confusão com o
   `whatsapp-mcp-license-worker`, que ativa o Evolution Go da versão servidor).
   Tem o **seu próprio painel de administração** em `/admin` (lista de
   clientes, conceder, mudar e tirar números extras, histórico), atrás de um

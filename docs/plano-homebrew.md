@@ -40,7 +40,7 @@ cask "whatsapp-mcp" do
   url "https://github.com/BrOrlandi/whatsapp-mcp-local/releases/download/v#{version}/WhatsApp-MCP.dmg"
   name "WhatsApp MCP"
   desc "Connect WhatsApp to Claude and other AI tools over MCP, on your own computer"
-  homepage "https://whatsapp-mcp.brorlandi.xyz/"
+  homepage "https://whatsappmcp.com.br/"
 
   livecheck do
     url :url

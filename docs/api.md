@@ -15,6 +15,9 @@ precisar da janela. O app e a versão de linha de comando têm a mesma API; só
   ler nem chamar nada daqui.
 - Com a variável `WHATSAPP_MCP_TOKEN` definida, o `/mcp`, o `/health` e as
   ações pedem `Authorization: Bearer <token>`; as leituras continuam abertas.
+  Um cabeçalho `Origin` não dispensa o token. No navegador, o painel pede o
+  token uma vez, em `/token`, e guarda uma sessão num cookie; a janela do app
+  não pede.
   Uma chave de acesso para todas as rotas, ligada em Configurações, fica para
   uma versão futura.
 - **A porta** é 47821, a menos que tenha sido trocada em Configurações. Ela

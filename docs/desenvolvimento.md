@@ -79,6 +79,13 @@ O painel sobe em `http://127.0.0.1:47890` com um wacli falso
 sobre um banco preenchido por `scripts/preview/seed.sql`. Só o que depende de
 um celular é simulado: pareamento, sync e pedidos de histórico.
 
+## A interface
+
+As decisões de desenho do painel (texto, cores, cards, modais, linhas e
+botões, movimento) e as peças do `style.go` para reaproveitar estão em
+[interface.md](interface.md). Leia antes de mudar uma tela; ele termina com a
+lista do que conferir antes de entregar.
+
 ## Idiomas
 
 O app fala português (Brasil), espanhol e inglês. O texto continua escrito em
@@ -176,7 +183,7 @@ os testes. O instalador do Windows não é assinado.
     --notes-file <a entrada do CHANGELOG mais os avisos de instalação> -- dist/vX.Y.Z/*
   ```
 
-  e abrir https://whatsapp-mcp.brorlandi.xyz/download para ver a versão nova
+  e abrir https://whatsappmcp.com.br/download para ver a versão nova
   em todos os sistemas.
 - **A imagem Docker do modo servidor:** o `scripts/release.sh` confere logo no
   começo, antes de compilar ou notarizar qualquer coisa, que o Docker está

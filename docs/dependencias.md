@@ -48,8 +48,11 @@ dos releases oficiais e conferida pelo sha256 que eles publicam, e ele só muda
 com uma versão nova do app. A documentação do wacli avisa que o esquema do banco
 pode mudar entre versões; antes de trocar a versão em `build/wacli.env`, vale
 rodar os testes e conferir a aba Status e a prévia de conversas. A linha de
-comando usa o wacli instalado ao lado dela (pelo `install.sh`) ou o do
-Homebrew.
+comando usa o wacli instalado ao lado dela ou o que já estiver no computador.
+O `install.sh` instala a mesma versão fixada, conferida pelo sha256: a versão e
+os sha256 estão repetidos nele, e um teste cobra que batam com o
+`build/wacli.env` (troque os dois juntos). Ele também confere o arquivo da
+linha de comando pelo `checksums.txt` da release.
 
 ### whatsmeow
 
@@ -90,7 +93,7 @@ histórico antigo e para reenviar mídia que expirou.
 
 | Peça | Versão | Origem | Para que serve |
 |---|---|---|---|
-| whisper.cpp (`whisper-cli`) | 1.9.2 | compilado pelo projeto (macOS, Linux) ou o build oficial (Windows), publicado num release `sidecars-N` | roda o modelo |
+| whisper.cpp (`whisper-cli`) | 1.9.2 | compilado pelo projeto (macOS, Linux) ou o build oficial (Windows, que ainda não funciona sem o runtime do Visual C++), publicado num release `sidecars-N` | roda o modelo |
 | ffmpeg mínimo | 7.1.1 | compilado pelo projeto (`scripts/sidecars/build-ffmpeg.sh`) | converte o áudio do WhatsApp (Ogg Opus, AAC, MP3) para WAV 16 kHz |
 | Modelo `ggml-large-v3-turbo-q5_0.bin` | 574.041.195 bytes | Hugging Face, `ggerganov/whisper.cpp`, conferido por sha256 | o Whisper large-v3-turbo quantizado |
 
@@ -102,14 +105,21 @@ Riscos: as opções de linha de comando do `whisper-cli` podem mudar entre
 versões, por isso a versão é fixa e só muda com um novo `sidecars-N`. O modelo
 é baixado uma vez e não muda.
 
+Ainda não no Windows: o build oficial do whisper.cpp depende do runtime do
+Microsoft Visual C++ 2015 a 2022 (`MSVCP140`, `VCRUNTIME140`, `VCOMP140`), que
+um Windows limpo não tem. O app testa o `whisper-cli` antes de baixar o modelo
+e, se ele não abre, diz que a transcrição local não está disponível e aponta os
+outros modos ([transcricao.md](transcricao.md#ainda-não-no-windows)). Refazer
+o pacote está pedido numa issue no GitHub.
+
 ## Opcionais
 
 | Peça | Quando entra |
 |---|---|
 | `claude` (Claude Code) | o botão "Adicionar ao Claude Code" roda `claude mcp add`/`remove` |
 | Claude Desktop | o botão "Adicionar ao Claude Desktop" edita `claude_desktop_config.json`, guardando uma cópia antes |
-| Homebrew | só para a linha de comando: o instalador usa para instalar o wacli e, sem release publicado, o Go |
-| Go 1.26+ | só para compilar a partir do código |
+| Homebrew | só para a linha de comando: sem release publicado, o instalador usa para instalar o Go |
+| Go 1.26+ | só para compilar a partir do código; as releases saem com o Go fixado em `build/go.env`, que o `scripts/release.sh` usa e confere em cada binário |
 
 ## Bibliotecas Go
 

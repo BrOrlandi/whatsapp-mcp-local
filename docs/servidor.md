@@ -598,20 +598,32 @@ mais num processador fraco ([Transcrição](transcricao.md)). Há dois jeitos de
 tirar esse trabalho do servidor, escolhidos no `.env` (que vence o painel) ou em
 *Configurações › Transcrição de áudio*:
 
-- **Um Mac com chip Apple na mesma rede** transcreve em segundos:
-  `whatsapp-mcp transcription serve` no Mac e, no servidor,
-  `WHATSAPP_MCP_TRANSCRIPTION_URL=http://<ip-do-mac>:47823` e
-  `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` (a chave do arquivo
-  `transcription-server.token` do Mac). Qualquer servidor compatível com a API
-  de transcrição da OpenAI serve no lugar do Mac; `WHATSAPP_MCP_TRANSCRIPTION_MODEL`
-  escolhe o modelo quando ele pede um ([Transcrever em outro
-  computador](../README.md#transcrever-em-outro-computador)).
+- **Um servidor compatível com a API de transcrição da OpenAI**, em qualquer
+  endereço (um serviço na internet, um servidor seu, um computador com GPU):
+  `WHATSAPP_MCP_TRANSCRIPTION_URL` com o endereço dele e
+  `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` com a chave, quando ele pede uma;
+  `WHATSAPP_MCP_TRANSCRIPTION_MODEL` escolhe o modelo quando ele pede um. Um
+  exemplo: um Mac com chip Apple rodando `whatsapp-mcp transcription serve`
+  transcreve em segundos, com `URL=http://<ip-do-mac>:47823` e a chave do
+  arquivo `transcription-server.token` do Mac ([o passo a passo no
+  README](../README.md#transcrever-num-servidor-compatível-com-a-openai)). Outro é o
+  `whisper-server` do whisper.cpp, rodado com
+  `--inference-path /v1/audio/transcriptions --convert -l auto` (sem o
+  `-l auto`, ele assume inglês).
 - **A OpenAI**, com a sua chave: `WHATSAPP_MCP_TRANSCRIPTION_MODE=openai`,
   `WHATSAPP_MCP_TRANSCRIPTION_OPENAI_KEY=sk-…` e, se quiser,
   `WHATSAPP_MCP_TRANSCRIPTION_MODEL=gpt-4o-mini-transcribe` (padrão
-  `whisper-1`). O áudio e as mensagens ao redor dele vão para a OpenAI.
+  `whisper-1`). O áudio vai para a OpenAI.
 
-Nos dois, quando o Mac ou a OpenAI não responde, o áudio é transcrito no
+Nos dois, quando o servidor ou a OpenAI não responde, o áudio é transcrito no
 próprio servidor, se a transcrição estiver instalada nele
-([Os três modos](transcricao.md#os-três-modos)). Depois de mudar o `.env`, rode
-`docker compose up -d`.
+([Os três modos](transcricao.md#os-três-modos)). Do contexto da conversa, por
+padrão, nada vai com o áudio para fora; `WHATSAPP_MCP_TRANSCRIPTION_CONTEXT`
+escolhe `none` (só o áudio), `names` (o nome da conversa e os das pessoas) ou
+`messages` (também as últimas mensagens), e vale também para a transcrição no
+próprio servidor, onde o padrão é `names`. Sem a variável, dá para escolher no
+painel, em Contexto da conversa
+([o nível de contexto](transcricao.md#o-nível-de-contexto)). Se a sua ferramenta de IA
+desiste de esperar antes de 4 minutos, `WHATSAPP_MCP_TRANSCRIPTION_WAIT` diz
+em quantos segundos a resposta passa a ser "ainda transcrevendo, chame de
+novo". Depois de mudar o `.env`, rode `docker compose up -d`.

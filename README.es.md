@@ -21,13 +21,13 @@ directamente desde tu WhatsApp.
 
 > **Esta es la versión Local**, la más simple para casi todo el mundo. Para
 > tenerlo funcionando las 24 horas en un servidor alquilado, existe la
-> [versión Servidor](https://github.com/BrOrlandi/whatsapp-mcp). Son proyectos
+> [versión Servidor](https://github.com/BrOrlandi/whatsapp-mcp-server). Son proyectos
 > independientes: usas uno u otro, y esta app no necesita el servidor.
 
 ## Cómo instalar
 
 <p align="center">
-  <a href="https://whatsapp-mcp.brorlandi.xyz/es/download"><strong>Descargar WhatsApp MCP para macOS, Windows y Linux</strong></a>
+  <a href="https://whatsappmcp.com.br/es/download"><strong>Descargar WhatsApp MCP para macOS, Windows y Linux</strong></a>
 </p>
 
 1. **Descarga e instala.** La página de descarga tiene siempre la versión más
@@ -180,14 +180,22 @@ en ChatGPT, el **modo servidor** pone el panel y el MCP en una dirección
 [la guía del modo servidor](docs/servidor.md#modo-servidor) (en portugués).
 Llega con la versión 1.9.0.
 
-## Transcribir en otra computadora
+## Transcribir en un servidor compatible con OpenAI
 
 En una computadora sin GPU (un servidor, una mini PC), un audio de algunos
-minutos tarda minutos en volverse texto. Una Mac con chip Apple lo hace en
-segundos. Puedes dejar que la Mac transcriba para la otra por la red de tu
-casa: el audio va a la Mac y vuelve como texto, sin pasar por internet. Si la
-Mac está apagada o dormida, el audio se transcribe en la propia computadora,
-como antes.
+minutos tarda minutos en volverse texto. Puedes mandar los audios a cualquier
+servidor que hable la API de transcripción de OpenAI, en cualquier dirección,
+en internet o en tu red: un servicio contratado, una computadora tuya con GPU,
+el `whisper-server` de whisper.cpp (ejecutado con
+`--inference-path /v1/audio/transcriptions --convert -l auto`; sin el
+`-l auto`, asume inglés). El audio va a ese servidor; el nombre del chat y los
+mensajes a su alrededor solo van si lo eliges, en *Contexto de la
+conversación*. Si no responde, el audio se transcribe en la propia computadora,
+cuando la transcripción está instalada en ella.
+
+Un ejemplo: una Mac con chip Apple transcribe en segundos lo que a un servidor
+le toma minutos. Con la Mac ejecutando `whatsapp-mcp transcription serve` en la
+red de tu casa, el audio va a la Mac, vuelve como texto, y nada sale de tu red.
 
 **En la Mac** (con la app instalada y la transcripción activada en ella):
 
@@ -249,24 +257,24 @@ como antes.
    Para quitarla: `launchctl bootout gui/$(id -u)/com.brorlandi.whatsapp-mcp-transcription`
    y borra el archivo.
 
-**En la otra computadora**, en *Configuración › Transcripción de audio › Dónde
-transcribir*, elige **En otra computadora**, pega la dirección y la clave y haz
-clic en **Guardar y probar**. Desde la terminal: `whatsapp-mcp transcription
+**En la computadora que va a mandar los audios**, en *Configuración ›
+Transcripción de audio › Dónde transcribir*, elige **En un servidor compatible
+con OpenAI**, pega la dirección y la clave (de la Mac o del servidor que usas)
+y haz clic en **Guardar y probar**. Desde la terminal: `whatsapp-mcp transcription
 remote http://<ip-de-la-mac>:47823` (pide la clave sin mostrarla) y
 `whatsapp-mcp transcription status`. Con Docker, pon
 `WHATSAPP_MCP_TRANSCRIPTION_URL` y `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` en el
 `.env` y ejecuta `docker compose up -d`.
 
-El servidor de la Mac habla la API de transcripción de OpenAI, así que la app
-también acepta otro servidor compatible en su lugar (el `whisper-server` de
-whisper.cpp, speaches), y cualquier programa que hable con OpenAI puede usar la
-Mac.
+Como el servidor de la Mac habla la API de transcripción de OpenAI, cualquier
+programa que hable con OpenAI también puede usar la Mac.
 
-**O en OpenAI.** Sin una Mac cerca, los audios pueden ir a OpenAI, con tu clave
+**O en OpenAI.** Sin un servidor tuyo, los audios pueden ir a OpenAI, con tu clave
 de la API: en *Dónde transcribir*, elige **En OpenAI**, pega la clave y, si
 quieres, cambia el modelo (`whisper-1`, `gpt-4o-transcribe` o
-`gpt-4o-mini-transcribe`). El audio y los mensajes a su alrededor van a OpenAI,
-que cobra por minuto de audio. Desde la terminal: `whatsapp-mcp transcription
+`gpt-4o-mini-transcribe`). El audio va a OpenAI, que cobra por minuto de
+audio; el nombre del chat y los mensajes a su alrededor solo van si lo eliges,
+en *Contexto de la conversación*. Desde la terminal: `whatsapp-mcp transcription
 openai`; con Docker, `WHATSAPP_MCP_TRANSCRIPTION_MODE=openai` y
 `WHATSAPP_MCP_TRANSCRIPTION_OPENAI_KEY`. Si OpenAI falla, el audio también se
 transcribe en la propia computadora, cuando la transcripción está instalada en
@@ -278,15 +286,19 @@ portugués).
 - **Los audios se vuelven texto en tu propia computadora, cuando lo pides.**
   Actívalo en *Configuración › Transcripción de audio*: la app descarga Whisper
   (unos 600 MB, una sola vez) y transcribe sin que el audio salga de la
-  computadora, usando la conversación como contexto para acertar nombres y
-  términos. Con la GPU de la Mac o una tarjeta NVIDIA tarda segundos; solo con
-  el procesador, más o menos lo que dura el audio.
+  computadora, usando los nombres de la conversación como contexto para
+  escribirlos bien. Con la GPU de la Mac o una tarjeta NVIDIA tarda segundos; solo con
+  el procesador, más o menos lo que dura el audio. En Windows, la
+  transcripción en esta computadora todavía no funciona en todas las
+  computadoras (necesita un componente de Microsoft que un Windows nuevo no
+  tiene); la app avisa cuando es el caso, y puedes usar un servidor compatible
+  con OpenAI u OpenAI. El arreglo está pedido en un issue en GitHub.
 - **La computadora tiene que estar encendida** para recibir mensajes. Si se
   apaga por poco tiempo, WhatsApp entrega lo pendiente cuando vuelve.
 - **Funciona con Claude Desktop y Claude Code** en esta computadora, y con
   otras herramientas compatibles con MCP. claude.ai en el navegador y la app
   del celular no llegan a tu computadora; para usar WhatsApp en ellos, la
-  alternativa es la [versión Servidor](https://github.com/BrOrlandi/whatsapp-mcp),
+  alternativa es la [versión Servidor](https://github.com/BrOrlandi/whatsapp-mcp-server),
   en lugar de la app.
 - **Úsala bajo tu propio riesgo.** WhatsApp no tiene una API oficial para
   cuentas personales. Este proyecto usa [wacli](https://github.com/openclaw/wacli),
@@ -298,6 +310,9 @@ Documentación, en portugués:
 [Transcripción](docs/transcricao.md) ·
 [Dependencias](docs/dependencias.md) ·
 [Desarrollo](docs/desenvolvimento.md) ·
+[Interfaz](docs/interface.md) ·
 [Apoya el proyecto](https://donate.stripe.com/8x200jdhA6c1d375jF9Ve06)
+
+[![Listed in Awesome WhatsApp MCP](https://img.shields.io/badge/listed%20in-Awesome%20WhatsApp%20MCP-25D366)](https://github.com/rosroyros/awesome-whatsapp-mcp)
 
 <sub>MIT · hecho por [Bruno Orlandi](https://github.com/BrOrlandi)</sub>

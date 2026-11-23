@@ -85,7 +85,9 @@ celular precisa estar com internet, e cada pedido recua mais um trecho.
 ## Transcrição de áudios
 
 Os áudios são transcritos no próprio computador com o whisper.cpp e o modelo
-large-v3-turbo, usando a conversa como contexto, e só quando você pede: na GPU
+large-v3-turbo, usando a conversa como contexto (por padrão só os nomes; o
+[nível de contexto](transcricao.md#o-nível-de-contexto) é escolhido no painel),
+e só quando você pede: na GPU
 do Mac, numa placa NVIDIA no Windows, ou no processador. O caminho completo, do pedido à revisão pelo Claude, está em
 [transcricao.md](transcricao.md).
 
@@ -143,7 +145,7 @@ Logs do serviço: `~/Library/Logs/whatsapp-mcp.log` (macOS) ou
 ## Tools
 
 A aba **Funções** do painel lista as tools direto do servidor. Em relação
-ao [WhatsApp MCP hospedado](https://github.com/BrOrlandi/whatsapp-mcp):
+ao [WhatsApp MCP hospedado](https://github.com/BrOrlandi/whatsapp-mcp-server):
 
 | Diferença | Por quê |
 |---|---|
