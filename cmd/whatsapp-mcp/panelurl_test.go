@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"testing"
 )
@@ -47,6 +48,9 @@ func TestThePanelOpensSignedIn(t *testing.T) {
 // of what a stop left behind; a folder outside the data volume is never
 // touched.
 func TestTheTempFolderStartsEmpty(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the folder is made only in the container, and Windows has no Unix permissions")
+	}
 	data := t.TempDir()
 	tmp := filepath.Join(data, "tmp")
 	if err := freshTempDir(tmp, data); err != nil {

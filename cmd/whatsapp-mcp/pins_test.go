@@ -37,7 +37,8 @@ func read(t *testing.T, path string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return string(b)
+	// A checkout on Windows ends lines with CRLF.
+	return strings.ReplaceAll(string(b), "\r\n", "\n")
 }
 
 // Every release is built with the Go in build/go.env: the release script

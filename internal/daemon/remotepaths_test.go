@@ -23,7 +23,7 @@ func TestNoServerPathReachesAnAgentOutside(t *testing.T) {
 	_ = os.MkdirAll(filepath.Join(media, "5511900000001_s.whatsapp.net"), 0o700)
 	_ = os.WriteFile(filepath.Join(media, "5511900000001_s.whatsapp.net", "P1.png"), []byte("png"), 0o600)
 	// A message whose text names a server folder.
-	db, err := sql.Open("sqlite", "file:"+filepath.Join(d.cfg.StoreDir, "wacli.db"))
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(d.cfg.StoreDir, "wacli.db")+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		t.Fatal(err)
 	}

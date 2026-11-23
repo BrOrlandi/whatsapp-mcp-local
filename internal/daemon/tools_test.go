@@ -30,7 +30,9 @@ const (
 // waiting for an answer.
 func seedStore(t *testing.T, store string) {
 	t.Helper()
-	db, err := sql.Open("sqlite", "file:"+filepath.Join(store, "wacli.db"))
+	// The daemon may already be reading the store: wait for it, as the app's
+	// own readers do, instead of failing with "database is locked".
+	db, err := sql.Open("sqlite", "file:"+filepath.Join(store, "wacli.db")+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		t.Fatal(err)
 	}
