@@ -5,7 +5,34 @@
   "headers": [
     {
       "source": "/assets/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=3600, must-revalidate"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/changelog",
+      "destination": "https://github.com/BrOrlandi/whatsapp-mcp-local/releases",
+      "permanent": false
+    },
+    {
+      "source": "/changelog/latest",
+      "destination": "https://github.com/BrOrlandi/whatsapp-mcp-local/releases/latest",
+      "permanent": false
+    },
+    {
+      "source": "/changelog/v:versao",
+      "destination": "https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v:versao",
+      "permanent": false
+    },
+    {
+      "source": "/changelog/:versao",
+      "destination": "https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v:versao",
+      "permanent": false
     }
   ]
 }
