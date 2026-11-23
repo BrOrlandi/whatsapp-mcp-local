@@ -108,6 +108,10 @@ O que você pode notar ao atualizar:
   instalar o runtime da Microsoft vê a transcrição voltar ao abrir as
   Configurações de novo. O conserto de vez está pedido na
   [issue #14](https://github.com/BrOrlandi/whatsapp-mcp-local/issues/14).
+- **Áudios longos saem inteiros.** Na transcrição neste computador (e num
+  servidor feito com o mesmo motor), trechos de um áudio longo se perdiam: de
+  um áudio de 8 minutos, cerca de um terço sumia do texto, sem aviso. Agora o
+  texto vem completo.
 - Um endereço errado em **Em um servidor compatível com a OpenAI** (um
   programa que não transcreve) é avisado, em vez de aparecer como pronto.
 - Uma transcrição pedida enquanto o mesmo áudio já estava sendo transcrito

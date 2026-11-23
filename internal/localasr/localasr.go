@@ -365,7 +365,10 @@ func (e *Engine) transcribe(ctx context.Context, audio, language, prompt string)
 	if s.Accel == "cpu" {
 		threads = max(2, runtime.NumCPU()-1)
 	}
-	args := []string{"-m", s.Model, "-f", wav, "-l", language, "-otxt", "-of", base, "-np", "-nt",
+	// No -nt: without timestamps whisper.cpp moves on a whole 30-second window
+	// each time, and whatever the window held after the model stopped is lost
+	// (a third of an 8-minute voice note). The .txt has no timestamps anyway.
+	args := []string{"-m", s.Model, "-f", wav, "-l", language, "-otxt", "-of", base, "-np",
 		"-t", fmt.Sprint(threads)}
 	if p := strings.TrimSpace(prompt); p != "" {
 		args = append(args, "--prompt", p)
