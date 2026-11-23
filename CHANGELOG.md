@@ -6,6 +6,151 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ## [Não lançado]
 
+## [1.9.6] - 2026-11-23
+
+O painel fica mais simples de usar, no computador e no servidor, e a
+transcrição de áudios ganha um nome e uma checagem mais claros. Quem usa o app
+no computador recebe esta versão pelo atualizador. Num servidor com Docker,
+rode o instalador de novo (`install-docker.sh`): ele traz o `compose.yml`
+desta versão e mantém o `.env` e os dados. Só trocar a versão e rodar
+`docker compose pull && docker compose up -d` atualiza o app, mas não traz o
+`compose.yml` novo, e sem ele não chegam a proteção do Docker nem as variáveis
+`WHATSAPP_MCP_TRANSCRIPTION_WAIT` e `WHATSAPP_MCP_TRANSCRIPTION_CONTEXT`
+descritas abaixo.
+
+O que você pode notar ao atualizar:
+
+- **Se você definiu um token** (`WHATSAPP_MCP_TOKEN`), o painel aberto no
+  navegador pelo endereço local pede esse token uma vez, numa página própria.
+  O `whatsapp-mcp open` já abre o painel com você dentro, e a janela do app
+  não pede nada.
+- **No Docker, com o `compose.yml` novo**, o app roda com o sistema só de
+  leitura e sem privilégios extras, e escreve só na pasta de dados. As mídias
+  enviadas e os áudios sendo transcritos passam por `/data/tmp`, no disco do
+  volume de dados (não na memória), que é esvaziada a cada início.
+- **Se os seus áudios vão para a OpenAI ou para um servidor de transcrição**,
+  o nome da conversa e as mensagens ao redor deixam de ir junto com eles: por
+  padrão, vai só o áudio. Para voltar ao que era, escolha **Nomes e mensagens
+  recentes** em *Contexto da conversa* (abaixo). Os áudios já transcritos
+  continuam como estão.
+
+### Adicionado
+
+- **Contexto da conversa**, em *Configurações › Transcrição de áudio*: você
+  escolhe o que vai junto com cada áudio para onde ele é transcrito, para
+  acertar nomes e palavras incomuns. **Nada** (só o áudio), **Só os nomes** (o
+  nome da conversa e os das pessoas nela, sem nenhuma mensagem) ou **Nomes e
+  mensagens recentes** (também as últimas mensagens antes do áudio). O card diz
+  o que vai e avisa quando esse texto sai do computador, e o `(?)` e a janela
+  explicam cada opção. No Docker, `WHATSAPP_MCP_TRANSCRIPTION_CONTEXT` (`none`,
+  `names` ou `messages`); no terminal, `whatsapp-mcp transcription context`. A
+  ferramenta de IA vê o nível usado na resposta da transcrição e no status.
+  Uma transcrição guardada não muda quando o nível muda; pedir para transcrever
+  de novo (`refresh`) refaz com o nível novo.
+
+### Mudado
+
+- **Na OpenAI ou num servidor de transcrição, por padrão vai só o áudio.** Na
+  1.9.5, o nome da conversa e as últimas mensagens antes de cada áudio iam
+  junto para lá, sempre, e saíam do computador. Agora o padrão nesses dois
+  casos é **Nada**; mandar os nomes ou as mensagens é uma escolha sua em
+  *Contexto da conversa*, e ao trocar para a OpenAI ou para um servidor a
+  escolha volta para Nada. Sem as mensagens, a transcrição pode errar mais um
+  nome ou um termo que só a conversa explicava (a sua ferramenta de IA ainda
+  confere a transcrição contra a conversa e corrige). Na transcrição neste
+  computador, o padrão é **Só os nomes**, que não saem dele.
+- **"Em outro computador" agora se chama "Em um servidor compatível com a
+  OpenAI"**, em *Configurações › Transcrição de áudio › Onde transcrever*,
+  porque vale qualquer servidor que fale a API de transcrição da OpenAI, em
+  qualquer endereço, na internet ou na sua rede: você informa o endereço e a
+  chave. Um Mac rodando `whatsapp-mcp transcription serve` continua sendo um
+  exemplo. As opções de transcrição abrem numa janela, e o card se atualiza
+  sem recarregar a página.
+- **O card de versão**, em Configurações, mostra a versão instalada, o botão
+  **Procurar atualização** e uma linha com o resultado. Quando sai uma versão
+  nova, uma caixa verde mostra qual é, o link **Ver o que mudou** e como
+  atualizar.
+- **Webhooks mais fáceis de entender:** criar e editar usam a mesma janela,
+  cada webhook diz em palavras quais eventos recebe, uma chave liga e desliga
+  cada um, e apagar fica dentro da janela de edição, com confirmação. A chave
+  de um webhook novo aparece com o passo a passo numerado e um botão
+  **Finalizar**.
+- **Logs num só botão:** ele abre uma janela para escolher o período (três
+  opções), baixar o arquivo e, se precisar de ajuda, mandá-lo para
+  contato@whatsappmcp.com.br.
+- **Conexões com um botão "Gerenciar" por linha**, que reúne desconectar e
+  cortar o acesso, cada um com confirmação.
+- A porta do MCP e **Criar uma chave** abrem numa janela, e um erro aparece
+  dentro dela. Uma chave nova aparece com os passos para usá-la.
+- Trocar o idioma do painel não faz mais a página piscar.
+- As janelas de confirmação antigas fecham com Esc e devolvem o foco ao botão
+  que as abriu.
+- As mensagens de erro do painel dizem o que aconteceu em palavras simples e o
+  que fazer em seguida.
+- Num servidor, o painel diz "neste servidor" onde antes dizia "neste
+  computador".
+
+### Corrigido
+
+- **Um áudio em outra língua não sai mais traduzido pela conversa.** Na 1.9.5,
+  as últimas mensagens da conversa iam sempre junto com o áudio, e na
+  transcrição neste computador (ou num servidor feito com o mesmo motor) elas
+  pesavam mais que a língua: um áudio em espanhol numa conversa em português
+  saía em português. Agora, sem escolha sua, vão só os nomes quando a
+  transcrição é neste computador, e o áudio sai na língua em que foi falado.
+- **No Windows, a transcrição neste computador ainda não funciona em todos os
+  computadores**, e agora o app diz isso. Ela precisa de um componente da
+  Microsoft (o runtime do Visual C++) que um Windows novo não tem, e desde que
+  a transcrição existe ela falhava sem avisar. Agora o app testa o programa de
+  transcrição antes de baixar o modelo de 574 MB e, se ele não abre, o card
+  diz **Indisponível** e aponta as outras opções (um servidor compatível com a
+  OpenAI ou a OpenAI); as ferramentas de IA também recebem esse aviso. Quem
+  instalar o runtime da Microsoft vê a transcrição voltar ao abrir as
+  Configurações de novo. O conserto de vez está pedido na
+  [issue #14](https://github.com/BrOrlandi/whatsapp-mcp-local/issues/14).
+- Um endereço errado em **Em um servidor compatível com a OpenAI** (um
+  programa que não transcreve) é avisado, em vez de aparecer como pronto.
+- Uma transcrição pedida enquanto o mesmo áudio já estava sendo transcrito
+  volta com a data em que o texto foi guardado, a mesma que um pedido
+  seguinte encontra.
+- No Docker, `WHATSAPP_MCP_TRANSCRIPTION_WAIT` (quantos segundos uma chamada
+  espera a transcrição antes de responder que ainda está em andamento) chega
+  ao app; antes o `compose.yml` não a passava.
+- O progresso da instalação da transcrição não mostra mais "NaN%".
+- `whatsapp-mcp transcription serve --listen 127.0.0.1` mostra só o endereço
+  em que ele atende, em vez dos endereços da rede.
+- Num servidor, **Procurar atualização** e **Baixar os logs** não faziam nada
+  no navegador; agora funcionam.
+
+### Segurança
+
+- **Com um token definido, nenhum programa do computador age pelo painel sem
+  ele.** Antes, um programa podia se passar pelo navegador; agora o navegador
+  pede o token uma vez e guarda uma sessão.
+- O comando sugerido para baixar um arquivo recebido não executa mais nada
+  vindo do nome do arquivo, que é escolhido por quem mandou a mensagem.
+- Os programas da versão são compilados com o Go 1.26.11, com as correções de
+  segurança mais recentes, e a publicação recusa um programa feito com outro.
+- Os webhooks não alcançam os endereços internos de nuvem (de onde um servidor
+  lê as próprias credenciais), e o teste de um webhook mostra um erro simples.
+- Uma chave de API errada repetida não sobrecarrega mais o servidor.
+- O painel avisa quando o endereço público do servidor começa com `http://`,
+  por onde a senha, as chaves e as mensagens passariam sem criptografia.
+- Num endereço `https`, o servidor pede ao navegador para usar sempre `https`
+  (HSTS).
+- O instalador da linha de comando (`install.sh`) instala a versão do wacli
+  testada com o app e confere o sha256 dela e o do próprio WhatsApp MCP antes
+  de instalar.
+- No Docker, o app roda com o sistema só de leitura, sem privilégios do Linux
+  e sem poder ganhar nenhum.
+
+### Removido
+
+- Um arquivo de 26 MB que tinha entrado no repositório por engano (um
+  programa compilado, sem efeito no app).
+
+Inclui o wacli 0.26.1.
+
 ## [1.9.5] - 2026-11-22
 
 Primeira versão final desde a 1.8.0. Ela traz o **modo servidor**, testado nas
@@ -29,17 +174,16 @@ e rodando `docker compose pull && docker compose up -d`.
 - **Três jeitos de transcrever os áudios**, em *Configurações › Transcrição de
   áudio › Onde transcrever*:
   - **neste computador**, como antes;
-  - **em outro computador**: um Mac com chip Apple transcreve em segundos o que
-    um servidor ou um mini PC leva minutos, pela rede de casa. Rode
-    `whatsapp-mcp transcription serve` no Mac e cole o endereço e a chave. Vale
-    também qualquer servidor compatível com a OpenAI, como o `whisper-server`
-    do whisper.cpp;
+  - **em um servidor compatível com a OpenAI**, em qualquer endereço, com o
+    endereço e a chave dele. Um exemplo: um Mac com chip Apple rodando
+    `whatsapp-mcp transcription serve` transcreve em segundos o que um servidor
+    ou um mini PC leva minutos. Vale também o `whisper-server` do whisper.cpp;
   - **na OpenAI**, com a sua chave da API e o modelo que preferir
     (`whisper-1`, `gpt-4o-transcribe` ou `gpt-4o-mini-transcribe`). O áudio e
     as mensagens ao redor dele vão para a OpenAI.
 
-  Se o outro computador ou a OpenAI não responder (o Mac dormiu, a internet
-  caiu), o áudio é transcrito no próprio computador, quando a transcrição está
+  Se o servidor de transcrição ou a OpenAI não responder (o Mac dormiu, a
+  internet caiu), o áudio é transcrito no próprio computador, quando a transcrição está
   instalada nele. O status e a checagem de saúde dizem onde os áudios estão
   sendo transcritos e se o destino está respondendo, e cada transcrição guarda
   qual motor a fez. Pelo terminal: `whatsapp-mcp transcription local`,
@@ -582,6 +726,7 @@ A primeira versão do WhatsApp MCP como app.
 
 Inclui o wacli 0.20.0.
 
+[1.9.6]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.9.6
 [1.9.5]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.9.5
 [1.8.0]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.8.0
 [1.7.6]: https://github.com/BrOrlandi/whatsapp-mcp-local/releases/tag/v1.7.6
