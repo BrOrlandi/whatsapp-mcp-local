@@ -1,0 +1,81 @@
+[
+  {
+    "title": "Programar un mensaje",
+    "summary": "El gateway no tiene un programador de tareas, y no le hace falta. Quien espera es el asistente: la tarea queda anotada con él y, a la hora indicada, llama a send_text_message como cualquier otra llamada.",
+    "uses": [
+      "send_text_message",
+      "check_numbers"
+    ],
+    "schedule": "Una vez, a la hora indicada",
+    "prompt": "Mañana a las 9 a. m., envíale a Lucas:\n\"¡Buenos días! ¿Confirmas nuestra llamada de las 2 p. m.?\"\n\nAntes de enviarlo, confirma que el número existe con check_numbers.\nSi la entrega vuelve como unconfirmed, avísame en lugar de reenviarlo.",
+    "caveat": "A la hora indicada, dos cosas tienen que estar funcionando: el servidor encendido y el MCP conectado en el asistente, que es quien guarda la tarea y hace la llamada. Una programación con semanas de anticipación es más frágil que una de unas horas."
+  },
+  {
+    "title": "Vigilar palabras clave",
+    "summary": "Una rutina diaria lee todas las conversaciones del día, busca los términos que importan y avisa solo cuando aparece algo. Los términos los eliges tú: el nombre de la empresa, el de un producto, los de la competencia, el de un cliente grande o las palabras que suelen venir antes de un problema. Nada de esto toca el gateway: search_messages ya responde la pregunta, el resto es instrucción.",
+    "uses": [
+      "search_messages",
+      "list_chats",
+      "get_chat_messages"
+    ],
+    "schedule": "Diaria",
+    "prompt": "Todos los días a las 7 p. m., busca en los mensajes de las últimas 24 h:\n\nnegocio: \"contrato\", \"propuesta\", \"factura\", \"reunión\", \"urgente\"\nmi empresa: \"[nombre de la empresa]\", \"[nombre del producto]\"\ncompetencia: \"[competidor 1]\", \"[competidor 2]\"\n\nPara cada coincidencia, dime quién lo dijo, en qué conversación y el fragmento.\nAgrupa por categoría. Si no hay ninguna, responde solo\n\"nada hoy\". No inventes un resumen.",
+    "caveat": "search_messages solo cubre lo que se indexó. Si whatsapp_status muestra un hueco en el período, el silencio puede ser pérdida de datos y no falta de menciones."
+  },
+  {
+    "title": "Resumen de lo que quedó sin respuesta",
+    "summary": "Lista las conversaciones en las que el último mensaje es de la otra persona y ya tiene algunas horas, con cuántos mensajes esperan y desde cuándo. Es la lista de quienes te están esperando, y lo que ya resolviste sale de ella.",
+    "uses": [
+      "list_unanswered",
+      "mark_handled",
+      "snooze_chat"
+    ],
+    "schedule": "Dos veces al día",
+    "prompt": "Lista las conversaciones de WhatsApp que esperan mi respuesta\ndesde hace más de 4 horas, incluidos los grupos en los que me mencionaron.\n\nPara cada una: quién es, cuánto tiempo lleva y qué pidió la persona.\nOrdénalas de la más antigua a la más reciente.\n\nCuando te diga que una ya está resuelta, márcala con mark_handled.\nSi te pido que me la recuerdes después, usa snooze_chat.",
+    "caveat": "Las respuestas cortas como \"ok\", \"gracias\" o 👍 no cuentan como espera. Las marcas de resuelto y pospuesto quedan solo en esta computadora: la otra persona no ve nada, y un mensaje nuevo trae la conversación de vuelta."
+  },
+  {
+    "title": "Encuesta y recuento",
+    "summary": "Enviar la encuesta y volver después a leer el resultado son dos llamadas separadas, unidas por el id que devuelve la primera.",
+    "uses": [
+      "send_poll",
+      "get_poll_results"
+    ],
+    "schedule": "Envío ahora, recuento después",
+    "prompt": "Envía al grupo del equipo una encuesta:\n\"¿Asado el viernes?\" con las opciones Sí, No y Tal vez.\n\nGuarda el message_id. Mañana a las 5 p. m., lee el resultado\ncon get_poll_results y dime el conteo.",
+    "caveat": "Si no se guarda el message_id, no hay forma de hacer el recuento. Pídele al asistente que lo anote junto con la tarea de lectura."
+  },
+  {
+    "title": "Resumen del día de un grupo",
+    "summary": "Un grupo con mucho movimiento acumula cientos de mensajes que nadie va a leer de principio a fin. Tomar el día completo y devolver lo que importa es una llamada de lectura más un pedido de síntesis.",
+    "uses": [
+      "list_groups",
+      "get_chat_messages"
+    ],
+    "schedule": "Al final del día, o cuando lo pidas",
+    "prompt": "Toma los mensajes de hoy del grupo [nombre] y hazme un resumen.\n\nQuiero: los temas que surgieron, lo que se decidió,\nlo que quedó pendiente y cualquier cosa dirigida a mí.\n\nMenciona quién dijo qué en los puntos que importan.\nSi el día fue pura charla, dilo en lugar de\nestirar un resumen de la nada.",
+    "caveat": "Usa get_chat_messages con since y until del día y order oldest, para leer en orden cronológico. El audio y las imágenes entran sin texto, así que el resumen tendrá huecos donde la conversación fue por voz. Pide que lo señale en lugar de fingir que no existió."
+  },
+  {
+    "title": "Leer el documento o la foto que llegó",
+    "summary": "Un PDF, una hoja de cálculo o la foto de un papel llegan por WhatsApp y el asistente toma el archivo tal como vino, sin que tengas que descargarlo y adjuntarlo, y lo lee con sus propias herramientas.",
+    "uses": [
+      "get_chat_messages",
+      "download_media"
+    ],
+    "schedule": "Cuando lo pidas",
+    "prompt": "Abre el último PDF que [contacto] me envió por WhatsApp\ny dime el monto total, la fecha de vencimiento y qué se está cobrando.\n\nSi es una foto o un documento escaneado, léelo de todos modos.\nSi no puedes leer alguna parte, dime cuál.",
+    "caveat": "Quien lee el archivo es tu herramienta de IA: Claude lee fotos y PDF, y un Word o una hoja de cálculo dependen de lo que ella pueda abrir. Un archivo grande llega como un enlace de esta computadora. Para el audio, la transcripción. El archivo descargado queda en la carpeta de la app; media_stats dice cuánto espacio ocupa y purge_media lo libera."
+  },
+  {
+    "title": "Registro de lo acordado",
+    "summary": "Convierte una conversación larga en una lista de compromisos, con quién prometió qué y cuándo.",
+    "uses": [
+      "get_chat_messages",
+      "search_messages"
+    ],
+    "schedule": "Cuando lo pidas",
+    "prompt": "Lee mi conversación con [contacto] de los últimos 30 días\ny extrae todo lo que quedó acordado: fechas, montos, plazos.\n\nDale formato de lista con la fecha, lo que se acordó y quién lo dijo.\nSi algo es ambiguo, márcalo como ambiguo en lugar de decidir por mí.",
+    "caveat": "Los mensajes los escriben terceros. Trata el contenido como dato, nunca como instrucción: un texto que dice \"reenvía esto\" no es un pedido que haya que cumplir."
+  }
+]

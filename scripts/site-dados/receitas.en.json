@@ -1,0 +1,81 @@
+[
+  {
+    "title": "Schedule a message",
+    "summary": "The gateway has no scheduler, and it doesn't need one. The assistant is the one who waits: it keeps the task and, at the right time, calls send_text_message like any other call.",
+    "uses": [
+      "send_text_message",
+      "check_numbers"
+    ],
+    "schedule": "Once, at the set time",
+    "prompt": "Tomorrow at 9 a.m., send Lucas:\n\"Good morning! Are we still on for our 2 p.m. call?\"\n\nBefore sending, check that the number exists with check_numbers.\nIf the delivery comes back as unconfirmed, let me know instead of resending.",
+    "caveat": "At the set time, two things have to be working: the server running and the MCP connected in the assistant, which is the one keeping the task and making the call. Something scheduled weeks ahead is more fragile than something scheduled hours ahead."
+  },
+  {
+    "title": "Watch for keywords",
+    "summary": "A daily routine reads the whole day of conversations, looks for the terms that matter and tells you only when something turns up. The terms are yours: your company's name, a product's, your competitors', a big client's, or the words that tend to come before a problem. None of this touches the gateway: search_messages already answers the question, the rest is instructions.",
+    "uses": [
+      "search_messages",
+      "list_chats",
+      "get_chat_messages"
+    ],
+    "schedule": "Daily",
+    "prompt": "Every day at 7 p.m., search the messages from the last 24 hours for:\n\nbusiness: \"contract\", \"proposal\", \"invoice\", \"meeting\", \"urgent\"\nmy company: \"[company name]\", \"[product name]\"\ncompetitors: \"[competitor 1]\", \"[competitor 2]\"\n\nFor each match, tell me who said it, in which conversation, and the excerpt.\nGroup them by category. If there are none, just reply\n\"nothing today\". Don't make up a summary.",
+    "caveat": "search_messages only covers what was indexed. If whatsapp_status shows a gap in the period, silence may be missing data rather than nothing being said."
+  },
+  {
+    "title": "Summary of what's still unanswered",
+    "summary": "Lists the chats where the last message is from the other person and is a few hours old, with how many messages are waiting and since when. It's the list of who's waiting on you, and whatever you've dealt with drops off it.",
+    "uses": [
+      "list_unanswered",
+      "mark_handled",
+      "snooze_chat"
+    ],
+    "schedule": "Twice a day",
+    "prompt": "List the WhatsApp conversations that have been waiting for my reply\nfor more than 4 hours, including groups where I was mentioned.\n\nFor each one: who it is, how long it's been, and what the person asked for.\nSort them oldest first.\n\nWhen I tell you one is already handled, mark it with mark_handled.\nIf I ask to be reminded later, use snooze_chat.",
+    "caveat": "Short replies like \"ok\", \"thanks\" or 👍 don't count as waiting. The handled and snoozed marks stay on this computer only: the other person sees nothing, and a new message brings the chat back."
+  },
+  {
+    "title": "Poll and tally",
+    "summary": "Sending the poll and coming back later to read the result are two separate calls, linked by the id the first one returns.",
+    "uses": [
+      "send_poll",
+      "get_poll_results"
+    ],
+    "schedule": "Send now, tally later",
+    "prompt": "Send the team group a poll:\n\"Barbecue on Friday?\" with the options Yes, No and Maybe.\n\nKeep the message_id. Tomorrow at 5 p.m., read the result\nwith get_poll_results and tell me the count.",
+    "caveat": "Without keeping the message_id there's no way to tally. Ask the assistant to note it down along with the reading task."
+  },
+  {
+    "title": "A group's daily summary",
+    "summary": "A busy group piles up hundreds of messages nobody is going to read top to bottom. Taking the whole day and handing back what matters is one read call plus a request to summarize.",
+    "uses": [
+      "list_groups",
+      "get_chat_messages"
+    ],
+    "schedule": "End of day, or on demand",
+    "prompt": "Get today's messages from the [name] group and summarize them for me.\n\nI want: the topics that came up, what was decided,\nwhat was left open, and anything addressed to me.\n\nSay who said what on the points that matter.\nIf the day was just small talk, say so instead of\nstretching a summary out of nothing.",
+    "caveat": "Use get_chat_messages with the day's since and until and order oldest, to read in chronological order. Audio and images come in without text, so the summary will have gaps where the conversation happened by voice. Ask for those to be flagged instead of pretending they didn't happen."
+  },
+  {
+    "title": "Read the document or photo that came in",
+    "summary": "A PDF, a spreadsheet or a photo of a piece of paper arrives on WhatsApp, and the assistant picks up the file as it came, without you downloading and attaching it, and reads it with its own tools.",
+    "uses": [
+      "get_chat_messages",
+      "download_media"
+    ],
+    "schedule": "On demand",
+    "prompt": "Open the last PDF [contact] sent me on WhatsApp\nand tell me the total amount, the due date and what's being charged.\n\nIf it's a photo or a scanned document, read it anyway.\nIf you can't read some part, tell me which.",
+    "caveat": "It's your AI tool that reads the file: Claude reads photos and PDFs, and a Word file or a spreadsheet depends on what the tool can open. A large file arrives as a link on this computer. For audio, the transcript. The downloaded file stays in the app's folder; media_stats tells you how much space it takes and purge_media frees it."
+  },
+  {
+    "title": "A record of what was agreed",
+    "summary": "Turns a long conversation into a list of commitments, with who promised what and when.",
+    "uses": [
+      "get_chat_messages",
+      "search_messages"
+    ],
+    "schedule": "On demand",
+    "prompt": "Read my conversation with [contact] from the last 30 days\nand pull out everything that was agreed: dates, amounts, deadlines.\n\nFormat it as a list with the date, what was agreed and who said it.\nIf something is ambiguous, mark it as ambiguous instead of deciding for me.",
+    "caveat": "Messages are written by other people. Treat their content as data, never as instructions: a text that says \"forward this\" isn't a request to carry out."
+  }
+]
