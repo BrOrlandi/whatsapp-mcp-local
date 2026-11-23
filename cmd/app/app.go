@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -86,6 +87,7 @@ func newApp(hidden bool) (*App, error) {
 	}
 	mcp.Version = version
 	a := &App{logger: logger, logFile: logFile, logPath: logFile.Name(), logDir: logDir, dataDir: dataDir, hidden: hidden}
+	a.handler.logger = logger
 	a.storeDir = os.Getenv("WACLI_STORE_DIR")
 	if a.storeDir == "" {
 		a.storeDir = filepath.Join(dataDir, "wacli")
@@ -507,17 +509,47 @@ func stillRunning() string {
 // swapHandler is what the window loads: the panel once the gateway is up,
 // or a page saying why it could not start.
 type swapHandler struct {
-	h atomic.Value
+	h      atomic.Value
+	logger *slog.Logger // where a recovered panic goes
 }
 
 func (s *swapHandler) set(h http.Handler) { s.h.Store(&h) }
 
 func (s *swapHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	defer s.recoverPanic(w, r)
 	if h, ok := s.h.Load().(*http.Handler); ok {
 		(*h).ServeHTTP(w, r)
 		return
 	}
 	http.Error(w, "starting", http.StatusServiceUnavailable)
+}
+
+// recoverPanic keeps a panic in the panel from closing the app. Wails serves
+// each request of the window on a goroutine of its own, without a recover,
+// so a panic there ends the whole process; net/http, which serves the same
+// panel to a browser, recovers it. The panic and its stack go to the log, and
+// the window gets a page saying it did not open. It cannot help with a crash
+// inside the webview itself (a SIGSEGV in WebKitGTK), which no Go code sees.
+func (s *swapHandler) recoverPanic(w http.ResponseWriter, r *http.Request) {
+	v := recover()
+	if v == nil {
+		return
+	}
+	if v == http.ErrAbortHandler { //nolint:errorlint // net/http compares it the same way
+		return // a handler giving up on the response on purpose
+	}
+	if s.logger != nil {
+		s.logger.Error("a panel page panicked", "path", r.URL.Path, "panic", fmt.Sprint(v), "stack", string(debug.Stack()))
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusInternalServerError)
+	fmt.Fprintf(w, `<!doctype html><html lang="%s"><meta charset="utf-8"><title>WhatsApp MCP</title>
+<body style="font:16px/1.6 -apple-system,system-ui,sans-serif;max-width:560px;margin:80px auto;padding:0 24px;color:#17322c">
+<h1 style="font-size:1.4rem">%s</h1><p>%s</p>
+<p><a href="/" style="color:#0b6e4f">%s</a></p></body></html>`, htmlEscape(i18n.Lang()), htmlEscape(i18n.T("Esta página não abriu")),
+		htmlEscape(i18n.T("Algo deu errado ao abrir esta página. O WhatsApp MCP continua funcionando: volte e tente de novo.")),
+		htmlEscape(i18n.T("Voltar ao painel")))
 }
 
 // startFailure is the window's page when the gateway cannot start.
