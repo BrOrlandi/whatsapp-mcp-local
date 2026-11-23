@@ -110,8 +110,11 @@ O que você pode notar ao atualizar:
   [issue #14](https://github.com/BrOrlandi/whatsapp-mcp-local/issues/14).
 - **Áudios longos saem inteiros.** Na transcrição neste computador (e num
   servidor feito com o mesmo motor), trechos de um áudio longo se perdiam: de
-  um áudio de 8 minutos, cerca de um terço sumia do texto, sem aviso. Agora o
-  texto vem completo.
+  um áudio de 8 minutos, de um terço a metade sumia do texto, sem aviso. Agora
+  o texto vem completo. Se os seus áudios vão para um Mac rodando
+  `whatsapp-mcp transcription serve`, atualize a linha de comando desse Mac
+  para a 1.9.6 (rode o `install.sh` de novo) e reinicie o servidor: é ele que
+  transcreve.
 - Um endereço errado em **Em um servidor compatível com a OpenAI** (um
   programa que não transcreve) é avisado, em vez de aparecer como pronto.
 - Uma transcrição pedida enquanto o mesmo áudio já estava sendo transcrito
