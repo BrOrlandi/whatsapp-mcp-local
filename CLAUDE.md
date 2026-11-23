@@ -21,8 +21,8 @@ versions: the downloads point at this repository's latest release by the fixed a
 `/servidor` is a separate page for the server project, whose links all point at
 `BrOrlandi/whatsapp-mcp-server`.
 
-`/changelog` (and `/changelog/1.9.6`, `/changelog/latest`) are temporary redirects in
-`site/vercel.json` to this repository's GitHub releases. The apps and the site link only to
+`/changelog` is a temporary redirect in `site/vercel.json` to this repository's GitHub
+releases (one address for every version, no route per version). The apps and the site link only to
 them (`brand.ChangelogURL`), never to the releases page, so a rename of the repository changes
 just those redirects. The updater's API and downloads still go to GitHub directly.
 
