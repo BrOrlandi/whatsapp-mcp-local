@@ -396,7 +396,36 @@
   const screens = document.querySelector("[data-screens]");
   if (screens) {
     const tabs = [...screens.querySelectorAll('[role="tab"]')];
+    const list = screens.querySelector(".screens__tabs");
+    // Each tab gets a thin bar that fills in SCREEN_MS; when it is full the next
+    // screen shows (after the last, the first). Not with reduced motion.
+    const SCREEN_MS = 5000;
+    const auto = !reduceMotion;
+    let current = tabs[0];
+    let elapsed = 0;
+    const bars = new Map();
+    if (auto) {
+      tabs.forEach((t) => {
+        const bar = document.createElement("span");
+        bar.className = "screens__bar";
+        bar.setAttribute("aria-hidden", "true");
+        bar.innerHTML = "<span></span>";
+        t.append(bar);
+        bars.set(t, bar.firstChild);
+      });
+    }
+    // The next screen loads ahead, so it is already there when its turn comes.
+    const preload = () => {
+      const next = tabs[(tabs.indexOf(current) + 1) % tabs.length];
+      for (const t of [current, next]) {
+        const img = document.getElementById(t.getAttribute("aria-controls")).querySelector("img");
+        if (img) img.loading = "eager";
+      }
+    };
+    const paint = () => bars.forEach((fill, t) => (fill.style.transform = `scaleX(${t === current ? elapsed / SCREEN_MS : 0})`));
     const show = (tab, focus) => {
+      current = tab;
+      elapsed = 0;
       tabs.forEach((t) => {
         const on = t === tab;
         t.setAttribute("aria-selected", String(on));
@@ -404,9 +433,56 @@
         document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
       });
       if (focus) tab.focus();
-      // On a phone the tabs scroll sideways: keep the picked one in sight.
-      tab.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+      if (auto && !pause.away) preload();
+      // On a phone the tabs scroll sideways: keep the picked one in sight, moving
+      // only the list (never the page, as the screens also change on their own).
+      if (list.scrollWidth > list.clientWidth) {
+        list.scrollTo({ left: tab.parentElement.offsetLeft - (list.clientWidth - tab.offsetWidth) / 2, behavior: reduceMotion ? "auto" : "smooth" });
+      }
+      paint();
     };
+    // Why it is paused now: the mouse on the screen, a click or tap on it, the
+    // browser tab hidden, the section out of sight.
+    const pause = { hover: false, click: false, hidden: document.hidden, away: true };
+    if (auto) {
+      const panels = screens.querySelector(".screens__panels");
+      let last = 0;
+      const tick = (now) => {
+        const running = !Object.values(pause).some(Boolean);
+        if (running && last) {
+          // Slow frames still count (a busy or throttled page); a long gap does not.
+          elapsed += Math.min(now - last, 1000);
+          if (elapsed >= SCREEN_MS) show(tabs[(tabs.indexOf(current) + 1) % tabs.length], false);
+          else paint();
+        }
+        last = running ? now : 0;
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      const mark = () => screens.classList.toggle("is-paused", Object.values(pause).some(Boolean));
+      panels.addEventListener("pointerenter", (e) => {
+        if (e.pointerType === "mouse") (pause.hover = true), mark();
+      });
+      panels.addEventListener("pointerleave", (e) => {
+        if (e.pointerType === "mouse") (pause.hover = false), (pause.click = false), mark();
+      });
+      // A click pauses; on a touch screen a tap pauses and the next one resumes.
+      let pointer = "mouse";
+      panels.addEventListener("pointerdown", (e) => (pointer = e.pointerType));
+      panels.addEventListener("click", (e) => {
+        if (e.target.closest("a")) return;
+        pause.click = pointer === "mouse" ? true : !pause.click;
+        mark();
+      });
+      document.addEventListener("visibilitychange", () => ((pause.hidden = document.hidden), mark()));
+      new IntersectionObserver(([entry]) => {
+        pause.away = !entry.isIntersecting;
+        if (!pause.away) preload();
+        mark();
+      }, { threshold: 0.3 }).observe(panels);
+      // Picking a screen starts its bar again and drops a click's pause.
+      tabs.forEach((t) => t.addEventListener("click", () => ((pause.click = false), mark())));
+    }
     tabs.forEach((tab, i) => {
       tab.addEventListener("click", () => show(tab, false));
       tab.addEventListener("keydown", (event) => {

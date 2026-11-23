@@ -824,6 +824,12 @@ a.video-frame:hover .video-frame__play { background: var(--brand-strong); }
 .screens__tab { width: 100%; padding: 11px 16px; border: 0; border-radius: 12px; background: transparent; color: var(--on-deep-soft); font: 600 1rem/1.3 var(--font); text-align: left; cursor: pointer; }
 .screens__tab:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
 .screens__tab[aria-selected="true"] { background: var(--on-deep); color: var(--deep); }
+/* The bar under the picked tab's name, filling while that screen shows (site.js). */
+.screens__tab { position: relative; }
+.screens__tabs { position: relative; }
+.screens__bar { display: none; position: absolute; left: 16px; right: 16px; bottom: 5px; height: 3px; overflow: hidden; border-radius: 2px; background: rgba(7, 61, 53, 0.14); }
+.screens__tab[aria-selected="true"] .screens__bar { display: block; }
+.screens__bar span { display: block; height: 100%; background: var(--brand); transform: scaleX(0); transform-origin: left; }
 .screens__panel { margin: 0; }
 .screens__panel + .screens__panel { margin-top: 48px; }
 .screens.is-ready .screens__panel + .screens__panel { margin-top: 0; }
@@ -840,6 +846,7 @@ a.video-frame:hover .video-frame__play { background: var(--brand-strong); }
   .screens__tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
   .screens__tabs li { flex: none; }
   .screens__tab { width: auto; padding: 8px 14px; border: 1px solid rgba(238, 248, 244, 0.3); border-radius: 999px; font-size: 0.92rem; white-space: nowrap; }
+  .screens__bar { left: 14px; right: 14px; bottom: 3px; height: 2px; }
   .screens__win img { max-height: none; }
 }
 
