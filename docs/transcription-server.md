@@ -440,8 +440,8 @@ sends the voice notes.
 Logs: on macOS, `~/Library/Logs/whatsapp-mcp-transcription.log` (with the
 LaunchAgent above); on Linux, `journalctl --user -u whatsapp-mcp-transcription`;
 in Docker, `docker compose logs transcription`. The server logs little beyond
-its start; a failure's details come back in the answer, which WhatsApp MCP
-keeps in its own log.
+its start; a failure's details come back in the answer, and WhatsApp MCP shows
+the last one in `whatsapp-mcp transcription status` and in the panel.
 
 ## Alternatives
 

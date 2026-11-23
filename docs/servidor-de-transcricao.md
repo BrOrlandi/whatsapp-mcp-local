@@ -437,8 +437,8 @@ resolve. A versão do servidor aparece no `/v1/health` (`version`) e no
 Os logs: no macOS, `~/Library/Logs/whatsapp-mcp-transcription.log` (com o
 LaunchAgent acima); no Linux, `journalctl --user -u whatsapp-mcp-transcription`;
 no Docker, `docker compose logs transcricao`. O servidor registra pouco além do
-início; os detalhes de uma falha voltam na resposta, que o WhatsApp MCP
-guarda no log dele.
+início; os detalhes de uma falha voltam na resposta, e o WhatsApp MCP mostra a
+última no `whatsapp-mcp transcription status` e no painel.
 
 ## Alternativas
 
