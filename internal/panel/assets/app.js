@@ -374,11 +374,29 @@
       // The page comes back where it was; when the choice was made with the
       // keyboard, with the focus on the language chosen. Not after a click,
       // where the focus would keep its tooltip open.
+      var anchored = false;
       try {
         if (byPointer) window.sessionStorage.removeItem("language-focus");
         else window.sessionStorage.setItem("language-focus", code);
+        // Where the chosen control sits on the screen: theme.js puts it back
+        // there before the new page shows (the text above it changes height,
+        // so the scroll position alone would not do).
+        var chosen = controls.filter(function (c) {
+          return (c.getAttribute("data-language-pick") !== null ? c.getAttribute("data-language-pick") : c.value) === code;
+        })[0];
+        if (chosen) {
+          var box = (chosen.closest("label") || chosen).getBoundingClientRect();
+          window.sessionStorage.setItem("language-anchor", JSON.stringify({ code: code, top: box.top }));
+          anchored = true;
+        }
       } catch (e) {}
-      window.location.reload();
+      // A navigation rather than a reload: browsers that cross-fade between
+      // pages do it for a navigation, never for a reload. Without the
+      // fragment, which would only scroll this page instead of loading it.
+      // With nothing stored to find the place again, a reload at least
+      // keeps the scroll.
+      if (anchored) window.location.replace(window.location.pathname + window.location.search);
+      else window.location.reload();
     }).catch(function (error) {
       controls.forEach(function (c) { c.disabled = false; });
       if (note) { note.hidden = false; note.textContent = error.message; }
@@ -786,106 +804,11 @@
   }
 })();
 
-// Local transcription install, with its progress.
-(function () {
-  var button = document.querySelector("[data-asr-install]");
-  if (!button) return;
-  var progress = document.querySelector("[data-asr-progress]");
-  var step = document.querySelector("[data-asr-step]");
-  function poll() {
-    fetch("/api/asr", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) {
-      var i = d.status && d.status.install || {};
-      if (d.status && d.status.ready) { window.location.reload(); return; }
-      if (i.state === "error") { window.location.reload(); return; }
-      if (i.state === "running") {
-        progress.hidden = false;
-        step.textContent = (i.step || t("Preparando")) + (i.total ? " · " + Math.floor(100 * i.downloaded / i.total) + "%" : "");
-      }
-      window.setTimeout(poll, 1500);
-    }).catch(function () { window.setTimeout(poll, 3000); });
-  }
-  button.addEventListener("click", function () {
-    button.disabled = true;
-    progress.hidden = false;
-    step.textContent = t("Preparando…");
-    fetch("/api/asr/install", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: "{}" })
-      .then(function () { poll(); });
-  });
-  if (!progress.hidden) poll();
-})();
-
-// Where voice notes are transcribed: here, on another computer, or by
-// OpenAI, with what each needs.
-(function () {
-  var box = document.querySelector("[data-asr-remote]");
-  if (!box) return;
-  var state = box.querySelector("[data-asr-remote-state]");
-  var form = box.querySelector("[data-asr-remote-form]");
-  var error = box.querySelector("[data-asr-remote-error]");
-  function show(mode, remote) {
-    if (!remote || !remote.configured) {
-      state.textContent = t("Os áudios são transcritos neste computador.");
-      return;
-    }
-    var where = mode === "openai" ? t("a OpenAI") : remote.url;
-    if (remote.reachable && remote.ready) {
-      state.textContent = t("Os áudios vão para %s, que está respondendo.").replace("%s", where);
-    } else {
-      state.textContent = t("%s não está respondendo agora. Enquanto isso, os áudios são transcritos neste computador, se a transcrição estiver instalada aqui.").replace("%s", where) + (remote.error ? " (" + remote.error + ")" : "");
-    }
-  }
-  if (box.hasAttribute("data-asr-remote-on")) {
-    fetch("/api/asr?remote=1", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (d) { show(d.mode, d.remote); }).catch(function () {});
-  }
-  if (!form) return;
-  function chosen() {
-    var c = form.querySelector("[data-asr-mode]:checked");
-    return c ? c.value : "local";
-  }
-  function fields() {
-    var mode = chosen();
-    form.querySelectorAll("[data-asr-fields]").forEach(function (f) { f.hidden = f.getAttribute("data-asr-fields") !== mode; });
-  }
-  form.querySelectorAll("[data-asr-mode]").forEach(function (r) { r.addEventListener("change", fields); });
-  fields();
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
-    error.hidden = true;
-    var button = form.querySelector("button[type=submit]");
-    button.disabled = true;
-    var mode = chosen();
-    var body = { mode: mode };
-    if (mode === "remote") {
-      body.url = form.querySelector("[data-asr-remote-url]").value;
-      body.token = form.querySelector("[data-asr-remote-token]").value;
-      body.model = form.querySelector("[data-asr-remote-model]").value;
-    } else if (mode === "openai") {
-      body.token = form.querySelector("[data-asr-openai-key]").value;
-      body.model = form.querySelector("[data-asr-openai-model]").value;
-    }
-    fetch("/api/asr/remote", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body) })
-      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-      .then(function (res) {
-        button.disabled = false;
-        if (!res.ok) { error.textContent = res.d.error || t("Não foi possível salvar."); error.hidden = false; return; }
-        form.querySelectorAll("input[type=password]").forEach(function (i) { i.value = ""; });
-        show(res.d.mode, res.d.remote);
-      })
-      .catch(function () { button.disabled = false; error.textContent = t("Não foi possível salvar."); error.hidden = false; });
-  });
-})();
-
-// Inside the desktop app: links leave for the browser, settings save as they
-// change, and updates are looked for and installed from the Configurações page.
+// Inside the desktop app: links leave for the browser and settings save as
+// they change.
 (function () {
   "use strict";
   if (!document.documentElement.hasAttribute("data-app")) return;
-
-  function el(tag, cls) {
-    var node = document.createElement(tag);
-    if (cls) node.className = cls;
-    return node;
-  }
 
   function post(path, body) {
     return fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body || {}) })
@@ -903,7 +826,9 @@
     var link = event.target.closest && event.target.closest("a[href]");
     if (!link) return;
     var href = link.getAttribute("href");
-    if (!/^https?:\/\//i.test(href)) return;
+    // The support address too (the logs dialog): the window opens no mail
+    // program by itself.
+    if (!/^(https?:\/\/|mailto:)/i.test(href)) return;
     event.preventDefault();
     post("/api/abrir", { url: href }).catch(function () {});
   });
@@ -925,25 +850,28 @@
 
   var folder = document.querySelector("[data-open-folder]");
   if (folder) folder.addEventListener("click", function () { post("/api/abrir-pasta").catch(function () {}); });
+})();
 
-  // Logs para suporte: the app saves the file in Downloads and shows it; a
-  // browser (the command line's panel) downloads it.
-  document.querySelectorAll("[data-logs-hours]").forEach(function (button) {
-    button.addEventListener("click", function () {
-      var note = document.querySelector("[data-logs-note]");
-      var hours = Number(button.getAttribute("data-logs-hours"));
-      var show = function (text) { if (note) { note.textContent = text; note.hidden = !text; } };
-      show(t("Gerando o arquivo…"));
-      post("/api/diagnostico", { horas: hours }).then(function (data) {
-        if (data.url) { window.location.href = data.url; show(""); return; }
-        show(t("Salvo em Downloads: %s", data.name || ""));
-      }).catch(function (err) { show(err.message); });
-    });
-  });
+// Updates, in the desktop app and on a server: the card in Configurações and
+// the banner on every page show the same state, asked for every minute so a
+// version found in the background appears without a reload.
+(function () {
+  "use strict";
+  function el(tag, cls) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    return node;
+  }
+  function post(path, body) {
+    return fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body || {}) })
+      .then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (!r.ok) throw new Error(data.error || t("erro %d", r.status));
+          return data;
+        });
+      });
+  }
 
-  // Updates: the card in Configurações and the banner on every page show the
-  // same state, asked for every minute so a version found in the background
-  // appears without a reload.
   var card = document.querySelector("[data-update]");
   var banner = document.querySelector("[data-update-banner]");
   if (!card && !banner) return;
@@ -966,67 +894,77 @@
       case "ready": return t("Versão %s pronta. O app está reiniciando.", u.latest);
       case "manual": return t("A versão %s está disponível. Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez.", u.latest);
       case "unsupported": return t("Esta é uma versão de desenvolvimento (%s), que não se atualiza sozinha.", u.current);
-      case "error": return t("Não foi possível atualizar agora: %s", u.error);
+      case "error": return t("Não foi possível atualizar agora. Clique em Procurar atualização para tentar de novo.");
     }
     return "";
   }
 
-  // The card shows the installed version only; a badge beside it says
-  // whether it is the latest, and a new version gets the loud one.
-  function badge(u) {
+  // The card: under the installed version, a line for where it stands; a
+  // new version gets its own green box instead, with its name, what changed
+  // and how to get it. The page draws the same thing on first load.
+  function status(u) {
     switch (u.state) {
-      case "current": return { tone: "pill--ok", text: t("Mais recente") };
-      case "available": case "manual": return { tone: "pill--new", text: t("Nova versão %s", u.latest) };
-      case "checking": return { tone: "pill--off pill--busy", text: t("Procurando…"), spin: true };
-      case "downloading": return { tone: "pill--new pill--busy", text: t("Baixando %s…", u.latest) + " " + (u.progress || 0) + "%", spin: true };
-      case "ready": return { tone: "pill--new pill--busy", text: t("Reiniciando…"), spin: true };
-      case "unsupported": return { tone: "pill--off", text: t("Versão de desenvolvimento") };
+      case "current": return { tone: "ok", text: t("Você já tem a versão mais recente.") };
+      case "checking": return { tone: "", text: t("Procurando uma versão nova…") };
+      case "unsupported": return { tone: "", text: t("Esta é uma versão de desenvolvimento (%s), que não se atualiza sozinha.", u.current) };
+      // What went wrong stays in the log: the line says what to click.
+      case "error": return { tone: "error", text: server ? t("Não foi possível procurar uma versão nova agora. Clique em Procurar atualização para tentar de novo.") : t("Não foi possível atualizar agora. Clique em Procurar atualização para tentar de novo.") };
     }
     return null;
   }
-
+  function setStatus(s) {
+    var line = card && card.querySelector("[data-update-status]");
+    if (!line) return;
+    line.hidden = !s;
+    if (!s) return;
+    line.className = "update-status" + (s.tone ? " update-status--" + s.tone : "");
+    line.querySelector("[data-update-status-text]").textContent = s.text;
+  }
+  function found(u) {
+    if (server) return u.state === "available";
+    return u.state === "available" || u.state === "manual" || u.state === "downloading" || u.state === "ready";
+  }
+  // What the box says on the computer, under the version's name.
   function note(u) {
-    if (server) {
-      if (u.state === "available") return t("A versão %s está disponível.", u.latest);
-      if (u.state === "error") return t("Não foi possível procurar agora: %s", u.error);
-      return u.state === "unsupported" ? t("Ela não se atualiza sozinha.") : "";
-    }
     switch (u.state) {
-      case "available": case "downloading": return t("O aplicativo será reiniciado após a instalação.");
+      case "available": return t("O aplicativo será reiniciado após a instalação.");
       case "manual": return t("Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez.");
-      case "unsupported": return t("Ela não se atualiza sozinha.");
-      case "error": return t("Não foi possível atualizar agora: %s", u.error);
+      case "downloading": return t("Baixando a versão %s…", u.latest) + " " + (u.progress || 0) + "%";
+      case "ready": return t("Versão %s pronta. O app está reiniciando.", u.latest);
     }
     return "";
   }
 
   function renderCard(u) {
     if (!card) return;
-    var install = card.querySelector("[data-update-install]");
-    var page = card.querySelector("[data-update-page]");
-    var pill = card.querySelector("[data-update-badge]");
-    var b = badge(u);
-    pill.hidden = !b;
-    if (b) {
-      pill.className = "pill " + b.tone;
-      pill.textContent = b.text;
-      if (b.spin) {
-        var spin = el("span", "spinner");
-        spin.setAttribute("aria-hidden", "true");
-        pill.insertBefore(spin, pill.firstChild);
-      }
+    setStatus(status(u));
+    var box = card.querySelector("[data-update-found]");
+    if (!box) return;
+    box.hidden = !found(u);
+    if (box.hidden) return;
+    var latest = box.querySelector("[data-update-latest]");
+    if (latest) latest.textContent = u.latest || "";
+    var text = box.querySelector("[data-update-text]");
+    if (text) {
+      text.textContent = note(u);
+      text.hidden = !text.textContent;
     }
-    var text = card.querySelector("[data-update-text]");
-    text.textContent = note(u);
-    text.hidden = !text.textContent;
+    var install = box.querySelector("[data-update-install]");
     if (install) {
       install.hidden = u.state !== "available";
       install.disabled = false;
     }
-    var how = card.querySelector("[data-update-how]");
-    if (how) how.hidden = u.state !== "available";
-    page.hidden = !(u.state === (server ? "available" : "manual") && u.page);
-    if (u.page) page.href = u.page;
+    var page = box.querySelector("[data-update-page]");
+    if (page) {
+      page.hidden = !(u.state === "manual" && u.page);
+      if (u.page) page.href = u.page;
+    }
+    var notes = box.querySelector("[data-update-notes]");
+    if (notes) {
+      // In the manual state the download opens the same page, with the notes.
+      notes.hidden = !u.page || (!server && u.state === "manual");
+      if (u.page) notes.href = u.page;
+    }
   }
 
   function renderBanner(u) {
@@ -1083,7 +1021,7 @@
       button.disabled = false;
       button.textContent = t("Tentar de novo");
       var text = (banner && !banner.hidden) ? banner.querySelector("[data-update-banner-text]") : card && card.querySelector("[data-update-text]");
-      if (text) { text.textContent = e.message; text.hidden = false; }
+      if (text) { text.textContent = t("Não foi possível atualizar agora. Clique em Tentar de novo."); text.hidden = false; }
     });
   }
 
@@ -1091,12 +1029,11 @@
     var check = card.querySelector("[data-update-check]");
     check.addEventListener("click", function () {
       busy(check, t("Procurando…"));
+      setStatus(status({ state: "checking" }));
       // The answer comes back once GitHub has replied: a new version, or
       // none, or why it could not be asked.
       post("/api/atualizacao/verificar").then(render).catch(function (e) {
-        var text = card.querySelector("[data-update-text]");
-        text.textContent = t("Não foi possível procurar agora: %s", e.message);
-        text.hidden = false;
+        setStatus({ tone: "error", text: server ? t("Não foi possível procurar uma versão nova agora. Clique em Procurar atualização para tentar de novo.") : t("Não foi possível atualizar agora. Clique em Procurar atualização para tentar de novo.") });
       }).then(function () {
         check.disabled = false;
         check.textContent = t("Procurar atualização");

@@ -1,4 +1,5 @@
-// The theme the panel paints in.
+// The theme the panel paints in, and what else must happen before the first
+// paint (the place kept across a language change, below).
 //
 // The stylesheet already follows the operating system. This only adds the
 // override: a choice made in Configurações › Aparência, kept in this browser
@@ -42,6 +43,76 @@
   }
 
   apply(stored());
+  // The Aparência card shows by this mark, before the first paint: unhidden
+  // later, it would push everything below it down a card's height.
+  root.setAttribute("data-themes", "");
+
+  // ---- after a language change ----
+  // The page comes back in the new language with the control just chosen
+  // where it was on the screen. Done here, before the first paint, and held
+  // while the cards above it fill in, so nothing jumps.
+  var ANCHOR = "language-anchor";
+  function take() {
+    try {
+      var raw = window.sessionStorage.getItem(ANCHOR);
+      window.sessionStorage.removeItem(ANCHOR);
+      var a = raw && JSON.parse(raw);
+      return a && /^[A-Za-z-]*$/.test(a.code) && isFinite(a.top) ? a : null;
+    } catch (error) {
+      return null;
+    }
+  }
+  function switching() {
+    try {
+      return window.sessionStorage.getItem(ANCHOR) !== null;
+    } catch (error) {
+      return false;
+    }
+  }
+  // The stylesheet cross-fades panel pages where the browser can; only a
+  // language change keeps it, every other page opens as it always did.
+  window.addEventListener("pageswap", function (event) {
+    if (event.viewTransition && !switching()) event.viewTransition.skipTransition();
+  });
+  var anchor = take();
+  window.addEventListener("pagereveal", function (event) {
+    if (event.viewTransition && !anchor) event.viewTransition.skipTransition();
+  });
+  if (anchor) {
+    var control = function () {
+      var c = document.querySelector('[data-language-pick="' + anchor.code + '"]') ||
+        document.querySelector('input[data-language][value="' + anchor.code + '"]');
+      return c && (c.closest("label") || c);
+    };
+    var held = true;
+    var hold = function () {
+      var c = held && control();
+      if (!c) return;
+      var off = c.getBoundingClientRect().top - anchor.top;
+      if (Math.abs(off) >= 1) window.scrollBy(0, off);
+    };
+    var watch = new MutationObserver(hold);
+    watch.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
+    var resize = window.ResizeObserver ? new ResizeObserver(hold) : null;
+    if (resize) resize.observe(root);
+    // Once the person scrolls, or the page has settled, it is theirs again.
+    var release = function () {
+      if (!held) return;
+      held = false;
+      watch.disconnect();
+      if (resize) resize.disconnect();
+      ["wheel", "touchstart", "keydown", "pointerdown"].forEach(function (type) {
+        window.removeEventListener(type, release, true);
+      });
+    };
+    ["wheel", "touchstart", "keydown", "pointerdown"].forEach(function (type) {
+      window.addEventListener(type, release, { capture: true, passive: true });
+    });
+    window.addEventListener("load", function () {
+      hold();
+      window.setTimeout(release, 2000);
+    });
+  }
 
   document.addEventListener("DOMContentLoaded", function () {
     var choices = document.querySelectorAll("[data-theme-choice]");

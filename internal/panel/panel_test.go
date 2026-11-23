@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -158,7 +160,7 @@ func TestSettingsOnTheCommandLine(t *testing.T) {
 		t.Fatal(err)
 	}
 	page := b.String()
-	for _, want := range []string{"Aparência", `data-theme-choice`, `id="idioma"`, `id="transcricao"`, "Transcrição de áudio", `value="openai" data-asr-mode`, `data-asr-fields="remote"`, `class="gear" href="/configuracoes" aria-label="Configurações" title="Configurações" aria-current="page"`} {
+	for _, want := range []string{"Aparência", `data-theme-choice`, `id="idioma"`, `id="transcricao"`, "Transcrição de áudio", `value="openai" data-asr-mode`, `data-asr-fields="remote"`, `href="#asr-dialog" data-asr-open`, `id="asr-dialog" role="dialog"`, `class="gear" href="/configuracoes" aria-label="Configurações" title="Configurações" aria-current="page"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("Configurações lacks %q", want)
 		}
@@ -167,6 +169,109 @@ func TestSettingsOnTheCommandLine(t *testing.T) {
 		if strings.Contains(page, unwanted) {
 			t.Errorf("Configurações on the command line shows %q", unwanted)
 		}
+	}
+}
+
+// The Webhooks card adds and edits through a dialog, on the computer and on
+// a server alike: the card keeps only the list and an add button.
+func TestWebhooksCardOpensADialog(t *testing.T) {
+	for _, l := range []layout{
+		{Title: "Configurações", Active: "configuracoes"},
+		{Title: "Configurações", Active: "configuracoes", ServerMode: true, Remote: true, Release: &Release{Version: "1.9.0", Container: true}},
+	} {
+		var b strings.Builder
+		if err := parseTemplates().ExecuteTemplate(&b, "configuracoes", struct {
+			layout
+			Setup       setup
+			Port        int
+			PortChanged bool
+			Local       localasr.Status
+			ASR         transcriptionView
+			Total       int
+			Corrected   int
+		}{layout: l}); err != nil {
+			t.Fatal(err)
+		}
+		page := b.String()
+		start := strings.Index(page, `id="webhooks"`)
+		if start < 0 {
+			t.Fatalf("server mode %v: no Webhooks card", l.ServerMode)
+		}
+		cardHTML := page[start : start+strings.Index(page[start:], "</section>")]
+		// A new webhook's box: two numbered steps, the key and then the
+		// documentation, opened beside it; "Finalizar", the box's main
+		// button, closes it.
+		secretHTML := cardHTML[strings.Index(cardHTML, "data-webhook-secret"):]
+		order := []string{"Webhook adicionado", `<span class="step__n" aria-hidden="true">1</span>`, "Guarde a chave", "Ela não aparece de novo.",
+			"data-webhook-secret-value", "Copiar a chave", `<span class="step__n" aria-hidden="true">2</span>`, "Veja a documentação",
+			`href="/webhooks/documentacao" target="_blank"`, "Ver a documentação", `<button class="btn btn--small" type="button" data-webhook-secret-close>Finalizar</button>`}
+		pos := 0
+		for _, want := range order {
+			i := strings.Index(secretHTML[pos:], want)
+			if i < 0 {
+				t.Errorf("server mode %v: the new webhook's box lacks %q, or has it out of order", l.ServerMode, want)
+				continue
+			}
+			pos += i + len(want)
+		}
+		for _, want := range []string{`data-webhook-add`, `data-webhook-start`, "Adicionar webhook"} {
+			if !strings.Contains(cardHTML, want) {
+				t.Errorf("server mode %v: the Webhooks card lacks %q", l.ServerMode, want)
+			}
+		}
+		if strings.Contains(cardHTML, "<form") || strings.Contains(cardHTML, "data-webhook-event") {
+			t.Errorf("server mode %v: the Webhooks card still has the form inline", l.ServerMode)
+		}
+		at := strings.Index(page, `<div class="overlay" id="webhook-dialog" role="dialog" aria-modal="true" aria-labelledby="webhook-dialog-titulo" data-webhook-dialog>`)
+		if at < 0 {
+			t.Fatalf("server mode %v: no webhook dialog", l.ServerMode)
+		}
+		dialog := page[at : at+strings.Index(page[at:], "</div></div></div>")]
+		for _, want := range []string{`<form class="stack" data-webhook-form>`, `data-webhook-url`, `data-webhook-own`, `data-webhook-error`, `data-webhook-submit`, `class="dialog__close" href="#webhooks"`,
+			`role="group" aria-labelledby="webhook-eventos"`, `<span class="field__label" id="webhook-eventos">Eventos</span>`, "Avisar quando"} {
+			if !strings.Contains(dialog, want) {
+				t.Errorf("server mode %v: the webhook dialog lacks %q", l.ServerMode, want)
+			}
+		}
+		if title, box := strings.Index(dialog, ">Eventos<"), strings.Index(dialog, "data-webhook-event"); title < 0 || box < title {
+			t.Errorf("server mode %v: the Eventos title should come before the event choices", l.ServerMode)
+		}
+		if n := strings.Count(dialog, "data-webhook-event"); n != 4 {
+			t.Errorf("server mode %v: the dialog offers %d events, want 4", l.ServerMode, n)
+		}
+		// Deleting lives in the dialog only, in red, hidden until a webhook
+		// is being changed, and asks once more before it happens.
+		for _, want := range []string{`<button class="btn btn--danger" type="button" data-webhook-delete hidden>`, "Apagar webhook",
+			`data-webhook-delete-confirm hidden`, "Apagar este webhook?", "deixa de receber os avisos", `data-webhook-delete-cancel>Não apagar<`,
+			`<button class="btn btn--danger" type="button" data-webhook-delete-yes>`, "Apagar mesmo"} {
+			if !strings.Contains(dialog, want) {
+				t.Errorf("server mode %v: the webhook dialog lacks %q", l.ServerMode, want)
+			}
+		}
+		if strings.Contains(cardHTML, "data-webhook-delete") {
+			t.Errorf("server mode %v: deleting a webhook should be in the dialog, not the card", l.ServerMode)
+		}
+	}
+	// The rows: a switch for on and off, a quiet Testar and Editar; no
+	// button to delete or to turn off.
+	script, err := os.ReadFile(filepath.Join("assets", "settings.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	js := string(script)
+	for _, want := range []string{`setAttribute("role", "switch")`, `setAttribute("aria-checked"`, `t("Mandar avisos para %s", w.url)`,
+		`button(t("Testar"), "btn--quiet`, `button(t("Editar"), "btn--ghost`} {
+		if !strings.Contains(js, want) {
+			t.Errorf("the webhook rows lack %q", want)
+		}
+	}
+	for _, gone := range []string{`button(t("Apagar"))`, `t("Desligar")`, `t("Religar")`, `"DELETE", "/api/webhooks/" + w.id).then(function () { delete notes[w.id]; return load(); })`} {
+		if strings.Contains(js, gone) {
+			t.Errorf("the webhook rows still have %q", gone)
+		}
+	}
+	if strings.Count(js, `"DELETE", "/api/webhooks/"`) != 1 || !strings.Contains(js, `delYes.addEventListener("click"`) {
+		t.Error("a webhook should be deleted only from the dialog's confirmation")
 	}
 }
 
@@ -340,11 +445,142 @@ func TestSettingsOnAServer(t *testing.T) {
 			t.Errorf("Configurações on a Docker server shows %q", unwanted)
 		}
 	}
+	// A new version gets the green box, which holds its name, what changed
+	// and the command; the line under the installed version stays out.
+	box := updateBox(t, docker)
+	if strings.HasPrefix(box, `data-update-found hidden`) {
+		t.Error("with a new version out, the green box should show")
+	}
+	for _, want := range []string{"Uma nova versão foi encontrada", "WhatsApp MCP <span data-update-latest>1.9.1</span>", "Ver o que mudou",
+		`href="https://example.com/release" target="_blank"`, "docker compose pull &amp;&amp; docker compose up -d", "WHATSAPP_MCP_VERSION"} {
+		if !strings.Contains(box, want) {
+			t.Errorf("the new version's box lacks %q", want)
+		}
+	}
+	if strings.Contains(docker, "Você já tem a versão mais recente.") || !strings.Contains(docker, `data-update-status role="status" hidden`) {
+		t.Error("with a new version out, the card should not say it is the latest")
+	}
+	if i, j := strings.Index(docker, "data-update-check"), strings.Index(docker, "Ver o que mudou"); j < i {
+		t.Error("Ver o que mudou should sit in the box, below the button that looks")
+	}
+
 	cli := render(&Release{Version: "1.9.0"}, "current")
 	if !strings.Contains(cli, "whatsapp-mcp update") || strings.Contains(cli, "docker compose") {
 		t.Error("a server without Docker should name its own update command, and only that")
 	}
-	if !strings.Contains(cli, `data-update-how hidden`) {
+	if !strings.HasPrefix(updateBox(t, cli), `data-update-found hidden`) {
 		t.Error("the steps to update should stay hidden until a new version is out")
+	}
+	if !strings.Contains(cli, `<span data-update-status-text>Você já tem a versão mais recente.</span>`) || !strings.Contains(cli, "update-status--ok") {
+		t.Error("with nothing new, the card should say it has the latest version")
+	}
+}
+
+// updateBox returns the version card's green box, from its attribute to the
+// end of the card.
+func updateBox(t *testing.T, page string) string {
+	t.Helper()
+	i := strings.Index(page, "data-update-found")
+	if i < 0 {
+		t.Fatal("the version card has no box for a new version")
+	}
+	return page[i : i+strings.Index(page[i:], "</section>")]
+}
+
+// On the computer the card has the same parts: the box holds the version's
+// name, what changed and the button that installs it.
+func TestUpdateCardOnTheComputer(t *testing.T) {
+	render := func(state string) string {
+		var b strings.Builder
+		l := layout{Title: "Configurações", Active: "configuracoes", App: true,
+			Update: UpdateState{State: state, Current: "1.8.0", Latest: "1.9.1", Page: "https://example.com/release"}}
+		l.Settings.Version = "1.8.0"
+		if err := parseTemplates().ExecuteTemplate(&b, "configuracoes", struct {
+			layout
+			Setup       setup
+			Port        int
+			PortChanged bool
+			Local       localasr.Status
+			ASR         transcriptionView
+			Total       int
+			Corrected   int
+		}{layout: l}); err != nil {
+			t.Fatal(err)
+		}
+		return b.String()
+	}
+	box := updateBox(t, render("available"))
+	if strings.HasPrefix(box, `data-update-found hidden`) {
+		t.Error("with a new version out, the green box should show")
+	}
+	for _, want := range []string{"Uma nova versão foi encontrada", "1.9.1", "Ver o que mudou", "Instalar e reiniciar"} {
+		if !strings.Contains(box, want) {
+			t.Errorf("the new version's box lacks %q", want)
+		}
+	}
+	if strings.Contains(box, "data-update-how") {
+		t.Error("the computer's box should not show a server's command")
+	}
+	current := render("current")
+	if !strings.HasPrefix(updateBox(t, current), `data-update-found hidden`) || !strings.Contains(current, "Você já tem a versão mais recente.") {
+		t.Error("with nothing new, the card should say so and hide the box")
+	}
+}
+
+// The logs card opens a dialog whose form downloads the file without the
+// script; with a support address it shows the two steps and the address,
+// and without one only the download.
+func TestLogsDialog(t *testing.T) {
+	render := func(email string) string {
+		var b strings.Builder
+		if err := parseTemplates().ExecuteTemplate(&b, "configuracoes", struct {
+			layout
+			Setup       setup
+			Port        int
+			PortChanged bool
+			Local       localasr.Status
+			ASR         transcriptionView
+			Total       int
+			Corrected   int
+		}{layout: layout{Title: "Configurações", Active: "configuracoes", SupportEmail: email}}); err != nil {
+			t.Fatal(err)
+		}
+		return b.String()
+	}
+	both := []string{
+		`href="#logs-dialog" data-logs-open>Baixar os logs</a>`,
+		`id="logs-dialog"`,
+		`<form class="stack" method="get" action="/diagnostico/logs.txt" data-logs-form>`,
+		`name="horas" value="24">`,
+		`name="horas" value="72" checked>`,
+		`name="horas" value="168">`,
+		`type="submit" data-logs-submit>Baixar</button>`,
+	}
+
+	page := render("suporte@example.com")
+	for _, want := range append(both,
+		`<p class="step__title">Mande para o suporte</p>`,
+		`href="mailto:suporte@example.com?subject=WhatsApp%20MCP%3a%20logs"`,
+		`>suporte@example.com</a>`,
+	) {
+		if !strings.Contains(page, want) {
+			t.Errorf("with an address, the logs dialog lacks %q", want)
+		}
+	}
+
+	page = render("")
+	for _, want := range both {
+		if !strings.Contains(page, want) {
+			t.Errorf("without an address, the logs dialog lacks %q", want)
+		}
+	}
+	for _, unwanted := range []string{"mailto:", "Mande para o suporte"} {
+		if strings.Contains(page, unwanted) {
+			t.Errorf("without an address, the logs dialog has %q", unwanted)
+		}
+	}
+	// The webhook key box uses the same steps, so look right after the form.
+	if strings.Contains(page, `data-logs-form>`+"\n"+`<ol class="secret__steps">`) {
+		t.Error("without an address, the logs dialog still numbers its steps")
 	}
 }

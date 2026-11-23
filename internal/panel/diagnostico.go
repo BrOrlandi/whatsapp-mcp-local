@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -39,7 +40,7 @@ func (p *Panel) registerDiagnostic(mux httpserver.Mux) {
 		if callerRefused(w, r) {
 			return
 		}
-		if !sameOrigin(r) && !p.fromAgent(r) {
+		if !p.fromOwnPage(r) && !p.fromAgent(r) {
 			http.Error(w, "this file is for the panel and programs on this computer", http.StatusForbidden)
 			return
 		}
@@ -65,8 +66,18 @@ func (p *Panel) registerDiagnostic(mux httpserver.Mux) {
 		if err != nil {
 			return nil, userError{i18n.Tf("não foi possível salvar o arquivo: %v", err)}
 		}
-		return map[string]string{"path": path, "name": name}, nil
+		return map[string]string{"path": path, "name": name, "note": savedNote(path)}, nil
 	}))
+}
+
+// savedNote says where the app saved the file, by the folder it really went
+// to: Downloads, or the home folder when there is no Downloads folder.
+func savedNote(path string) string {
+	dir, name := filepath.Dir(path), filepath.Base(path)
+	if home, err := os.UserHomeDir(); err == nil && filepath.Clean(dir) == filepath.Clean(home) {
+		return i18n.Tf("Salvo na sua pasta pessoal: %s", name)
+	}
+	return i18n.Tf("Salvo na pasta %s: %s", filepath.Base(dir), name)
 }
 
 func diagnosticPeriod(v string) int {

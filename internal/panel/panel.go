@@ -18,6 +18,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -38,6 +39,7 @@ import (
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/index"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/mcp"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/public"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/wacli"
 )
@@ -82,6 +84,8 @@ type Panel struct {
 	pages *template.Template
 	code  codeCache
 	codex codeCache
+	// local is the local token's sign-in (localtoken.go).
+	local localGate
 }
 
 // PortProblem is the MCP's port taken by another program: WhatsApp keeps
@@ -216,6 +220,8 @@ func (p *Panel) Register(mux httpserver.Mux) {
 	mux.HandleFunc("GET /api/asr", p.api(p.apiASR))
 	mux.HandleFunc("POST /api/asr/install", p.api(p.apiASRInstall))
 	mux.HandleFunc("POST /api/asr/remote", p.api(p.apiASRRemote))
+	mux.HandleFunc("POST /configuracoes/transcricao/contexto", p.form(p.saveContext))
+	mux.HandleFunc("POST /api/asr/contexto", p.api(p.apiASRContext))
 	mux.HandleFunc("GET /funcoes", p.page(p.funcoes))
 	mux.HandleFunc("GET /receitas", p.page(p.receitas))
 	mux.HandleFunc("GET /ajuda", p.page(p.ajuda))
@@ -240,6 +246,7 @@ func (p *Panel) Register(mux httpserver.Mux) {
 	mux.HandleFunc("POST /api/logout", p.api(p.apiLogout))
 	mux.HandleFunc("POST /api/clients/{client}", p.api(p.apiAddClient))
 	mux.HandleFunc("POST /api/idioma", p.api(p.apiLanguage))
+	mux.HandleFunc("POST /configuracoes/idioma", p.form(p.languageForm))
 	if p.Host != nil {
 		p.registerApp(mux)
 	} else if p.Release != nil {
@@ -247,6 +254,7 @@ func (p *Panel) Register(mux httpserver.Mux) {
 	}
 	p.registerDiagnostic(mux)
 	p.registerRemoteAccess(mux)
+	p.registerLocalToken(mux)
 	registerAssets(mux)
 }
 
@@ -254,7 +262,7 @@ func (p *Panel) Register(mux httpserver.Mux) {
 func registerAssets(mux httpserver.Mux) {
 	sub, _ := fs.Sub(assets, "assets")
 	mux.HandleFunc("GET /assets/i18n.js", translations)
-	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(sub))))
+	mux.Handle("GET /assets/", http.StripPrefix("/assets/", revalidated(sub)))
 	icon := func(ctype string, body []byte) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", ctype)
@@ -320,6 +328,12 @@ func (p *Panel) page(f func(http.ResponseWriter, *http.Request) (string, any)) h
 		if callerRefused(w, r) {
 			return
 		}
+		// With a token, a browser types it once before the panel opens, so
+		// the page's actions carry it (localtoken.go).
+		if !p.tokenProved(r) {
+			askForToken(w, r, r.URL.RequestURI())
+			return
+		}
 		name, data := f(w, r)
 		if name == "" {
 			return // f answered already, with a redirect
@@ -349,17 +363,35 @@ func (p *Panel) form(f func(*http.Request) (string, error)) http.HandlerFunc {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
+		if !p.mayAct(r) {
+			askForToken(w, r, returnTo(r))
+			return
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 		to, err := f(r)
 		if err != nil {
-			sep := "?"
-			if strings.Contains(to, "?") {
-				sep = "&"
-			}
-			to += sep + "erro=" + url.QueryEscape(err.Error())
+			to = withError(to, err.Error())
 		}
 		http.Redirect(w, r, to, http.StatusSeeOther)
 	}
+}
+
+// withError adds an error to the address a form goes back to. When the
+// address opens a dialog (#…-dialog), the error is shown inside it.
+func withError(to, msg string) string {
+	path, frag, _ := strings.Cut(to, "#")
+	sep := "?"
+	if strings.Contains(path, "?") {
+		sep = "&"
+	}
+	path += sep + "erro=" + url.QueryEscape(msg)
+	if strings.HasSuffix(frag, "-dialog") {
+		return path + "&erro_em=" + url.QueryEscape(frag) + "#" + frag
+	}
+	if frag != "" {
+		return path + "#" + frag
+	}
+	return path
 }
 
 func (p *Panel) api(f func(*http.Request) (any, error)) http.HandlerFunc {
@@ -368,7 +400,14 @@ func (p *Panel) api(f func(*http.Request) (any, error)) http.HandlerFunc {
 		if callerRefused(w, r) {
 			return
 		}
-		if !sameOrigin(r) && !p.fromAgent(r) {
+		if !p.fromOwnPage(r) && !p.fromAgent(r) {
+			if sameOrigin(r) {
+				// The page, but without the token's session (it expired).
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_ = json.NewEncoder(w).Encode(map[string]string{"error": i18n.T("Recarregue a página e digite o token deste computador.")})
+				return
+			}
 			http.Error(w, "this API answers its own page and programs on this computer", http.StatusForbidden)
 			return
 		}
@@ -414,6 +453,13 @@ type layout struct {
 	// card that shows them in Configurações.
 	PublicURL   string
 	InternalURL string
+	// InsecurePublic is set when the public address is http://, which the
+	// card of addresses warns about.
+	InsecurePublic bool
+	// DialogError is an error to show inside the dialog ErrorIn names (its
+	// id), which the page opens again, instead of at the top.
+	DialogError string
+	ErrorIn     string
 	// Release is set outside the desktop app, when the program knows its
 	// version: the page then says how to update instead of doing it.
 	Release *Release
@@ -426,6 +472,9 @@ type layout struct {
 	// then the MCP's public address.
 	ServerMode bool
 	PublicMCP  string
+	// SupportEmail is where the logs go (brand.SupportEmail); empty, the
+	// logs dialog offers only the download.
+	SupportEmail string
 }
 
 // snapshot is what most pages need about the account, gathered once.
@@ -458,6 +507,9 @@ type snapshot struct {
 	Endpoint      string
 	LogPath       string
 	InApp         bool
+	// Server is a page of the server mode, seen on its public address: the
+	// texts say "this server" instead of "this computer".
+	Server bool
 }
 
 type check struct {
@@ -471,6 +523,7 @@ func (p *Panel) snapshot(ctx context.Context) snapshot {
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	s := snapshot{Endpoint: p.endpointFor(ctx), LogPath: p.LogPath, InApp: p.Host != nil, Pairing: p.Supervisor.Pairing(), History: p.Server.HistoryStatus()}
+	s.Server = p.PublicURL != "" && caller.From(ctx).Kind != caller.Local
 	s.Account, _ = p.Supervisor.Account(ctx)
 	s.Label, _ = p.State.Setting(ctx, account.LabelSetting)
 	s.Sync = p.Supervisor.Status()
@@ -551,6 +604,12 @@ func syncKey(s wacli.Status) string {
 
 func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout {
 	l := layout{Title: title, Active: active, HealthTone: s.Tone, Error: r.URL.Query().Get("erro"), OK: r.URL.Query().Get("ok"), Language: p.chosenLanguage()}
+	// An error from a dialog's form is shown inside that dialog, which the
+	// address opens again, not at the top of the page.
+	if in := r.URL.Query().Get("erro_em"); in != "" && l.Error != "" {
+		l.DialogError, l.ErrorIn, l.Error = l.Error, in, ""
+	}
+	l.SupportEmail = brand.SupportEmail
 	if s.Sync.State != "" {
 		l.LiveKey, l.LiveBusy = syncKey(s.Sync), settling(s.Sync) || s.Sync.State == "reconnecting"
 	}
@@ -570,6 +629,7 @@ func (p *Panel) layout(r *http.Request, title, active string, s snapshot) layout
 	if p.PublicURL != "" && l.Remote {
 		l.ServerMode, l.PublicMCP = true, p.PublicURL+"/mcp"
 		l.PublicURL, l.InternalURL = p.PublicURL, p.InternalURL
+		l.InsecurePublic = public.Unencrypted(p.PublicURL)
 	}
 	return l
 }
@@ -608,14 +668,20 @@ func describeCheckPT(c mcp.Check, s snapshot) (string, string) {
 	a := s.Activity
 	switch c.Name {
 	case "daemon":
+		if s.Server {
+			return i18n.N("WhatsApp MCP"), i18n.T("Funcionando neste servidor.")
+		}
 		return i18n.N("WhatsApp MCP"), i18n.T("Funcionando neste computador.")
 	case "wacli":
 		if s.InApp {
 			return i18n.N("Componente do WhatsApp"), i18n.T("A parte do app que conecta ao WhatsApp não respondeu. Reinstale o WhatsApp MCP.")
 		}
-		return i18n.N("Componente do WhatsApp"), i18n.T("O wacli não respondeu. Instale com brew install openclaw/tap/wacli.")
+		return i18n.N("Componente do WhatsApp"), i18n.T("A parte que conecta ao WhatsApp não respondeu. Reinicie o WhatsApp MCP; se continuar, instale-o de novo.")
 	case "paired":
 		if c.Status == "ok" {
+			if s.Server {
+				return i18n.N("WhatsApp pareado"), i18n.T("Este servidor é um dispositivo conectado da sua conta.")
+			}
 			return i18n.N("WhatsApp pareado"), i18n.T("Este computador é um dispositivo conectado da sua conta.")
 		}
 		return i18n.N("WhatsApp pareado"), i18n.T("Nenhuma conta conectada. Conecte o seu WhatsApp pelo QR code.")
@@ -631,10 +697,16 @@ func describeCheckPT(c mcp.Check, s snapshot) (string, string) {
 		case "starting":
 			return i18n.N("Conexão"), i18n.T("Carregando.")
 		case "reconnecting":
+			if s.Server {
+				return i18n.N("Conexão"), i18n.T("Reconectando ao WhatsApp. Confira a internet do servidor.")
+			}
 			return i18n.N("Conexão"), i18n.T("Reconectando ao WhatsApp. Confira a internet deste computador.")
 		case "not_paired":
 			return i18n.N("Conexão"), i18n.T("Aguardando o WhatsApp ser conectado.")
 		case "logged_out":
+			if s.Server {
+				return i18n.N("Conexão"), i18n.T("O WhatsApp desconectou este servidor. Conecte de novo pelo QR code.")
+			}
 			return i18n.N("Conexão"), i18n.T("O WhatsApp desconectou este computador. Conecte de novo pelo QR code.")
 		}
 		var text string
@@ -664,6 +736,9 @@ func describeCheckPT(c mcp.Check, s snapshot) (string, string) {
 	case "coverage":
 		if c.Status == "ok" {
 			return i18n.N("Cobertura"), i18n.T("Sem lacunas nos últimos 7 dias.")
+		}
+		if s.Server {
+			return i18n.N("Cobertura"), i18n.T("Houve períodos nos últimos 7 dias sem mensagem em nenhuma conversa, o rastro de um servidor desligado ou sem internet.")
 		}
 		return i18n.N("Cobertura"), i18n.T("Houve períodos nos últimos 7 dias sem mensagem em nenhuma conversa, o rastro de um computador desligado.")
 	case "history_request":
@@ -841,10 +916,15 @@ func (p *Panel) newcomer(ctx context.Context, now time.Time) bool {
 
 func (p *Panel) ajuda(w http.ResponseWriter, r *http.Request) (string, any) {
 	s := p.snapshot(r.Context())
+	unavailable := false
+	if asr := p.Server.ASR(); asr != nil {
+		unavailable = asr.Status().Unavailable != ""
+	}
 	return "ajuda", struct {
 		layout
-		Prompts []string
-	}{p.layout(r, i18n.N("Ajuda"), "ajuda", s), suggestedPrompts}
+		Prompts          []string
+		LocalUnavailable bool // local transcription does not run on this Windows
+	}{p.layout(r, i18n.N("Ajuda"), "ajuda", s), suggestedPrompts, unavailable}
 }
 
 // guide is an AI tool the connect flow walks through.
@@ -994,9 +1074,13 @@ func (p *Panel) configuracoes(w http.ResponseWriter, r *http.Request) (string, a
 	var local localasr.Status
 	asrView := transcriptionView{Mode: localasr.ModeLocal, OpenAIModels: localasr.OpenAIModels}
 	if asr := p.Server.ASR(); asr != nil {
+		// The page opening is when the engine is tested again: someone who
+		// installed the Visual C++ runtime sees transcription come back.
+		asr.Recheck()
 		local = asr.Status()
 		asrView = viewOf(asr.Settings(), p.DataDir)
 	}
+	asrView.Ctx = contextOf(asrView.settings, p.serverPage(r))
 	total, corrected, _ := p.State.TranscriptCount(r.Context())
 	return "configuracoes", struct {
 		layout
@@ -1025,10 +1109,76 @@ type transcriptionView struct {
 	OpenAIModel    string
 	HasOpenAIKey   bool
 	OpenAIModels   []string
+	// Ctx is the conversation context sent with each voice note.
+	Ctx      contextView
+	settings localasr.Settings
+}
+
+// contextView is the conversation context as the card and its dialog say
+// it: the level in use, the card's line (Leaves when that text goes to
+// another computer or to OpenAI, said as a notice) and where it goes.
+type contextView struct {
+	Level   string `json:"level"`
+	FromEnv bool   `json:"from_env"`
+	Line    string `json:"line"`
+	Leaves  bool   `json:"leaves"`
+	Where   string `json:"where"`
+}
+
+func contextOf(s localasr.Settings, serverMode bool) contextView {
+	v := contextView{Level: s.ContextLevel(), FromEnv: s.ContextFromEnv}
+	stays, leaves := i18n.T("Nada sai deste computador."), i18n.T("Esse texto sai do computador.")
+	v.Where = i18n.T("Vai junto com o áudio para este computador, onde ele é transcrito.")
+	if serverMode {
+		stays, leaves = i18n.T("Nada sai deste servidor."), i18n.T("Esse texto sai do servidor.")
+		v.Where = i18n.T("Vai junto com o áudio para este servidor, onde ele é transcrito.")
+	}
+	switch s.Mode {
+	case localasr.ModeOpenAI:
+		v.Where = i18n.T("Vai junto com o áudio para a OpenAI.")
+	case localasr.ModeRemote:
+		v.Where = i18n.T("Vai junto com o áudio para o servidor de transcrição.")
+	}
+	var line string
+	switch v.Level {
+	case localasr.ContextNone:
+		v.Line = i18n.T("Só o áudio vai para a transcrição, sem nada da conversa.")
+		return v
+	case localasr.ContextNames:
+		switch s.Mode {
+		case localasr.ModeOpenAI:
+			line = i18n.T("O nome da conversa e os das pessoas vão junto com o áudio para a OpenAI.")
+		case localasr.ModeRemote:
+			line = i18n.T("O nome da conversa e os das pessoas vão junto com o áudio para o servidor de transcrição.")
+		default:
+			line = i18n.T("O nome da conversa e os das pessoas vão junto com o áudio, para acertar os nomes.")
+		}
+	default:
+		switch s.Mode {
+		case localasr.ModeOpenAI:
+			line = i18n.T("O nome da conversa, os das pessoas e as últimas mensagens vão junto com o áudio para a OpenAI.")
+		case localasr.ModeRemote:
+			line = i18n.T("O nome da conversa, os das pessoas e as últimas mensagens vão junto com o áudio para o servidor de transcrição.")
+		default:
+			line = i18n.T("O nome da conversa, os das pessoas e as últimas mensagens vão junto com o áudio.")
+		}
+	}
+	if s.Offsite() {
+		v.Line, v.Leaves = line+" "+leaves, true
+	} else {
+		v.Line = line + " " + stays
+	}
+	return v
+}
+
+// serverPage says the page is the server mode's, seen through its public
+// address, where "this computer" is said "this server".
+func (p *Panel) serverPage(r *http.Request) bool {
+	return p.PublicURL != "" && caller.From(r.Context()).Kind != caller.Local
 }
 
 func viewOf(s localasr.Settings, dataDir string) transcriptionView {
-	v := transcriptionView{Mode: s.Mode, Offsite: s.Offsite(), FromEnv: s.FromEnv, URL: s.URL, OpenAIModels: localasr.OpenAIModels}
+	v := transcriptionView{Mode: s.Mode, Offsite: s.Offsite(), FromEnv: s.FromEnv, URL: s.URL, OpenAIModels: localasr.OpenAIModels, settings: s}
 	if c, err := appconfig.Load(dataDir); err == nil && c.Transcription != nil && !s.FromEnv {
 		t := c.Transcription
 		v.RemoteURL, v.RemoteModel, v.HasRemoteToken = t.RemoteURL, t.RemoteModel, t.RemoteToken != ""
@@ -1064,7 +1214,8 @@ func (p *Panel) apiASRRemote(r *http.Request) (any, error) {
 		Model string `json:"model"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		return nil, userError{err.Error()}
+		log.Printf("transcription: the setting did not read: %v", err)
+		return nil, userError{i18n.T("Não foi possível salvar agora. Tente de novo.")}
 	}
 	if body.Mode == "" { // 1.9.0-beta's page: an address or none
 		body.Mode = localasr.ModeLocal
@@ -1074,11 +1225,80 @@ func (p *Panel) apiASRRemote(r *http.Request) (any, error) {
 	}
 	if err := asr.Configure(localasr.Change{Mode: body.Mode, URL: body.URL, Token: body.Token, Model: body.Model}); err != nil {
 		if errors.Is(err, localasr.ErrFromEnv) {
-			return nil, userError{i18n.T("a transcrição está definida por variável de ambiente e não pode ser trocada aqui")}
+			return nil, userError{i18n.T("A transcrição foi definida na instalação e não pode ser trocada por aqui.")}
 		}
-		return nil, userError{err.Error()}
+		// What the person can fix is said as it is; anything else (a mode
+		// this page does not know, a config.json that cannot be written)
+		// only goes to the log.
+		switch {
+		case errors.Is(err, localasr.ErrNoOpenAIKey):
+			return nil, userError{i18n.T("Cole a chave da API da OpenAI no campo Chave da API.")}
+		case errors.Is(err, localasr.ErrNoServerURL):
+			return nil, userError{i18n.T("Escreva o endereço do servidor de transcrição.")}
+		case errors.Is(err, localasr.ErrBadServerURL):
+			return nil, userError{i18n.T("Escreva o endereço completo do servidor, como https://transcricao.exemplo.com.")}
+		}
+		var input localasr.InputError
+		if errors.As(err, &input) {
+			return nil, userError{input.Error()}
+		}
+		log.Printf("transcription: the setting was not saved: %v", err)
+		return nil, userError{i18n.T("Não foi possível salvar agora. Tente de novo.")}
 	}
-	return map[string]any{"mode": asr.Settings().Mode, "remote": asr.RemoteStatus(r.Context(), true), "backend": asr.Backend()}, nil
+	st := asr.RemoteStatus(r.Context(), true)
+	if st.Error != "" { // the page says it in its own words; the original goes to the log
+		log.Printf("transcription: %s", st.Error)
+	}
+	return map[string]any{"mode": asr.Settings().Mode, "remote": st, "backend": asr.Backend(), "status": asr.Status(),
+		"context": contextOf(asr.Settings(), p.serverPage(r))}, nil
+}
+
+// saveContext keeps how much of the conversation goes with each voice note
+// to the transcription: none, names or messages. It is the form of a page
+// without scripts; apiASRContext is the same for the page's script.
+func (p *Panel) saveContext(r *http.Request) (string, error) {
+	const back = "/configuracoes#transcricao"
+	if inDialog, err := p.setContext(r.FormValue("context")); err != nil {
+		if inDialog {
+			return "/configuracoes#asr-contexto-dialog", err
+		}
+		return back, err
+	}
+	return back, nil
+}
+
+// apiASRContext saves the context and answers with what the card shows of
+// it, which the script puts in place without loading the page again.
+func (p *Panel) apiASRContext(r *http.Request) (any, error) {
+	var body struct {
+		Context string `json:"context"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if _, err := p.setContext(body.Context); err != nil {
+		return nil, err
+	}
+	return contextOf(p.Server.ASR().Settings(), p.serverPage(r)), nil
+}
+
+// setContext keeps the context's level; inDialog says whether the error
+// belongs in the dialog, where the person can choose again.
+func (p *Panel) setContext(value string) (inDialog bool, err error) {
+	asr := p.Server.ASR()
+	if asr == nil {
+		return false, userError{i18n.T("a transcrição local não está disponível")}
+	}
+	level, ok := localasr.ParseContext(value)
+	if !ok {
+		return true, userError{i18n.T("Escolha o que vai junto com o áudio.")}
+	}
+	if err := asr.SetContext(level); err != nil {
+		if errors.Is(err, localasr.ErrContextFromEnv) {
+			return false, userError{i18n.T("O contexto da conversa foi definido na instalação e não pode ser trocado por aqui.")}
+		}
+		log.Printf("transcription: the context was not saved: %v", err)
+		return true, userError{i18n.T("Não foi possível salvar agora. Tente de novo.")}
+	}
+	return false, nil
 }
 
 func (p *Panel) apiASRInstall(r *http.Request) (any, error) {
@@ -1107,7 +1327,7 @@ func (p *Panel) receitas(w http.ResponseWriter, r *http.Request) (string, any) {
 	return "receitas", struct {
 		layout
 		Recipes []recipe
-	}{p.layout(r, i18n.N("Receitas"), "receitas", s), recipeBook()}
+	}{p.layout(r, i18n.N("Receitas"), "receitas", s), recipeBook(s.Server)}
 }
 
 func (p *Panel) logout(r *http.Request) (string, error) {
@@ -1273,6 +1493,9 @@ func (p *Panel) apiHistory(r *http.Request) (any, error) {
 	}
 	job, started, err := p.Server.RequestHistory(r.Context(), body.ChatJID, 50, rounds, recentChats)
 	if err != nil {
+		if p.serverPage(r) {
+			return nil, userError{i18n.T("não há de onde partir: a busca começa pela mensagem mais antiga que este servidor já tem")}
+		}
 		return nil, userError{i18n.T("não há de onde partir: a busca começa pela mensagem mais antiga que este computador já tem")}
 	}
 	return map[string]any{"started": started, "job": job}, nil
@@ -1285,6 +1508,9 @@ func (p *Panel) apiPair(r *http.Request) (any, error) {
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	account, _ := p.Supervisor.Account(r.Context())
 	if account.Authenticated {
+		if p.serverPage(r) {
+			return nil, userError{i18n.T("este servidor já está conectado a um WhatsApp; desconecte antes de conectar outro")}
+		}
 		return nil, userError{i18n.T("este computador já está conectado a um WhatsApp; desconecte antes de conectar outro")}
 	}
 	phone := strings.Map(func(r rune) rune {
@@ -1392,7 +1618,7 @@ func (p *Panel) qr(w http.ResponseWriter, r *http.Request) {
 	if callerRefused(w, r) {
 		return
 	}
-	if !sameOrigin(r) {
+	if !p.fromOwnPage(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

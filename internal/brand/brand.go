@@ -35,4 +35,8 @@ const (
 	Author        = "Bruno Orlandi"
 	RepositoryURL = "https://github.com/BrOrlandi/whatsapp-mcp-local"
 	SupportURL    = "https://donate.stripe.com/8x200jdhA6c1d375jF9Ve06"
+	// SupportEmail is where people send the logs from Configurações › Logs
+	// para suporte (SupportURL above is the donation link, not this). Empty,
+	// the logs dialog offers only the download, with no address to send to.
+	SupportEmail = "contato@whatsappmcp.com.br"
 )

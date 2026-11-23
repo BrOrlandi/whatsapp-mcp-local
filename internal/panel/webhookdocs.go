@@ -36,7 +36,11 @@ func exampleJSON(ev webhook.Event) string {
 
 // webhookExamples are deliveries as a script receives them, with made-up
 // people and ids.
-func webhookExamples() []webhookExampleGroup {
+func webhookExamples(server bool) []webhookExampleGroup {
+	onlineIntro := i18n.T("O WhatsApp voltou a ficar acessível neste computador. O aviso espera até 3 minutos o histórico que o celular manda ao conectar assentar, então um programa que lê as conversas nessa hora costuma encontrar o que chegou enquanto o computador estava fora; se o histórico demorar mais, o aviso sai antes de ele terminar. Não chega nas pausas curtas das ferramentas nem numa queda de poucos segundos, e o filtro de conversas não se aplica a ele.")
+	if server {
+		onlineIntro = i18n.T("O WhatsApp voltou a ficar acessível neste servidor. O aviso espera até 3 minutos o histórico que o celular manda ao conectar assentar, então um programa que lê as conversas nessa hora costuma encontrar o que chegou enquanto o servidor estava fora; se o histórico demorar mais, o aviso sai antes de ele terminar. Não chega nas pausas curtas das ferramentas nem numa queda de poucos segundos, e o filtro de conversas não se aplica a ele.")
+	}
 	at := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 	sent := at.Add(time.Second)
 	overnight := at.Add(-9*time.Hour - 25*time.Minute)
@@ -104,7 +108,7 @@ func webhookExamples() []webhookExampleGroup {
 				JSON: exampleJSON(webhook.Event{Kind: "receipt", ID: "d73abf8e065c1924", At: sent, Account: number, Receipt: &webhook.Receipt{ChatJID: maria, SenderJID: maria,
 					MessageIDs: []string{"3EB0B1C2D3E4F5A6B7C8", "3EB0B1C2D3E4F5A6B7C9"}, Type: "read", Timestamp: at}})},
 		}},
-		{ID: "online", Title: i18n.T("De volta on-line (online)"), Intro: i18n.T("O WhatsApp voltou a ficar acessível neste computador. O aviso espera até 3 minutos o histórico que o celular manda ao conectar assentar, então um programa que lê as conversas nessa hora costuma encontrar o que chegou enquanto o computador estava fora; se o histórico demorar mais, o aviso sai antes de ele terminar. Não chega nas pausas curtas das ferramentas nem numa queda de poucos segundos, e o filtro de conversas não se aplica a ele."), Examples: []webhookExample{
+		{ID: "online", Title: i18n.T("De volta on-line (online)"), Intro: onlineIntro, Examples: []webhookExample{
 			{ID: "acordou", Title: i18n.T("O computador acordou"), Note: i18n.T("Para rodar uma tarefa da sua ferramenta de IA nessa hora, o programa que recebe pode chamá-la, por exemplo com claude -p, e responder na hora sem esperar ela terminar. Os despertares curtos do macOS (Power Nap) também podem mandar woke: guarde um intervalo mínimo entre uma tarefa e outra."),
 				JSON: exampleJSON(webhook.Event{Kind: "online", ID: "f95cd1a0287e3b46", At: sent, Account: number, Online: &webhook.Online{Reason: "woke", OfflineSince: &overnight, OfflineSeconds: int64(sent.Sub(overnight).Seconds())}})},
 		}},
@@ -121,7 +125,7 @@ func (p *Panel) webhookDocs(w http.ResponseWriter, r *http.Request) (string, any
 		layout
 		Groups  []webhookExampleGroup
 		APIBase string
-	}{p.layout(r, i18n.N("Webhooks: documentação"), "configuracoes", s), webhookExamples(), strings.TrimSuffix(p.endpointFor(r.Context()), "/mcp")}
+	}{p.layout(r, i18n.N("Webhooks: documentação"), "configuracoes", s), webhookExamples(s.Server), strings.TrimSuffix(p.endpointFor(r.Context()), "/mcp")}
 }
 
 const webhookDocsSource = `{{define "webhookdocs"}}{{template "head" .}}{{template "nav" .}}
@@ -245,7 +249,7 @@ class Webhook(BaseHTTPRequestHandler):
             print(m.get("chat_name"), "·", m.get("sender_name", "{{t "eu"}}"), ":", m.get("text", ""))
 
 HTTPServer(("127.0.0.1", 8080), Webhook).serve_forever()</code></pre></div>
-<p class="muted">{{t "Os webhooks também se criam e se apagam por programa, pela API local deste computador:"}}</p>
+<p class="muted">{{if .ServerMode}}{{t "Os webhooks também se criam e se apagam por programa, pela API local do servidor:"}}{{else}}{{t "Os webhooks também se criam e se apagam por programa, pela API local deste computador:"}}{{end}}</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Criar um webhook"}}</span></div><pre data-copy><code>curl -s -X POST -H 'Content-Type: application/json' \
   -d '{"url": "http://127.0.0.1:8080/whatsapp", "events": ["message", "reaction"]}' \
   {{.APIBase}}/api/webhooks</code></pre></div>

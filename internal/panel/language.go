@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"html/template"
 	"net/http"
+	"os"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/appconfig"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
@@ -31,12 +32,18 @@ func (p *Panel) setLanguage(code string) error {
 	if p.Host != nil {
 		return p.Host.SetLanguage(code)
 	}
+	// No choice is the language the command line starts with when none was
+	// picked: WHATSAPP_MCP_LANG, else the system's.
+	lang := code
+	if lang == "" {
+		lang = startLanguage()
+	}
 	if p.DataDir != "" {
 		c, err := appconfig.Load(p.DataDir)
 		if err != nil {
 			// A config.json that does not read is not overwritten with
 			// the defaults: the language changes for this run only.
-			i18n.Set(code)
+			i18n.Set(lang)
 			return nil
 		}
 		c.Language = code
@@ -44,8 +51,19 @@ func (p *Panel) setLanguage(code string) error {
 			return err
 		}
 	}
-	i18n.Set(code)
+	i18n.Set(lang)
 	return nil
+}
+
+// startLanguage is the language the command line shows when the person picked
+// none, as cmd/whatsapp-mcp sets it at the start: WHATSAPP_MCP_LANG when it
+// names a language, else the system's (a server in Docker usually has no
+// LANG, and its panel would turn English).
+func startLanguage() string {
+	if l := os.Getenv("WHATSAPP_MCP_LANG"); i18n.Supported(l) {
+		return l
+	}
+	return i18n.Detect()
 }
 
 // apiLanguage is the language buttons of the setup screens and the choice in
@@ -61,6 +79,15 @@ func (p *Panel) apiLanguage(r *http.Request) (any, error) {
 		return nil, err
 	}
 	return map[string]string{"language": *body.Language, "lang": i18n.Lang()}, nil
+}
+
+// languageForm is the same choice from a browser without scripts, which sends
+// the Idioma card as a plain form and comes back to it.
+func (p *Panel) languageForm(r *http.Request) (string, error) {
+	if err := p.setLanguage(r.FormValue("idioma")); err != nil {
+		return "/configuracoes", err // the error goes in the query, which a fragment would swallow
+	}
+	return "/configuracoes#idioma", nil
 }
 
 // languageHint is the tooltip over a language's button: its name in the

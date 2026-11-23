@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/brand"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/httpserver"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 )
@@ -119,7 +120,7 @@ func (p *Panel) savePort(r *http.Request) (string, error) {
 	}
 	port, err := strconv.Atoi(strings.TrimSpace(r.FormValue("port")))
 	if err != nil || port < 1024 || port > 65535 {
-		return "/configuracoes", userError{i18n.T("a porta precisa ser um número de 1024 a 65535")}
+		return "/configuracoes#porta-dialog", userError{i18n.T("a porta precisa ser um número de 1024 a 65535")}
 	}
 	back := "/configuracoes"
 	if r.FormValue("from") != "" && strings.HasPrefix(r.FormValue("from"), "/") {
@@ -129,6 +130,9 @@ func (p *Panel) savePort(r *http.Request) (string, error) {
 		return back, nil
 	}
 	if err := p.Host.SetPort(port); err != nil {
+		if back == "/configuracoes" {
+			back += "#porta-dialog"
+		}
 		return back, userError{err.Error()}
 	}
 	return "/configuracoes?porta=1&ok=" + url.QueryEscape(i18n.Tf("O MCP agora responde em %s.", p.endpoint())), nil
@@ -169,7 +173,10 @@ func (p *Panel) apiOpen(r *http.Request) (any, error) {
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	u, err := url.Parse(body.URL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+	// Besides the web, the support address, which the logs dialog links
+	// to: the window does not open a mail program by itself.
+	mail := err == nil && u.Scheme == "mailto" && brand.SupportEmail != "" && strings.EqualFold(strings.SplitN(u.Opaque, "?", 2)[0], brand.SupportEmail)
+	if !mail && (err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "") {
 		return nil, userError{i18n.T("endereço inválido")}
 	}
 	return map[string]bool{"ok": true}, p.Host.OpenURL(u.String())
@@ -179,7 +186,7 @@ func (p *Panel) quit(w http.ResponseWriter, r *http.Request) {
 	if callerRefused(w, r) {
 		return
 	}
-	if !sameOrigin(r) {
+	if !p.fromOwnPage(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -192,7 +199,7 @@ func (p *Panel) erase(w http.ResponseWriter, r *http.Request) {
 	if callerRefused(w, r) {
 		return
 	}
-	if !sameOrigin(r) {
+	if !p.fromOwnPage(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

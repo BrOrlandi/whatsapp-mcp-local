@@ -39,7 +39,7 @@ func (p *Panel) RegisterWebhooks(mux httpserver.Mux, hooks *webhook.Manager, ava
 		}
 		h, secret, err := hooks.Create(r.Context(), s)
 		if err != nil {
-			return nil, webhookError(err)
+			return nil, p.webhookError(r, err)
 		}
 		st, _ := hooks.Get(r.Context(), h.ID)
 		out := map[string]any{"webhook": st, "secret": secret,
@@ -59,7 +59,7 @@ func (p *Panel) RegisterWebhooks(mux httpserver.Mux, hooks *webhook.Manager, ava
 			return nil, userError{i18n.T("pedido inválido")}
 		}
 		if _, err := hooks.Update(r.Context(), r.PathValue("id"), s); err != nil {
-			return nil, webhookError(err)
+			return nil, p.webhookError(r, err)
 		}
 		st, err := hooks.Get(r.Context(), r.PathValue("id"))
 		return st, webhookError(err)
@@ -112,6 +112,16 @@ func (p *Panel) RegisterWebhooks(mux httpserver.Mux, hooks *webhook.Manager, ava
 		}
 		return map[string]any{"deleted_files": files, "freed_bytes": bytes}, err
 	}))
+}
+
+// webhookError is webhookAPIError, said for a person when the request comes
+// from the panel's own page: the dialog shows it as it is, while a program
+// keeps the API's words, which name the field.
+func (p *Panel) webhookError(r *http.Request, err error) error {
+	if errors.Is(err, webhook.ErrBadURL) && p.fromOwnPage(r) {
+		return userError{i18n.T("Escreva o endereço completo, começando com http:// ou https://.")}
+	}
+	return webhookError(err)
 }
 
 // webhookError turns the webhook package's errors into the API's: what the

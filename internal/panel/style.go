@@ -27,7 +27,7 @@ const baseCSS = `*,*::before,*::after{box-sizing:border-box}
 color-scheme:light dark;
 --bg:#eef3f1;--surface:#fff;--surface-soft:#f4f9f7;--surface-sunken:#e9f0ed;--border:#dbe6e1;--border-strong:#c3d5cd;
 --text:#10241c;--text-soft:#2c443d;--muted:#54695f;
---brand:#0b6b5d;--brand-strong:#0a8172;--brand-ink:#fff;--brand-soft:#e3f3ef;
+--brand:#0b6b5d;--brand-strong:#08776a;--brand-ink:#fff;--brand-soft:#e3f3ef;
 --accent:#7d5e00;--accent-soft:#f8eec4;
 --danger:#96201f;--danger-bg:#fdeceb;--danger-border:#f0c6c3;
 --ok:#0b6b45;--ok-bg:#e1f4ea;--ok-border:#b6e0c9;
@@ -148,6 +148,7 @@ pre code{background:none;border:0;padding:0;color:inherit;font-size:1em}
 /* ---- buttons ---- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-size:.94rem;font-weight:600;text-decoration:none;padding:10px 16px;border:1px solid transparent;border-radius:var(--radius-sm);cursor:pointer;background:var(--brand);color:var(--brand-ink);white-space:nowrap}
 .btn:hover{background:var(--brand-strong)}
+.btn--wrap{white-space:normal;text-align:center}
 .btn--block{width:100%}
 .btn--ghost{background:var(--surface);color:var(--brand-strong);border-color:var(--border-strong)}
 .btn--ghost:hover{background:var(--surface-soft)}
@@ -286,6 +287,13 @@ input+.actions,.reveal+.actions,input+.muted,.reveal+.muted{margin-top:16px}
 /* ---- secret ---- */
 .secret{border:2px solid var(--ok);border-radius:var(--radius);background:var(--ok-bg);padding:18px;margin:0 0 20px}
 .secret__title{margin:0 0 4px;font-weight:700;color:var(--ok)}
+.secret__steps{list-style:none;margin:14px 0 16px;padding:0;display:flex;flex-direction:column;gap:18px}
+.secret__step{display:flex;gap:12px;align-items:flex-start}
+.secret__step-body{flex:1;min-width:0}
+.secret__step-body p{margin:0}
+.secret__step-body .step__title{margin:3px 0 4px}
+.secret__step-body .actions{margin-top:10px}
+.secret__steps+.actions{padding-top:14px;border-top:1px solid var(--ok-border)}
 .secret__value{display:block;margin:12px 0 8px;padding:14px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--ok-border);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1.05rem;font-weight:600;overflow-wrap:anywhere;user-select:all}
 
 /* ---- dialogs (CSS only) ---- */
@@ -297,6 +305,15 @@ input+.actions,.reveal+.actions,input+.muted,.reveal+.muted{margin-top:16px}
 .dialog__body{padding:20px}
 .dialog__close{text-decoration:none;color:var(--muted);font-size:1.5rem;line-height:1;padding:0 4px}
 .dialog__close:hover{color:var(--text)}
+/* Save and Cancel on the right; deleting, when there is something to delete,
+   alone on the left, and asked again before it happens. */
+.dialog__actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:10px}
+.dialog__actions>.btn--danger{margin-right:auto}
+.confirm{padding:14px;border:1px solid var(--danger-border);border-radius:var(--radius-sm);background:var(--danger-bg)}
+.confirm__title{margin:0;font-weight:700;color:var(--danger)}
+.confirm__text{margin:4px 0 12px;font-size:.9rem;color:var(--text)}
+.confirm .btn--danger{background:var(--surface)}
+.confirm .btn--danger:hover{background:var(--danger-bg)}
 
 .prompts{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
 .prompt .snippet{margin:0}
@@ -310,11 +327,40 @@ input+.actions,.reveal+.actions,input+.muted,.reveal+.muted{margin-top:16px}
    wraps, instead of a terminal's palette and a sideways scrollbar. */
 pre.plain{background:var(--surface-sunken);color:var(--text);border:1px solid var(--border);white-space:pre-wrap;font-size:.92rem}
 pre.plain,pre.plain code{font-family:inherit}
+/* The support address in the logs dialog looks like a stat card (.fact):
+   the soft surface, a thin border, the address in the page's dark text as an
+   underlined link, and room on the right for the floating "Copiar". */
+.snippet--mail{margin:8px 0 0}
+.snippet--mail pre{background:var(--surface-soft);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 82px 12px 14px}
+.snippet--mail a{color:var(--text);font-weight:600;white-space:nowrap}
+/* On a phone the address keeps the whole width, and Copiar sits under it. */
+@media (max-width:460px){.snippet--mail pre{padding:12px 12px 48px}.snippet--mail .copy{top:auto;bottom:10px}.snippet--mail a{font-size:.8rem}}
 .qrcode{display:block;margin:0 auto;width:250px;height:250px;max-width:100%;background:#fff;padding:12px;border-radius:var(--radius-sm);border:1px solid var(--border)}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .muted{color:var(--text-soft);font-size:.9rem;line-height:1.65}
 .stack>*+*,.stack>*+.note{margin-top:16px}
 @media (max-width:520px){.row{align-items:flex-start}.row form,.row .btn{width:100%}}
+/* ---- a webhook's row: an on/off switch, a quiet test, one outlined edit ---- */
+/* A grid, so the controls stay put when the row's state line changes: beside
+   the title on a wide screen, under it (above the state) on a phone. */
+.hook{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;row-gap:0}
+.hook>.row__main{grid-column:1;grid-row:1}
+.hook__state{grid-column:1;grid-row:2;min-width:0}
+.hook--off .row__title{color:var(--muted)}
+.hook__controls{grid-column:2;grid-row:1/span 2;display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.hook__test .icon{width:15px;height:15px}
+@media (max-width:520px){.hook{grid-template-columns:minmax(0,1fr)}.hook__controls{grid-column:1;grid-row:2;gap:4px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}.hook__controls .switch{margin:0;padding-right:4px;gap:7px}.row .hook__controls .hook__test{padding-left:6px;padding-right:6px}.hook__state{grid-row:3;margin-top:8px}.row .hook__controls .btn{width:auto}.hook__edit{margin-left:auto}}
+.switch{display:inline-flex;align-items:center;gap:9px;margin:0 6px 0 0;padding:5px 8px 5px 4px;border:0;border-radius:999px;background:none;font:inherit;font-size:.86rem;font-weight:600;color:var(--muted);cursor:pointer;white-space:nowrap}
+.switch:hover{background:var(--surface-soft)}
+.switch__track{position:relative;width:36px;height:20px;flex:none;border-radius:999px;background:var(--border-strong);transition:background .15s}
+.switch__track::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--surface);box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.switch__label{display:inline-grid}.switch__label>*{grid-area:1/1}
+.switch[aria-checked=true] .switch__off,.switch[aria-checked=false] .switch__on{visibility:hidden}
+.switch[aria-checked=true]{color:var(--ok)}
+.switch[aria-checked=true] .switch__track{background:var(--brand)}
+.switch[aria-checked=true] .switch__track::after{transform:translateX(16px)}
+.switch[disabled]{cursor:progress;opacity:.6}
+@media (prefers-reduced-motion:reduce){.switch__track,.switch__track::after{transition:none}}
 /* ---- installation wizard ---- */
 /* The first run is one column, one card and one question at a time: the panel
    proper is what comes after it. */
@@ -366,6 +412,13 @@ pre.plain,pre.plain code{font-family:inherit}
 
 const extraCSS = `
 [hidden]{display:none!important}
+/* Aparência shows only where theme.js runs; it marks the page before the
+   first paint, so the card never appears late and shoves the rest down. */
+[data-theme-switch]{display:none}
+[data-themes] [data-theme-switch]{display:block}
+/* A language change cross-fades into the same page in the new language,
+   where the browser can (theme.js lets no other navigation do it). */
+@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}::view-transition-group(root){animation-duration:.2s}}
 .icon{display:block;flex:none}
 /* ---- help ---- */
 .faq{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
@@ -503,6 +556,7 @@ const extraCSS = `
 .problems .problems__warn{border-color:var(--warn);background:var(--warn-bg);color:var(--text)}
 .problems__warn strong{color:var(--warn)}
 .note{margin:0 0 18px;padding:11px 13px;border-radius:var(--radius-sm);background:var(--brand-soft);border:1px solid var(--border);font-size:.9rem;color:var(--text-soft);line-height:1.6}
+.note--accent{background:var(--accent-soft);border-color:var(--accent);color:var(--text)}
 /* ---- pairing ---- */
 .qrframe{position:relative;width:260px;max-width:100%;margin:6px auto 0}
 .qrframe .qrcode{width:260px;height:260px}
@@ -527,13 +581,14 @@ input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:v
 .input--short{width:9em}
 .tip{position:relative;display:inline-grid;place-items:center;width:17px;height:17px;margin-left:2px;border-radius:50%;border:1px solid var(--border-strong);color:var(--text-soft);font-size:.72rem;font-weight:700;line-height:1;cursor:help;vertical-align:text-bottom}
 .tip:hover,.tip:focus-visible{color:var(--brand-strong);border-color:var(--brand-strong);outline:none}
-.tip__body{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);width:max-content;max-width:280px;padding:9px 11px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border-strong);box-shadow:var(--shadow-lift);color:var(--text);font-size:.84rem;font-weight:400;line-height:1.5;text-align:left;visibility:hidden;opacity:0;transition:opacity .12s;z-index:20;pointer-events:none}
-.tip:hover .tip__body,.tip:focus-visible .tip__body{visibility:visible;opacity:1}
+.tip__body{position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);translate:var(--tip-dx,0px) 0;width:max-content;max-width:min(280px,calc(100vw - 32px));display:none;padding:9px 11px;border-radius:var(--radius-sm);background:var(--surface);border:1px solid var(--border-strong);box-shadow:var(--shadow-lift);color:var(--text);font-size:.84rem;font-weight:400;line-height:1.5;text-align:left;visibility:hidden;opacity:0;transition:opacity .12s;z-index:20;pointer-events:none}
+.tip:hover .tip__body,.tip:focus-visible .tip__body{display:block;visibility:visible;opacity:1}
 /* A detail almost nobody needs: faint, and opening to the side so a list's
    edge does not cut it. */
 .tip--quiet{width:15px;height:15px;font-size:.66rem;border-color:var(--border);color:var(--muted);opacity:.7}
 .tip--quiet:hover,.tip--quiet:focus-visible{opacity:1}
-.tip--quiet .tip__body{left:calc(100% + 8px);bottom:auto;top:50%;transform:translateY(-50%);white-space:nowrap}
+.tip--quiet .tip__body{left:calc(100% + 8px);bottom:auto;top:50%;transform:translateY(-50%);max-width:min(260px,calc(100vw - 32px))}
+@media (max-width:520px){.tip--quiet .tip__body{left:50%;top:auto;bottom:calc(100% + 8px);transform:translateX(-50%)}}
 .pill--busy::before{display:none}
 .pill .spinner{width:11px;height:11px}
 /* The version card: the installed version, with a badge for where it stands
@@ -546,6 +601,26 @@ input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:v
 .version-bar{display:flex;align-items:center;flex-wrap:wrap;gap:12px 24px}
 .version-bar .actions{margin:0;gap:8px}
 .version-bar__wacli{margin-left:auto;align-self:flex-end;font-size:.85rem}
+/* Where the installed version stands, right under it; and a new version's
+   green box, with its name, what changed and how to get it. */
+.update-status{display:flex;align-items:center;gap:10px;margin:0;font-weight:600;color:var(--text-soft)}
+.update-status[hidden]{display:none}
+.update-status__icon{display:none;flex:none;width:26px;height:26px;border-radius:50%;align-items:center;justify-content:center;background:var(--ok-bg);border:1px solid var(--ok-border)}
+.update-status__icon .icon{width:15px;height:15px}
+.update-status--ok{color:var(--ok)}
+.update-status--ok .update-status__icon{display:inline-flex}
+.update-status--error{color:var(--danger);font-weight:500;overflow-wrap:anywhere}
+.update-found{display:flex;flex-direction:column;gap:12px;border:2px solid var(--ok-border);border-radius:var(--radius);background:var(--ok-bg);padding:18px;min-width:0}
+.update-found[hidden]{display:none}
+.update-found p{margin:0}
+.update-found__title{display:flex;align-items:center;gap:8px;color:var(--ok);font-weight:700;font-size:.95rem}
+.update-found__name{font-size:1.5rem;font-weight:700;line-height:1.2;color:var(--text);overflow-wrap:anywhere}
+.update-found__note{color:var(--text-soft)}
+.update-found__note[hidden]{display:none}
+.update-found .actions{margin:0;gap:8px}
+.update-found__how{display:flex;flex-direction:column;gap:10px;padding-top:14px;border-top:1px solid var(--ok-border)}
+.update-found__how .snippet{margin:0}
+.update-found__how .muted{color:var(--text-soft)}
 .pill[hidden]{display:none}
 .pill--new{background:var(--brand-strong);color:var(--brand-ink);border-color:var(--brand-strong);box-shadow:0 0 0 3px var(--brand-soft)}
 .pill--new::before{display:none}
@@ -557,5 +632,8 @@ input[type=number]{font:inherit;padding:10px 12px;color:var(--text);background:v
 .update-banner__title{margin:0 24px 4px 0;font-weight:700}
 .update-banner__text{margin:0 0 12px;color:var(--text-soft);font-size:.88rem;line-height:1.5}
 .update-banner__close{position:absolute;top:8px;right:10px;background:none;border:0;font-size:1.2rem;line-height:1;color:var(--muted);cursor:pointer;padding:4px}
+/* On a phone the notice is one line, the title and its action, at the
+   bottom; the page gets room below so it covers nothing. */
+@media (max-width:520px){.update-banner{left:8px;right:8px;bottom:8px;width:auto;display:flex;align-items:center;gap:10px;padding:8px 6px 8px 14px}.update-banner__title{flex:1;min-width:0;margin:0;font-size:.86rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.update-banner__text{display:none}.update-banner .actions{margin:0;flex:none;flex-wrap:nowrap}.update-banner .btn{padding:7px 11px}.update-banner__close{position:static;order:3;flex:none;padding:6px 6px}body:has(.update-banner:not([hidden])){padding-bottom:72px}}
 .btn .spinner{width:13px;height:13px}
 `

@@ -2,6 +2,7 @@ package panel
 
 import (
 	"bytes"
+	"errors"
 	"net/http"
 	"net/url"
 	"strings"
@@ -43,14 +44,18 @@ func (p *Panel) registerRemoteAccess(mux httpserver.Mux) {
 		if callerRefused(w, r) {
 			return
 		}
-		if !sameOrigin(r) || p.PublicURL == "" {
+		if !p.fromOwnPage(r) || p.PublicURL == "" {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, 8<<10)
 		key, k, err := public.CreateKey(r.Context(), p.State, r.PostFormValue("name"), r.PostFormValue("read_only") != "", time.Now())
 		if err != nil {
-			http.Redirect(w, r, "/conexoes?erro="+url.QueryEscape(err.Error()), http.StatusSeeOther)
+			msg := err.Error()
+			if errors.Is(err, public.ErrKeyName) {
+				msg = i18n.T("Dê um nome à chave, com até 60 letras, como o da ferramenta que vai usá-la.")
+			}
+			http.Redirect(w, r, withError("/conexoes#chave-dialog", msg), http.StatusSeeOther)
 			return
 		}
 		var body bytes.Buffer

@@ -240,6 +240,7 @@ func (u *Updater) Check(ctx context.Context) (bool, error) {
 	now := time.Now()
 	if err != nil {
 		u.set(func(s *State) { s.Phase, s.Error, s.CheckedAt = Failed, err.Error(), now })
+		u.logger().Warn("update check failed", "error", err) // the panel shows a plain sentence
 		return false, err
 	}
 	if rel == nil || !newer(rel.Tag, u.Version) {
@@ -263,6 +264,7 @@ func (u *Updater) Check(ctx context.Context) (bool, error) {
 		u.set(func(s *State) {
 			s.Phase, s.Error, s.Latest, s.Page, s.CheckedAt = Failed, err.Error(), latest, rel.Page, now
 		})
+		u.logger().Warn("update check failed", "error", err)
 		return false, err
 	}
 	u.mu.Lock()

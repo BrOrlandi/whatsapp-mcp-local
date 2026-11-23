@@ -19,7 +19,7 @@ const pageSource = `
 </p>
 </footer>
 {{if .App}}{{template "updatebanner" .}}{{else if .Release}}{{template "releasebanner" .}}{{end}}
-<script src="/assets/app.js" defer></script></div></body></html>{{end}}
+<script src="/assets/settings.js" defer></script><script src="/assets/app.js" defer></script></div></body></html>{{end}}
 
 {{/* A new version, on every page of the app, in the bottom left corner. */}}
 {{define "updatebanner"}}<aside class="update-banner" data-update-banner aria-live="polite"{{if not (eq .Update.State "available" "downloading" "ready" "manual")}} hidden{{end}}>
@@ -36,6 +36,37 @@ const pageSource = `
 <p class="update-banner__text" data-update-banner-text>{{tf "O WhatsApp MCP %s está disponível." .Update.Latest}}</p>
 <div class="actions"><a class="btn btn--small" href="/configuracoes#atualizacoes">{{t "Como atualizar"}}</a></div>
 </aside>{{end}}
+
+{{/* The version card in Configurações, on the computer and on a server: the
+   installed version and the button to look, a line for where it stands, and,
+   when there is a new version, a green box with its name, what changed and
+   how to get it (the button on the computer, the command on a server). The
+   script redraws it with the same parts after each check. */}}
+{{define "updatecard"}}<section class="card" id="atualizacoes" data-update{{if .Release}} data-update-server{{end}}>
+<div class="card__head"><h2 class="card__title">{{icon "refresh"}}{{t "Versão e atualizações"}}</h2></div>
+<div class="card__body stack">
+<div class="version-bar">
+<div class="version"><span class="version__label">{{t "Versão instalada"}}</span><span class="version__number">{{.Settings.Version}}</span></div>
+<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-update-check>{{t "Procurar atualização"}}</button></div>
+{{with .Settings.WacliVersion}}<span class="muted version-bar__wacli">{{tf "wacli %s" .}}</span>{{end}}
+</div>
+{{$u := .Update}}<p class="update-status{{if eq $u.State "current"}} update-status--ok{{else if eq $u.State "error"}} update-status--error{{end}}" data-update-status role="status"{{if not (eq $u.State "current" "checking" "error" "unsupported")}} hidden{{end}}><span class="update-status__icon" aria-hidden="true">{{icon "check"}}</span><span data-update-status-text>{{if eq $u.State "current"}}{{t "Você já tem a versão mais recente."}}{{else if eq $u.State "checking"}}{{t "Procurando uma versão nova…"}}{{else if eq $u.State "unsupported"}}{{tf "Esta é uma versão de desenvolvimento (%s), que não se atualiza sozinha." $u.Current}}{{else if eq $u.State "error"}}{{if .Release}}{{t "Não foi possível procurar uma versão nova agora. Clique em Procurar atualização para tentar de novo."}}{{else}}{{t "Não foi possível atualizar agora. Clique em Procurar atualização para tentar de novo."}}{{end}}{{end}}</span></p>
+<div class="update-found" data-update-found{{if not (eq $u.State "available" "manual" "downloading" "ready")}} hidden{{end}}>
+<p class="update-found__title">{{icon "check"}}{{t "Uma nova versão foi encontrada"}}</p>
+<p class="update-found__name">WhatsApp MCP <span data-update-latest>{{$u.Latest}}</span></p>
+{{if .App}}<p class="update-found__note" data-update-text{{if not (eq $u.State "available" "manual" "downloading" "ready")}} hidden{{end}}>{{if eq $u.State "available"}}{{t "O aplicativo será reiniciado após a instalação."}}{{else if eq $u.State "manual"}}{{t "Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez."}}{{else if eq $u.State "downloading"}}{{tf "Baixando a versão %s…" $u.Latest}} {{$u.Progress}}%{{else if eq $u.State "ready"}}{{tf "Versão %s pronta. O app está reiniciando." $u.Latest}}{{end}}</p>{{end}}
+<div class="actions">{{if .App}}<button class="btn btn--small" type="button" data-update-install{{if ne $u.State "available"}} hidden{{end}}>{{t "Instalar e reiniciar"}}</button><a class="btn btn--small" data-update-page href="{{if $u.Page}}{{$u.Page}}{{else}}#{{end}}" target="_blank" rel="noopener"{{if not (and (eq $u.State "manual") $u.Page)}} hidden{{end}}>{{t "Baixar a versão nova"}}</a>{{end}}<a class="btn btn--ghost btn--small" data-update-notes href="{{if $u.Page}}{{$u.Page}}{{else}}#{{end}}" target="_blank" rel="noopener"{{if or (not $u.Page) (and .App (eq $u.State "manual"))}} hidden{{end}}>{{t "Ver o que mudou"}}</a></div>
+{{with .Release}}<div class="update-found__how" data-update-how>
+{{if .Container}}<p>{{t "Para atualizar, rode no servidor, na pasta da instalação:"}}</p>
+<div class="snippet"><pre data-copy><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
+<p class="muted">{{t "Se o arquivo .env dessa pasta fixa uma versão (WHATSAPP_MCP_VERSION), troque-a pela nova antes. Suas conversas e configurações ficam."}}</p>
+{{else}}<p>{{t "Para atualizar, rode no servidor:"}}</p>
+<div class="snippet"><pre data-copy><code>whatsapp-mcp update</code></pre></div>
+<p class="muted">{{t "Ele baixa a versão nova, confere o arquivo e reinicia o serviço. Suas conversas e configurações ficam."}}</p>
+{{end}}</div>{{end}}
+</div>
+</div></section>
+{{end}}
 
 {{define "githubmark"}}<svg class="colophon__icon" viewBox="0 0 16 16" width="15" height="15" aria-hidden="true" focusable="false"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.4 7.4 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>{{end}}
 
@@ -117,7 +148,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="lead">{{t "Onde você vai usar o seu WhatsApp?"}}</p>
 {{template "remotenote" .}}
 {{template "toolpicks" .Tools}}
-<p class="muted flow__note">{{t "Não funciona no Claude pelo navegador ou pelo celular, nem no ChatGPT na web: só em programas instalados neste computador."}}</p>
+<p class="muted flow__note">{{if .ServerMode}}{{t "Estes passos não servem para o Claude pelo navegador ou pelo celular, nem para o ChatGPT na web: para eles, use o endereço do servidor, no alto da página."}}{{else}}{{t "Não funciona no Claude pelo navegador ou pelo celular, nem no ChatGPT na web: só em programas instalados neste computador."}}{{end}}</p>
 </div>
 {{template "foot" .}}{{end}}
 
@@ -236,7 +267,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="pane">
 <div class="pane__head"><span class="avatar" data-thread-avatar></span><div class="pane__who"><strong data-thread-title>…</strong><span class="pane__meta" data-thread-meta></span></div></div>
 <div class="thread" data-thread><div class="skeleton"></div></div>
-<div class="actions" style="margin-top:12px"><button class="btn btn--ghost btn--small" type="button" data-history-chat>{{t "Buscar mensagens mais antigas desta conversa"}}</button></div>
+<div class="actions" style="margin-top:12px"><button class="btn btn--ghost btn--small btn--wrap" type="button" data-history-chat>{{t "Buscar mensagens mais antigas desta conversa"}}</button></div>
 <p class="busy" data-history-note role="status" hidden></p>
 </div>
 </div>
@@ -248,9 +279,9 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <section class="card">
 <div class="card__head"><h2>{{t "Histórico"}}</h2>{{with .History}}{{if .FinishedAt}}<span class="pill pill--ok">{{t "Último pedido concluído"}}</span>{{else}}<span class="pill pill--warn">{{t "Buscando…"}}</span>{{end}}{{end}}</div>
 <div class="card__body stack">
-<p class="muted">{{t "Cada pedido pode trazer mais histórico do WhatsApp para este computador, e ele fica disponível para a sua ferramenta de IA consultar pelo MCP. O celular precisa estar com internet."}}</p>
+<p class="muted">{{if .ServerMode}}{{t "Cada pedido pode trazer mais histórico do WhatsApp para este servidor, e ele fica disponível para a sua ferramenta de IA consultar pelo MCP. O celular precisa estar com internet."}}{{else}}{{t "Cada pedido pode trazer mais histórico do WhatsApp para este computador, e ele fica disponível para a sua ferramenta de IA consultar pelo MCP. O celular precisa estar com internet."}}{{end}}</p>
 {{with .History}}<p class="muted">{{if .FinishedAt}}{{tf "Último pedido: %s em %s." (newMessages .Added) (chatCount (len .Chats))}}{{else}}{{tf "Buscando: %d de %s, %s até agora." .Done (chatCount (len .Chats)) (newMessages .Added)}}{{end}}</p>{{end}}
-<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-history-all>{{t "Buscar mensagens mais antigas das conversas recentes"}}</button></div>
+<div class="actions"><button class="btn btn--ghost btn--small btn--wrap" type="button" data-history-all>{{t "Buscar mensagens mais antigas das conversas recentes"}}</button></div>
 <p class="busy" data-history-all-note role="status" hidden></p>
 </div></section>
 {{end}}
@@ -294,7 +325,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 
 <div class="hero"><a class="btn btn--big" href="/conectar">{{t "Conectar ferramenta de IA ao MCP"}}</a></div>
 
-<section class="card">
+<section class="card" id="suas-conexoes">
 <div class="card__head"><h2>{{t "Suas conexões"}}</h2>{{if .Connections}}<a class="btn btn--ghost btn--small" href="/conectar">{{t "Nova conexão"}}</a>{{end}}</div>
 <div class="card__body">
 {{if .Connections}}
@@ -304,11 +335,10 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <span class="row__main"><span class="row__title">{{.Tool}}</span>
 <span class="row__meta">{{if .Live}}{{tf "Funcionando · usada %s" (relativeSince .LastUsed)}}{{else if .Configured}}{{t "Configurada · ainda não se conectou; reinicie a ferramenta"}}{{else}}{{tf "Usada %s" (relativeSince .LastUsed)}}{{end}}{{with .Version}} <span class="tip tip--quiet" tabindex="0" aria-describedby="tip-versao-{{$i}}"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-versao-{{$i}}">{{$c.Tool}} {{.}}</span></span>{{end}}</span></span>
 {{if .Live}}<span class="pill pill--ok">{{t "Conectada"}}</span>{{else}}<span class="pill pill--warn">{{t "Aguardando"}}</span>{{end}}
-{{if not .Mark}}<a class="btn btn--quiet btn--small" href="#renomear-{{$i}}">{{t "Renomear"}}</a>{{end}}
-<a class="btn btn--danger btn--small" href="#desconectar-{{$i}}">{{t "Desconectar"}}</a>
+<a class="btn btn--ghost btn--small" href="#conexao-{{$i}}" aria-label="{{tf "Gerenciar %s" .Tool}}">{{t "Gerenciar"}}</a>
 </li>{{end}}
 </ul>
-<p class="muted">{{t "Todas usam a mesma sessão do WhatsApp neste computador. Desconectar uma não mexe nas outras."}}</p>
+<p class="muted">{{if .ServerMode}}{{t "Todas usam a mesma sessão do WhatsApp neste servidor. Desconectar uma não mexe nas outras."}}{{else}}{{t "Todas usam a mesma sessão do WhatsApp neste computador. Desconectar uma não mexe nas outras."}}{{end}}</p>
 {{else}}
 <div class="empty"><p class="empty__title">{{t "Nenhuma ferramenta de IA conectada ainda"}}</p>
 <p class="muted">{{t "Clique no botão acima, escolha onde você vai usar e siga o passo a passo. Leva menos de um minuto."}}</p></div>
@@ -328,37 +358,35 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div></section>
 {{end}}
 
+{{/* One dialog per connection: renaming, for a tool the panel has no logo
+for, and disconnecting, red, on its own, asking once more before it acts
+(without a script, the red button acts at once: the dialog was the step). */}}
 {{range $i, $c := .Connections}}
-{{if not .Mark}}<div class="overlay" id="renomear-{{$i}}" role="dialog" aria-modal="true" aria-labelledby="renomear-{{$i}}-titulo">
+<div class="overlay" id="conexao-{{$i}}" role="dialog" aria-modal="true" aria-labelledby="conexao-{{$i}}-titulo" data-modal>
 <div class="dialog">
-<div class="dialog__head"><h2 id="renomear-{{$i}}-titulo">{{t "Renomear esta conexão"}}</h2><a class="dialog__close" href="#" aria-label="{{t "Fechar"}}">&times;</a></div>
-<div class="dialog__body">
-<form method="post" action="/conexoes/renomear"><input type="hidden" name="client" value="{{.Key}}">
-<label class="field" for="nome-{{$i}}"><span class="field__label">{{t "Nome"}}</span><span class="field__hint">{{t "Como esta ferramenta aparece aqui. Deixe em branco para voltar ao nome original."}}</span></label>
-<input id="nome-{{$i}}" type="text" name="name" value="{{.Tool}}" maxlength="40" autocomplete="off" spellcheck="false">
-<div class="actions actions--end" style="margin-top:14px"><a class="btn btn--quiet" href="#">{{t "Cancelar"}}</a><button class="btn" type="submit">{{t "Salvar"}}</button></div>
-</form>
-</div></div></div>{{end}}
-<div class="overlay" id="desconectar-{{$i}}" role="dialog" aria-modal="true" aria-labelledby="desconectar-{{$i}}-titulo">
-<div class="dialog">
-<div class="dialog__head"><h2 id="desconectar-{{$i}}-titulo">{{t "Desconectar esta ferramenta?"}}</h2><a class="dialog__close" href="#" aria-label="{{t "Fechar"}}">&times;</a></div>
-<div class="dialog__body">
-<div class="target"><span class="target__name">{{.Tool}}</span></div>
-<p>{{if .Configured}}{{if eq .Key "claude-desktop"}}{{tf "A configuração do WhatsApp é removida do <strong>%s</strong> (com uma cópia do arquivo guardada ao lado). Ele perde o acesso quando for reiniciado." .Tool}}{{else}}{{tf "A configuração do WhatsApp é removida do <strong>%s</strong>. Ele perde o acesso quando for reiniciado." .Tool}}{{end}}{{else}}{{tf "O <strong>%s</strong> sai desta lista. Se ele ainda tiver a configuração, volta a aparecer quando usar o WhatsApp de novo: remova-a na própria ferramenta." .Tool}}{{end}}</p>
-<p class="muted">{{t "As suas outras conexões continuam funcionando normalmente."}}</p>
-<form method="post" action="/conexoes/remover"><input type="hidden" name="client" value="{{.Key}}">
-<div class="actions actions--end"><a class="btn btn--quiet" href="#">{{t "Cancelar"}}</a><button class="btn btn--danger" type="submit">{{t "Desconectar"}}</button></div>
-</form>
+<div class="dialog__head"><h2 id="conexao-{{$i}}-titulo">{{.Tool}}</h2><a class="dialog__close" href="#suas-conexoes" aria-label="{{t "Fechar"}}">&times;</a></div>
+<div class="dialog__body stack">
+{{if not .Mark}}<form class="stack" id="renomear-{{$i}}" method="post" action="/conexoes/renomear"><input type="hidden" name="client" value="{{.Key}}">
+<div><label class="field" for="nome-{{$i}}"><span class="field__label">{{t "Nome"}}</span><span class="field__hint">{{t "Como esta ferramenta aparece aqui. Deixe em branco para voltar ao nome original."}}</span></label>
+<input id="nome-{{$i}}" type="text" name="name" value="{{.Tool}}" maxlength="40" autocomplete="off" spellcheck="false"></div>
+</form>{{end}}
+<form id="desconectar-{{$i}}" method="post" action="/conexoes/remover" data-busy="{{t "Desconectando…"}}"><input type="hidden" name="client" value="{{.Key}}"></form>
+<div class="dialog__actions"><button class="btn btn--danger" type="submit" form="desconectar-{{$i}}" data-confirm="#conexao-{{$i}}-confirmar">{{t "Desconectar"}}</button><span class="actions actions--end"><a class="btn btn--quiet" href="#suas-conexoes">{{if .Mark}}{{t "Fechar"}}{{else}}{{t "Cancelar"}}{{end}}</a>{{if not .Mark}}<button class="btn" type="submit" form="renomear-{{$i}}">{{t "Salvar"}}</button>{{end}}</span></div>
+<div class="confirm" role="group" aria-labelledby="conexao-{{$i}}-confirmar-titulo" id="conexao-{{$i}}-confirmar" hidden>
+<p class="confirm__title" id="conexao-{{$i}}-confirmar-titulo">{{t "Desconectar esta ferramenta?"}}</p>
+<p class="confirm__text">{{if .Configured}}{{if eq .Key "claude-desktop"}}{{tf "A configuração do WhatsApp é removida do <strong>%s</strong> (com uma cópia do arquivo guardada ao lado). Ele perde o acesso quando for reiniciado." .Tool}}{{else}}{{tf "A configuração do WhatsApp é removida do <strong>%s</strong>. Ele perde o acesso quando for reiniciado." .Tool}}{{end}}{{else}}{{tf "O <strong>%s</strong> sai desta lista. Se ele ainda tiver a configuração, volta a aparecer quando usar o WhatsApp de novo: remova-a na própria ferramenta." .Tool}}{{end}} {{t "As suas outras conexões continuam funcionando normalmente."}}</p>
+<span class="actions actions--end"><button class="btn btn--quiet" type="button" data-confirm-no>{{t "Não desconectar"}}</button><button class="btn btn--danger" type="submit" form="desconectar-{{$i}}">{{t "Desconectar mesmo"}}</button></span>
+</div>
 </div></div></div>
 {{end}}
 {{template "foot" .}}{{end}}
 
 {{define "whatsapp"}}{{template "head" .}}{{template "nav" .}}
 <h1>WhatsApp</h1>
-<p class="lead">{{t "A conta conectada a este computador e o que já chegou dela."}}</p>
+<p class="lead">{{if .ServerMode}}{{t "A conta conectada a este servidor e o que já chegou dela."}}{{else}}{{t "A conta conectada a este computador e o que já chegou dela."}}{{end}}</p>
 {{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
 
-<section class="card">
+<section class="card" id="conta">
 <div class="card__head"><h2>{{t "Conta"}}</h2>{{template "syncpill" .}}</div>
 <div class="card__body stack">
 <div class="hello"><span class="avatar" style="background:#128c7e">{{initial .Name}}</span><div class="hello__who"><p class="hello__name">{{with .Name}}{{.}}{{else}}{{t "Sua conta"}}{{end}}{{with .Label}} <span class="pill pill--plain pill--label">{{.}}</span>{{end}}</p><p class="hello__phone">{{.Phone}}</p></div>
@@ -374,37 +402,37 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{template "chatpreview" .}}
 {{template "historycard" .}}
 
-<section class="card">
+<section class="card" id="zona-de-risco">
 <div class="card__head"><h2>{{t "Zona de risco"}}</h2></div>
 <div class="card__body">
-<div class="actions"><a class="btn btn--danger btn--small" href="#encerrar-sessao">{{t "Desconectar este computador do WhatsApp"}}</a></div>
-<p class="muted">{{t "O computador sai da lista de dispositivos conectados do seu celular. As mensagens já guardadas continuam aqui."}}</p>
+<div class="actions"><a class="btn btn--danger btn--small" href="#encerrar-sessao">{{if .ServerMode}}{{t "Desconectar este servidor do WhatsApp"}}{{else}}{{t "Desconectar este computador do WhatsApp"}}{{end}}</a></div>
+<p class="muted">{{if .ServerMode}}{{t "O servidor sai da lista de dispositivos conectados do seu celular. As mensagens já guardadas continuam nele."}}{{else}}{{t "O computador sai da lista de dispositivos conectados do seu celular. As mensagens já guardadas continuam aqui."}}{{end}}</p>
 </div></section>
 
-<div class="overlay" id="nome-numero" role="dialog" aria-modal="true" aria-labelledby="nome-numero-titulo">
+<div class="overlay" id="nome-numero" role="dialog" aria-modal="true" aria-labelledby="nome-numero-titulo" data-modal>
 <div class="dialog">
-<div class="dialog__head"><h2 id="nome-numero-titulo">{{t "Nome deste número"}}</h2><a class="dialog__close" href="#" aria-label="{{t "Fechar"}}">&times;</a></div>
+<div class="dialog__head"><h2 id="nome-numero-titulo">{{t "Nome deste número"}}</h2><a class="dialog__close" href="#conta" aria-label="{{t "Fechar"}}">&times;</a></div>
 <div class="dialog__body">
 <form method="post" action="/whatsapp/nome">
 <label class="field" for="nome-numero-campo"><span class="field__label">{{t "Nome"}}</span><span class="field__hint">{{t "Por exemplo Pessoal ou Trabalho. Deixe em branco para tirar o nome."}}</span></label>
 <input id="nome-numero-campo" type="text" name="label" value="{{.Label}}" maxlength="30" autocomplete="off" placeholder="{{t "Pessoal, Trabalho…"}}">
-<div class="actions actions--end" style="margin-top:14px"><a class="btn btn--quiet" href="#">{{t "Cancelar"}}</a><button class="btn" type="submit">{{t "Salvar"}}</button></div>
+<div class="actions actions--end" style="margin-top:14px"><a class="btn btn--quiet" href="#conta">{{t "Cancelar"}}</a><button class="btn" type="submit">{{t "Salvar"}}</button></div>
 </form>
 </div></div></div>
 
-<div class="overlay" id="encerrar-sessao" role="dialog" aria-modal="true" aria-labelledby="encerrar-titulo">
+<div class="overlay" id="encerrar-sessao" role="dialog" aria-modal="true" aria-labelledby="encerrar-titulo" data-modal>
 <div class="dialog">
-<div class="dialog__head"><h2 id="encerrar-titulo">{{t "Desconectar do WhatsApp?"}}</h2><a class="dialog__close" href="#" aria-label="{{t "Fechar"}}">×</a></div>
+<div class="dialog__head"><h2 id="encerrar-titulo">{{t "Desconectar do WhatsApp?"}}</h2><a class="dialog__close" href="#zona-de-risco" aria-label="{{t "Fechar"}}">&times;</a></div>
 <div class="dialog__body">
 <p>{{t "O pareamento é desfeito. Para voltar a usar, será preciso ler um novo QR code no celular."}}</p>
-<p class="muted">{{t "As mensagens já guardadas continuam neste computador."}}</p>
-<form method="post" action="/whatsapp/sair" data-busy="{{t "Desconectando…"}}"><div class="actions actions--end"><a class="btn btn--quiet" href="#">{{t "Cancelar"}}</a><button class="btn btn--danger" type="submit">{{t "Desconectar"}}</button></div></form>
+<p class="muted">{{if .ServerMode}}{{t "As mensagens já guardadas continuam neste servidor."}}{{else}}{{t "As mensagens já guardadas continuam neste computador."}}{{end}}</p>
+<form method="post" action="/whatsapp/sair" data-busy="{{t "Desconectando…"}}"><div class="actions actions--end"><a class="btn btn--quiet" href="#zona-de-risco">{{t "Cancelar"}}</a><button class="btn btn--danger" type="submit">{{t "Desconectar"}}</button></div></form>
 </div></div></div>
 {{template "foot" .}}{{end}}
 
 {{define "status"}}{{template "head" .}}{{template "nav" .}}
 <h1>{{t "Status"}}</h1>
-<p class="lead">{{t "Se o seu WhatsApp está conectado e recebendo mensagens neste computador."}}</p>
+<p class="lead">{{if .ServerMode}}{{t "Se o seu WhatsApp está conectado e recebendo mensagens neste servidor."}}{{else}}{{t "Se o seu WhatsApp está conectado e recebendo mensagens neste computador."}}{{end}}</p>
 
 <section class="card">
 <div class="card__head"><h2>WhatsApp</h2>{{template "syncpill" .}}</div>
@@ -437,7 +465,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <ul class="rows">
 {{range .Gaps}}<li class="row"><span class="row__main"><span class="row__title">{{moment .From}} → {{moment .Until}}</span><span class="row__meta">{{tf "%s sem mensagem em nenhuma conversa" (hours .Hours)}}</span></span></li>{{end}}
 </ul>
-<p class="muted">{{t "Costuma ser o computador desligado ou dormindo. O que o WhatsApp ainda guardava na fila chega sozinho quando ele volta; o resto só volta pedindo o histórico ao celular."}}</p>
+<p class="muted">{{if .ServerMode}}{{t "Costuma ser o servidor desligado ou sem internet. O que o WhatsApp ainda guardava na fila chega sozinho quando ele volta; o resto só volta pedindo o histórico ao celular."}}{{else}}{{t "Costuma ser o computador desligado ou dormindo. O que o WhatsApp ainda guardava na fila chega sozinho quando ele volta; o resto só volta pedindo o histórico ao celular."}}{{end}}</p>
 </div></section>
 {{end}}
 
@@ -496,7 +524,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="actions"><button class="btn" type="button" data-pair-retry>{{t "Tentar de novo"}}</button></div>
 </div>
 </div></section>
-<p class="muted" style="text-align:center">{{t "Tudo roda neste computador: as mensagens ficam aqui, e nada passa por servidor de terceiros."}}</p>
+<p class="muted" style="text-align:center">{{if .ServerMode}}{{t "Tudo roda neste servidor: as mensagens ficam nele, e nada passa por servidor de terceiros."}}{{else}}{{t "Tudo roda neste computador: as mensagens ficam aqui, e nada passa por servidor de terceiros."}}{{end}}</p>
 {{end}}
 
 {{if eq .Step 2}}
@@ -559,27 +587,27 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="card__body">
 <div class="faq">
 <details class="faq__item"><summary>{{t "Funciona no Claude pelo navegador ou pelo celular?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Não. O WhatsApp MCP fica neste computador, e só programas instalados nele conseguem usá-lo, como o Claude Desktop, o Claude Code, o Codex e o Cursor. O Claude no navegador, o app do celular e o ChatGPT na web rodam na nuvem e não alcançam o seu computador."}}</p></div></details>
+<div class="faq__answer"><p>{{if .ServerMode}}{{t "Sim. Este servidor tem um endereço na internet, e as ferramentas de IA que rodam na nuvem, como o Claude no navegador e no celular, conseguem se conectar a ele. O passo a passo está em <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>."}}{{else}}{{t "Não. O WhatsApp MCP fica neste computador, e só programas instalados nele conseguem usá-lo, como o Claude Desktop, o Claude Code, o Codex e o Cursor. O Claude no navegador, o app do celular e o ChatGPT na web rodam na nuvem e não alcançam o seu computador."}}{{end}}</p></div></details>
 <details class="faq__item"><summary>{{t "A IA pode mandar mensagens sem eu pedir?"}}{{icon "chevron"}}</summary>
 <div class="faq__answer"><p>{{t "Não. Ler e procurar é seguro: mandar, reagir, editar ou apagar uma mensagem só acontece quando você pede."}}</p></div></details>
-<details class="faq__item"><summary>{{t "As minhas mensagens saem deste computador?"}}{{icon "chevron"}}</summary>
+<details class="faq__item"><summary>{{if .ServerMode}}{{t "As minhas mensagens saem deste servidor?"}}{{else}}{{t "As minhas mensagens saem deste computador?"}}{{end}}{{icon "chevron"}}</summary>
 <div class="faq__answer"><p>{{t "O WhatsApp MCP guarda as mensagens só aqui e não manda nada para servidores de terceiros. Quando você pede algo à sua ferramenta de IA, ela lê as mensagens de que precisa para responder, e o que ela faz com elas segue as regras de privacidade dela."}}</p></div></details>
-<details class="faq__item"><summary>{{t "O computador precisa ficar ligado?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Sim, para receber as mensagens. Se ele ficar desligado ou dormindo por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele volta. Se ainda faltar alguma coisa, peça o histórico ao celular na aba <a href='/whatsapp'>WhatsApp</a>."}}</p></div></details>
+<details class="faq__item"><summary>{{if .ServerMode}}{{t "O servidor precisa ficar ligado?"}}{{else}}{{t "O computador precisa ficar ligado?"}}{{end}}{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>{{if .ServerMode}}{{t "Sim, e com internet, para receber as mensagens. Se ele ficar fora do ar por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele volta. Se ainda faltar alguma coisa, peça o histórico ao celular na aba <a href='/whatsapp'>WhatsApp</a>."}}{{else}}{{t "Sim, para receber as mensagens. Se ele ficar desligado ou dormindo por pouco tempo, o WhatsApp entrega o que ficou pendente quando ele volta. Se ainda faltar alguma coisa, peça o histórico ao celular na aba <a href='/whatsapp'>WhatsApp</a>."}}{{end}}</p></div></details>
 <details class="faq__item"><summary>{{t "Como trazer mensagens mais antigas?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, use \"Buscar mensagens mais antigas\", para uma conversa ou para todas as recentes. Cada pedido traz mais histórico do celular para este computador, e ele fica disponível para a sua ferramenta de IA consultar. O celular precisa estar com internet."}}</p></div></details>
+<div class="faq__answer"><p>{{if .ServerMode}}{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, use \"Buscar mensagens mais antigas\", para uma conversa ou para todas as recentes. Cada pedido traz mais histórico do celular para este servidor, e ele fica disponível para a sua ferramenta de IA consultar. O celular precisa estar com internet."}}{{else}}{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, use \"Buscar mensagens mais antigas\", para uma conversa ou para todas as recentes. Cada pedido traz mais histórico do celular para este computador, e ele fica disponível para a sua ferramenta de IA consultar. O celular precisa estar com internet."}}{{end}}</p></div></details>
 <details class="faq__item"><summary>{{t "A IA consegue ouvir os meus áudios?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Sim, depois de instalar a <a href='/configuracoes#transcricao'>Transcrição de áudio</a> nas Configurações. Quando você pede, o áudio vira texto aqui mesmo, sem sair do computador. O nome da conversa e as últimas mensagens ajudam a acertar nomes e termos, e cada áudio é transcrito uma vez só."}}</p></div></details>
+<div class="faq__answer"><p>{{if .ServerMode}}{{t "Sim, depois de instalar a <a href='/configuracoes#transcricao'>Transcrição de áudio</a> nas Configurações. Quando você pede, o áudio vira texto aqui mesmo, sem sair do servidor. Os nomes da conversa e das pessoas ajudam a acertar como eles se escrevem (em Contexto da conversa, você escolhe o que vai junto), e cada áudio é transcrito uma vez só."}}{{else}}{{t "Sim, depois de instalar a <a href='/configuracoes#transcricao'>Transcrição de áudio</a> nas Configurações. Quando você pede, o áudio vira texto aqui mesmo, sem sair do computador. Os nomes da conversa e das pessoas ajudam a acertar como eles se escrevem (em Contexto da conversa, você escolhe o que vai junto), e cada áudio é transcrito uma vez só."}}{{end}}</p></div></details>
 <details class="faq__item"><summary>{{t "Posso conectar mais de uma ferramenta de IA?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Pode. Todas usam o mesmo WhatsApp deste computador, e desconectar uma não mexe nas outras. Para adicionar outra, use <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>."}}</p></div></details>
+<div class="faq__answer"><p>{{if .ServerMode}}{{t "Pode. Todas usam o mesmo WhatsApp deste servidor, e desconectar uma não mexe nas outras. Para adicionar outra, use <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>."}}{{else}}{{t "Pode. Todas usam o mesmo WhatsApp deste computador, e desconectar uma não mexe nas outras. Para adicionar outra, use <a href='/conectar'>Conectar ferramenta de IA ao MCP</a>."}}{{end}}</p></div></details>
 <details class="faq__item"><summary>{{t "A minha ferramenta não aparece conectada. E agora?"}}{{icon "chevron"}}</summary>
 <div class="faq__answer"><p>{{t "Feche a ferramenta e abra de novo, ou comece uma conversa nova: ela só carrega o WhatsApp ao iniciar. Se continuar assim, refaça o passo a passo em <a href='/conectar'>Conectar ferramenta de IA ao MCP</a> e confira a aba <a href='/status'>Status</a>."}}</p></div></details>
 <details class="faq__item"><summary>{{t "O que a IA consegue fazer no meu WhatsApp?"}}{{icon "chevron"}}</summary>
 <div class="faq__answer"><p>{{t "Ler, procurar e resumir conversas, transcrever áudios, mandar mensagens, fotos, enquetes e localização, reagir, editar e apagar mensagens e organizar conversas. A lista completa está em <a href='/funcoes'>Funções</a>."}}</p></div></details>
-<details class="faq__item"><summary>{{t "Como desconectar este computador do WhatsApp?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, em Zona de risco. O computador sai dos dispositivos conectados do seu celular, e as mensagens já guardadas continuam aqui."}}</p></div></details>
+<details class="faq__item"><summary>{{if .ServerMode}}{{t "Como desconectar este servidor do WhatsApp?"}}{{else}}{{t "Como desconectar este computador do WhatsApp?"}}{{end}}{{icon "chevron"}}</summary>
+<div class="faq__answer"><p>{{if .ServerMode}}{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, em Zona de risco. O servidor sai dos dispositivos conectados do seu celular, e as mensagens já guardadas continuam nele."}}{{else}}{{t "Na aba <a href='/whatsapp'>WhatsApp</a>, em Zona de risco. O computador sai dos dispositivos conectados do seu celular, e as mensagens já guardadas continuam aqui."}}{{end}}</p></div></details>
 {{if .App}}<details class="faq__item"><summary>{{t "Onde ficam os meus dados?"}}{{icon "chevron"}}</summary>
-<div class="faq__answer"><p>{{t "Numa pasta deste computador, que aparece em <a href='/configuracoes#dados'>Configurações › Dados</a>. Lá também dá para abrir a pasta ou apagar tudo."}}</p></div></details>{{end}}
+<div class="faq__answer"><p>{{if .ServerMode}}{{t "Numa pasta deste servidor, que aparece em <a href='/configuracoes#dados'>Configurações › Dados</a>. Lá também dá para abrir a pasta ou apagar tudo."}}{{else}}{{t "Numa pasta deste computador, que aparece em <a href='/configuracoes#dados'>Configurações › Dados</a>. Lá também dá para abrir a pasta ou apagar tudo."}}{{end}}</p></div></details>{{end}}
 </div>
 </div></section>
 
@@ -596,11 +624,12 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <section class="card" id="transcrever">
 <div class="card__head"><h2 class="card__title">{{icon "mic"}}{{t "Transcrever áudios"}}</h2></div>
 <div class="card__body stack">
-<p class="muted">{{t "Com a <a href='/configuracoes#transcricao'>transcrição de áudio</a> instalada, os áudios viram texto aqui mesmo, com o Whisper: de graça, e o áudio não sai do computador. Nada é transcrito sem você pedir. O nome da conversa, as pessoas e as últimas mensagens entram como contexto, e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho."}}</p>
+<p class="muted">{{if .ServerMode}}{{t "Com a <a href='/configuracoes#transcricao'>transcrição de áudio</a> instalada, os áudios viram texto aqui mesmo: de graça, e o áudio não sai do servidor. Nada é transcrito sem você pedir. Os nomes da conversa e das pessoas entram como contexto (você escolhe o que vai junto em Contexto da conversa), e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho."}}{{else}}{{t "Com a <a href='/configuracoes#transcricao'>transcrição de áudio</a> instalada, os áudios viram texto aqui mesmo, com o Whisper: de graça, e o áudio não sai do computador. Nada é transcrito sem você pedir. Os nomes da conversa e das pessoas entram como contexto (você escolhe o que vai junto em Contexto da conversa), e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho."}}{{end}}</p>
 <p class="muted">{{t "Peça algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve na hora, confere com a conversa e guarda a versão corrigida."}}</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Exemplo"}}</span></div>
 <pre class="plain" data-copy><code>{{t "Transcreva os áudios que recebi hoje no WhatsApp."}}</code></pre></div>
 <p class="muted" style="margin:0">{{t "Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado."}}</p>
+{{if .LocalUnavailable}}<p class="note" style="margin:0">{{t "A transcrição neste computador ainda não funciona no Windows. Em <a href='/configuracoes#transcricao'>Configurações</a>, escolha um servidor compatível com a OpenAI ou a OpenAI, ou peça à sua ferramenta de IA que transcreva os áudios do jeito dela."}}</p>{{end}}
 </div></section>
 {{template "foot" .}}{{end}}
 
@@ -628,9 +657,17 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </div>
 {{template "foot" .}}{{end}}
 
+{{define "logs-period"}}<div class="stack" role="group" aria-labelledby="logs-periodo" aria-describedby="logs-periodo-dica">
+<p class="field"><span class="field__label" id="logs-periodo">{{t "Período"}}</span><span class="field__hint" id="logs-periodo-dica">{{t "Escolha um período que inclua quando o problema aconteceu."}}</span></p>
+<label class="check"><input type="radio" name="horas" value="24"><span>{{t "Últimas 24 horas"}}</span></label>
+<label class="check"><input type="radio" name="horas" value="72" checked><span>{{t "Últimos 3 dias"}}</span></label>
+<label class="check"><input type="radio" name="horas" value="168"><span>{{t "Últimos 7 dias"}}</span></label>
+</div>
+<p class="muted">{{t "O arquivo não leva o texto das mensagens, nomes nem números. É um texto que você pode abrir e ler antes de mandar."}} <span class="tip" tabindex="0" aria-describedby="tip-logs-dialog"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-logs-dialog">{{t "Números, contatos, grupos e links viram códigos, sempre o mesmo para o mesmo contato. O arquivo é um texto que você pode abrir e ler antes de mandar. Ficam guardados os últimos 7 dias."}}</span></span></p>{{end}}
+
 {{define "configuracoes"}}{{template "head" .}}{{template "nav" .}}
 <h1>{{t "Configurações"}}</h1>
-<p class="lead">{{t "Como o WhatsApp MCP roda neste computador."}}</p>
+<p class="lead">{{if .ServerMode}}{{t "Como o WhatsApp MCP roda neste servidor."}}{{else}}{{t "Como o WhatsApp MCP roda neste computador."}}{{end}}</p>
 {{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
 
 {{if and .App .PortChanged}}
@@ -660,14 +697,23 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="card__body stack">
 <p class="muted">{{t "As ferramentas de IA falam com o WhatsApp MCP por este endereço, que só responde a programas instalados e rodando neste computador. Troque a porta se outro programa já usa esta, ou se você quiser uma porta específica."}}</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço"}}</span></div><pre data-copy><code>{{.Setup.Endpoint}}</code></pre></div>
-{{if .Settings.PortLocked}}<p class="note">{{t "A porta está definida pela variável de ambiente <code>WHATSAPP_MCP_PORT</code> e não pode ser trocada aqui."}}</p>
-{{else}}<form method="post" action="/configuracoes/porta" data-busy="{{t "Trocando…"}}">
-<label class="field" for="port"><span class="field__label">{{t "Porta"}}</span><span class="field__hint">{{t "Um número de 1024 a 65535. Trocar a porta desconecta as ferramentas de IA do MCP."}} <span class="tip" tabindex="0" aria-describedby="tip-porta"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-porta">{{t "O WhatsApp continua conectado. As ferramentas de IA ligadas por MCP, como Claude, Codex e outras, perdem a conexão e precisam do endereço novo. Depois de salvar, o app mostra como atualizar cada uma."}}</span></span></span></label>
-<div class="actions"><input id="port" class="input--short" type="number" name="port" min="1024" max="65535" value="{{.Port}}" required><button class="btn" type="submit">{{t "Salvar"}}</button></div>
-</form>{{end}}
+{{if .Settings.PortLocked}}<p class="note">{{t "A porta foi definida na instalação e não pode ser trocada por aqui."}} <span class="tip" tabindex="0" aria-describedby="tip-porta-env"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-porta-env">{{t "Pela variável de ambiente <code>WHATSAPP_MCP_PORT</code>. Para trocar, mude-a e abra o WhatsApp MCP de novo."}}</span></span></p>
+{{else}}<div class="actions"><a class="btn btn--ghost btn--small" href="#porta-dialog">{{t "Trocar a porta"}}</a></div>{{end}}
 </div></section>
 
-<section class="card">
+{{if not .Settings.PortLocked}}<div class="overlay" id="porta-dialog" role="dialog" aria-modal="true" aria-labelledby="porta-dialog-titulo" data-modal>
+<div class="dialog">
+<div class="dialog__head"><h2 id="porta-dialog-titulo">{{t "Trocar a porta"}}</h2><a class="dialog__close" href="#porta" aria-label="{{t "Fechar"}}">&times;</a></div>
+<div class="dialog__body">
+<form class="stack" method="post" action="/configuracoes/porta" data-busy="{{t "Trocando…"}}">
+{{if eq .ErrorIn "porta-dialog"}}<p class="alert" role="alert">{{.DialogError}}</p>{{end}}
+<div><label class="field" for="port"><span class="field__label">{{t "Porta"}}</span><span class="field__hint">{{t "Um número de 1024 a 65535. Trocar a porta desconecta as ferramentas de IA do MCP."}} <span class="tip" tabindex="0" aria-describedby="tip-porta"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-porta">{{t "O WhatsApp continua conectado. As ferramentas de IA ligadas por MCP, como Claude, Codex e outras, perdem a conexão e precisam do endereço novo. Depois de salvar, o app mostra como atualizar cada uma."}}</span></span></span></label>
+<input id="port" class="input--short" type="number" name="port" min="1024" max="65535" value="{{.Port}}" required></div>
+<div class="dialog__actions"><span class="actions actions--end"><a class="btn btn--quiet" href="#porta">{{t "Cancelar"}}</a><button class="btn" type="submit">{{t "Salvar"}}</button></span></div>
+</form>
+</div></div></div>{{end}}
+
+<section class="card" id="ao-ligar">
 <div class="card__head"><h2 class="card__title">{{icon "power"}}{{t "Ao ligar e ao fechar"}}</h2></div>
 <div class="card__body stack">
 <label class="check"><input type="checkbox" data-setting="autostart"{{if .Settings.Autostart}} checked{{end}}><span><strong>{{t "Abrir o WhatsApp MCP quando o computador ligar"}}</strong><span class="check__hint">{{tf "Ele abre só na %s, sem janela, e as ferramentas de IA já encontram o WhatsApp." tray}}</span></span></label>
@@ -678,13 +724,13 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="muted">{{t "Desliga o app de vez, até você abrir de novo."}}</p>
 </div></section>
 
-<div class="overlay" id="encerrar-app" role="dialog" aria-modal="true" aria-labelledby="encerrar-app-titulo">
+<div class="overlay" id="encerrar-app" role="dialog" aria-modal="true" aria-labelledby="encerrar-app-titulo" data-modal>
 <div class="dialog">
-<div class="dialog__head"><h2 id="encerrar-app-titulo">{{t "Encerrar o WhatsApp MCP?"}}</h2><a class="dialog__close" href="#" aria-label="{{t "Fechar"}}">&times;</a></div>
+<div class="dialog__head"><h2 id="encerrar-app-titulo">{{t "Encerrar o WhatsApp MCP?"}}</h2><a class="dialog__close" href="#ao-ligar" aria-label="{{t "Fechar"}}">&times;</a></div>
 <div class="dialog__body">
 <p>{{t "O MCP é desligado: as ferramentas de IA perdem o acesso ao WhatsApp, e este computador para de receber mensagens enquanto o app estiver fechado."}}</p>
 <p class="muted">{{t "Para voltar, abra o WhatsApp MCP de novo."}}</p>
-<form method="post" action="/configuracoes/encerrar" data-busy="{{t "Encerrando…"}}"><div class="actions actions--end"><a class="btn btn--quiet" href="#">{{t "Cancelar"}}</a><button class="btn btn--danger" type="submit">{{t "Encerrar"}}</button></div></form>
+<form method="post" action="/configuracoes/encerrar" data-busy="{{t "Encerrando…"}}"><div class="actions actions--end"><a class="btn btn--quiet" href="#ao-ligar">{{t "Cancelar"}}</a><button class="btn btn--danger" type="submit">{{t "Encerrar"}}</button></div></form>
 </div></div></div>
 
 {{end}}
@@ -693,94 +739,169 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="card__head"><h2 class="card__title">{{icon "code"}}Webhooks</h2><a class="btn btn--ghost btn--small" href="/webhooks/documentacao">{{icon "book"}}{{t "Documentação"}}</a></div>
 <div class="card__body stack">
 <p class="muted" data-webhooks-intro hidden>{{t "Avisam um programa seu a cada mensagem nova que chega, para ele agir sozinho: responder, registrar numa planilha, avisar em outro lugar. São para quem usa scripts ou automações."}} <span class="tip" tabindex="0" aria-describedby="tip-webhooks"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-webhooks">{{t "A cada mensagem, o WhatsApp MCP faz um POST com JSON no endereço, assinado com a chave do webhook. Se o endereço não responder com sucesso, ele tenta de novo até 10 vezes em menos de um minuto; depois disso o webhook é desligado e os avisos que esperavam são descartados. O formato de cada aviso está em Documentação, no alto deste card."}}</span></span></p>
-<p class="note" data-webhooks-unavailable hidden>{{t "O wacli instalado não avisa mensagens novas: atualize-o para os webhooks funcionarem."}}</p>
+<p class="note" data-webhooks-unavailable hidden>{{t "A parte que conecta ao WhatsApp está desatualizada e não avisa mensagens novas. Atualize o WhatsApp MCP para os webhooks funcionarem."}}</p>
 <p class="busy" data-webhooks-loading role="status"><span class="spinner" aria-hidden="true"></span>{{t "Carregando…"}}</p>
 <ul class="rows" data-webhooks-list hidden></ul>
+<template data-webhook-test-icon>{{icon "send"}}</template>
 <div class="empty" data-webhooks-empty hidden><p class="empty__title">{{t "Nenhum webhook configurado"}}</p><p class="muted" style="margin:6px 0 12px">{{t "Avisam um programa seu a cada mensagem nova, para quem usa scripts ou automações."}}</p><button class="btn btn--ghost btn--small" type="button" data-webhook-start>{{t "Configurar o primeiro webhook"}}</button></div>
 <div class="secret" data-webhook-secret hidden>
-<p class="secret__title">{{t "Webhook adicionado. Guarde a chave dele"}}</p>
-<p class="muted" style="margin:0">{{t "Ela não aparece de novo. Com ela, o seu programa confere que cada aviso veio mesmo do WhatsApp MCP."}}</p>
+<p class="secret__title">{{t "Webhook adicionado"}}</p>
+<ol class="secret__steps">
+<li class="secret__step"><span class="step__n" aria-hidden="true">1</span><div class="secret__step-body">
+<p class="step__title">{{t "Guarde a chave"}}</p>
+<p class="muted">{{t "Ela não aparece de novo. Com ela, o seu programa confere que cada aviso veio mesmo do WhatsApp MCP."}}</p>
 <code class="secret__value" data-webhook-secret-value></code>
-<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-webhook-secret-copy>{{t "Copiar a chave"}}</button><button class="btn btn--quiet btn--small" type="button" data-webhook-secret-close>{{t "Já guardei"}}</button></div>
+<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-webhook-secret-copy>{{t "Copiar a chave"}}</button></div>
+</div></li>
+<li class="secret__step"><span class="step__n" aria-hidden="true">2</span><div class="secret__step-body">
+<p class="step__title">{{t "Veja a documentação"}}</p>
+<p class="muted">{{t "Ela mostra como cada aviso chega ao seu programa."}}</p>
+<div class="actions"><a class="btn btn--ghost btn--small" href="/webhooks/documentacao" target="_blank" rel="noopener" data-webhook-secret-docs>{{icon "book"}}{{t "Ver a documentação"}}</a></div>
+</div></li>
+</ol>
+<div class="actions"><button class="btn btn--small" type="button" data-webhook-secret-close>{{t "Finalizar"}}</button></div>
 </div>
-<form class="stack" data-webhook-form hidden>
-<h3 class="card__sub">{{t "Adicionar um webhook"}}</h3>
-<label class="field" for="webhook-url"><span class="field__label">{{t "Endereço"}}</span><span class="field__hint">{{t "O endereço do seu programa, começando com http:// ou https://."}}</span></label>
-<input id="webhook-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:8080/whatsapp" required data-webhook-url>
-<span class="field__label">{{t "Avisar quando"}}</span>
+<div class="actions" data-webhooks-add hidden><button class="btn btn--small" type="button" data-webhook-add>{{t "Adicionar webhook"}}</button></div>
+</div></section>
+
+<div class="overlay" id="webhook-dialog" role="dialog" aria-modal="true" aria-labelledby="webhook-dialog-titulo" data-webhook-dialog>
+<div class="dialog">
+<div class="dialog__head"><h2 id="webhook-dialog-titulo" data-webhook-dialog-title>{{t "Adicionar webhook"}}</h2><a class="dialog__close" href="#webhooks" aria-label="{{t "Fechar"}}" data-webhook-close>&times;</a></div>
+<div class="dialog__body">
+<form class="stack" data-webhook-form>
+<div><label class="field" for="webhook-url"><span class="field__label">{{t "Endereço"}}</span><span class="field__hint">{{t "O endereço do seu programa, começando com http:// ou https://."}}</span></label>
+<input id="webhook-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://127.0.0.1:8080/whatsapp" required data-webhook-url></div>
+<div class="stack" role="group" aria-labelledby="webhook-eventos" aria-describedby="webhook-eventos-dica">
+<p class="field"><span class="field__label" id="webhook-eventos">{{t "Eventos"}}</span><span class="field__hint" id="webhook-eventos-dica">{{t "Avisar quando"}}</span></p>
 <label class="check"><input type="checkbox" value="message" checked data-webhook-event><span>{{t "Chegar uma mensagem"}}</span></label>
 <label class="check"><input type="checkbox" value="reaction" data-webhook-event><span>{{t "Alguém reagir a uma mensagem"}}</span></label>
 <label class="check"><input type="checkbox" value="receipt" data-webhook-event><span>{{t "Uma mensagem sua for entregue, lida ou ouvida"}}</span></label>
-<label class="check"><input type="checkbox" value="online" data-webhook-event><span>{{t "O WhatsApp voltar a ficar on-line neste computador"}}<span class="check__hint">{{t "Ao ligar ou acordar o computador, ou quando a internet volta depois de alguns minutos. Bom para uma tarefa que lê o que chegou enquanto ele estava fora."}}</span></span></label>
+<label class="check"><input type="checkbox" value="online" data-webhook-event><span>{{if .ServerMode}}{{t "O WhatsApp voltar a ficar on-line neste servidor"}}<span class="check__hint">{{t "Quando o servidor reinicia, ou quando a internet volta depois de alguns minutos. Bom para uma tarefa que lê o que chegou enquanto ele estava fora."}}</span>{{else}}{{t "O WhatsApp voltar a ficar on-line neste computador"}}<span class="check__hint">{{t "Ao ligar ou acordar o computador, ou quando a internet volta depois de alguns minutos. Bom para uma tarefa que lê o que chegou enquanto ele estava fora."}}</span>{{end}}</span></label>
+</div>
 <label class="check"><input type="checkbox" data-webhook-own><span>{{t "Incluir as mensagens que você manda"}}<span class="check__hint">{{t "Do celular ou pela sua ferramenta de IA."}}</span></span></label>
-<div class="actions"><button class="btn btn--small" type="submit">{{t "Adicionar webhook"}}</button><button class="btn btn--quiet btn--small" type="button" data-webhook-cancel hidden>{{t "Cancelar"}}</button></div>
 <p class="alert" role="alert" data-webhook-error hidden></p>
+<div class="dialog__actions" data-webhook-actions><button class="btn btn--danger" type="button" data-webhook-delete hidden>{{icon "trash"}}{{t "Apagar webhook"}}</button><span class="actions actions--end"><a class="btn btn--quiet" href="#webhooks" data-webhook-close>{{t "Cancelar"}}</a><button class="btn" type="submit" data-webhook-submit>{{t "Adicionar webhook"}}</button></span></div>
+<div class="confirm" role="group" aria-labelledby="webhook-apagar-titulo" data-webhook-delete-confirm hidden>
+<p class="confirm__title" id="webhook-apagar-titulo">{{t "Apagar este webhook?"}}</p>
+<p class="confirm__text">{{t "O endereço deixa de receber os avisos, e isso não se desfaz."}}</p>
+<span class="actions actions--end"><button class="btn btn--quiet" type="button" data-webhook-delete-cancel>{{t "Não apagar"}}</button><button class="btn btn--danger" type="button" data-webhook-delete-yes>{{icon "trash"}}{{t "Apagar mesmo"}}</button></span>
+</div>
 </form>
-</div></section>
+</div></div></div>
 
-<section class="card" id="transcricao" data-asr>
-<div class="card__head"><h2 class="card__title">{{icon "mic"}}{{t "Transcrição de áudio"}}</h2>{{if or .Local.Ready .ASR.Offsite}}<span class="pill pill--ok">{{t "Ativa"}}</span>{{else if .Local.Supported}}<span class="pill pill--off">{{t "Não instalada"}}</span>{{else}}<span class="pill pill--off">{{t "Indisponível"}}</span>{{end}}</div>
+{{/* Audio transcription: whether it works and where. Every state's parts are
+on the page, and settings.js shows the right ones after the mode is saved or
+the install ends, without a reload: the main action is the ghost button, the
+other one quiet. */}}
+{{$offsite := .ASR.Offsite}}{{$here := not $offsite}}
+<section class="card" id="transcricao" data-asr data-asr-mode="{{.ASR.Mode}}"{{if .ServerMode}} data-asr-server{{end}}{{if .Local.Supported}} data-asr-supported{{end}}{{if .Local.Ready}} data-asr-local-ready{{end}}{{if .Local.Unavailable}} data-asr-unavailable{{end}}>
+<div class="card__head"><h2 class="card__title">{{icon "mic"}}{{t "Transcrição de áudio"}}</h2><span class="pill pill--ok" data-asr-pill="on"{{if not (or .Local.Ready $offsite)}} hidden{{end}}>{{t "Ativa"}}</span><span class="pill pill--off" data-asr-pill="missing"{{if or .Local.Ready $offsite (not .Local.Supported) .Local.Unavailable}} hidden{{end}}>{{t "Não instalada"}}</span><span class="pill pill--off" data-asr-pill="unavailable"{{if or .Local.Ready $offsite (and .Local.Supported (not .Local.Unavailable))}} hidden{{end}}>{{t "Indisponível"}}</span></div>
 <div class="card__body stack">
-{{if .Local.Ready}}
-{{if not .ASR.Offsite}}<p class="muted">{{tf "Os áudios viram texto neste computador, com o Whisper rodando %s, só quando você pede." (accel .Local.Accel)}}</p>{{end}}
-{{else if .Local.Supported}}
-<p class="muted">{{t "Este computador consegue transcrever os áudios sem que eles saiam daqui. A instalação baixa cerca de 600 MB, uma vez só."}}</p>
-<div class="actions"><button class="btn" type="button" data-asr-install>{{t "Instalar a transcrição local"}}</button></div>
+{{if .Local.Supported}}
+<p class="muted" data-asr-ready{{if or (not .Local.Ready) $offsite}} hidden{{end}}>{{if .ServerMode}}{{t "Os áudios viram texto neste servidor, sem sair dele, só quando você pede."}}{{else}}{{t "Os áudios viram texto neste computador, sem sair dele, só quando você pede."}}{{end}} <span class="tip" tabindex="0" aria-describedby="tip-asr-ready"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-ready">{{tf "Quem transcreve é o Whisper, um programa de reconhecimento de fala, rodando %s." (accel .Local.Accel)}}</span></span></p>
+{{/* Installed, but the engine does not start here: a Windows without the
+Visual C++ runtime (localasr.UnavailableWindowsRuntime). Installing again does
+not help, so the card points at the other places. */}}
+<p class="muted" data-asr-unavailable-note{{if or (not .Local.Unavailable) $offsite}} hidden{{end}}>{{t "A transcrição neste computador ainda não funciona no Windows. Em Trocar onde transcrever, escolha um servidor compatível com a OpenAI ou a OpenAI. Ou peça à sua ferramenta de IA que transcreva os áudios do jeito dela."}} <span class="tip" tabindex="0" aria-describedby="tip-asr-unavailable"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-unavailable">{{t "O programa de transcrição para Windows precisa do runtime do Microsoft Visual C++ (2015 a 2022, x64), que este computador não tem. Enquanto esse programa não é refeito, a transcrição local fica indisponível no Windows. Se você instalar o runtime, abra as Configurações de novo para testar."}}</span></span></p>
+<div class="stack" data-asr-missing{{if or .Local.Ready .Local.Unavailable}} hidden{{end}}>
+<p class="muted">{{if .ServerMode}}{{t "Este servidor consegue transcrever os áudios sem que eles saiam dele. A instalação baixa cerca de 600 MB, uma vez só."}}{{else}}{{t "Este computador consegue transcrever os áudios sem que eles saiam daqui. A instalação baixa cerca de 600 MB, uma vez só."}}{{end}}</p>
+<div class="actions"><button class="btn {{if $offsite}}btn--quiet{{else}}btn--ghost{{end}} btn--small" type="button" data-asr-install{{if eq .Local.Install.State "running"}} disabled{{end}}>{{t "Instalar a transcrição local"}}</button></div>
 <p class="busy" data-asr-progress role="status"{{if ne .Local.Install.State "running"}} hidden{{end}}><span class="spinner" aria-hidden="true"></span><span data-asr-step>{{.Local.Install.Step}}</span></p>
-{{if eq .Local.Install.State "error"}}<p class="alert" role="alert">{{.Local.Install.Error}}</p>{{end}}
+<p class="alert" role="alert" data-asr-install-error{{if or (ne .Local.Install.State "error") .Local.Unavailable}} hidden{{end}}>{{t "A instalação não terminou. Confira a internet e clique em Instalar a transcrição local de novo."}}</p>
+</div>
 {{else}}
 <p class="muted">{{t "A transcrição ainda não está disponível para este sistema."}}</p>
 {{end}}
-{{if and .Local.Supported (eq .Local.Accel "cpu")}}<p class="note">{{t "Sem uma placa de vídeo que o Whisper aproveite, ele roda no processador: cada áudio leva mais ou menos o próprio tempo para ser transcrito."}}</p>{{end}}
-{{if .Local.Supported}}<details class="disclose"><summary><span style="display:inline-flex;align-items:center;gap:6px">{{icon "help"}}{{t "Como usar"}}</span></summary>
+{{if and .Local.Supported (eq .Local.Accel "cpu")}}<p class="note" data-asr-cpu{{if or $offsite .Local.Unavailable}} hidden{{end}}>{{t "Sem uma placa de vídeo que o Whisper aproveite, ele roda no processador: cada áudio leva mais ou menos o próprio tempo para ser transcrito."}}</p>{{end}}
+<details class="disclose" data-asr-howto{{if not (or (and .Local.Supported (not .Local.Unavailable)) $offsite)}} hidden{{end}}><summary><span style="display:inline-flex;align-items:center;gap:6px">{{icon "help"}}{{t "Como usar"}}</span></summary>
 <div class="stack">
 <p class="muted" style="margin:0">{{t "Peça à sua ferramenta de IA algo como:"}}</p>
 <div class="snippet"><pre class="plain" data-copy><code>{{t "Transcreva os áudios que recebi hoje no WhatsApp."}}</code></pre></div>
 <p class="muted" style="margin:0">{{t "Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado. Mais detalhes na <a href='/ajuda#transcrever'>Ajuda</a>."}}</p>
-</div></details>{{end}}
-<div class="stack" data-asr-remote{{if .ASR.Offsite}} data-asr-remote-on{{end}}>
-<h3 class="card__sub">{{t "Onde transcrever"}} <span class="tip" tabindex="0" aria-describedby="tip-asr-remote"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-remote">{{t "Um Mac com chip Apple ou um computador com placa de vídeo transcreve em segundos o que um processador comum leva minutos. Nele, rode <code>whatsapp-mcp transcription serve</code> e cole aqui o endereço e a chave que ele guarda. Também serve qualquer servidor compatível com a OpenAI. Se o outro computador ou a OpenAI não responder, o áudio é transcrito aqui mesmo, quando a transcrição está instalada."}}</span></span></h3>
-<p class="muted" style="margin:0" data-asr-remote-state>{{if eq .ASR.Mode "openai"}}{{t "Os áudios vão para a OpenAI."}}{{else if .ASR.Offsite}}{{tf "Os áudios vão para %s." .ASR.URL}}{{else}}{{t "Os áudios são transcritos neste computador."}}{{end}}</p>
-{{if .ASR.FromEnv}}<p class="note">{{t "A transcrição está definida por variável de ambiente e não pode ser trocada aqui."}}</p>
-{{else}}<form class="stack" data-asr-remote-form>
-<fieldset class="stack"><legend class="sr-only">{{t "Onde transcrever"}}</legend>
-<label class="check"><input type="radio" name="asr-mode" value="local" data-asr-mode{{if eq .ASR.Mode "local"}} checked{{end}}><span><strong>{{t "Neste computador"}}</strong><span class="check__hint">{{t "O áudio não sai daqui."}}</span></span></label>
-<label class="check"><input type="radio" name="asr-mode" value="remote" data-asr-mode{{if eq .ASR.Mode "remote"}} checked{{end}}><span><strong>{{t "Em outro computador"}}</strong><span class="check__hint">{{t "Um Mac da sua rede ou um servidor compatível com a OpenAI."}}</span></span></label>
-<label class="check"><input type="radio" name="asr-mode" value="openai" data-asr-mode{{if eq .ASR.Mode "openai"}} checked{{end}}><span><strong>{{t "Na OpenAI"}}</strong><span class="check__hint">{{t "Com a sua chave da API. O áudio e as mensagens ao redor dele vão para a OpenAI, que cobra por minuto de áudio."}}</span></span></label>
-</fieldset>
-<div class="stack" data-asr-fields="remote"{{if ne .ASR.Mode "remote"}} hidden{{end}}>
-<label class="field" for="asr-remote-url"><span class="field__label">{{t "Endereço"}}</span><span class="field__hint">{{t "Como http://192.168.0.10:47823."}}</span></label>
-<input id="asr-remote-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://192.168.0.10:47823" value="{{.ASR.RemoteURL}}" data-asr-remote-url>
-<label class="field" for="asr-remote-token"><span class="field__label">{{t "Chave"}}</span><span class="field__hint">{{if .ASR.HasRemoteToken}}{{t "Guardada. Deixe em branco para manter a mesma."}}{{else}}{{t "A do outro computador, se ele pedir uma."}}{{end}}</span></label>
-<input id="asr-remote-token" type="password" autocomplete="off" spellcheck="false" data-asr-remote-token>
-<label class="field" for="asr-remote-model"><span class="field__label">{{t "Modelo"}}</span><span class="field__hint">{{t "Só se o servidor pedir um. Em branco, whisper-1."}}</span></label>
-<input id="asr-remote-model" type="text" autocomplete="off" spellcheck="false" placeholder="whisper-1" value="{{.ASR.RemoteModel}}" data-asr-remote-model>
+</div></details>
+<div class="stack" data-asr-remote{{if $offsite}} data-asr-remote-on{{end}}>
+<h3 class="card__sub">{{t "Onde transcrever"}} <span class="tip" tabindex="0" aria-describedby="tip-asr-remote"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-remote">{{t "Serve qualquer servidor que fale a API de transcrição da OpenAI, em qualquer endereço: um serviço na internet, um servidor seu ou um computador com placa de vídeo, que transcreve em segundos o que um processador comum leva minutos. Um exemplo: um Mac com chip Apple rodando <code>whatsapp-mcp transcription serve</code>, que mostra o endereço e guarda a chave para colar aqui. Se o servidor ou a OpenAI não responder, o áudio é transcrito aqui mesmo, quando a transcrição está instalada."}}</span></span></h3>
+<p class="muted" style="margin:0" data-asr-remote-state>{{if eq .ASR.Mode "openai"}}{{t "Os áudios vão para a OpenAI."}}{{else if $offsite}}{{tf "Os áudios vão para %s." .ASR.URL}}{{else if .Local.Unavailable}}{{t "Os áudios ainda não podem ser transcritos."}}{{else if .ServerMode}}{{t "Os áudios são transcritos neste servidor."}}{{else}}{{t "Os áudios são transcritos neste computador."}}{{end}}</p>
+{{if .ASR.FromEnv}}<p class="note">{{t "A transcrição foi definida na instalação e não pode ser trocada por aqui."}} <span class="tip" tabindex="0" aria-describedby="tip-asr-env"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-env">{{t "Pelas variáveis de ambiente <code>WHATSAPP_MCP_TRANSCRIPTION_MODE</code> e <code>WHATSAPP_MCP_TRANSCRIPTION_URL</code>, no arquivo .env da instalação ou no serviço. Para trocar, mude-as lá e reinicie o WhatsApp MCP."}}</span></span></p>
+{{else}}<div class="actions"><a class="btn {{if and .Local.Supported (not .Local.Ready) (not .Local.Unavailable) $here}}btn--quiet{{else}}btn--ghost{{end}} btn--small" href="#asr-dialog" data-asr-open>{{t "Trocar onde transcrever"}}</a></div>{{end}}
 </div>
-<div class="stack" data-asr-fields="openai"{{if ne .ASR.Mode "openai"}} hidden{{end}}>
-<label class="field" for="asr-openai-key"><span class="field__label">{{t "Chave da API"}}</span><span class="field__hint">{{if .ASR.HasOpenAIKey}}{{t "Guardada. Deixe em branco para manter a mesma."}}{{else}}{{t "Crie uma em platform.openai.com, em API keys."}}{{end}}</span></label>
-<input id="asr-openai-key" type="password" autocomplete="off" spellcheck="false" data-asr-openai-key>
-<label class="field" for="asr-openai-model"><span class="field__label">{{t "Modelo"}}</span><span class="field__hint">{{t "whisper-1, gpt-4o-transcribe ou gpt-4o-mini-transcribe."}}</span></label>
-<input id="asr-openai-model" type="text" list="asr-openai-models" autocomplete="off" spellcheck="false" placeholder="whisper-1" value="{{.ASR.OpenAIModel}}" data-asr-openai-model>
-<datalist id="asr-openai-models">{{range .ASR.OpenAIModels}}<option value="{{.}}">{{end}}</datalist>
-</div>
-<div class="actions"><button class="btn btn--small" type="submit">{{t "Salvar e testar"}}</button></div>
-<p class="alert" role="alert" data-asr-remote-error hidden></p>
-</form>{{end}}
+{{/* The conversation context: what goes with each voice note to wherever it
+is transcribed. Its line is a notice when that text leaves the computer;
+settings.js rewrites it when the place changes. */}}
+<div class="stack" data-asr-context>
+<h3 class="card__sub">{{t "Contexto da conversa"}} <span class="tip" tabindex="0" aria-describedby="tip-asr-context"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-context">{{if .ServerMode}}{{t "Junto com o áudio pode ir um pouco da conversa: os nomes das pessoas e o assunto ajudam a escrever certo nomes e palavras incomuns. Esse texto vai para onde o áudio é transcrito: este servidor, um servidor de transcrição ou a OpenAI. Mensagens recentes em outra língua podem fazer o áudio sair traduzido. Em Mudar o contexto, você vê o que vai em cada opção."}}{{else}}{{t "Junto com o áudio pode ir um pouco da conversa: os nomes das pessoas e o assunto ajudam a escrever certo nomes e palavras incomuns. Esse texto vai para onde o áudio é transcrito: este computador, o seu servidor ou a OpenAI. Mensagens recentes em outra língua podem fazer o áudio sair traduzido. Em Mudar o contexto, você vê o que vai em cada opção."}}{{end}}</span></span></h3>
+<p class="{{if .ASR.Ctx.Leaves}}note{{else}}muted{{end}}" style="margin:0" data-asr-context-line>{{.ASR.Ctx.Line}}</p>
+{{if .ASR.Ctx.FromEnv}}<p class="note">{{t "O contexto da conversa foi definido na instalação e não pode ser trocado por aqui."}} <span class="tip" tabindex="0" aria-describedby="tip-asr-context-env"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-context-env">{{t "Pela variável de ambiente <code>WHATSAPP_MCP_TRANSCRIPTION_CONTEXT</code> (none, names ou messages), no arquivo .env da instalação ou no serviço. Para trocar, mude-a lá e reinicie o WhatsApp MCP."}}</span></span></p>
+{{else}}<div class="actions"><a class="btn btn--quiet btn--small" href="#asr-contexto-dialog">{{t "Mudar o contexto"}}</a></div>{{end}}
 </div>
 </div></section>
 
-{{if .App}}
-<section class="card" id="atualizacoes" data-update>
-<div class="card__head"><h2 class="card__title">{{icon "refresh"}}{{t "Versão e atualizações"}}</h2></div>
-<div class="card__body stack">
-<div class="version-bar">
-<div class="version"><span class="version__label">{{t "Versão instalada"}}</span>
-<div class="version__row"><span class="version__number">{{.Settings.Version}}</span><span class="pill" data-update-badge hidden></span></div></div>
-<div class="actions"><button class="btn btn--small" type="button" data-update-install hidden>{{t "Instalar e reiniciar"}}</button><button class="btn btn--ghost btn--small" type="button" data-update-check>{{t "Procurar atualização"}}</button><a class="btn btn--ghost btn--small" data-update-page href="#" target="_blank" rel="noopener" hidden>{{t "Baixar a versão nova"}}</a></div>
-{{with .Settings.WacliVersion}}<span class="muted version-bar__wacli">{{tf "wacli %s" .}}</span>{{end}}
+{{/* The context's dialog: a plain form, like Trocar a porta. The full
+explanation is folded away under the choices, for whoever wants to read it. */}}
+{{if not .ASR.Ctx.FromEnv}}<div class="overlay" id="asr-contexto-dialog" role="dialog" aria-modal="true" aria-labelledby="asr-contexto-titulo" data-modal>
+<div class="dialog">
+<div class="dialog__head"><h2 id="asr-contexto-titulo">{{t "Contexto da conversa"}}</h2><a class="dialog__close" href="#transcricao" aria-label="{{t "Fechar"}}">&times;</a></div>
+<div class="dialog__body">
+<form class="stack" method="post" action="/configuracoes/transcricao/contexto" data-asr-context-form>
+{{if eq .ErrorIn "asr-contexto-dialog"}}<p class="alert" role="alert">{{.DialogError}}</p>{{end}}<p class="alert" role="alert" data-asr-context-error hidden></p>
+<div class="stack" role="group" aria-labelledby="asr-contexto" aria-describedby="asr-contexto-dica">
+<p class="field"><span class="field__label" id="asr-contexto">{{t "O que vai junto com o áudio"}}</span><span class="field__hint" id="asr-contexto-dica" data-asr-context-where>{{.ASR.Ctx.Where}}</span></p>
+<label class="check"><input type="radio" name="context" value="none" data-asr-context-level{{if eq .ASR.Ctx.Level "none"}} checked{{end}}><span><strong>{{t "Nada"}}</strong><span class="check__hint">{{t "Só o áudio é enviado."}}</span></span></label>
+<label class="check"><input type="radio" name="context" value="names" data-asr-context-level{{if eq .ASR.Ctx.Level "names"}} checked{{end}}><span><strong>{{t "Só os nomes"}}</strong><span class="check__hint">{{t "O nome da conversa e os das pessoas que falam nela, para escrever os nomes certo. Nenhuma mensagem."}}</span></span></label>
+<label class="check"><input type="radio" name="context" value="messages" data-asr-context-level{{if eq .ASR.Ctx.Level "messages"}} checked{{end}}><span><strong>{{t "Nomes e mensagens recentes"}}</strong><span class="check__hint">{{t "Também as últimas mensagens de texto antes do áudio, para acertar as palavras do assunto. Se elas estiverem em outra língua, o áudio pode sair traduzido."}}</span></span></label>
 </div>
-<p class="muted version__note" data-update-text hidden></p>
-</div></section>
+<details class="disclose"><summary><span style="display:inline-flex;align-items:center;gap:6px">{{icon "help"}}{{t "Para que serve e o que é enviado"}}</span></summary>
+<div class="stack">
+<p class="muted" style="margin:0">{{t "A transcrição erra mais em nomes de pessoas, lugares e palavras incomuns. Quando recebe junto com o áudio o nome da conversa, os nomes das pessoas e o que se falava, ela acerta mais."}}</p>
+<p class="muted" style="margin:0">{{if .ServerMode}}{{t "Esse texto vai para o mesmo lugar que o áudio. Transcrevendo neste servidor, nada sai dele. Num servidor de transcrição ou na OpenAI, o texto sai junto com o áudio."}}{{else}}{{t "Esse texto vai para o mesmo lugar que o áudio. Transcrevendo neste computador, nada sai daqui. Num servidor de transcrição ou na OpenAI, o texto sai do computador junto com o áudio."}}{{end}}</p>
+<p class="muted" style="margin:0">{{t "Nada: vai só o áudio. Só os nomes: até seis nomes, o da conversa e os das pessoas que falaram nela, cada um com poucas palavras, sem nenhuma mensagem. Nomes e mensagens recentes: também as últimas mensagens de texto antes do áudio, até umas 600 letras."}}</p>
+<p class="muted" style="margin:0">{{t "As mensagens recentes pesam mais que a língua do áudio: numa conversa em português, um áudio em espanhol pode sair traduzido para o português. Por isso, sem escolha sua, vão só os nomes quando a transcrição é aqui, e nada quando é num servidor ou na OpenAI."}}</p>
+<p class="muted" style="margin:0">{{t "Os áudios já transcritos continuam como estão. Para refazer um com o contexto novo, peça à sua ferramenta de IA para transcrevê-lo de novo."}}</p>
+</div></details>
+<div class="dialog__actions"><span class="actions actions--end"><a class="btn btn--quiet" href="#transcricao">{{t "Cancelar"}}</a><button class="btn" type="submit">{{t "Salvar"}}</button></span></div>
+</form>
+</div></div></div>{{end}}
+
+{{/* Where voice notes are transcribed: the choice and what each place needs,
+in a dialog that opens through the address like the others. The model is an
+advanced choice: closed unless one other than the default was saved. */}}
+{{if not .ASR.FromEnv}}<div class="overlay" id="asr-dialog" role="dialog" aria-modal="true" aria-labelledby="asr-dialog-titulo" data-asr-dialog>
+<div class="dialog">
+<div class="dialog__head"><h2 id="asr-dialog-titulo">{{t "Onde transcrever"}}</h2><a class="dialog__close" href="#transcricao" aria-label="{{t "Fechar"}}" data-asr-close>&times;</a></div>
+<div class="dialog__body">
+<form class="stack" data-asr-remote-form>
+<div class="stack" role="group" aria-labelledby="asr-onde" aria-describedby="asr-onde-dica">
+<p class="field"><span class="field__label" id="asr-onde">{{t "Transcrever os áudios"}}</span><span class="field__hint" id="asr-onde-dica">{{t "Onde os áudios viram texto quando você pede."}}</span></p>
+<label class="check"><input type="radio" name="asr-mode" value="local" data-asr-mode{{if eq .ASR.Mode "local"}} checked{{end}}><span>{{if .ServerMode}}<strong>{{t "Neste servidor"}}</strong><span class="check__hint">{{t "O áudio não sai do servidor."}}</span>{{else}}<strong>{{t "Neste computador"}}</strong><span class="check__hint" data-asr-local-hint="ok"{{if .Local.Unavailable}} hidden{{end}}>{{t "O áudio não sai daqui."}}</span><span class="check__hint" data-asr-local-hint="unavailable"{{if not .Local.Unavailable}} hidden{{end}}>{{t "Ainda não funciona no Windows."}}</span>{{end}}</span></label>
+<label class="check"><input type="radio" name="asr-mode" value="remote" data-asr-mode{{if eq .ASR.Mode "remote"}} checked{{end}}><span><strong>{{t "Em um servidor compatível com a OpenAI"}}</strong><span class="check__hint">{{t "Qualquer servidor que fale a API de transcrição da OpenAI, na internet ou na sua rede: você informa o endereço e a chave dele."}}</span></span></label>
+<label class="check"><input type="radio" name="asr-mode" value="openai" data-asr-mode{{if eq .ASR.Mode "openai"}} checked{{end}}><span><strong>{{t "Na OpenAI"}}</strong><span class="check__hint">{{t "Com a sua chave da API. O áudio vai para a OpenAI, que cobra por minuto de áudio."}}</span></span></label>
+</div>
+<div class="stack" data-asr-fields="remote"{{if ne .ASR.Mode "remote"}} hidden{{end}}>
+<div><label class="field" for="asr-remote-url"><span class="field__label">{{t "Endereço"}}</span><span class="field__hint">{{t "O endereço do servidor, como https://transcricao.exemplo.com ou http://192.168.0.10:47823."}}</span></label>
+<input id="asr-remote-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="{{t "https://transcricao.exemplo.com"}}" value="{{.ASR.RemoteURL}}" data-asr-remote-url></div>
+<div><label class="field" for="asr-remote-token"><span class="field__label">{{t "Chave"}}</span><span class="field__hint">{{if .ASR.HasRemoteToken}}{{t "Guardada. Deixe em branco para manter a mesma."}}{{else}}{{t "A chave do servidor, se ele pedir uma."}}{{end}}</span></label>
+<input id="asr-remote-token" type="password" autocomplete="off" spellcheck="false" data-asr-remote-token></div>
+<details class="disclose" data-asr-advanced{{if .ASR.RemoteModel}} open{{end}}><summary>{{t "Avançado"}}</summary>
+<div><label class="field" for="asr-remote-model"><span class="field__label">{{t "Modelo"}}</span><span class="field__hint">{{t "Só se o servidor pedir um. Em branco, o padrão."}} <span class="tip tip--quiet" tabindex="0" aria-describedby="tip-asr-remote-model"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-remote-model">{{t "O nome do modelo que o servidor espera, mandado no campo model. Em branco, vai whisper-1."}}</span></span></span></label>
+<input id="asr-remote-model" type="text" autocomplete="off" spellcheck="false" placeholder="whisper-1" value="{{.ASR.RemoteModel}}" data-asr-remote-model></div>
+</details>
+</div>
+<div class="stack" data-asr-fields="openai"{{if ne .ASR.Mode "openai"}} hidden{{end}}>
+<div><label class="field" for="asr-openai-key"><span class="field__label">{{t "Chave da API"}}</span><span class="field__hint">{{if .ASR.HasOpenAIKey}}{{t "Guardada. Deixe em branco para manter a mesma."}}{{else}}{{t "Crie uma em platform.openai.com, em API keys."}}{{end}}</span></label>
+<input id="asr-openai-key" type="password" autocomplete="off" spellcheck="false" data-asr-openai-key></div>
+<details class="disclose" data-asr-advanced{{if and .ASR.OpenAIModel (ne .ASR.OpenAIModel "whisper-1")}} open{{end}}><summary>{{t "Avançado"}}</summary>
+<div><label class="field" for="asr-openai-model"><span class="field__label">{{t "Modelo"}}</span><span class="field__hint">{{t "Em branco, o padrão."}} <span class="tip tip--quiet" tabindex="0" aria-describedby="tip-asr-openai-model"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-asr-openai-model">{{t "O padrão é whisper-1. Também servem gpt-4o-transcribe e gpt-4o-mini-transcribe, que a OpenAI cobra de outro jeito."}}</span></span></span></label>
+<input id="asr-openai-model" type="text" list="asr-openai-models" autocomplete="off" spellcheck="false" placeholder="whisper-1" value="{{.ASR.OpenAIModel}}" data-asr-openai-model></div>
+<datalist id="asr-openai-models">{{range .ASR.OpenAIModels}}<option value="{{.}}">{{end}}</datalist>
+</details>
+</div>
+<p class="alert" role="alert" data-asr-remote-error hidden></p>
+<div class="dialog__actions"><span class="actions actions--end"><a class="btn btn--quiet" href="#transcricao" data-asr-close data-asr-cancel>{{t "Cancelar"}}</a><button class="btn" type="submit" data-asr-submit>{{t "Salvar e testar"}}</button></span></div>
+</form>
+</div></div></div>{{end}}
+
+{{if .App}}
+{{template "updatecard" .}}
 
 {{end}}
 
@@ -788,35 +909,18 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <section class="card" id="enderecos">
 <div class="card__head"><h2 class="card__title">{{icon "globe"}}{{t "Endereços do servidor"}}</h2></div>
 <div class="card__body stack">
-<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço público"}}</span></div><pre data-copy><code>{{.PublicURL}}</code></pre></div>
-{{with .InternalURL}}<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço na rede interna"}}</span></div><pre data-copy><code>{{.}}</code></pre></div>
-<p class="muted">{{t "O endereço interno é para onde aponta o programa que fica na frente do servidor (Traefik, Caddy, Dokploy, um túnel). Os dois são definidos na instalação e não mudam por aqui."}}</p>{{end}}
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço público"}}</span></div><pre class="plain" data-copy><code>{{.PublicURL}}</code></pre></div>
+{{if .InsecurePublic}}<div class="note note--accent" role="note"><p><strong>{{t "Este endereço não é protegido."}}</strong> {{t "A senha do painel, as chaves e as mensagens passam por ele sem criptografia. Instale de novo com um endereço que comece com https."}} <span class="tip" tabindex="0" aria-describedby="tip-http"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-http">{{t "O endereço público começa com http://. Ponha na frente um proxy ou túnel com HTTPS e defina WHATSAPP_MCP_PUBLIC_URL com https://."}}</span></span></p></div>{{end}}
+{{with .InternalURL}}<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço na rede interna"}}</span></div><pre class="plain" data-copy><code>{{.}}</code></pre></div>
+<p class="muted">{{t "O endereço interno é para onde aponta o programa que deixa o servidor acessível na internet. Os dois são definidos na instalação e não mudam por aqui."}} <span class="tip" tabindex="0" aria-describedby="tip-enderecos"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-enderecos">{{t "O programa na frente do servidor é um proxy reverso, como o Traefik, o Caddy ou o Dokploy, ou um túnel. Os endereços vêm das variáveis WHATSAPP_MCP_PUBLIC_URL e WHATSAPP_MCP_PUBLIC_LISTEN."}}</span></span></p>{{end}}
 </div></section>
 
 {{end}}
 {{if .Release}}
-<section class="card" id="atualizacoes" data-update data-update-server>
-<div class="card__head"><h2 class="card__title">{{icon "refresh"}}{{t "Versão e atualizações"}}</h2></div>
-<div class="card__body stack">
-<div class="version-bar">
-<div class="version"><span class="version__label">{{t "Versão instalada"}}</span>
-<div class="version__row"><span class="version__number">{{.Settings.Version}}</span><span class="pill" data-update-badge hidden></span></div></div>
-<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-update-check>{{t "Procurar atualização"}}</button><a class="btn btn--ghost btn--small" data-update-page href="{{.Update.Page}}" target="_blank" rel="noopener"{{if not (and (eq .Update.State "available") .Update.Page)}} hidden{{end}}>{{t "Ver o que mudou"}}</a></div>
-{{with .Settings.WacliVersion}}<span class="muted version-bar__wacli">{{tf "wacli %s" .}}</span>{{end}}
-</div>
-<p class="muted version__note" data-update-text hidden></p>
-<div class="stack" data-update-how{{if ne .Update.State "available"}} hidden{{end}}>
-{{if .Release.Container}}<p>{{t "Para atualizar, rode no servidor, na pasta da instalação:"}}</p>
-<div class="snippet"><pre data-copy><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
-<p class="muted">{{t "Se o arquivo .env dessa pasta fixa uma versão (WHATSAPP_MCP_VERSION), troque-a pela nova antes. Suas conversas e configurações ficam."}}</p>
-{{else}}<p>{{t "Para atualizar, rode no servidor:"}}</p>
-<div class="snippet"><pre data-copy><code>whatsapp-mcp update</code></pre></div>
-<p class="muted">{{t "Ele baixa a versão nova, confere o arquivo e reinicia o serviço. Suas conversas e configurações ficam."}}</p>
-{{end}}</div>
-</div></section>
+{{template "updatecard" .}}
 
 {{end}}
-<section class="card" id="aparencia" hidden data-theme-switch>
+<section class="card" id="aparencia" data-theme-switch>
 <div class="card__head"><h2 class="card__title">{{icon "palette"}}{{t "Aparência"}}</h2></div>
 <div class="card__body">
 <fieldset class="themes"><legend class="sr-only">{{t "Tema"}}</legend>
@@ -830,17 +934,21 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <section class="card" id="idioma">
 <div class="card__head"><h2 class="card__title">{{icon "globe"}}{{t "Idioma"}}</h2></div>
 <div class="card__body stack">
+{{/* A form only for a browser without scripts: with them, choosing is enough. */}}
+<form class="stack" method="post" action="/configuracoes/idioma">
 <fieldset class="languages stack"><legend class="sr-only">{{t "Idioma"}}</legend>
-<label class="check"><input type="radio" name="idioma" value="" data-language{{if eq $chosen ""}} checked{{end}}><span><strong>{{t "O do sistema"}}</strong><span class="check__hint">{{t "Português, español ou English, conforme o idioma do computador."}}</span></span></label>
+<label class="check"><input type="radio" name="idioma" value="" data-language{{if eq $chosen ""}} checked{{end}}><span>{{if .ServerMode}}<strong>{{t "O do servidor"}}</strong><span class="check__hint">{{t "Português, español ou English, conforme o idioma configurado no servidor."}}</span>{{else}}<strong>{{t "O do sistema"}}</strong><span class="check__hint">{{t "Português, español ou English, conforme o idioma do computador."}}</span>{{end}}</span></label>
 {{range languages}}<label class="check" lang="{{.Code}}"><input type="radio" name="idioma" value="{{.Code}}" data-language{{if eq $chosen .Code}} checked{{end}}><span class="check__flag hint">{{flag .Code}}<strong>{{.Name}}</strong>{{template "hint" .Code}}</span></label>
 {{end}}</fieldset>
+<noscript><div class="actions"><button class="btn btn--small" type="submit">{{t "Salvar"}}</button></div></noscript>
+</form>
 <p class="busy" data-language-note role="status" hidden></p>
 </div></section>
 
 <section class="card" id="arquivos" data-media>
 <div class="card__head"><h2 class="card__title">{{icon "folder"}}{{t "Arquivos baixados"}}</h2></div>
 <div class="card__body stack">
-<p class="muted">{{t "Fotos, áudios e documentos que a sua ferramenta de IA abriu ficam guardados neste computador, para não serem baixados de novo. Apagar não perde nenhuma mensagem: se precisar, o arquivo é baixado outra vez, enquanto o WhatsApp ainda o tiver."}}</p>
+<p class="muted">{{if .ServerMode}}{{t "Fotos, áudios e documentos que a sua ferramenta de IA abriu ficam guardados neste servidor, para não serem baixados de novo. Apagar não perde nenhuma mensagem: se precisar, o arquivo é baixado outra vez, enquanto o WhatsApp ainda o tiver."}}{{else}}{{t "Fotos, áudios e documentos que a sua ferramenta de IA abriu ficam guardados neste computador, para não serem baixados de novo. Apagar não perde nenhuma mensagem: se precisar, o arquivo é baixado outra vez, enquanto o WhatsApp ainda o tiver."}}{{end}}</p>
 <dl class="facts">
 <div class="fact"><dt>{{t "Espaço usado"}}</dt><dd data-media-bytes>…</dd></div>
 <div class="fact"><dt>{{t "Arquivos"}}</dt><dd data-media-files>…</dd></div>
@@ -848,19 +956,47 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </dl>
 <p class="muted" data-media-types hidden></p>
 <div class="actions"><label class="check check--inline"><input type="checkbox" data-media-retention><span>{{t "Apagar sozinho os arquivos baixados há mais de"}}</span></label><input class="input--short" type="number" min="1" max="3650" value="30" aria-label="{{t "dias"}}" data-media-days disabled><span class="muted">{{t "dias"}}</span></div>
-<p class="muted" style="margin:0">{{t "As exportações de conversas ficam até você apagar."}} <span class="tip" tabindex="0" aria-describedby="tip-exportacoes"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-exportacoes">{{t "Quando você pede à sua ferramenta de IA para exportar conversas, ela grava um arquivo com as mensagens neste computador, para analisar sem carregar tudo na conversa."}}</span></span></p>
+<p class="muted" style="margin:0">{{t "As exportações de conversas ficam até você apagar."}} <span class="tip" tabindex="0" aria-describedby="tip-exportacoes"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-exportacoes">{{if .ServerMode}}{{t "Quando você pede à sua ferramenta de IA para exportar conversas, ela grava um arquivo com as mensagens neste servidor, para analisar sem carregar tudo na conversa."}}{{else}}{{t "Quando você pede à sua ferramenta de IA para exportar conversas, ela grava um arquivo com as mensagens neste computador, para analisar sem carregar tudo na conversa."}}{{end}}</span></span></p>
 <div class="actions"><button class="btn btn--ghost btn--small" type="button" data-media-clear hidden>{{t "Apagar os arquivos baixados"}}</button><button class="btn btn--ghost btn--small" type="button" data-media-clear-exports hidden>{{t "Apagar as exportações"}}</button></div>
 <p class="busy" data-media-note role="status" hidden></p>
 </div></section>
-<script src="/assets/settings.js" defer></script>
 
 <section class="card" id="logs">
 <div class="card__head"><h2 class="card__title">{{icon "activity"}}{{t "Logs para suporte"}}</h2></div>
 <div class="card__body stack">
 <p class="muted">{{t "Se algo estranho acontecer, baixe os logs e mande o arquivo para o suporte. Ele mostra o que o app fez e quando, sem o texto das mensagens, nomes ou números."}} <span class="tip" tabindex="0" aria-describedby="tip-logs"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-logs">{{t "Números, contatos, grupos e links viram códigos, sempre o mesmo para o mesmo contato. O arquivo é um texto que você pode abrir e ler antes de mandar. Ficam guardados os últimos 7 dias."}}</span></span></p>
-<div class="actions"><button class="btn btn--ghost btn--small" type="button" data-logs-hours="24">{{t "Últimas 24 horas"}}</button><button class="btn btn--small" type="button" data-logs-hours="72">{{t "Últimos 3 dias"}}</button><button class="btn btn--ghost btn--small" type="button" data-logs-hours="168">{{t "Últimos 7 dias"}}</button></div>
-<p class="busy" data-logs-note role="status" hidden></p>
+<div class="actions"><a class="btn btn--ghost btn--small" href="#logs-dialog" data-logs-open>{{t "Baixar os logs"}}</a></div>
 </div></section>
+
+{{/* Logs: the period is a radio of a plain GET form, so the file downloads
+without the script too; settings.js sends it through the API instead, which
+in the desktop app saves it in Downloads (its window cannot download). */}}
+<div class="overlay" id="logs-dialog" role="dialog" aria-modal="true" aria-labelledby="logs-dialog-titulo" data-logs-dialog>
+<div class="dialog">
+<div class="dialog__head"><h2 id="logs-dialog-titulo">{{t "Baixar os logs"}}</h2><a class="dialog__close" href="#logs" aria-label="{{t "Fechar"}}" data-logs-close>&times;</a></div>
+<div class="dialog__body">
+<form class="stack" method="get" action="/diagnostico/logs.txt" data-logs-form>
+{{if .SupportEmail}}<ol class="secret__steps">
+<li class="secret__step"><span class="step__n" aria-hidden="true">1</span><div class="secret__step-body stack">
+<p class="step__title">{{t "Baixe o arquivo"}}</p>
+{{template "logs-period"}}
+<div class="actions"><button class="btn" type="submit" data-logs-submit>{{t "Baixar"}}</button></div>
+<p class="busy" data-logs-note role="status" hidden></p>
+<p class="alert" role="alert" data-logs-error hidden></p>
+</div></li>
+<li class="secret__step"><span class="step__n" aria-hidden="true">2</span><div class="secret__step-body">
+<p class="step__title">{{t "Mande para o suporte"}}</p>
+<p class="muted">{{t "Depois, mande o arquivo para o suporte, anexado a um e-mail para este endereço:"}}</p>
+<div class="snippet snippet--mail"><pre class="plain" data-copy><code><a href="mailto:{{.SupportEmail}}?subject={{t "WhatsApp MCP: logs"}}" data-logs-mail>{{.SupportEmail}}</a></code></pre></div>
+</div></li>
+</ol>
+<div class="dialog__actions"><a class="btn btn--quiet" href="#logs" data-logs-close data-logs-cancel>{{t "Cancelar"}}</a></div>
+{{else}}{{template "logs-period"}}
+<p class="busy" data-logs-note role="status" hidden></p>
+<p class="alert" role="alert" data-logs-error hidden></p>
+<div class="dialog__actions"><span class="actions actions--end"><a class="btn btn--quiet" href="#logs" data-logs-close data-logs-cancel>{{t "Cancelar"}}</a><button class="btn" type="submit" data-logs-submit>{{t "Baixar"}}</button></span></div>
+{{end}}</form>
+</div></div></div>
 
 {{if .App}}
 <section class="card" id="dados">
@@ -871,16 +1007,16 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <div class="actions"><button class="btn btn--ghost btn--small" type="button" data-open-folder>{{t "Abrir a pasta"}}</button><a class="btn btn--danger btn--small" href="#apagar-tudo">{{t "Apagar todos os dados deste computador"}}</a></div>
 </div></section>
 
-<div class="overlay" id="apagar-tudo" role="dialog" aria-modal="true" aria-labelledby="apagar-tudo-titulo">
+<div class="overlay" id="apagar-tudo" role="dialog" aria-modal="true" aria-labelledby="apagar-tudo-titulo" data-modal>
 <div class="dialog">
-<div class="dialog__head"><h2 id="apagar-tudo-titulo">{{t "Apagar tudo?"}}</h2><a class="dialog__close" href="#" aria-label="{{t "Fechar"}}">&times;</a></div>
+<div class="dialog__head"><h2 id="apagar-tudo-titulo">{{t "Apagar tudo?"}}</h2><a class="dialog__close" href="#dados" aria-label="{{t "Fechar"}}">&times;</a></div>
 <div class="dialog__body">
 <p>{{t "Este computador sai dos dispositivos conectados do seu WhatsApp. As mensagens guardadas, as transcrições, o modelo e as mídias são apagados, e o app fecha. Não tem volta."}}</p>
 <p class="muted">{{t "O WhatsApp no celular não perde nada."}}</p>
 <form method="post" action="/configuracoes/apagar" data-busy="{{t "Apagando…"}}">
 <label class="field" for="confirm"><span class="field__label">{{tf "Digite <strong>%s</strong> para confirmar" (t "apagar")}}</span></label>
 <input id="confirm" type="text" name="confirm" autocomplete="off" spellcheck="false" required>
-<div class="actions actions--end" style="margin-top:14px"><a class="btn btn--quiet" href="#">{{t "Cancelar"}}</a><button class="btn btn--danger" type="submit">{{t "Apagar tudo"}}</button></div>
+<div class="actions actions--end" style="margin-top:14px"><a class="btn btn--quiet" href="#dados">{{t "Cancelar"}}</a><button class="btn btn--danger" type="submit">{{t "Apagar tudo"}}</button></div>
 </form>
 </div></div></div>
 {{end}}
@@ -906,38 +1042,67 @@ login or a key. */}}
 <h1>{{t "Conexões pelo endereço do servidor"}}</h1>
 <p class="lead">{{t "As ferramentas de IA que usam o seu WhatsApp de fora, pelo endereço do servidor. Cada uma entra de um jeito: pelo login, com a senha do painel, ou com uma chave."}}</p>
 {{with .OK}}<p class="alert alert--ok" role="status">{{.}}</p>{{end}}
-{{if .NewKey}}<section class="card">
-<div class="card__head"><h2>{{tf "Chave criada: %s" .NewKeyName}}</h2></div>
-<div class="card__body">
-<p>{{t "Copie a chave agora: ela não aparece de novo. Guarde como uma senha."}}</p>
-<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Chave"}}</span></div><pre data-copy><code>{{.NewKey}}</code></pre></div>
+{{/* Who is let in, each row with one button to its dialog, where cutting
+the access is red and asks once more. A new key shows once, in the numbered
+box, and the button to create another comes back with Finalizar. */}}
+<section class="card" id="com-acesso">
+<div class="card__head"><h2>{{t "Com acesso agora"}}</h2>{{if and .Items (not .NewKey)}}<a class="btn btn--ghost btn--small" href="#chave-dialog">{{t "Criar uma chave"}}</a>{{end}}</div>
+<div class="card__body stack">
+{{if .NewKey}}<div class="secret">
+<p class="secret__title">{{tf "Chave criada: %s" .NewKeyName}}</p>
+<ol class="secret__steps">
+<li class="secret__step"><span class="step__n" aria-hidden="true">1</span><div class="secret__step-body">
+<p class="step__title">{{t "Guarde a chave"}}</p>
+<p class="muted">{{t "Ela não aparece de novo. Guarde como uma senha. Se ninguém a usar em 24 horas, ela deixa de valer."}}</p>
+<div class="snippet" style="margin-top:10px"><pre data-copy><code>{{.NewKey}}</code></pre></div>
+</div></li>
+<li class="secret__step"><span class="step__n" aria-hidden="true">2</span><div class="secret__step-body">
+<p class="step__title">{{t "Use na sua ferramenta"}}</p>
+<p class="muted">{{t "Cole o endereço do MCP e a chave na ferramenta. No Claude Code, é este comando:"}} <span class="tip" tabindex="0" aria-describedby="tip-chave-header"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-chave-header">{{t "A ferramenta manda a chave no cabeçalho Authorization: Bearer."}}</span></span></p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço do MCP"}}</span></div><pre data-copy><code>{{.Address}}</code></pre></div>
-<p class="muted">{{t "A ferramenta manda a chave no cabeçalho Authorization: Bearer, como neste exemplo do Claude Code. Se ninguém usar a chave em 24 horas, ela deixa de valer."}}</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">Claude Code</span></div><pre data-copy><code>claude mcp add --transport http whatsapp {{.Address}} --header "Authorization: Bearer {{.NewKey}}"</code></pre></div>
-</div></section>{{end}}
-<section class="card">
-<div class="card__head"><h2>{{t "Com acesso agora"}}</h2></div>
-<div class="card__body">
+</div></li>
+</ol>
+<div class="actions"><a class="btn btn--small" href="/conexoes">{{t "Finalizar"}}</a></div>
+</div>{{end}}
 {{if .Items}}<ul class="rows">
-{{range .Items}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}</span>
+{{range $i, $c := .Items}}<li class="row"><span class="row__main"><span class="row__title">{{.Name}}</span>
 <span class="row__meta">{{.Kind}} · {{.Access}} · {{.Created}} · {{.Used}}</span></span>
 {{if .Expired}}<span class="pill pill--warn">{{t "Expirada"}}</span>{{end}}
-<form method="post" action="/conexoes/revogar"><input type="hidden" name="kind" value="{{.KindKey}}"><input type="hidden" name="id" value="{{.ID}}"><button class="btn btn--danger btn--small" type="submit">{{t "Cortar acesso"}}</button></form>
+<a class="btn btn--ghost btn--small" href="#acesso-{{$i}}" aria-label="{{tf "Gerenciar %s" .Name}}">{{t "Gerenciar"}}</a>
 </li>{{end}}
 </ul>
 <p class="muted">{{t "Cortar o acesso vale na hora. Trocar a senha do painel corta todos os logins, mas não as chaves."}}</p>
 {{else}}<div class="empty"><p class="empty__title">{{t "Nenhuma ferramenta entrou ainda"}}</p>
-<p class="muted">{{tf "Cole o endereço %s no conector do Claude ou do ChatGPT para entrar com a senha do painel, ou crie uma chave abaixo." .Address}}</p></div>{{end}}
+<p class="muted" style="margin:6px 0 12px">{{tf "Cole o endereço %s no conector do Claude ou do ChatGPT para entrar com a senha do painel. Para ferramentas que não fazem login, crie uma chave." .Address}}</p>{{if not .NewKey}}<a class="btn btn--ghost btn--small" href="#chave-dialog">{{t "Criar uma chave"}}</a>{{end}}</div>{{end}}
 </div></section>
-<section class="card">
-<div class="card__head"><h2>{{t "Criar uma chave"}}</h2></div>
-<div class="card__body">
-<p class="muted">{{t "Para ferramentas que não fazem login, como o Claude Code, o Codex, o n8n ou um script. A chave aparece uma vez só, e se ninguém a usar em 24 horas ela deixa de valer."}}</p>
-<form method="post" action="/conexoes/chaves">
-<label class="field" for="chave-nome"><span class="field__label">{{t "Nome"}}</span><span class="field__hint">{{t "Para você reconhecer depois, como o nome da ferramenta."}}</span></label>
-<input id="chave-nome" type="text" name="name" maxlength="60" required autocomplete="off" spellcheck="false">
-<label class="check" style="margin-top:12px"><input type="checkbox" name="read_only" value="1"><span>{{t "Só ler: vê e busca, mas não envia, não apaga e não mexe em grupos"}}</span></label>
-<div class="actions" style="margin-top:14px"><button class="btn" type="submit">{{t "Criar chave"}}</button></div>
+
+{{range $i, $c := .Items}}<div class="overlay" id="acesso-{{$i}}" role="dialog" aria-modal="true" aria-labelledby="acesso-{{$i}}-titulo" data-modal>
+<div class="dialog">
+<div class="dialog__head"><h2 id="acesso-{{$i}}-titulo">{{.Name}}</h2><a class="dialog__close" href="#com-acesso" aria-label="{{t "Fechar"}}">&times;</a></div>
+<div class="dialog__body stack">
+<p class="muted">{{.Kind}} · {{.Access}} · {{.Created}} · {{.Used}}</p>
+<form id="cortar-{{$i}}" method="post" action="/conexoes/revogar"><input type="hidden" name="kind" value="{{.KindKey}}"><input type="hidden" name="id" value="{{.ID}}"></form>
+<div class="dialog__actions"><button class="btn btn--danger" type="submit" form="cortar-{{$i}}" data-confirm="#acesso-{{$i}}-confirmar">{{t "Cortar acesso"}}</button><span class="actions actions--end"><a class="btn btn--quiet" href="#com-acesso">{{t "Fechar"}}</a></span></div>
+<div class="confirm" role="group" aria-labelledby="acesso-{{$i}}-confirmar-titulo" id="acesso-{{$i}}-confirmar" hidden>
+<p class="confirm__title" id="acesso-{{$i}}-confirmar-titulo">{{t "Cortar o acesso?"}}</p>
+<p class="confirm__text">{{t "A ferramenta para de usar o seu WhatsApp na hora. Para voltar, ela precisa entrar de novo ou de uma chave nova."}}</p>
+<span class="actions actions--end"><button class="btn btn--quiet" type="button" data-confirm-no>{{t "Não cortar"}}</button><button class="btn btn--danger" type="submit" form="cortar-{{$i}}">{{t "Cortar mesmo"}}</button></span>
+</div>
+</div></div></div>
+{{end}}
+
+<div class="overlay" id="chave-dialog" role="dialog" aria-modal="true" aria-labelledby="chave-dialog-titulo" data-modal>
+<div class="dialog">
+<div class="dialog__head"><h2 id="chave-dialog-titulo">{{t "Criar uma chave"}}</h2><a class="dialog__close" href="#com-acesso" aria-label="{{t "Fechar"}}">&times;</a></div>
+<div class="dialog__body">
+<form class="stack" method="post" action="/conexoes/chaves">
+{{if eq .ErrorIn "chave-dialog"}}<p class="alert" role="alert">{{.DialogError}}</p>{{end}}
+<p class="muted" style="margin:0">{{t "Para ferramentas que não fazem login, como o Claude Code, o Codex, o n8n ou um script. A chave aparece uma vez só, e se ninguém a usar em 24 horas ela deixa de valer."}}</p>
+<div><label class="field" for="chave-nome"><span class="field__label">{{t "Nome"}}</span><span class="field__hint">{{t "Para você reconhecer depois, como o nome da ferramenta."}}</span></label>
+<input id="chave-nome" type="text" name="name" maxlength="60" required autocomplete="off" spellcheck="false"></div>
+<label class="check"><input type="checkbox" name="read_only" value="1"><span>{{t "Só ler: vê e busca, mas não envia, não apaga e não mexe em grupos"}}</span></label>
+<div class="dialog__actions"><span class="actions actions--end"><a class="btn btn--quiet" href="#com-acesso">{{t "Cancelar"}}</a><button class="btn" type="submit">{{t "Criar chave"}}</button></span></div>
 </form>
-</div></section>
+</div></div></div>
 {{template "foot" .}}{{end}}`

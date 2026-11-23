@@ -65,6 +65,35 @@ func TestLanguageOnTheCommandLine(t *testing.T) {
 	}
 }
 
+// "O do servidor" goes back to the language the command line started with:
+// WHATSAPP_MCP_LANG, which a server in Docker without LANG relies on, not the
+// system's.
+func TestNoChoiceFollowsTheStartLanguage(t *testing.T) {
+	defer i18n.Set(i18n.Source)
+	for _, v := range []string{"LC_ALL", "LC_MESSAGES"} {
+		t.Setenv(v, "")
+	}
+	t.Setenv("LANG", "en_US.UTF-8")
+	p := &Panel{DataDir: t.TempDir()}
+
+	t.Setenv("WHATSAPP_MCP_LANG", "pt-BR")
+	i18n.Set("es")
+	if err := p.setLanguage(""); err != nil {
+		t.Fatal(err)
+	}
+	if i18n.Lang() != "pt-BR" {
+		t.Errorf("with WHATSAPP_MCP_LANG=pt-BR, no choice shows %q", i18n.Lang())
+	}
+
+	t.Setenv("WHATSAPP_MCP_LANG", "")
+	if err := p.setLanguage(""); err != nil {
+		t.Fatal(err)
+	}
+	if i18n.Lang() != "en" {
+		t.Errorf("without WHATSAPP_MCP_LANG, no choice shows %q, want the system's (en)", i18n.Lang())
+	}
+}
+
 // The first screen offers every language, each named in itself and, on hover,
 // in the panel's language, with the one shown pressed; Configurações offers
 // them on the command line too.
@@ -143,5 +172,86 @@ func TestCountsListsAndDates(t *testing.T) {
 	}
 	if got := string(liveTools(tools[:1])); got != "<strong>Claude Code</strong>" {
 		t.Errorf("one tool: %q", got)
+	}
+}
+
+// A language change does not blink: the page's scripts come back as "not
+// modified", Aparência is shown by a mark theme.js sets before the first
+// paint rather than unhidden later, the cross-fade waits on reduced motion,
+// and a browser without scripts still changes the language with a plain form.
+func TestLanguageChangeKeepsThePageStill(t *testing.T) {
+	defer i18n.Set(i18n.Source)
+
+	mux := http.NewServeMux()
+	registerAssets(mux)
+	get := func(etag string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("GET", "http://127.0.0.1:47821/assets/app.js", nil)
+		if etag != "" {
+			r.Header.Set("If-None-Match", etag)
+		}
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r)
+		return w
+	}
+	first := get("")
+	tag := first.Header().Get("ETag")
+	if first.Code != http.StatusOK || tag == "" || first.Header().Get("Cache-Control") != "no-cache" {
+		t.Fatalf("app.js: %d, ETag %q, Cache-Control %q; want 200, a tag and no-cache", first.Code, tag, first.Header().Get("Cache-Control"))
+	}
+	if again := get(tag); again.Code != http.StatusNotModified {
+		t.Errorf("app.js asked again with its tag: %d, want 304", again.Code)
+	}
+
+	if !strings.Contains(stylesheet, "@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}") {
+		t.Error("the stylesheet lacks the cross-fade, or does not keep it from reduced motion")
+	}
+	if !strings.Contains(stylesheet, "[data-themes] [data-theme-switch]{display:block}") {
+		t.Error("the stylesheet does not show Aparência by theme.js's mark")
+	}
+	var b strings.Builder
+	if err := parseTemplates().ExecuteTemplate(&b, "configuracoes", struct {
+		layout
+		Setup       setup
+		Port        int
+		PortChanged bool
+		Local       localasr.Status
+		ASR         transcriptionView
+		Total       int
+		Corrected   int
+	}{layout: layout{Title: "Configurações", Active: "configuracoes"}}); err != nil {
+		t.Fatal(err)
+	}
+	page := b.String()
+	if !strings.Contains(page, `id="aparencia" data-theme-switch>`) {
+		t.Error("Aparência is still hidden in the markup, to be shown late")
+	}
+	if !strings.Contains(page, `<form class="stack" method="post" action="/configuracoes/idioma">`) || !strings.Contains(page, `<noscript>`) {
+		t.Error("the Idioma card has no form for a browser without scripts")
+	}
+
+	dir := t.TempDir()
+	if err := appconfig.Save(dir, appconfig.Config{Port: 47999}); err != nil {
+		t.Fatal(err)
+	}
+	p := &Panel{DataDir: dir}
+	forms := http.NewServeMux()
+	forms.HandleFunc("POST /configuracoes/idioma", p.form(p.languageForm))
+	post := func(value string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "http://127.0.0.1:47821/configuracoes/idioma", strings.NewReader("idioma="+value))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r.Header.Set("Sec-Fetch-Site", "same-origin")
+		r.Header.Set("Origin", "http://127.0.0.1:47821")
+		w := httptest.NewRecorder()
+		forms.ServeHTTP(w, r)
+		return w
+	}
+	if w := post("en"); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/configuracoes#idioma" {
+		t.Errorf("the form: %d to %q, want 303 to /configuracoes#idioma", w.Code, w.Header().Get("Location"))
+	}
+	if i18n.Lang() != "en" || p.chosenLanguage() != "en" {
+		t.Errorf("after the form the panel shows %q and keeps %q, want en", i18n.Lang(), p.chosenLanguage())
+	}
+	if w := post("fr"); !strings.HasPrefix(w.Header().Get("Location"), "/configuracoes?erro=") || p.chosenLanguage() != "en" {
+		t.Errorf("an unknown language: to %q, keeping %q; want an error and en kept", w.Header().Get("Location"), p.chosenLanguage())
 	}
 }

@@ -29,7 +29,13 @@ type recipe struct {
 // is also why each recipe names the tools it leans on — someone adapting one
 // needs to know which parts are real capabilities and which parts are just
 // instructions.
-func recipeBook() []recipe {
+func recipeBook(server bool) []recipe {
+	handledCaveat := i18n.T("Respostas curtas como \"ok\", \"obrigado\" ou 👍 não contam como espera. As marcas de resolvido e adiado ficam só neste computador: a outra pessoa não vê nada, e uma mensagem nova traz a conversa de volta.")
+	fileCaveat := i18n.T("Quem lê o arquivo é a sua ferramenta de IA: o Claude lê fotos e PDFs, e um Word ou uma planilha dependem do que ela consegue abrir. Um arquivo grande chega como um link deste computador. Para áudio, a transcrição. O arquivo baixado fica na pasta do app; media_stats diz quanto espaço ocupa e purge_media libera.")
+	if server {
+		handledCaveat = i18n.T("Respostas curtas como \"ok\", \"obrigado\" ou 👍 não contam como espera. As marcas de resolvido e adiado ficam só neste servidor: a outra pessoa não vê nada, e uma mensagem nova traz a conversa de volta.")
+		fileCaveat = i18n.T("Quem lê o arquivo é a sua ferramenta de IA: o Claude lê fotos e PDFs, e um Word ou uma planilha dependem do que ela consegue abrir. Um arquivo grande chega como um link deste servidor. Para áudio, a transcrição. O arquivo baixado fica na pasta do servidor; media_stats diz quanto espaço ocupa e purge_media libera.")
+	}
 	return []recipe{
 		{
 			Title:   i18n.T("Agendar uma mensagem"),
@@ -72,7 +78,7 @@ Ordene pela mais antiga.
 Quando eu disser que uma já está resolvida, marque com mark_handled.
 Se eu pedir para lembrar depois, use snooze_chat.`),
 			Schedule: i18n.T("Duas vezes ao dia"),
-			Caveat:   i18n.T("Respostas curtas como \"ok\", \"obrigado\" ou 👍 não contam como espera. As marcas de resolvido e adiado ficam só neste computador: a outra pessoa não vê nada, e uma mensagem nova traz a conversa de volta."),
+			Caveat:   handledCaveat,
 		},
 		{
 			Title:   i18n.T("Enquete e apuração"),
@@ -111,7 +117,7 @@ e me diga o valor total, o vencimento e o que está sendo cobrado.
 Se for uma foto ou um documento escaneado, leia mesmo assim.
 Se não der para ler alguma parte, diga qual.`),
 			Schedule: i18n.T("Sob demanda"),
-			Caveat:   i18n.T("Quem lê o arquivo é a sua ferramenta de IA: o Claude lê fotos e PDFs, e um Word ou uma planilha dependem do que ela consegue abrir. Um arquivo grande chega como um link deste computador. Para áudio, a transcrição. O arquivo baixado fica na pasta do app; media_stats diz quanto espaço ocupa e purge_media libera."),
+			Caveat:   fileCaveat,
 		},
 		{
 			Title:   i18n.T("Arquivo do que foi combinado"),
