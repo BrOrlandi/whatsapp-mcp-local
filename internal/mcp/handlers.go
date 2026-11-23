@@ -34,6 +34,7 @@ type arguments struct {
 	URL        string   `json:"url"`
 	Caption    string   `json:"caption"`
 	Filename   string   `json:"filename"`
+	VoiceNote  bool     `json:"voice_note"`
 	Since      string   `json:"since"`
 	Until      string   `json:"until"`
 	Order      string   `json:"order"`
@@ -698,6 +699,9 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 	if sticker && (a.Caption != "" || a.Filename != "") {
 		return toolError("a sticker carries no caption or file name")
 	}
+	if a.VoiceNote && as != "audio" {
+		return toolError("voice_note is only for type audio")
+	}
 	reply, fail := s.replyArgs(ctx, a.ReplyTo, a.To)
 	if fail != nil {
 		return fail
@@ -714,6 +718,9 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 	if a.DryRun {
 		// A dry run checks the source without downloading it.
 		draft := map[string]any{"type": as, "file": a.URL, "caption": a.Caption, "filename": a.Filename}
+		if a.VoiceNote {
+			draft["voice_note"] = true
+		}
 		if reply != nil {
 			draft["reply_to"] = reply.quoted
 		}
@@ -727,6 +734,9 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 			}
 			if sticker && !isWebP(src) {
 				return toolError("a sticker must be a WebP image, and %s is not one", src)
+			}
+			if a.VoiceNote && !isOgg(src) {
+				return toolError("a voice note must be an OGG/Opus audio, and %s is not one", src)
 			}
 			draft["bytes"] = info.Size()
 		}
@@ -749,6 +759,12 @@ func (s *Server) sendMedia(ctx context.Context, a arguments) map[string]any {
 		return s.sent(ctx, out, err, webhook.Sent{ReplyTo: strings.TrimSpace(a.ReplyTo), Media: sentMedia(as, path, "", "")})
 	}
 	args := []string{"send", "file", "--to", a.To, "--file", path, "--as", as}
+	if a.VoiceNote {
+		if !isOgg(path) {
+			return toolError("a voice note must be an OGG/Opus audio, and %s is not one", a.URL)
+		}
+		args = append(args, "--ptt")
+	}
 	if a.Caption != "" {
 		args = append(args, "--caption", a.Caption)
 	}
@@ -788,6 +804,21 @@ func isWebP(path string) bool {
 		return false
 	}
 	return string(head[:4]) == "RIFF" && string(head[8:]) == "WEBP"
+}
+
+// isOgg reports whether a file is an Ogg container, which a voice note needs
+// (WhatsApp plays OGG/Opus as one).
+func isOgg(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	head := make([]byte, 4)
+	if _, err := io.ReadFull(f, head); err != nil {
+		return false
+	}
+	return string(head) == "OggS"
 }
 
 // fetchFile resolves a send's source to a local file: a path on this machine
