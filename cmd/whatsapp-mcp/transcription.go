@@ -24,7 +24,7 @@ import (
 )
 
 func transcriptionCmd(cfg config, args []string) error {
-	const usage = "usage: whatsapp-mcp transcription install|status|local|remote|openai|serve (whatsapp-mcp help transcription)"
+	const usage = "usage: whatsapp-mcp transcription install|status|local|remote|openai|context|serve (whatsapp-mcp help transcription)"
 	if len(args) == 0 {
 		return fail(exitUsage, usage)
 	}
@@ -43,6 +43,8 @@ func transcriptionCmd(cfg config, args []string) error {
 		return transcriptionRemote(engine, args[1:])
 	case "openai":
 		return transcriptionOpenAI(engine, args[1:])
+	case "context":
+		return transcriptionContext(engine, args[1:])
 	case "serve":
 		return transcriptionServe(cfg, engine, args[1:])
 	}
@@ -50,6 +52,7 @@ func transcriptionCmd(cfg config, args []string) error {
 }
 
 func transcriptionInstall(engine *localasr.Engine) error {
+	engine.Recheck()
 	if st := engine.Status(); !st.Supported {
 		return errors.New("local transcription is not available on this system")
 	} else if st.Ready {
@@ -57,6 +60,11 @@ func transcriptionInstall(engine *localasr.Engine) error {
 		return nil
 	}
 	fmt.Println("setting up local transcription (whisper.cpp, about 600 MB)…")
+	defer func() {
+		if st := engine.Status(); st.Unavailable != "" {
+			fmt.Println(unavailableHint)
+		}
+	}()
 	if err := engine.InstallNow(context.Background(), os.Stdout); err != nil {
 		return err
 	}
@@ -64,11 +72,18 @@ func transcriptionInstall(engine *localasr.Engine) error {
 	return nil
 }
 
+// unavailableHint is what to do when the engine cannot run here.
+const unavailableHint = "local transcription does not work on Windows yet; send voice notes to any OpenAI-compatible server (whatsapp-mcp transcription remote <address>) or to OpenAI (whatsapp-mcp transcription openai)"
+
 func transcriptionStatus(engine *localasr.Engine) error {
+	engine.Recheck()
 	st := engine.Status()
 	local := "not installed"
-	if st.Ready {
+	switch {
+	case st.Ready:
 		local = "installed (" + st.Accel + ")"
+	case st.Unavailable != "":
+		local = "NOT available (" + st.Unavailable + "): " + unavailableHint
 	}
 	s := engine.Settings()
 	fmt.Printf("mode: %s\n", s.Mode)
@@ -100,6 +115,46 @@ func transcriptionStatus(engine *localasr.Engine) error {
 		fmt.Println("  (set by " + localasr.EnvMode + " / " + localasr.EnvRemoteURL + ")")
 	}
 	fmt.Printf("voice notes go to: %s\n", engine.Backend())
+	fmt.Printf("context sent with them: %s\n", contextWords(s))
+	return nil
+}
+
+// contextWords says the context level in use and what it sends.
+func contextWords(s localasr.Settings) string {
+	var what string
+	switch s.ContextLevel() {
+	case localasr.ContextNone:
+		what = "none (only the audio)"
+	case localasr.ContextNames:
+		what = "names (the chat's and the people's names, no messages)"
+	default:
+		what = "messages (the names and the latest text messages before the voice note)"
+	}
+	switch {
+	case s.ContextFromEnv:
+		what += ", set by " + localasr.EnvContext
+	case s.Context == "":
+		what += ", the default for this mode"
+	}
+	if s.Offsite() && s.ContextLevel() != localasr.ContextNone {
+		what += "; this text leaves this computer with the audio"
+	}
+	return what
+}
+
+// transcriptionContext sets how much of the conversation goes with each
+// voice note: none, names, messages, or auto (the mode's default).
+func transcriptionContext(engine *localasr.Engine, args []string) error {
+	if len(args) != 1 {
+		return fail(exitUsage, "usage: whatsapp-mcp transcription context none|names|messages|auto")
+	}
+	if err := engine.SetContext(args[0]); err != nil {
+		if errors.Is(err, localasr.ErrContextFromEnv) {
+			return err
+		}
+		return fail(exitUsage, "%v", err)
+	}
+	fmt.Printf("context sent with voice notes: %s\n", contextWords(engine.Settings()))
 	return nil
 }
 
@@ -177,7 +232,9 @@ func transcriptionServe(cfg config, engine *localasr.Engine, args []string) erro
 	if err := fs.Parse(args); err != nil {
 		return fail(exitUsage, "%v", err)
 	}
-	if !engine.Status().Ready {
+	if st := engine.Status(); st.Unavailable != "" {
+		return errors.New("local transcription is not available on this computer (" + st.Unavailable + "): it does not work on Windows yet, so this computer cannot serve it")
+	} else if !st.Ready {
 		return errors.New("transcription is not installed on this computer: run whatsapp-mcp transcription install first")
 	}
 	token := strings.TrimSpace(os.Getenv(localasr.EnvRemoteToken))
@@ -203,9 +260,22 @@ func transcriptionServe(cfg config, engine *localasr.Engine, args []string) erro
 	srv := engine.Server("", token, version)
 	_, port, _ := net.SplitHostPort(ln.Addr().String())
 	fmt.Printf("transcription server (OpenAI API) listening on %s (%s)\n", ln.Addr(), engine.Status().Accel)
-	fmt.Println("on the other computer, point WhatsApp MCP at it, with one of these addresses:")
-	for _, a := range lanAddresses() {
-		fmt.Printf("  http://%s\n", net.JoinHostPort(a, port))
+	// Only an address that answers: the network ones when it listens on
+	// all of them, else the one it was given.
+	addrs := []string{ln.Addr().String()}
+	if host, _, _ := net.SplitHostPort(ln.Addr().String()); net.ParseIP(host) != nil && net.ParseIP(host).IsUnspecified() {
+		addrs = nil
+		for _, a := range lanAddresses() {
+			addrs = append(addrs, net.JoinHostPort(a, port))
+		}
+	}
+	if len(addrs) == 1 {
+		fmt.Println("on the computer that sends the voice notes, point WhatsApp MCP at it, with this address:")
+	} else {
+		fmt.Println("on the computer that sends the voice notes, point WhatsApp MCP at it, with one of these addresses:")
+	}
+	for _, a := range addrs {
+		fmt.Printf("  http://%s\n", a)
 	}
 	// The token itself is never printed: this output often goes to a log.
 	fmt.Printf("token: the one in %s\n", where)

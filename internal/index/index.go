@@ -676,6 +676,66 @@ func (c AudioContext) Prompt() string {
 	return p
 }
 
+// The bounds of NamesPrompt: a name is a few words, and the list a short
+// line, so a chat or a person named with a whole sentence cannot bring the
+// conversation's language back in.
+const (
+	nameWords   = 4
+	nameRunes   = 40
+	namesMax    = 6
+	namesPrompt = 200
+)
+
+// NamesPrompt is the context with the names only: the chat's and those of
+// the people who spoke in it, each cut to a few words, without phone numbers
+// and without a word of any message. It helps the engine spell the names
+// and, unlike the messages, does not pull it to the chat's language.
+func (c AudioContext) NamesPrompt() string {
+	var names []string
+	seen := map[string]bool{}
+	add := func(n string) {
+		words := strings.Fields(n)
+		if len(words) == 0 || isJIDLike(n) || len(names) >= namesMax {
+			return
+		}
+		if len(words) > nameWords {
+			words = words[:nameWords]
+		}
+		n = strings.Join(words, " ")
+		if r := []rune(n); len(r) > nameRunes {
+			n = strings.TrimSpace(string(r[:nameRunes]))
+		}
+		// A name ends in no sentence mark: "Até amanhã!" is not a name.
+		n = strings.TrimRight(n, ".!?…:;,")
+		key := strings.ToLower(n)
+		if n == "" || seen[key] {
+			return
+		}
+		seen[key] = true
+		names = append(names, n)
+	}
+	add(c.ChatName)
+	add(c.Speaker)
+	for _, p := range c.People {
+		add(p)
+	}
+	p := ""
+	for _, n := range names {
+		next := n
+		if p != "" {
+			next = p + ", " + n
+		}
+		if len(next)+1 > namesPrompt {
+			break
+		}
+		p = next
+	}
+	if p == "" {
+		return ""
+	}
+	return p + "."
+}
+
 // AudioMessage is a voice note waiting to be transcribed.
 type AudioMessage struct {
 	ChatJID string

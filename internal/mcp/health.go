@@ -49,6 +49,9 @@ type healthInputs struct {
 	// up; LocalTranscription says this computer can transcribe too.
 	Transcription      *localasr.RemoteStatus
 	LocalTranscription bool
+	// LocalUnavailable says this computer's engine is installed but cannot
+	// run here (Windows without the Visual C++ runtime).
+	LocalUnavailable bool
 }
 
 const defaultMaxSilence = 6 * time.Hour
@@ -71,7 +74,8 @@ func (s *Server) Health(ctx context.Context, maxSilence time.Duration) Health {
 	in.Gaps, _ = s.index.Gaps(ctx, gapThreshold, 7*24*time.Hour, 20)
 	if s.asr != nil {
 		if rs := s.asr.RemoteStatus(ctx, false); rs.Configured {
-			in.Transcription, in.LocalTranscription = &rs, s.asr.Status().Ready
+			st := s.asr.Status()
+			in.Transcription, in.LocalTranscription, in.LocalUnavailable = &rs, st.Ready, st.Unavailable != ""
 		}
 	}
 	return evaluate(in)
@@ -95,7 +99,7 @@ func evaluate(in healthInputs) Health {
 
 	switch {
 	case in.DoctorErr != nil:
-		add("wacli", "fail", "wacli did not answer: "+in.DoctorErr.Error(), "check that wacli is installed (brew install openclaw/tap/wacli) and that WACLI_BIN points at it")
+		add("wacli", "fail", "wacli did not answer: "+in.DoctorErr.Error(), "reinstall WhatsApp MCP (on the command line, run install.sh again: it installs the tested wacli beside whatsapp-mcp), or point WACLI_BIN at a wacli program")
 	case in.SessionRevoked:
 		add("paired", "fail", "WhatsApp revoked this linked device", connectAgain)
 	case !in.Authenticated:
@@ -181,6 +185,8 @@ func evaluate(in healthInputs) Health {
 			// this computer can stand in, the app is not less healthy.
 			add("transcription", "ok", fmt.Sprintf("%s is not usable (%s): voice notes are transcribed on this computer meanwhile, which can be much slower", rs.Where(), rs.Error),
 				"if it should be answering: "+fix)
+		case in.LocalUnavailable:
+			add("transcription", "warn", fmt.Sprintf("%s is not usable (%s), and local transcription is not available on this computer (it does not work on Windows yet): voice notes cannot be transcribed meanwhile", rs.Where(), rs.Error), fix+"; meanwhile download_media gives a voice note as a file to transcribe another way")
 		default:
 			add("transcription", "warn", fmt.Sprintf("%s is not usable (%s), and transcription is not installed on this computer: voice notes cannot be transcribed meanwhile", rs.Where(), rs.Error), fix)
 		}

@@ -235,14 +235,31 @@ func TestRemoteIsAnyOpenAICompatibleServer(t *testing.T) {
 		}
 	}
 
-	// whisper.cpp's server has no model list: a 404 there is still an answer.
+	// whisper.cpp's server has no model list, but has the transcription
+	// route: asked without a file, it answers with an error, so it is up.
+	whisperCpp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost && r.URL.Path == "/v1/audio/transcriptions" {
+			_, _ = io.WriteString(w, `{"error":"no 'file' field in the request"}`)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer whisperCpp.Close()
+	if err := e.Configure(Change{Mode: ModeRemote, URL: whisperCpp.URL}); err != nil {
+		t.Fatal(err)
+	}
+	if st := e.RemoteStatus(context.Background(), true); !st.Reachable || !st.Ready {
+		t.Errorf("whisper.cpp: status = %+v", st)
+	}
+	// Any other program at that address answers 404 everywhere: not up, and
+	// the status says it is not a transcription server.
 	bare := httptest.NewServer(http.NotFoundHandler())
 	defer bare.Close()
 	if err := e.Configure(Change{Mode: ModeRemote, URL: bare.URL}); err != nil {
 		t.Fatal(err)
 	}
-	if st := e.RemoteStatus(context.Background(), true); !st.Reachable || !st.Ready {
-		t.Errorf("status = %+v", st)
+	if st := e.RemoteStatus(context.Background(), true); st.Reachable || st.Ready || st.Reason != "not_compatible" {
+		t.Errorf("another program: status = %+v", st)
 	}
 }
 

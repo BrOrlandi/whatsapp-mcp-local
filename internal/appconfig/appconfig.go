@@ -56,6 +56,11 @@ type Transcription struct {
 	RemoteModel string `json:"remote_model,omitempty"`
 	OpenAIKey   string `json:"openai_key,omitempty"`
 	OpenAIModel string `json:"openai_model,omitempty"`
+	// Context is how much of the conversation goes with a voice note to
+	// whatever transcribes it: none, names or messages. Empty follows the
+	// mode: names here, none on a remote server or OpenAI (1.9.6; 1.9.5
+	// always sent names and messages).
+	Context string `json:"context,omitempty"`
 }
 
 // Server is the server mode's settings, as the variables of the same names

@@ -40,7 +40,11 @@ func (e *Engine) Handler(token, version string) http.Handler {
 	mux := http.NewServeMux()
 	about := func() map[string]any {
 		st := e.Status()
-		return map[string]any{"ready": st.Ready, "accel": st.Accel, "engine": serverEngine, "version": version}
+		out := map[string]any{"ready": st.Ready, "accel": st.Accel, "engine": serverEngine, "version": version}
+		if st.Unavailable != "" {
+			out["unavailable"] = st.Unavailable
+		}
+		return out
 	}
 	mux.HandleFunc("GET /v1/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, about())
@@ -58,7 +62,10 @@ func (e *Engine) Handler(token, version string) http.Handler {
 		writeJSON(w, http.StatusOK, out)
 	})
 	mux.HandleFunc("POST /v1/audio/transcriptions", func(w http.ResponseWriter, r *http.Request) {
-		if !e.Status().Ready {
+		if st := e.Status(); st.Unavailable != "" {
+			apiError(w, http.StatusServiceUnavailable, "server_error", "engine_unavailable", unavailableError(st.Unavailable).Error())
+			return
+		} else if !st.Ready {
 			apiError(w, http.StatusServiceUnavailable, "server_error", "engine_not_installed", "transcription is not installed on this computer: run `whatsapp-mcp transcription install`")
 			return
 		}

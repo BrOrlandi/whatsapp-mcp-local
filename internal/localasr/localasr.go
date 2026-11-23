@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -42,6 +43,9 @@ const (
 	Label = "whisper.cpp large-v3-turbo (local)"
 )
 
+// modelURL is where the model comes from; tests point it elsewhere.
+var modelURL = ModelURL
+
 // RunTimeout is the most one transcription may take on this computer once it
 // starts. A CPU without a GPU the engine uses takes about as long as the audio
 // lasts, often more, so it is generous: what bounds the wait of an AI tool is
@@ -60,13 +64,16 @@ type Engine struct {
 
 	probeMu sync.Mutex
 	probe   RemoteStatus // the last check of the remote server, see RemoteStatus
+
+	testMu sync.Mutex
+	tested selfTestResult // the last run of the engine, on Windows (selftest.go)
 }
 
 // Install is the state of setting the engine up, for the panel.
 type Install struct {
 	State      string    `json:"state"` // idle, running, done, error
 	Step       string    `json:"step,omitempty"`
-	Downloaded int64     `json:"downloaded,omitempty"`
+	Downloaded int64     `json:"downloaded"`
 	Total      int64     `json:"total,omitempty"`
 	Error      string    `json:"error,omitempty"`
 	At         time.Time `json:"at,omitempty"`
@@ -85,7 +92,11 @@ type Status struct {
 	// or cpu, where a voice note takes about as long as it lasts.
 	Accel   string   `json:"accel,omitempty"`
 	Missing []string `json:"missing,omitempty"`
-	Install Install  `json:"install"`
+	// Unavailable is set when the engine is installed but does not run on
+	// this computer (UnavailableWindowsRuntime, UnavailableEngine); Ready is
+	// then false and Supported stays true.
+	Unavailable string  `json:"unavailable,omitempty"`
+	Install     Install `json:"install"`
 }
 
 func New(dataDir string) *Engine {
@@ -136,7 +147,8 @@ func (e *Engine) Status() Status {
 	if s.Model == "" {
 		s.Missing = append(s.Missing, "modelo")
 	}
-	s.Ready = len(s.Missing) == 0
+	s.Unavailable = e.unavailable(s.Whisper)
+	s.Ready = len(s.Missing) == 0 && s.Unavailable == ""
 	e.mu.Lock()
 	s.Install = e.install
 	e.mu.Unlock()
@@ -159,7 +171,8 @@ func (e *Engine) setInstall(f func(*Install)) {
 var ErrInstalling = errors.New("the installation is already running")
 
 // StartInstall sets the engine up in the background: whisper-cli and ffmpeg
-// from this project's release when missing, then the model.
+// from this project's release when missing, a test that they run (on
+// Windows), then the model.
 func (e *Engine) StartInstall() error {
 	e.mu.Lock()
 	if e.install.State == "running" {
@@ -170,6 +183,9 @@ func (e *Engine) StartInstall() error {
 	e.mu.Unlock()
 	go func() {
 		err := e.installAll(context.Background())
+		if err != nil { // the panel says it in its own words; the original is here
+			log.Printf("transcription: the install failed: %v", err)
+		}
 		e.setInstall(func(i *Install) {
 			if err != nil {
 				i.State, i.Error = "error", err.Error()
@@ -213,13 +229,21 @@ func (e *Engine) installAll(ctx context.Context) error {
 		if !ok {
 			return errors.New(i18n.Tf("ainda não há transcrição local publicada para %s/%s", runtime.GOOS, runtime.GOARCH))
 		}
-		e.setInstall(func(i *Install) { i.Step, i.Downloaded, i.Total = i18n.T("Baixando o whisper.cpp"), 0, pkg.Size })
+		e.setInstall(func(i *Install) {
+			i.Step, i.Downloaded, i.Total = i18n.T("Baixando o programa de transcrição"), 0, pkg.Size
+		})
 		err := sidecar.Install(ctx, e.data, pkg, func(done, total int64) {
 			e.setInstall(func(i *Install) { i.Downloaded, i.Total = done, total })
 		})
 		if err != nil {
 			return err
 		}
+	}
+	// The small package is tested before the large model is fetched: on a
+	// computer where the engine cannot run, the model would be 574 MB for
+	// nothing.
+	if s = e.Status(); s.Unavailable != "" {
+		return unavailableError(s.Unavailable)
 	}
 	if s.Model == "" {
 		if err := e.download(ctx); err != nil {
@@ -234,7 +258,7 @@ func (e *Engine) download(ctx context.Context) error {
 		return err
 	}
 	e.setInstall(func(i *Install) { i.Step, i.Total = i18n.T("Baixando o modelo de transcrição"), modelSize })
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, ModelURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelURL, nil)
 	if err != nil {
 		return err
 	}
@@ -300,6 +324,9 @@ func (e *Engine) Transcribe(ctx context.Context, audio, language, prompt string)
 // seconds, for the transcription server's verbose answer.
 func (e *Engine) transcribe(ctx context.Context, audio, language, prompt string) (string, float64, error) {
 	s := e.Status()
+	if s.Unavailable != "" {
+		return "", 0, unavailableError(s.Unavailable)
+	}
 	if !s.Ready {
 		return "", 0, fmt.Errorf("a transcrição local não está instalada (falta: %s)", strings.Join(s.Missing, ", "))
 	}
@@ -324,7 +351,10 @@ func (e *Engine) transcribe(ctx context.Context, audio, language, prompt string)
 	conv := exec.CommandContext(ctx, s.FFmpeg, "-nostdin", "-loglevel", "error", "-i", audio, "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", wav)
 	platform.Background(conv)
 	if out, err := conv.CombinedOutput(); err != nil {
-		return "", 0, fmt.Errorf("ffmpeg não conseguiu ler o áudio: %s", lastLines(string(out), 2))
+		if missingRuntime(err) {
+			return "", 0, fmt.Errorf("%w: ffmpeg cannot start (%s)", ErrUnavailable, exitDetail(err))
+		}
+		return "", 0, fmt.Errorf("ffmpeg não conseguiu ler o áudio: %s", failureText(out, err, 2))
 	}
 	if language == "" {
 		language = "auto"
@@ -343,7 +373,12 @@ func (e *Engine) transcribe(ctx context.Context, audio, language, prompt string)
 	run := exec.CommandContext(ctx, s.Whisper, args...)
 	platform.Background(run)
 	if out, err := run.CombinedOutput(); err != nil {
-		return "", 0, fmt.Errorf("whisper.cpp falhou: %s", lastLines(string(out), 3))
+		if missingRuntime(err) {
+			log.Printf("transcription: the engine does not start on this computer (%s)", exitDetail(err))
+			e.markUnavailable(s.Whisper, UnavailableWindowsRuntime)
+			return "", 0, unavailableError(UnavailableWindowsRuntime)
+		}
+		return "", 0, fmt.Errorf("whisper.cpp falhou: %s", failureText(out, err, 3))
 	}
 	text, err := os.ReadFile(base + ".txt")
 	if err != nil {

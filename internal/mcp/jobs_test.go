@@ -25,13 +25,13 @@ func TestATranscriptionOutlivesItsCaller(t *testing.T) {
 	release := make(chan struct{})
 	var runs atomic.Int32
 	var workCtxErr atomic.Value
-	do := func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, error) {
+	do := func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, string, error) {
 		runs.Add(1)
 		<-release
 		if err := ctx.Err(); err != nil {
 			workCtxErr.Store(err)
 		}
-		return state.Transcript{ChatJID: "c", MessageID: "m", Text: "olá"}, index.AudioContext{}, "remote", "", nil
+		return state.Transcript{ChatJID: "c", MessageID: "m", Text: "olá"}, index.AudioContext{}, "remote", "", "", nil
 	}
 
 	// The first caller gives up, as an AI tool does after its timeout.
@@ -62,8 +62,8 @@ func TestATranscriptionOutlivesItsCaller(t *testing.T) {
 	}
 
 	// Another voice note is not held behind this one here.
-	other, joined := ts.start("c", "other", func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, error) {
-		return state.Transcript{Text: "outro"}, index.AudioContext{}, "local", "", nil
+	other, joined := ts.start("c", "other", func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, string, error) {
+		return state.Transcript{Text: "outro"}, index.AudioContext{}, "local", "", "", nil
 	})
 	if joined || !other.wait(context.Background()) || other.t.Text != "outro" {
 		t.Fatal("another voice note did not run on its own")
@@ -86,9 +86,9 @@ func TestATranscriptionOutlivesItsCaller(t *testing.T) {
 		t.Errorf("a finished transcription stays listed: %d", ts.running())
 	}
 	// Once it is over, a new call (refresh) runs it again.
-	again, joined := ts.start("c", "m", func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, error) {
+	again, joined := ts.start("c", "m", func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, string, error) {
 		runs.Add(1)
-		return state.Transcript{}, index.AudioContext{}, "local", "", nil
+		return state.Transcript{}, index.AudioContext{}, "local", "", "", nil
 	})
 	if joined || !again.wait(context.Background()) || runs.Load() != 2 {
 		t.Errorf("joined %v, runs %d", joined, runs.Load())
@@ -102,9 +102,9 @@ func TestTheWaitEndsBeforeTheCallerGivesUp(t *testing.T) {
 	var ts transcriptions
 	release := make(chan struct{})
 	defer close(release)
-	job, _ := ts.start("c", "m", func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, error) {
+	job, _ := ts.start("c", "m", func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, string, error) {
 		<-release
-		return state.Transcript{}, index.AudioContext{}, "", "", nil
+		return state.Transcript{}, index.AudioContext{}, "", "", "", nil
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 2500*time.Millisecond)
 	defer cancel()
@@ -122,14 +122,14 @@ func TestTheWaitEndsBeforeTheCallerGivesUp(t *testing.T) {
 
 func TestAFailedTranscriptionCanBeTriedAgain(t *testing.T) {
 	var ts transcriptions
-	job, _ := ts.start("c", "m", func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, error) {
-		return state.Transcript{}, index.AudioContext{}, "", "", context.DeadlineExceeded
+	job, _ := ts.start("c", "m", func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, string, error) {
+		return state.Transcript{}, index.AudioContext{}, "", "", "", context.DeadlineExceeded
 	})
 	if !job.wait(context.Background()) || job.err == nil {
 		t.Fatal("the error was lost")
 	}
-	if _, joined := ts.start("c", "m", func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, error) {
-		return state.Transcript{}, index.AudioContext{}, "", "", nil
+	if _, joined := ts.start("c", "m", func(ctx context.Context) (state.Transcript, index.AudioContext, string, string, string, error) {
+		return state.Transcript{}, index.AudioContext{}, "", "", "", nil
 	}); joined {
 		t.Error("a failed transcription is joined instead of tried again")
 	}

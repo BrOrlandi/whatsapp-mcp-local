@@ -48,7 +48,9 @@ type transcription struct {
 	audioCtx index.AudioContext
 	backend  string
 	fallback string
-	err      error
+	// context is the context level sent with the voice note.
+	context string
+	err     error
 }
 
 // transcriptions are the ones running, by chat and message.
@@ -58,7 +60,7 @@ type transcriptions struct {
 }
 
 // work is what a transcription does: make the transcript and keep it.
-type work func(ctx context.Context) (t state.Transcript, audioCtx index.AudioContext, backend, fallback string, err error)
+type work func(ctx context.Context) (t state.Transcript, audioCtx index.AudioContext, backend, fallback, contextLevel string, err error)
 
 // start returns the running transcription of a voice note, or starts one.
 // joined says it was already running.
@@ -77,7 +79,7 @@ func (ts *transcriptions) start(chatJID, messageID string, do work) (job *transc
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), transcribeTimeout)
 		defer cancel()
-		j.t, j.audioCtx, j.backend, j.fallback, j.err = do(ctx)
+		j.t, j.audioCtx, j.backend, j.fallback, j.context, j.err = do(ctx)
 		// The transcript is kept (do saves it) before the job leaves the
 		// map, so a call that misses one finds the other.
 		ts.mu.Lock()

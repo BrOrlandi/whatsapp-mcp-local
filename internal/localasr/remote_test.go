@@ -41,7 +41,7 @@ printf 'heard [%s] [%s]\n[BLANK_AUDIO]\n' "$l" "$p" > "$of.txt"
 	old := systemTools
 	systemTools = func() sidecar.Tools { return sidecar.Tools{Whisper: whisper, FFmpeg: ffmpeg, Accel: "cpu"} }
 	t.Cleanup(func() { systemTools = old })
-	for _, v := range []string{EnvMode, EnvRemoteURL, EnvRemoteToken, EnvModel, EnvOpenAIKey, "OPENAI_API_KEY"} {
+	for _, v := range []string{EnvMode, EnvRemoteURL, EnvRemoteToken, EnvModel, EnvOpenAIKey, EnvContext, "OPENAI_API_KEY"} {
 		t.Setenv(v, "")
 	}
 }
@@ -138,7 +138,7 @@ func TestRemoteNeedsTheToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := e.RemoteStatus(context.Background(), true)
-	if st.Reachable || !strings.Contains(st.Error, "token") {
+	if st.Reachable || !strings.Contains(st.Error, "token") || st.Reason != "refused" {
 		t.Errorf("status = %+v", st)
 	}
 	// Without transcription here, the error says what failed.
@@ -304,7 +304,7 @@ func TestTheServerRefusesWithoutTranscription(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := e.RemoteStatus(context.Background(), true)
-	if !st.Reachable || st.Ready || !strings.Contains(st.Error, "transcription install") {
+	if !st.Reachable || st.Ready || !strings.Contains(st.Error, "transcription install") || st.Reason != "not_installed" {
 		t.Errorf("status = %+v", st)
 	}
 	if _, err := e.TranscribeAny(context.Background(), audioFile(t), "", ""); err == nil || !strings.Contains(err.Error(), "503") {

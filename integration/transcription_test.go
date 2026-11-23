@@ -99,6 +99,12 @@ func testTranscription(t *testing.T, a *app) {
 			if text == "" {
 				t.Fatalf("transcribe_audio = %s", clipAny(res))
 			}
+			// A fresh transcript says what of the conversation went with it.
+			if get(res, "cached") != true {
+				if lvl := str(res, "context_level"); lvl != "none" && lvl != "names" && lvl != "messages" {
+					t.Errorf("transcribe_audio does not say the context level: %s", clipAny(res))
+				}
+			}
 			got := fold(text)
 			var missing []string
 			for _, want := range c.Expect {

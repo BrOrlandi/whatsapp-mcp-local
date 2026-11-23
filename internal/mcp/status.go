@@ -3,6 +3,8 @@ package mcp
 import (
 	"context"
 	"time"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 )
 
 func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
@@ -51,13 +53,19 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	}
 	transcription := map[string]any{"mode": "on request only: transcribe_audio"}
 	if s.asr != nil {
-		st := s.asr.Status()
-		transcription["local"] = map[string]any{"ready": st.Ready, "supported": st.Supported, "missing": st.Missing, "accel": st.Accel, "engine": "whisper.cpp large-v3-turbo"}
+		transcription["local"] = localTranscription(s.asr.Status())
 		// mode: local, remote or openai. backend: where voice notes go:
 		// remote or openai (with "+local" when this computer stands in
 		// when they fail), local or none.
-		transcription["mode"] = s.asr.Settings().Mode
+		settings := s.asr.Settings()
+		transcription["mode"] = settings.Mode
 		transcription["backend"] = s.asr.Backend()
+		// context: what of the conversation goes with a voice note to the
+		// transcription (none, names or messages), set in Configurações ›
+		// Transcrição de áudio › Contexto da conversa.
+		level := settings.ContextLevel()
+		transcription["context"] = level
+		transcription["context_sent"] = contextSent(level)
 		if rs := s.asr.RemoteStatus(ctx, false); rs.Configured {
 			transcription["remote"] = rs
 		}
@@ -91,4 +99,16 @@ func (s *Server) status(ctx context.Context, _ arguments) map[string]any {
 	}
 	report["problems"] = problems
 	return textResult(report, false)
+}
+
+// localTranscription is whatsapp_status's view of this computer's engine.
+// unavailable says it is installed but cannot run here, which installing
+// again does not fix.
+func localTranscription(st localasr.Status) map[string]any {
+	out := map[string]any{"ready": st.Ready, "supported": st.Supported, "missing": st.Missing, "accel": st.Accel, "engine": "whisper.cpp large-v3-turbo"}
+	if st.Unavailable != "" {
+		out["unavailable"] = st.Unavailable
+		out["note"] = "local transcription is not available on this computer: it does not work on Windows yet (the engine cannot start here). Voice notes can go to another computer or an OpenAI-compatible server, or to OpenAI (Configurações › Transcrição de áudio › Trocar onde transcrever), or download_media gives a voice note as a file to transcribe with your own tools."
+	}
+	return out
 }

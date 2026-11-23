@@ -59,7 +59,9 @@ func TestTranscribeAudioOutlivesTheCall(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": []any{map[string]any{"id": "whisper-1"}}, "ready": true, "accel": "metal", "version": "test"})
 		case "/v1/audio/transcriptions":
 			requests.Add(1)
-			if _, _, err := r.FormFile("file"); err != nil || r.FormValue("model") == "" || r.FormValue("language") != "pt" || r.FormValue("prompt") == "" {
+			// On a remote server the conversation stays here by default
+			// (1.9.6): no prompt goes with the audio.
+			if _, _, err := r.FormFile("file"); err != nil || r.FormValue("model") == "" || r.FormValue("language") != "pt" || r.FormValue("prompt") != "" {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
@@ -98,22 +100,35 @@ func TestTranscribeAudioOutlivesTheCall(t *testing.T) {
 	}
 	status, _ := callTool(t, port, "whatsapp_status", nil)
 	tr, _ := status["transcription"].(map[string]any)
-	if tr["backend"] != "remote" || tr["in_progress"] != float64(1) {
+	if tr["backend"] != "remote" || tr["in_progress"] != float64(1) || tr["context"] != "none" {
 		t.Errorf("status: %v", tr)
 	}
 
+	// A third call joins the work, which ends while it waits.
+	type answer struct {
+		res   map[string]any
+		isErr bool
+	}
+	third := make(chan answer, 1)
+	go func() {
+		r, e := callTool(t, port, "transcribe_audio", args)
+		third <- answer{r, e}
+	}()
+	time.Sleep(300 * time.Millisecond)
 	close(release)
-	deadline := time.Now().Add(10 * time.Second)
-	for {
-		res, isErr = callTool(t, port, "transcribe_audio", args)
-		if res["transcript"] != nil || time.Now().After(deadline) {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
+	a := <-third
+	res, isErr = a.res, a.isErr
+	if res["joined"] != true {
+		t.Fatalf("the third call did not join and finish: %v", res)
 	}
 	got, _ := res["transcript"].(map[string]any)
-	if isErr || got["text"] != "Vou sim, levo a sobremesa." || got["source"] != "remote" {
+	if isErr || got["text"] != "Vou sim, levo a sobremesa." || got["source"] != "remote" || res["context_level"] != "none" {
 		t.Fatalf("after: %v", res)
+	}
+	// The answer that ends the work (joined or not) carries the transcript
+	// as kept: its date and language, not empty values.
+	if when, _ := time.Parse(time.RFC3339, fmt.Sprint(got["created_at"])); when.Year() < 2000 || got["language"] != "pt" {
+		t.Errorf("the transcript in the answer: created_at %v, language %v", got["created_at"], got["language"])
 	}
 	if n := requests.Load(); n != 1 {
 		t.Errorf("the server was asked %d times, want once", n)

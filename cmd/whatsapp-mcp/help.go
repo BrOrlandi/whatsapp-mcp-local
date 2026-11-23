@@ -274,17 +274,19 @@ Example:
        whatsapp-mcp transcription remote <address> [--model <model>]
        whatsapp-mcp transcription remote off
        whatsapp-mcp transcription openai [--model <model>]
+       whatsapp-mcp transcription context none|names|messages|auto
        whatsapp-mcp transcription serve [--listen <host:port>] [--token-file <file>]
 
 Voice notes are transcribed in one of three modes:
 
   local    on this computer, with whisper.cpp (install sets it up)
-  remote   on a server that speaks OpenAI's transcription API: another
-           computer running transcription serve, whisper.cpp's server,
-           speaches…
+  remote   on any server that speaks OpenAI's transcription API, at any
+           address (on the internet or your network): you give its address
+           and its key. For example a computer running transcription serve,
+           whisper.cpp's whisper-server, speaches or a hosted service.
   openai   by OpenAI, with your API key (whisper-1 by default;
            gpt-4o-transcribe and gpt-4o-mini-transcribe also work). The
-           audio and the conversation's context go to OpenAI.
+           audio goes to OpenAI.
 
 install sets up transcription on this computer: it downloads whisper.cpp and
 its model (about 600 MB) into the data folder. It says so when this system is
@@ -297,8 +299,21 @@ OpenAI fails (off, asleep, slow, refused), voice notes are transcribed here,
 if install was run here. The variables WHATSAPP_MCP_TRANSCRIPTION_MODE,
 _URL, _TOKEN, _MODEL and _OPENAI_KEY win over these (Docker).
 
-serve makes this computer a transcription server for another one, speaking
-OpenAI's API (POST /v1/audio/transcriptions, GET /v1/models): a Mac with
+context chooses how much of the conversation goes with each voice note to
+whatever transcribes it, to help it spell names and odd words:
+  none       only the audio
+  names      the chat's name and the names of the people in it, no messages
+  messages   the names and the latest text messages before the voice note;
+             messages in another language can make the audio come out
+             translated (on whisper.cpp they outweigh the language asked for)
+  auto       the mode's default: names in local, none in remote and openai
+In remote and openai, anything but none leaves this computer with the audio.
+Switching to remote or openai goes back to auto. Voice notes already
+transcribed are kept as they were; transcribe_audio with refresh redoes one.
+WHATSAPP_MCP_TRANSCRIPTION_CONTEXT (none, names or messages) wins over it.
+
+serve makes this computer one such server, speaking OpenAI's API
+(POST /v1/audio/transcriptions, GET /v1/models): a Mac with
 Apple Silicon (or a computer with an NVIDIA GPU) transcribes in seconds what a
 server's processor takes minutes on. It needs install first, and listens on
 0.0.0.0:47823 by default. Every request needs the token, as
@@ -314,6 +329,7 @@ Examples:
   whatsapp-mcp transcription serve
   whatsapp-mcp transcription remote http://192.168.0.10:47823 < token-file
   whatsapp-mcp transcription openai --model gpt-4o-mini-transcribe
+  whatsapp-mcp transcription context names
   whatsapp-mcp transcription status
 `,
 

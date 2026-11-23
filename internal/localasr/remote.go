@@ -60,7 +60,51 @@ const (
 	// EnvOpenAIKey is the OpenAI API key; OPENAI_API_KEY stands in for it
 	// when the mode is openai.
 	EnvOpenAIKey = "WHATSAPP_MCP_TRANSCRIPTION_OPENAI_KEY"
+	// EnvContext is the conversation context sent with a voice note: none,
+	// names or messages. Unlike the others it counts on its own, whatever
+	// sets the mode.
+	EnvContext = "WHATSAPP_MCP_TRANSCRIPTION_CONTEXT"
 )
+
+// The context levels: how much of the conversation goes with a voice note
+// to whatever transcribes it, as the engine's prompt.
+const (
+	// ContextNone sends only the audio.
+	ContextNone = "none"
+	// ContextNames sends the chat's name and the names of the people in it,
+	// to spell them right.
+	ContextNames = "names"
+	// ContextMessages also sends the latest text messages before the voice
+	// note (what 1.9.5 always did). On whisper.cpp they outweigh the
+	// language: a Spanish note in a Portuguese chat comes out in Portuguese.
+	ContextMessages = "messages"
+)
+
+// ContextLevels are the levels, from the least sent to the most.
+var ContextLevels = []string{ContextNone, ContextNames, ContextMessages}
+
+// ParseContext reads a context level as the variable, the command line or
+// config.json give it; ok is false for anything else, empty included.
+func ParseContext(raw string) (level string, ok bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case ContextNone, "nada", "off":
+		return ContextNone, true
+	case ContextNames, "nomes":
+		return ContextNames, true
+	case ContextMessages, "mensagens":
+		return ContextMessages, true
+	}
+	return "", false
+}
+
+// DefaultContext is the level when none was chosen: the names when voice
+// notes stay here, nothing when they go to another computer or to OpenAI.
+func DefaultContext(mode string) string {
+	if mode == ModeRemote || mode == ModeOpenAI {
+		return ContextNone
+	}
+	return ContextNames
+}
 
 // OpenAIURL is OpenAI's API.
 var OpenAIURL = "https://api.openai.com/v1"
@@ -101,10 +145,23 @@ type Settings struct {
 	Model string
 	// FromEnv says the variables set it, so the panel cannot change it.
 	FromEnv bool
+	// Context is the context level chosen (ContextNone, ContextNames or
+	// ContextMessages), or empty to follow the mode (DefaultContext).
+	Context string
+	// ContextFromEnv says WHATSAPP_MCP_TRANSCRIPTION_CONTEXT set it.
+	ContextFromEnv bool
 }
 
 // Offsite says voice notes go to another computer or to OpenAI.
 func (s Settings) Offsite() bool { return s.Mode == ModeRemote || s.Mode == ModeOpenAI }
+
+// ContextLevel is the context level in use: the one chosen, else the mode's.
+func (s Settings) ContextLevel() string {
+	if s.Context != "" {
+		return s.Context
+	}
+	return DefaultContext(s.Mode)
+}
 
 // usable says the offsite mode has what it needs: an address, or a key.
 func (s Settings) usable() error {
@@ -156,10 +213,17 @@ type RemoteStatus struct {
 	Ready      bool   `json:"ready"`
 	// Accel, Engine and Version come from `whatsapp-mcp transcription
 	// serve`; other servers do not say.
-	Accel     string    `json:"accel,omitempty"`
-	Engine    string    `json:"engine,omitempty"`
-	Version   string    `json:"version,omitempty"`
-	Error     string    `json:"error,omitempty"`
+	Accel   string `json:"accel,omitempty"`
+	Engine  string `json:"engine,omitempty"`
+	Version string `json:"version,omitempty"`
+	Error   string `json:"error,omitempty"`
+	// Reason sorts Error for a screen that says it in its own words:
+	// "refused" (the token or key), "not_installed" (the server has no
+	// transcription), "unavailable" (the server's engine cannot run there,
+	// a Windows without the Visual C++ runtime), "model" (the key cannot use the model),
+	// "not_compatible" (the address answers, but has no transcription
+	// route), or empty.
+	Reason    string    `json:"reason,omitempty"`
 	CheckedAt time.Time `json:"checked_at,omitzero"`
 }
 
@@ -196,7 +260,7 @@ func NormalizeURL(raw string) (string, error) {
 	}
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return "", errors.New(i18n.T("o endereço do servidor de transcrição precisa ser como http://192.168.0.10:47823"))
+		return "", ErrBadServerURL
 	}
 	return strings.TrimRight(u.Scheme+"://"+u.Host+u.Path, "/"), nil
 }
@@ -205,6 +269,19 @@ func NormalizeURL(raw string) (string, error) {
 // in config.json. It is read each time, so a change made by the command line
 // reaches a running app.
 func (e *Engine) Settings() Settings {
+	s := e.modeSettings()
+	// The context: the variable, else config.json, else the mode's. A value
+	// that does not read is as if unset, so it falls to the mode's default
+	// and never to sending more.
+	if level, ok := ParseContext(os.Getenv(EnvContext)); ok {
+		s.Context, s.ContextFromEnv = level, true
+	} else if c, err := appconfig.Load(e.data); err == nil && c.Transcription != nil {
+		s.Context, _ = ParseContext(c.Transcription.Context)
+	}
+	return s
+}
+
+func (e *Engine) modeSettings() Settings {
 	envMode := strings.ToLower(strings.TrimSpace(os.Getenv(EnvMode)))
 	envURL := strings.TrimSpace(os.Getenv(EnvRemoteURL))
 	if envMode != "" || envURL != "" {
@@ -262,6 +339,20 @@ func fromConfig(t *appconfig.Transcription) Settings {
 // ErrFromEnv means the variables set the transcription.
 var ErrFromEnv = errors.New("the transcription is set by " + EnvMode + " or " + EnvRemoteURL)
 
+// InputError is a setting the person can fix, kept as its Portuguese text and
+// said in their language: the command line prints it, the panel words each
+// one for its dialog, and anything else only goes to the log.
+type InputError string
+
+func (e InputError) Error() string { return i18n.T(string(e)) }
+
+// The settings the person can fix, for a caller to tell apart with errors.Is.
+var (
+	ErrNoServerURL  = InputError(i18n.N("informe o endereço do servidor de transcrição"))
+	ErrBadServerURL = InputError(i18n.N("o endereço do servidor de transcrição precisa ser como http://192.168.0.10:47823"))
+	ErrNoOpenAIKey  = InputError(i18n.N("informe a chave da API da OpenAI"))
+)
+
 // Change is a new transcription setting. An empty Token keeps the one
 // already kept (for the same address, in remote), so the panel never has to
 // show it; an empty Model keeps the one kept.
@@ -275,7 +366,8 @@ type Change struct {
 // Configure keeps a new transcription setting in config.json. What the other
 // modes keep stays, so switching back does not ask for it again.
 func (e *Engine) Configure(ch Change) error {
-	if e.Settings().FromEnv {
+	prev := e.Settings()
+	if prev.FromEnv {
 		return ErrFromEnv
 	}
 	c, err := appconfig.Load(e.data)
@@ -295,11 +387,14 @@ func (e *Engine) Configure(ch Change) error {
 			return err
 		}
 		if u == "" {
-			return errors.New(i18n.T("informe o endereço do servidor de transcrição"))
+			return ErrNoServerURL
 		}
-		// A token and a model are for their own server.
+		// A token, a model and a context are for their own server.
 		if moved := t.RemoteURL != u; moved {
 			t.RemoteToken, t.RemoteModel = "", ""
+			if t.RemoteURL != "" {
+				t.Context = ""
+			}
 		}
 		t.RemoteURL = u
 		if token != "" {
@@ -313,13 +408,19 @@ func (e *Engine) Configure(ch Change) error {
 			t.OpenAIKey = token
 		}
 		if t.OpenAIKey == "" {
-			return errors.New(i18n.T("informe a chave da API da OpenAI"))
+			return ErrNoOpenAIKey
 		}
 		if model != "" {
 			t.OpenAIModel = model
 		}
 	default:
 		return fmt.Errorf("the transcription mode must be local, remote or openai, not %q", ch.Mode)
+	}
+	// A context chosen for one place is not carried to another computer or
+	// to OpenAI: there it starts from the default, nothing, and the person
+	// chooses again knowing where it goes.
+	if ch.Mode != prev.Mode && (ch.Mode == ModeRemote || ch.Mode == ModeOpenAI) {
+		t.Context = ""
 	}
 	t.Mode = ch.Mode
 	if t == (appconfig.Transcription{Mode: ModeLocal}) {
@@ -330,6 +431,45 @@ func (e *Engine) Configure(ch Change) error {
 	e.probeMu.Lock()
 	e.probe = RemoteStatus{}
 	e.probeMu.Unlock()
+	return appconfig.Save(e.data, c)
+}
+
+// ErrContextFromEnv means WHATSAPP_MCP_TRANSCRIPTION_CONTEXT sets the context.
+var ErrContextFromEnv = errors.New("the transcription context is set by " + EnvContext)
+
+// SetContext keeps the context level in config.json: none, names or
+// messages, or empty ("auto") to follow the mode. The mode's own default is
+// kept as empty, so it keeps following the mode: names chosen here do not
+// go to OpenAI later.
+func (e *Engine) SetContext(level string) error {
+	s := e.Settings()
+	if s.ContextFromEnv {
+		return ErrContextFromEnv
+	}
+	if l := strings.ToLower(strings.TrimSpace(level)); l == "" || l == "auto" {
+		level = ""
+	} else if parsed, ok := ParseContext(l); ok {
+		level = parsed
+	} else {
+		return fmt.Errorf("the transcription context must be none, names, messages or auto, not %q", level)
+	}
+	if level == DefaultContext(s.Mode) {
+		level = ""
+	}
+	c, err := appconfig.Load(e.data)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	t := appconfig.Transcription{}
+	if c.Transcription != nil {
+		t = *c.Transcription
+	}
+	t.Context = level
+	if t == (appconfig.Transcription{}) || t == (appconfig.Transcription{Mode: ModeLocal}) {
+		c.Transcription = nil
+	} else {
+		c.Transcription = &t
+	}
 	return appconfig.Save(e.data, c)
 }
 
@@ -401,13 +541,21 @@ func (e *Engine) RemoteStatus(ctx context.Context, fresh bool) RemoteStatus {
 		st.Error = err.Error()
 	} else if m, err := probe(ctx, s); err != nil {
 		st.Error = err.Error()
+		switch {
+		case errors.As(err, new(refusedError)):
+			st.Reason = "refused"
+		case errors.As(err, new(incompatibleError)):
+			st.Reason = "not_compatible"
+		}
 	} else {
 		st.Reachable, st.Ready, st.Accel, st.Engine, st.Version = true, m.ready(), m.Accel, m.Engine, m.Version
 		switch {
+		case !st.Ready && m.Unavailable != "":
+			st.Error, st.Reason = "the transcription server cannot run its engine: local transcription does not work on Windows yet", "unavailable"
 		case !st.Ready:
-			st.Error = "the transcription server has no transcription installed: run `whatsapp-mcp transcription install` there"
+			st.Error, st.Reason = "the transcription server has no transcription installed: run `whatsapp-mcp transcription install` there", "not_installed"
 		case s.Mode == ModeOpenAI && len(m.Data) > 0 && !m.has(s.Model):
-			st.Ready, st.Error = false, fmt.Sprintf("this OpenAI key cannot use the model %s", s.Model)
+			st.Ready, st.Error, st.Reason = false, fmt.Sprintf("this OpenAI key cannot use the model %s", s.Model), "model"
 		}
 	}
 	e.probeMu.Lock()
@@ -423,10 +571,11 @@ type models struct {
 	Data []struct {
 		ID string `json:"id"`
 	} `json:"data"`
-	Ready   *bool  `json:"ready"`
-	Accel   string `json:"accel"`
-	Engine  string `json:"engine"`
-	Version string `json:"version"`
+	Ready       *bool  `json:"ready"`
+	Unavailable string `json:"unavailable"`
+	Accel       string `json:"accel"`
+	Engine      string `json:"engine"`
+	Version     string `json:"version"`
 }
 
 // ready: a server that does not say is taken as ready.
@@ -442,7 +591,9 @@ func (m models) has(id string) bool {
 
 // probe asks the server for its models: an answer means it is up and the
 // token is right. A server that does not list models (whisper.cpp's) answers
-// 404, which still means it is up.
+// 404; then the transcription route itself is asked, empty: a server that
+// has it answers (most with 400, "no file"), and one that answers 404 there
+// too is not a transcription server at all.
 func probe(ctx context.Context, s Settings) (models, error) {
 	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
 	defer cancel()
@@ -458,7 +609,7 @@ func probe(ctx context.Context, s Settings) (models, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusMethodNotAllowed {
-		return m, nil
+		return m, probeRoute(ctx, s)
 	}
 	if err := answerError(s, resp); err != nil {
 		return m, err
@@ -468,6 +619,41 @@ func probe(ctx context.Context, s Settings) (models, error) {
 	}
 	return m, nil
 }
+
+// probeRoute sends an empty POST to the transcription route: any answer but
+// 404 or 405 means the route exists (a refused token still says so).
+func probeRoute(ctx context.Context, s Settings) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.base()+"/audio/transcriptions", strings.NewReader(""))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=probe")
+	authorize(req, s.Token)
+	resp, err := client.Do(req)
+	if err != nil {
+		return unreachable(s, err)
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
+	switch resp.StatusCode {
+	case http.StatusNotFound, http.StatusMethodNotAllowed:
+		return incompatibleError(fmt.Sprintf("%s answers, but not as a transcription server: %s/audio/transcriptions answered %s", s.where(), s.base(), resp.Status))
+	case http.StatusUnauthorized, http.StatusForbidden:
+		return answerError(s, resp)
+	}
+	return nil
+}
+
+// incompatibleError is an address that answers but has no transcription
+// route: some other program, or a wrong path in the address.
+type incompatibleError string
+
+func (e incompatibleError) Error() string { return string(e) }
+
+// refusedError is a token or key the other end turned down.
+type refusedError string
+
+func (e refusedError) Error() string { return string(e) }
 
 func authorize(req *http.Request, token string) {
 	if token != "" {
@@ -487,9 +673,9 @@ func answerError(s Settings, resp *http.Response) error {
 	}
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		if s.Mode == ModeOpenAI {
-			return errors.New("OpenAI refused the API key: check it in the transcription settings")
+			return refusedError("OpenAI refused the API key: check it in the transcription settings")
 		}
-		return errors.New("the transcription server refused the token: use the one in transcription-server.token in that computer's data folder")
+		return refusedError("the transcription server refused the token: use the one in transcription-server.token in that computer's data folder")
 	}
 	if msg := errorMessage(io.LimitReader(resp.Body, 64<<10)); msg != "" {
 		return fmt.Errorf("%s answered %s: %s", s.where(), resp.Status, msg)
@@ -651,7 +837,10 @@ func (e *Engine) TranscribeAny(ctx context.Context, audio, language, prompt stri
 		e.probeMu.Lock()
 		e.probe = RemoteStatus{Configured: true, Mode: s.Mode, URL: s.URL, Model: s.Model, FromEnv: s.FromEnv, Error: err.Error(), CheckedAt: time.Now()}
 		e.probeMu.Unlock()
-		if !e.Status().Ready {
+		if st := e.Status(); !st.Ready {
+			if st.Unavailable != "" {
+				return Result{}, fmt.Errorf("%w; and local transcription is not available on this computer to fall back on", err)
+			}
 			return Result{}, fmt.Errorf("%w; transcription is not installed on this computer to fall back on", err)
 		}
 		text, lerr := e.Transcribe(ctx, audio, language, prompt)
