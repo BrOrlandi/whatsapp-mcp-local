@@ -348,8 +348,8 @@ services:
     image: ghcr.io/brorlandi/whatsapp-mcp-local:latest
     command: ["transcription", "serve"]
     environment:
-      # A imagem aponta TMPDIR para /data/tmp, que só o serviço do WhatsApp MCP cria;
-      # sem esta linha, toda transcrição falha com "stat /data/tmp".
+      # Só até a 1.9.6: sem esta linha, toda transcrição falha com "stat /data/tmp".
+      # A partir da 1.9.7 não precisa (e não atrapalha).
       TMPDIR: /tmp
     ports:
       - "47823:47823"            # atrás de um proxy neste computador: "127.0.0.1:47823:47823"
@@ -430,7 +430,7 @@ resolve. A versão do servidor aparece no `/v1/health` (`version`) e no
 | O WhatsApp MCP diz que o servidor recusou a chave | A chave informada não é a do arquivo que o servidor usa. Confira se o serviço não usa outra pasta de dados, ou `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` |
 | O WhatsApp MCP diz que o servidor não responde | Do computador que manda os áudios: `curl -s -H "Authorization: Bearer $CHAVE" http://<servidor>:47823/v1/health`. Sem resposta: o servidor está de pé? O Mac dormiu? O firewall do macOS (ou o ufw) bloqueia a porta? O `--listen` é `127.0.0.1` (só local)? |
 | O app avisa que o endereço não é de um servidor de transcrição | O endereço leva a outro programa. Confira a porta (47823) e o caminho (sem caminho, ou terminando em `/v1`) |
-| No Docker: `stat /data/tmp: no such file or directory` | Falta `TMPDIR: /tmp` no `compose.yml` (acima) |
+| No Docker: `stat /data/tmp: no such file or directory` | A imagem é da 1.9.6 ou anterior: atualize, ou ponha `TMPDIR: /tmp` no `compose.yml` (acima) |
 | A transcrição está lenta | Veja a aceleração no `/v1/health` (`accel`): `cpu` quer dizer sem GPU, e um áudio leva mais ou menos o próprio tempo |
 | Áudios longos saem cortados | O servidor está numa versão anterior à 1.9.6: [atualize](#atualizar) |
 

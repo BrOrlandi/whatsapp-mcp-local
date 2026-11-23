@@ -350,8 +350,8 @@ services:
     image: ghcr.io/brorlandi/whatsapp-mcp-local:latest
     command: ["transcription", "serve"]
     environment:
-      # The image points TMPDIR at /data/tmp, which only the WhatsApp MCP service creates;
-      # without this line, every transcription fails with "stat /data/tmp".
+      # Only up to 1.9.6: without this line, every transcription fails with "stat /data/tmp".
+      # From 1.9.7 on it is not needed (and does no harm).
       TMPDIR: /tmp
     ports:
       - "47823:47823"            # behind a proxy on this computer: "127.0.0.1:47823:47823"
@@ -433,7 +433,7 @@ sends the voice notes.
 | WhatsApp MCP says the server refused the key | The key you gave is not the one in the file the server uses. Check that the service does not use another data folder, or `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` |
 | WhatsApp MCP says the server does not answer | From the sending computer: `curl -s -H "Authorization: Bearer $KEY" http://<server>:47823/v1/health`. No answer: is the server up? Did the Mac go to sleep? Does the macOS firewall (or ufw) block the port? Is `--listen` `127.0.0.1` (local only)? |
 | The app warns the address is not a transcription server | The address leads to another program. Check the port (47823) and the path (none, or ending in `/v1`) |
-| In Docker: `stat /data/tmp: no such file or directory` | `TMPDIR: /tmp` is missing from `compose.yml` (above) |
+| In Docker: `stat /data/tmp: no such file or directory` | The image is 1.9.6 or older: update it, or add `TMPDIR: /tmp` to `compose.yml` (above) |
 | Transcription is slow | Check the acceleration in `/v1/health` (`accel`): `cpu` means no GPU, and a voice note takes about as long as it lasts |
 | Long voice notes come out cut | The server runs a version before 1.9.6: [update it](#updating) |
 

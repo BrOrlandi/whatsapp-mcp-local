@@ -28,6 +28,10 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 - No Linux, o app podia fechar sozinho ao abrir ou quando o estado da
   conexão mudava, por atualizar o menu do ícone da bandeja fora de hora.
+- O servidor de transcrição (`whatsapp-mcp transcription serve`) rodando na
+  imagem Docker falhava em todo áudio, com "stat /data/tmp". Agora transcreve
+  sem configuração extra; até a 1.9.6, o contorno é `TMPDIR=/tmp` no
+  contêiner ([Servidor de transcrição](docs/servidor-de-transcricao.md)).
 
 ## [1.9.6] - 2026-11-23
 

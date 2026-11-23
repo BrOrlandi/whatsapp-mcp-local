@@ -255,6 +255,12 @@ func transcriptionServe(cfg config, engine *localasr.Engine, args []string) erro
 	if len(token) < 16 {
 		return fail(exitUsage, "the token must have at least 16 characters")
 	}
+	// Each voice note goes through a temporary folder. The Docker image
+	// points TMPDIR at /data/tmp, which only the daemon's serve made, so
+	// without this every transcription failed there.
+	if err := os.MkdirAll(os.TempDir(), 0o700); err != nil {
+		return fmt.Errorf("the folder for temporary files (%s): %w", os.TempDir(), err)
+	}
 	ln, err := net.Listen("tcp", *listen)
 	if err != nil {
 		return err

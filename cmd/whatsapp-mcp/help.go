@@ -318,13 +318,16 @@ remote and openai; in local it is ignored, and the log says so.
 
 serve makes this computer one such server, speaking OpenAI's API
 (POST /v1/audio/transcriptions, GET /v1/models): a Mac with
-Apple Silicon (or a computer with an NVIDIA GPU) transcribes in seconds what a
-server's processor takes minutes on. It needs install first, and listens on
+Apple Silicon transcribes in seconds what a server's processor takes minutes
+on (on Linux and in Docker it runs on the processor only). It needs install
+first, and listens on
 0.0.0.0:47823 by default. Every request needs the token, as
 Authorization: Bearer <token>: WHATSAPP_MCP_TRANSCRIPTION_TOKEN, else the one
 in --token-file (default transcription-server.token in the data folder),
 made the first time and readable only by you. It never prints the token. It
-runs until stopped; keep it running with launchd or systemd (see the README).
+runs until stopped. Setting it up, keeping it running (launchd, systemd,
+Docker) and reaching it from elsewhere:
+https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/docs/transcription-server.md
 
 status says the mode, where voice notes go and whether the server answers.
 
