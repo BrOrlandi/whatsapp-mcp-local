@@ -327,7 +327,7 @@ func (s *Server) exportMessages(ctx context.Context, a arguments) map[string]any
 		delete(result, "path")
 		url := s.baseFor(ctx) + "/media/" + s.links.add(path, "application/x-ndjson", 10*time.Minute)
 		result["url"], result["expires_in_seconds"] = url, 600
-		result["curl"] = fmt.Sprintf("curl -sSf -o %q %q", filepath.Base(path), url)
+		result["curl"] = curlHint(filepath.Base(path), url)
 		result["note"] = "one JSON message per line, oldest first, reactions and deleted messages left out; the file is on the server: download it from url, valid for ten minutes"
 	}
 	if count > 0 {

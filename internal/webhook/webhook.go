@@ -16,6 +16,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -24,6 +25,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"slices"
 	"strings"
@@ -32,6 +34,7 @@ import (
 	"time"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 )
@@ -167,7 +170,67 @@ func New(st *state.State, logger *slog.Logger, version string, same Same) *Manag
 		logger = slog.Default()
 	}
 	return &Manager{st: st, logger: logger, version: version, same: same, workers: map[string]*worker{},
-		client: &http.Client{Timeout: attemptTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+		client: &http.Client{Timeout: attemptTimeout, Transport: transport(),
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+}
+
+// transport is the default one, except that it never connects to a
+// link-local address or a cloud's metadata service. A webhook may post to
+// this computer and its network (n8n beside the app, a LAN automation),
+// which is what they are for; the metadata service is never a receiver, and
+// on a server it hands out the machine's credentials.
+func transport() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.DialContext = (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, Control: refuseMetadata}).DialContext
+	return t
+}
+
+// errMetadata is the refusal of a link-local or metadata address.
+var errMetadata = errors.New("webhooks do not reach link-local or cloud metadata addresses")
+
+// metadata are the metadata services outside the link-local ranges.
+var metadata = []netip.Addr{
+	netip.MustParseAddr("fd00:ec2::254"),   // AWS, over IPv6
+	netip.MustParseAddr("100.100.100.200"), // Alibaba Cloud
+}
+
+// metadataNames are the metadata services' own names, refused when a proxy
+// dials for us and the address is never seen here.
+var metadataNames = []string{"metadata.google.internal", "metadata.goog", "metadata"}
+
+// viaProxy refuses, before a request leaves through a proxy from the
+// environment (which dials the address itself, out of refuseMetadata's
+// sight), a URL whose host is a link-local or metadata address, or a
+// metadata service's name.
+func viaProxy(t *http.Transport, req *http.Request) error {
+	if t.Proxy == nil {
+		return nil
+	}
+	if proxy, err := t.Proxy(req); err != nil || proxy == nil {
+		return nil
+	}
+	host := strings.TrimSuffix(strings.ToLower(req.URL.Hostname()), ".")
+	if slices.Contains(metadataNames, host) {
+		return fmt.Errorf("%s: %w", host, errMetadata)
+	}
+	if a, err := netip.ParseAddr(host); err == nil {
+		return refuseMetadata("", netip.AddrPortFrom(a, 80).String(), nil)
+	}
+	return nil
+}
+
+// refuseMetadata runs on the address actually dialled, after DNS, so a name
+// that resolves to one is refused too.
+func refuseMetadata(_, address string, _ syscall.RawConn) error {
+	ap, err := netip.ParseAddrPort(address)
+	if err != nil {
+		return nil
+	}
+	a := ap.Addr().Unmap()
+	if a.IsLinkLocalUnicast() || a.IsLinkLocalMulticast() || slices.Contains(metadata, a) {
+		return fmt.Errorf("%s: %w", a, errMetadata)
+	}
+	return nil
 }
 
 // SetAccount names the number every event comes from. Call it before Start.
@@ -373,9 +436,19 @@ func (m *Manager) post(ctx context.Context, h state.Webhook, ev Event) (string, 
 	req.Header.Set("X-WhatsApp-MCP-Event", ev.Kind)
 	req.Header.Set("X-WhatsApp-MCP-Delivery", ev.ID)
 	req.Header.Set("X-WhatsApp-MCP-Signature", Sign(h.Secret, body))
+	if t, ok := m.client.Transport.(*http.Transport); ok {
+		if err := viaProxy(t, req); err != nil {
+			return describe(err), err
+		}
+	}
 	resp, err := m.client.Do(req)
 	if err != nil {
-		return describe(err), err
+		said := describe(err)
+		if said == unknownFailure() {
+			// What went wrong in the program's own words, for the log only.
+			m.logger.Warn("webhook delivery failed", "id", h.ID, "error", err)
+		}
+		return said, err
 	}
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
@@ -386,21 +459,28 @@ func (m *Manager) post(ctx context.Context, h state.Webhook, ev Event) (string, 
 }
 
 // describe says why an attempt failed in words the settings page can show.
+// Anything else is said in general words: the error's own text, which can
+// tell what is on the network inside, goes only to the log.
 func describe(err error) string {
 	var dns *net.DNSError
 	var ue *url.Error
+	var cert *tls.CertificateVerificationError
 	switch {
+	case errors.Is(err, errMetadata):
+		return i18n.T("esse endereço não pode receber webhooks")
 	case errors.Is(err, syscall.ECONNREFUSED):
 		return i18n.T("nenhum programa respondeu nesse endereço")
 	case errors.As(err, &dns):
 		return i18n.T("o endereço não foi encontrado")
 	case errors.As(err, &ue) && ue.Timeout():
 		return i18n.Tf("não respondeu em %d segundos", int(attemptTimeout.Seconds()))
-	case errors.As(err, &ue):
-		return ue.Err.Error()
+	case errors.As(err, &cert):
+		return i18n.T("o certificado do endereço não foi aceito")
 	}
-	return err.Error()
+	return unknownFailure()
 }
+
+func unknownFailure() string { return i18n.T("não foi possível entregar nesse endereço") }
 
 // Sign is the signature a webhook receives in X-WhatsApp-MCP-Signature: the
 // HMAC-SHA256 of the body with the webhook's secret, in hex, after "sha256=".
@@ -427,26 +507,34 @@ type Settings struct {
 	Enabled    *bool     `json:"enabled"`
 }
 
-// UserError is a request to fix rather than a failure.
-type UserError struct{ Msg string }
+// UserError is a request to fix rather than a failure. Err, when set, says
+// which one (ErrBadURL), for a caller that words it its own way.
+type UserError struct {
+	Msg string
+	Err error
+}
 
 func (e UserError) Error() string { return e.Msg }
+func (e UserError) Unwrap() error { return e.Err }
+
+// ErrBadURL is a webhook address that is not a whole http:// or https:// one.
+var ErrBadURL = errors.New("webhook: not a whole http:// or https:// address")
 
 func validURL(raw string) error {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
-		return UserError{i18n.T("url precisa ser um endereço http:// ou https:// completo")}
+		return UserError{Msg: i18n.T("url precisa ser um endereço http:// ou https:// completo"), Err: ErrBadURL}
 	}
 	return nil
 }
 
 func validEvents(events []string) error {
 	if len(events) == 0 {
-		return UserError{i18n.Tf("events precisa ter ao menos um de: %s", strings.Join(Events, ", "))}
+		return UserError{Msg: i18n.Tf("events precisa ter ao menos um de: %s", strings.Join(Events, ", "))}
 	}
 	for _, e := range events {
 		if !slices.Contains(Events, e) {
-			return UserError{i18n.Tf("evento %q desconhecido; os eventos são %s", e, strings.Join(Events, ", "))}
+			return UserError{Msg: i18n.Tf("evento %q desconhecido; os eventos são %s", e, strings.Join(Events, ", "))}
 		}
 	}
 	return nil
@@ -456,7 +544,7 @@ func validEvents(events []string) error {
 // here only: it signs every delivery.
 func (m *Manager) Create(ctx context.Context, s Settings) (state.Webhook, string, error) {
 	if s.URL == nil {
-		return state.Webhook{}, "", UserError{i18n.T("url é obrigatório")}
+		return state.Webhook{}, "", UserError{Msg: i18n.T("url é obrigatório")}
 	}
 	h := state.Webhook{ID: randomHex(6), URL: strings.TrimSpace(*s.URL), Secret: randomHex(24), Events: []string{"message"},
 		Enabled: true, CreatedAt: time.Now().UTC()}
@@ -598,7 +686,14 @@ func (m *Manager) Test(ctx context.Context, id string) (map[string]any, error) {
 	result, err := m.post(ctx, h, ev)
 	out := map[string]any{"ok": err == nil, "result": result, "ms": time.Since(started).Milliseconds()}
 	if err != nil {
-		out["error"] = err.Error()
+		// The error's own words only for a caller on this computer; from
+		// outside, they could tell what is on the network inside.
+		out["error"] = result
+		if caller.From(ctx).Kind == caller.Local {
+			out["error"] = err.Error()
+		} else {
+			m.logger.Warn("webhook test failed", "id", h.ID, "error", err)
+		}
 	}
 	return out, nil
 }

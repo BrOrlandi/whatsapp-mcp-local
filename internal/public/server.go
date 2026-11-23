@@ -44,6 +44,8 @@ type Server struct {
 	throttle *throttle
 	// bearers slows down wrong keys and tokens, address by address.
 	bearers *throttle
+	// refused are wrong keys and tokens already looked up.
+	refused *refused
 	// bearerLog and peerLog keep repeated refusals to a line a minute.
 	bearerLog, peerLog *logLimiter
 	// checks bounds the password checks of everyone together.
@@ -70,7 +72,7 @@ func New(cfg *Config, routes *http.ServeMux, logger *slog.Logger) *Server {
 		logger = slog.Default()
 	}
 	return &Server{cfg: cfg, routes: routes, logger: logger, sessions: newSessions(), throttle: newThrottle(),
-		bearers: newThrottle(), checks: newChecks(logger), bearerLog: &logLimiter{interval: time.Minute}, peerLog: &logLimiter{interval: time.Minute}, documents: newDocuments(), oauth: newOAuthState(), now: time.Now}
+		bearers: newThrottle(), refused: newRefused(), checks: newChecks(logger), bearerLog: &logLimiter{interval: time.Minute}, peerLog: &logLimiter{interval: time.Minute}, documents: newDocuments(), oauth: newOAuthState(), now: time.Now}
 }
 
 // UseState lets agents in, with the keys and logins kept in st.
@@ -120,6 +122,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Error(w, HTTPSRefused, http.StatusForbidden)
 		return
+	}
+	// Over https, browsers are told to keep to it: the address only, not
+	// the domain's other names, which may be someone else's, and for a day,
+	// since it holds for every port of that name.
+	if s.cfg.HTTPS() {
+		w.Header().Set("Strict-Transport-Security", "max-age=86400")
 	}
 	// Every body is bounded before anything reads it; the routes read what
 	// they need (a form, a JSON-RPC message) within the server's read
@@ -171,16 +179,25 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// A cookie is never an agent's credential.
 	if bearer, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
 		bearer = strings.TrimSpace(bearer)
-		// A valid key or token always goes through. Wrong ones slow down
-		// their own address, up to 15 minutes (seconds for the address
-		// every visitor shares): while it waits, its wrong tries are not
-		// even counted, and the answer says when to try again.
-		// One that is not even shaped like a key or token is refused
-		// without looking it up: it cannot be a valid one.
+		// A valid key or token always goes through, even from an address
+		// that waits: a stale key on a shared address (a NAT, a proxy that
+		// does not say whom it forwards) must not lock the owner's agents
+		// out, so a new well-formed one is still looked up (a hash and an
+		// indexed read). Wrong ones slow down their own address, up to 15
+		// minutes (seconds for the address every visitor shares); the
+		// answer says when to try again, and while the address waits its
+		// wrong tries are not counted. While it waits, a wrong one it sent
+		// within the last minute is refused again without a second lookup,
+		// so a client stuck on a stale key does not read state.db at every
+		// try. One that is not even shaped like a key or token is never
+		// looked up.
 		var agent caller.Caller
 		valid := false
-		if s.access != nil && (wellFormed(bearer) || s.earlierKeys.Load() && earlierKeyShape(bearer)) {
-			agent, valid = authenticate(s.access, r.Context(), bearer)
+		if s.access != nil && (wellFormed(bearer) || s.earlierKeys.Load() && earlierKeyShape(bearer)) &&
+			!(s.bearers.wait(pr.client) > 0 && s.refused.has(bearer, s.now())) {
+			if agent, valid = authenticate(s.access, r.Context(), bearer); !valid {
+				s.refused.add(bearer, s.now())
+			}
 		}
 		if !valid {
 			wait := s.bearers.try(pr.client, pr.shared)
@@ -432,8 +449,10 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, LoginPath, http.StatusSeeOther)
 }
 
-// safeReturn is where to go after signing in: a page of this server, never
+// SafeReturn is where to go after signing in: a page of this server, never
 // another site.
+func SafeReturn(to string) string { return safeReturn(to) }
+
 func safeReturn(to string) string {
 	// A browser drops tabs and line breaks from a Location and reads a
 	// backslash as a slash, so "/\t/evil.example" would leave the site:

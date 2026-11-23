@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -242,4 +243,51 @@ func headless() bool {
 		return runtime.GOOS == "linux"
 	}
 	return false
+}
+
+// panelURL is the panel's address to open in the browser. With a token, it
+// carries a single-use code, so the browser lands signed in; when the code
+// cannot be had, the panel asks for the token instead.
+func panelURL(cfg config) string {
+	if cfg.Token == "" {
+		return cfg.baseURL() + "/"
+	}
+	var out struct {
+		URL string `json:"url"`
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := newAPI(cfg).call(ctx, http.MethodPost, "/api/token/codigo", nil, &out); err != nil || !strings.HasPrefix(out.URL, "/") {
+		return cfg.baseURL() + "/"
+	}
+	return cfg.baseURL() + out.URL
+}
+
+// freshTempDir makes dir, when it is a folder inside under, and empties it.
+// Any other dir (unset, /tmp, outside under) is left alone.
+func freshTempDir(dir, under string) error {
+	if dir == "" {
+		return nil
+	}
+	dir = filepath.Clean(dir)
+	if rel, err := filepath.Rel(under, dir); err != nil || rel == "." || strings.HasPrefix(rel, "..") {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	// Only this user reads what passes through, even in a folder made before.
+	if err := os.Chmod(dir, 0o700); err != nil {
+		return err
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if err := os.RemoveAll(filepath.Join(dir, e.Name())); err != nil {
+			return err
+		}
+	}
+	return nil
 }

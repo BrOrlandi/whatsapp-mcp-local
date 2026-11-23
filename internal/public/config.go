@@ -81,3 +81,19 @@ func FromEnv(getenv func(string) string, dataDir string) (*Config, error) {
 	}
 	return c, nil
 }
+
+// Unencrypted reports whether a public address (scheme and host) is http://
+// on a name other than this computer's own: what reaches it crosses the
+// network in the clear. http://localhost, for a test, never leaves here.
+func Unencrypted(origin string) bool {
+	u, err := url.Parse(origin)
+	if err != nil || u.Scheme != "http" {
+		return false
+	}
+	host := u.Hostname()
+	if strings.EqualFold(host, "localhost") {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip == nil || !ip.IsLoopback()
+}

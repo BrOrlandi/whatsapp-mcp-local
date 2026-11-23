@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -74,12 +73,21 @@ type KeyView struct {
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 }
 
+// ErrKeyName is a key without a name, or with a name too long.
+var ErrKeyName error = keyNameError{}
+
+type keyNameError struct{}
+
+func (keyNameError) Error() string {
+	return i18n.T("dê um nome à chave, de até 60 caracteres, como o da ferramenta que vai usá-la")
+}
+
 // CreateKey makes a key, keeps only its hash, and returns the key, the only
 // time it is ever seen.
 func CreateKey(ctx context.Context, st *state.State, name string, readOnly bool, now time.Time) (string, state.APIKey, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len([]rune(name)) > 60 {
-		return "", state.APIKey{}, errors.New(i18n.T("dê um nome à chave, de até 60 caracteres, como o da ferramenta que vai usá-la"))
+		return "", state.APIKey{}, ErrKeyName
 	}
 	key := secret(KeyPrefix)
 	k := state.APIKey{ID: shortID("k_"), Name: name, ReadOnly: readOnly, CreatedAt: now.UTC().Truncate(time.Second)}

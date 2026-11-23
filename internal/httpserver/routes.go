@@ -53,9 +53,18 @@ var routeAccess = map[string]caller.Access{
 	"POST /conexoes/renomear":      caller.PanelAccess,
 	"POST /conexoes/chaves":        caller.PanelAccess,
 	"POST /conexoes/revogar":       caller.PanelAccess,
+	"POST /configuracoes/idioma":   caller.PanelAccess,
 	"POST /configuracoes/porta":    caller.LocalOnly,
 	"POST /configuracoes/encerrar": caller.LocalOnly,
 	"POST /configuracoes/apagar":   caller.LocalOnly,
+	// The transcription's conversation context, on the computer and the server.
+	"POST /configuracoes/transcricao/contexto": caller.PanelAccess,
+	// The page where a browser types the local token (panel/localtoken.go).
+	"GET /token":  caller.LocalOnly,
+	"POST /token": caller.LocalOnly,
+	// A single-use code that signs in a browser a command opens; only the
+	// token reaches it.
+	"POST /api/token/codigo": caller.LocalOnly,
 
 	// The panel's files.
 	"GET /api/pair/qr.png":      caller.PanelAccess,
@@ -76,6 +85,7 @@ var routeAccess = map[string]caller.Access{
 	"GET /api/asr":                    caller.PanelAccess,
 	"POST /api/asr/install":           caller.PanelAccess,
 	"POST /api/asr/remote":            caller.PanelAccess,
+	"POST /api/asr/contexto":          caller.PanelAccess,
 	"POST /api/diagnostico":           caller.PanelAccess,
 	"GET /api/webhooks":               caller.PanelAccess,
 	"POST /api/webhooks":              caller.PanelAccess,

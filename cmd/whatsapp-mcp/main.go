@@ -196,7 +196,7 @@ func main() {
 		if headless() {
 			err = fail(exitConflict, "%s", i18n.Tf("sem tela para abrir o navegador; o painel fica em %s/ (por um túnel SSH, por exemplo), e tudo o que ele faz tem comando: whatsapp-mcp help", cfg.baseURL()))
 		} else {
-			err = platform.Open(cfg.baseURL() + "/")
+			err = platform.Open(panelURL(cfg))
 		}
 	case "version", "--version", "-v":
 		fmt.Println(version)
@@ -296,6 +296,14 @@ func fatal(err error) {
 
 func serve(cfg config) error {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	// In the container, files on their way (a document to send, a voice note
+	// being converted) go to TMPDIR on the data volume, not to /tmp in
+	// memory: made here, and emptied of what a stop left behind.
+	if inContainer() {
+		if err := freshTempDir(os.Getenv("TMPDIR"), "/data"); err != nil {
+			logger.Warn("could not prepare the folder for temporary files", "dir", os.Getenv("TMPDIR"), "error", err)
+		}
+	}
 	if err := appconfig.MarkNew(cfg.DataDir); err != nil {
 		logger.Warn("could not write config.json", "error", err)
 	}
@@ -313,7 +321,7 @@ func serve(cfg config) error {
 		Panel: func(p *panel.Panel) { p.Release = newRelease(cfg, logger) },
 	})
 	if errors.Is(err, daemon.ErrWacliMissing) {
-		return fmt.Errorf("%w; install it with `brew install openclaw/tap/wacli` or set WACLI_BIN", err)
+		return fmt.Errorf("%w; run install.sh again (it installs the tested wacli beside whatsapp-mcp) or set WACLI_BIN", err)
 	}
 	if err != nil {
 		return err
@@ -398,7 +406,7 @@ func serviceCmd(cfg config, args []string) error {
 			return nil
 		}
 		fmt.Println("opening the panel in the browser: connect your WhatsApp there")
-		if err := platform.Open(cfg.baseURL() + "/"); err != nil {
+		if err := platform.Open(panelURL(cfg)); err != nil {
 			fmt.Printf("open %s/ in the browser\n", cfg.baseURL())
 		}
 		return nil

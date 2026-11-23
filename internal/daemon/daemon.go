@@ -200,6 +200,10 @@ func Start(cfg Config) (*Daemon, error) {
 			}
 		}()
 		logger.Info("serving the public address", "url", cfg.Public.URL.String(), "listen", publicLn.Addr().String())
+		if public.Unencrypted(cfg.Public.Origin) {
+			logger.Warn("the public address is http://, not https://: the panel password, the API keys and the messages travel over it unencrypted. "+
+				"Put an HTTPS proxy or tunnel in front and set "+public.EnvURL+" to its https:// address", "url", cfg.Public.URL.String())
+		}
 	}
 	if ln != nil {
 		d.serve(ln)

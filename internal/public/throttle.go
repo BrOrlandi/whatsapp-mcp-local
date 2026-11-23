@@ -1,6 +1,7 @@
 package public
 
 import (
+	"crypto/sha256"
 	"sync"
 	"time"
 )
@@ -115,4 +116,39 @@ func delay(fails int, shared bool) time.Duration {
 		return ceiling
 	}
 	return min(time.Second<<n, ceiling)
+}
+
+// refused remembers, by their hash, the wrong keys and tokens looked up in
+// the last minute, so one sent again from an address that waits is refused
+// without reading state.db. The table is bounded: the least recent goes
+// first.
+type refused struct {
+	mu sync.Mutex
+	m  *lru[time.Time]
+}
+
+const (
+	refusedSize = 4096
+	refusedFor  = time.Minute
+)
+
+func newRefused() *refused { return &refused{m: newLRU[time.Time](refusedSize)} }
+
+func refusedKey(bearer string) string {
+	sum := sha256.Sum256([]byte(bearer))
+	return string(sum[:])
+}
+
+// has reports whether bearer was refused within the last minute.
+func (r *refused) has(bearer string, now time.Time) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	at, ok := r.m.get(refusedKey(bearer))
+	return ok && now.Sub(at) < refusedFor
+}
+
+func (r *refused) add(bearer string, now time.Time) {
+	r.mu.Lock()
+	r.m.put(refusedKey(bearer), now)
+	r.mu.Unlock()
 }
