@@ -202,7 +202,9 @@ func TestLanguageChangeKeepsThePageStill(t *testing.T) {
 		t.Errorf("app.js asked again with its tag: %d, want 304", again.Code)
 	}
 
-	if !strings.Contains(stylesheet, "@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}") {
+	// The cross-fade is left out of the app on Linux (pageTransition), so it is
+	// checked where it is on, whatever system runs the tests.
+	if !strings.Contains(pageTransition("darwin", true), "@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}") {
 		t.Error("the stylesheet lacks the cross-fade, or does not keep it from reduced motion")
 	}
 	if !strings.Contains(stylesheet, "[data-themes] [data-theme-switch]{display:block}") {
