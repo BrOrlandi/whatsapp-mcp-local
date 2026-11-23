@@ -164,15 +164,25 @@ func testReadTools(t *testing.T, a *app) {
 	if len(chats) == 0 {
 		t.Fatal("list_chats returned no chat")
 	}
-	chat := str(chats[0], "jid")
 	trimmed := firstList(a.call("list_chats", obj{"limit": 2, "fields": []string{"jid"}}), "chats")
 	if len(trimmed) > 0 && len(trimmed[0].(map[string]any)) != 1 {
 		t.Errorf("fields did not trim list_chats: %s", clipAny(trimmed[0]))
 	}
 
-	msgs := firstList(a.call("get_chat_messages", obj{"chat_jid": chat, "limit": 5}), "messages")
+	// The most recent chat can hold only deleted messages (tests write to the
+	// account's own chat or to WMCP_TO and delete it all for everyone): it
+	// lists, but has nothing to read. The first recent chat with messages is
+	// read instead.
+	var chat string
+	var msgs []any
+	for _, c := range chats {
+		chat = str(c, "jid")
+		if msgs = firstList(a.call("get_chat_messages", obj{"chat_jid": chat, "limit": 5}), "messages"); len(msgs) > 0 {
+			break
+		}
+	}
 	if len(msgs) == 0 {
-		t.Errorf("get_chat_messages(%s) returned nothing", chat)
+		t.Errorf("get_chat_messages returned nothing for the %d most recent chats", len(chats))
 	}
 	cnt := a.call("get_chat_messages", obj{"chat_jid": chat, "count_only": true})
 	if get(cnt, "count") == nil {
