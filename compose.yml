@@ -37,14 +37,32 @@ services:
       # such as `whatsapp-mcp transcription serve` on a Mac, at URL with
       # TOKEN; openai: OpenAI with OPENAI_KEY. MODEL defaults to whisper-1.
       # When they fail, voice notes are transcribed here, if installed.
+      # WAIT is how many seconds a call waits for a transcript before answering
+      # "still going" (empty: 240), for AI tools that give up sooner.
+      # CONTEXT is what of the conversation goes with each voice note: none,
+      # names or messages (empty: names in local, none in remote and openai).
       WHATSAPP_MCP_TRANSCRIPTION_MODE: ${WHATSAPP_MCP_TRANSCRIPTION_MODE:-}
       WHATSAPP_MCP_TRANSCRIPTION_URL: ${WHATSAPP_MCP_TRANSCRIPTION_URL:-}
       WHATSAPP_MCP_TRANSCRIPTION_TOKEN: ${WHATSAPP_MCP_TRANSCRIPTION_TOKEN:-}
       WHATSAPP_MCP_TRANSCRIPTION_MODEL: ${WHATSAPP_MCP_TRANSCRIPTION_MODEL:-}
       WHATSAPP_MCP_TRANSCRIPTION_OPENAI_KEY: ${WHATSAPP_MCP_TRANSCRIPTION_OPENAI_KEY:-}
+      WHATSAPP_MCP_TRANSCRIPTION_WAIT: ${WHATSAPP_MCP_TRANSCRIPTION_WAIT:-}
+      WHATSAPP_MCP_TRANSCRIPTION_CONTEXT: ${WHATSAPP_MCP_TRANSCRIPTION_CONTEXT:-}
       TZ: ${TZ:-America/Sao_Paulo}
     volumes:
       - data:/data
+    # Locked down: no Linux capabilities and no way to gain any, and a
+    # read-only system; the program writes only to /data. Files on their way
+    # (a document to send, up to 2 GB; a voice note being transcribed) go to
+    # /data/tmp (the image's TMPDIR), on disk, emptied at each start; /tmp
+    # is a small tmpfs for anything else.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     networks:
       - wamcp
 

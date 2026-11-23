@@ -1,7 +1,8 @@
 # The Linux build machine: Ubuntu 22.04, so the .deb and the AppImage run on
 # 22.04 and everything newer. scripts/build-linux.sh runs inside it.
 FROM ubuntu:22.04
-ARG GO_VERSION=1.26.5
+# The Go of every release, from build/go.env; scripts/release.sh passes it.
+ARG GO_VERSION=1.26.11
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential cmake pkg-config curl ca-certificates git file unzip zip xz-utils \

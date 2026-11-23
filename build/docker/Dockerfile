@@ -16,7 +16,9 @@
 # today and one next month use the same ones; bumping them is a change here
 # (the Debian one carries its date: hub.docker.com/_/debian, trixie-*-slim).
 
-FROM --platform=$BUILDPLATFORM golang:1.26.11-trixie AS build
+# The Go of every release, from build/go.env (a test keeps them in step).
+ARG GO_VERSION=1.26.11
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-trixie AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -46,7 +48,11 @@ COPY --from=build /out/whatsapp-mcp /out/wacli /usr/local/bin/
 # The public listener answers on every interface of the container, for the
 # proxy beside it; it only starts with WHATSAPP_MCP_PUBLIC_URL set (the
 # server mode), and the local listener stays on the container's loopback.
+# Files on their way (a document to send, a voice note being converted) go
+# to /data/tmp, on the volume's disk rather than in memory; serve makes it
+# and empties it at each start.
 ENV HOME=/data \
+    TMPDIR=/data/tmp \
     WHATSAPP_MCP_DATA=/data/mcp \
     WACLI_STORE_DIR=/data/wacli \
     WACLI_BIN=/usr/local/bin/wacli \

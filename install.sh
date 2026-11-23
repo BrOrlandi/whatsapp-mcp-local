@@ -37,22 +37,33 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 # ---- wacli -------------------------------------------------------------------
+# The wacli this release is tested with, and the sha256 of each system's file
+# from its checksums.txt: the same pin as build/wacli.env, which a test keeps
+# in step with these lines.
+WACLI_VERSION=0.26.1
+WACLI_SHA256_darwin_arm64=20898523a70fb3ad992f8a20d786f70484bb53221df017cdafdcb7f7fc882d8f
+WACLI_SHA256_darwin_amd64=d5561a41534ec83be8bca611d1fcef12bbfb9967a3661dcc7d0328b929224a7d
+WACLI_SHA256_linux_amd64=515405c5a33c7f651a368484740db662736f50c275be5a0504fb0a84dce47013
+WACLI_SHA256_linux_arm64=9efe789b01e12462140089749d8b5ce0ad292521893f4166e13eca81f0acac4c
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
+}
+
 install_wacli() {
   if command -v wacli >/dev/null 2>&1; then
     say "wacli already installed: $(wacli --version 2>/dev/null | head -1)"
     return
   fi
-  if command -v brew >/dev/null 2>&1; then
-    say "installing wacli with Homebrew"
-    brew install openclaw/tap/wacli
-    return
-  fi
-  say "installing wacli from its GitHub release"
-  local tag asset
-  tag="$(curl -fsSL https://api.github.com/repos/openclaw/wacli/releases/latest | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1)"
-  [ -n "$tag" ] || die "could not find the latest wacli release"
-  asset="wacli_${tag#v}_${OS}_${ARCH}.tar.gz"
-  curl -fsSL -o "$TMP/wacli.tgz" "https://github.com/openclaw/wacli/releases/download/$tag/$asset"
+  say "installing wacli $WACLI_VERSION from its GitHub release"
+  local asset pin want got
+  asset="wacli_${WACLI_VERSION}_${OS}_${ARCH}.tar.gz"
+  pin="WACLI_SHA256_${OS}_${ARCH}"
+  want="${!pin:-}"
+  [ -n "$want" ] || die "no checked wacli for $OS/$ARCH"
+  curl -fsSL -o "$TMP/wacli.tgz" "https://github.com/openclaw/wacli/releases/download/v$WACLI_VERSION/$asset"
+  got="$(sha256_of "$TMP/wacli.tgz")"
+  [ "$got" = "$want" ] || die "the wacli download does not match its checksum (got $got, want $want)"
   tar -xzf "$TMP/wacli.tgz" -C "$TMP"
   install -m 0755 "$(find "$TMP" -type f -name wacli | head -1)" "$BIN_DIR/wacli"
 }
@@ -82,10 +93,24 @@ install_mcp() {
   if [ -n "${BASH_SOURCE[0]:-}" ] && [ -f "${BASH_SOURCE[0]}" ]; then
     here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   fi
+  # The latest release's tag, resolved once, so the file and its checksums
+  # come from the same release even if a new one is published meanwhile.
+  local tag=""
+  if [ -z "$here" ] || [ ! -f "$here/go.mod" ]; then
+    tag="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest" 2>/dev/null || true)"
+    case "$tag" in */releases/tag/*) tag="${tag##*/releases/tag/}" ;; *) tag="" ;; esac
+  fi
   if [ -n "$here" ] && [ -f "$here/go.mod" ] && grep -q "module github.com/$REPO" "$here/go.mod"; then
     build_from "$here"
-  elif curl -fsSL -o "$TMP/mcp.tgz" "https://github.com/$REPO/releases/latest/download/whatsapp-mcp_${OS}_${ARCH}.tar.gz" 2>/dev/null; then
-    say "downloading the latest release"
+  elif [ -n "$tag" ] && curl -fsSL -o "$TMP/mcp.tgz" "https://github.com/$REPO/releases/download/$tag/whatsapp-mcp_${OS}_${ARCH}.tar.gz" 2>/dev/null; then
+    say "downloading the latest release ($tag)"
+    # Checked against the release's own checksums.txt before it is unpacked.
+    curl -fsSL -o "$TMP/checksums.txt" "https://github.com/$REPO/releases/download/$tag/checksums.txt" ||
+      die "could not download the release's checksums.txt"
+    local want got
+    want="$(awk -v f="whatsapp-mcp_${OS}_${ARCH}.tar.gz" '$2 == f {print $1}' "$TMP/checksums.txt")"
+    got="$(sha256_of "$TMP/mcp.tgz")"
+    [ -n "$want" ] && [ "$got" = "$want" ] || die "the whatsapp-mcp download does not match the release's checksums.txt"
     tar -xzf "$TMP/mcp.tgz" -C "$TMP"
   else
     say "no published release to download; fetching the source"

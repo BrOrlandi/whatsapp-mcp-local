@@ -26,6 +26,22 @@ done
 # built or notarised: the server image is the release's last step.
 scripts/build-image.sh --check
 
+# Every binary is built with the Go pinned in build/go.env, never with
+# whatever Go this Mac has: an older one carries the standard library's known
+# vulnerabilities into the release. GOTOOLCHAIN makes go fetch that exact
+# version if this one is different.
+# shellcheck source=/dev/null
+. build/go.env
+export GOTOOLCHAIN="go$GO_VERSION"
+[ "$(go env GOVERSION)" = "go$GO_VERSION" ] || { echo "could not build with go$GO_VERSION (build/go.env): go says $(go env GOVERSION)" >&2; exit 1; }
+# go_of BIN... refuses a binary built with another Go.
+go_of() {
+  for b in "$@"; do
+    got="$(go version "$b")"; got="${got##*: }"
+    [ "$got" = "go$GO_VERSION" ] || { echo "$b was built with $got, not go$GO_VERSION" >&2; exit 1; }
+  done
+}
+
 OUT="$PWD/dist/$TAG"
 # Under the repository rather than in a temporary folder, so Docker can mount
 # it; a clone rather than a worktree, whose .git Docker cannot follow.
@@ -49,16 +65,17 @@ export TAGS
 
 echo "==> macOS"
 VERSION="$VERSION" scripts/build-macos.sh
+go_of "build/bin/WhatsApp MCP.app/Contents/MacOS/"*
 xcrun stapler validate -q build/bin/WhatsApp-MCP.dmg
 cp build/bin/WhatsApp-MCP.dmg "$OUT/"
 
 echo "==> Windows"
-docker run --rm -v "$src:/src" -w /src -e VERSION="$VERSION" -e TAGS golang:1.26 bash -c \
+docker run --rm -v "$src:/src" -w /src -e VERSION="$VERSION" -e TAGS "golang:$GO_VERSION" bash -c \
   'git config --global --add safe.directory "*" && apt-get update -qq && apt-get install -y -qq nsis unzip >/dev/null && scripts/build-windows.sh'
 
 for arch in arm64 amd64; do
   echo "==> Linux $arch"
-  docker build -q --platform "linux/$arch" -t "wamcp-linux-build:$arch" build/linux >/dev/null
+  docker build -q --platform "linux/$arch" --build-arg GO_VERSION="$GO_VERSION" -t "wamcp-linux-build:$arch" build/linux >/dev/null
   docker run --rm --privileged --platform "linux/$arch" -v "$src:/src" -w /src -e VERSION="$VERSION" -e TAGS \
     "wamcp-linux-build:$arch" bash -c 'git config --global --add safe.directory "*" && scripts/build-linux.sh'
 done
@@ -70,6 +87,7 @@ for target in darwin/arm64 darwin/amd64 linux/arm64 linux/amd64 windows/amd64; d
   bin=whatsapp-mcp; [ "$os" = windows ] && bin=whatsapp-mcp.exe
   rm -rf cli && mkdir cli
   CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -tags "$TAGS" -trimpath -ldflags "-s -w -X main.version=$TAG" -o "cli/$bin" ./cmd/whatsapp-mcp
+  go_of "cli/$bin"
   if [ "$os" = windows ]; then
     (cd cli && zip -q "$OUT/whatsapp-mcp_${os}_${arch}.zip" "$bin")
   else
