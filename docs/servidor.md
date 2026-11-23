@@ -605,8 +605,8 @@ tirar esse trabalho do servidor, escolhidos no `.env` (que vence o painel) ou em
   `WHATSAPP_MCP_TRANSCRIPTION_MODEL` escolhe o modelo quando ele pede um. Um
   exemplo: um Mac com chip Apple rodando `whatsapp-mcp transcription serve`
   transcreve em segundos, com `URL=http://<ip-do-mac>:47823` e a chave do
-  arquivo `transcription-server.token` do Mac ([o passo a passo no
-  README](../README.md#transcrever-num-servidor-compatível-com-a-openai)). Outro é o
+  arquivo `transcription-server.token` do Mac ([como subir esse
+  servidor](servidor-de-transcricao.md)). Outro é o
   `whisper-server` do whisper.cpp, rodado com
   `--inference-path /v1/audio/transcriptions --convert -l auto` (sem o
   `-l auto`, ele assume inglês).

@@ -332,9 +332,9 @@ com 4 núcleos fracos, mais de 300 s para 2 a 3 min de fala). O
 com chip Apple, por exemplo) num desses servidores compatíveis com a OpenAI,
 para o modo `remote` de outra instalação: é o mesmo motor (o `whisper-cli`, o
 `ffmpeg` e o modelo que a transcrição local já instalou ali), atrás de um
-servidor HTTP com chave que fala a API de transcrição da OpenAI. O passo a
-passo para subir no Mac, com o launchd, está no
-[README](../README.md#transcrever-num-servidor-compatível-com-a-openai).
+servidor HTTP com chave que fala a API de transcrição da OpenAI. Como subir,
+deixar rodando (launchd, systemd, Docker), expor e conectar está em
+[Servidor de transcrição](servidor-de-transcricao.md); aqui fica o protocolo.
 
 Por que o próprio app, e não só o `whisper-server` do whisper.cpp: o Mac que
 já tem o app tem também o motor, conferido por sha256, e o modelo; o servidor

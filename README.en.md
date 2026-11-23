@@ -193,65 +193,8 @@ takes minutes to do. With the Mac running `whatsapp-mcp transcription serve`
 on your home network, the audio goes to the Mac and comes back as text, and
 nothing leaves your network.
 
-**On the Mac** (with the app installed and transcription turned on in it):
-
-1. Download the command line, without installing its service:
-
-   ```sh
-   mkdir -p ~/.local/bin
-   curl -fsSL https://github.com/BrOrlandi/whatsapp-mcp-local/releases/latest/download/whatsapp-mcp_darwin_arm64.tar.gz | tar -xz -C ~/.local/bin
-   xattr -d com.apple.quarantine ~/.local/bin/whatsapp-mcp 2>/dev/null || true
-   ```
-
-2. Try it, with the model the app already downloaded:
-
-   ```sh
-   WHATSAPP_MCP_DATA="$HOME/Library/Application Support/WhatsApp MCP" ~/.local/bin/whatsapp-mcp transcription serve
-   ```
-
-   It shows the address (`http://<mac-ip>:47823`) and the file where it keeps
-   the key (the key itself never shows on screen or in the log). If macOS
-   asks, allow incoming connections. `Ctrl+C` stops it.
-
-3. To keep it running whenever you log in to the Mac, save the file below as
-   `~/Library/LaunchAgents/com.brorlandi.whatsapp-mcp-transcription.plist`,
-   replacing `YOU` with your user name, and load it:
-
-   ```sh
-   launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.brorlandi.whatsapp-mcp-transcription.plist
-   pbcopy < "$HOME/Library/Application Support/WhatsApp MCP/transcription-server.token"   # copies the key, without showing it
-   ```
-
-   <details><summary>The launchd file</summary>
-
-   ```xml
-   <?xml version="1.0" encoding="UTF-8"?>
-   <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-   <plist version="1.0">
-   <dict>
-     <key>Label</key><string>com.brorlandi.whatsapp-mcp-transcription</string>
-     <key>ProgramArguments</key>
-     <array>
-       <string>/Users/YOU/.local/bin/whatsapp-mcp</string>
-       <string>transcription</string>
-       <string>serve</string>
-     </array>
-     <key>EnvironmentVariables</key>
-     <dict>
-       <key>WHATSAPP_MCP_DATA</key><string>/Users/YOU/Library/Application Support/WhatsApp MCP</string>
-     </dict>
-     <key>RunAtLoad</key><true/>
-     <key>KeepAlive</key><true/>
-     <key>StandardOutPath</key><string>/Users/YOU/Library/Logs/whatsapp-mcp-transcription.log</string>
-     <key>StandardErrorPath</key><string>/Users/YOU/Library/Logs/whatsapp-mcp-transcription.log</string>
-   </dict>
-   </plist>
-   ```
-
-   </details>
-
-   To remove it: `launchctl bootout gui/$(id -u)/com.brorlandi.whatsapp-mcp-transcription`
-   and delete the file.
+How to set up that server on a Mac or on Linux, keep it running as a service
+and connect the app to it: [Transcription server](docs/transcription-server.md).
 
 **On the computer that sends the voice notes**, in *Settings › Audio
 transcription › Where to transcribe*, choose **On an OpenAI-compatible
@@ -261,9 +204,6 @@ http://<mac-ip>:47823` (it asks for the key without showing it) and
 `whatsapp-mcp transcription status`. With Docker, put
 `WHATSAPP_MCP_TRANSCRIPTION_URL` and `WHATSAPP_MCP_TRANSCRIPTION_TOKEN` in the
 `.env` and run `docker compose up -d`.
-
-Since the Mac's server speaks OpenAI's transcription API, any program that
-talks to OpenAI can use the Mac too.
 
 **Or on OpenAI.** Without a server of your own, voice notes can go to OpenAI, with your
 API key: under *Where to transcribe*, choose **On OpenAI**, paste the key and,
