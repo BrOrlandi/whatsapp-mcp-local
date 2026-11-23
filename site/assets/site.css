@@ -559,6 +559,11 @@ code {
 .help-card__tag svg { width: 14px; height: 14px; }
 .help-card__more { display: inline-flex; align-items: center; gap: 8px; margin-top: auto; color: var(--brand); font-weight: 700; }
 .help-card__more svg { width: 18px; height: 18px; }
+/* On /ajuda, the recipes and the tools first, then the guides under their own title. */
+.help-list--feature { padding-bottom: 0; }
+.help-card--feature { border-color: var(--brand-soft); background: linear-gradient(160deg, var(--brand-soft), var(--surface) 70%); }
+.help-list__title { margin-top: clamp(40px, 6vw, 64px); font-size: 1.4rem; }
+.help-list--guides { padding-top: 20px; }
 .article { max-width: 860px; padding-block: clamp(40px, 6vw, 72px); }
 .article > h2 { margin-top: clamp(48px, 7vw, 72px); font-size: clamp(1.7rem, 3vw, 2.2rem); }
 .article .steps { margin-top: 24px; }

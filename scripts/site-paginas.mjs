@@ -189,9 +189,8 @@ function page({ lang, route, title, description, active, head, body, jsonld }) {
   const p = prefix(lang);
   const nav = [
     `<a class="nav__link nav__link--page nav__link--mid" href="${p || "/"}#como-funciona">${w.how}</a>`,
-    `<a class="nav__link nav__link--page" href="${p}/receitas"${active === "receitas" ? ' aria-current="page"' : ""}>${w.recipes}</a>`,
-    `<a class="nav__link nav__link--page" href="${p}/ferramentas"${active === "ferramentas" ? ' aria-current="page"' : ""}>${w.tools}</a>`,
-    w.help ? `<a class="nav__link nav__link--page nav__link--wide" href="/ajuda">${w.help}</a>` : "",
+    // The recipes and the tools live inside the help (pt only), so its link is the current one there.
+    w.help ? `<a class="nav__link nav__link--page" href="/ajuda"${active ? ' aria-current="page"' : ""}>${w.help}</a>` : "",
     `<a class="nav__link nav__link--page" href="${p}/servidor">${w.server}</a>`,
     `<a class="nav__link nav__link--gh" href="${REPO}"><svg aria-hidden="true"><use href="#i-github"/></svg><span>GitHub</span></a>`,
     `<a class="btn btn--mint btn--sm" href="${p}/download">${w.download}</a>`,
@@ -293,6 +292,16 @@ const breadcrumbs = (items) => ({
   itemListElement: items.map(([name, url], i) => ({ "@type": "ListItem", position: i + 1, name, item: ORIGIN + url })),
 });
 
+// The trail above a page's title, and the same in JSON-LD: the help first, where
+// the language has one, then the given [name, address] items.
+function trail(w, items) {
+  const all = [...(w.help ? [[w.help, "/ajuda"]] : []), ...items];
+  return {
+    html: all.length ? `      <p class="crumbs">${all.map(([n, u]) => `<a href="${u}">${esc(n)}</a>`).join('<span aria-hidden="true"> › </span>')}</p>\n` : "",
+    all,
+  };
+}
+
 // --- recipes ---------------------------------------------------------------
 
 function toolChip(lang, name) {
@@ -321,7 +330,7 @@ for (const lang of LANGS) {
     title: w.recipesTitle,
     description: w.recipesDesc,
     active: "receitas",
-    head: `      <h1>${w.recipesHead}</h1>\n      <p>${w.recipesLead}</p>`,
+    head: `${trail(w, []).html}      <h1>${w.recipesHead}</h1>\n      <p>${w.recipesLead}</p>`,
     body: `    <div class="wrap help-list">\n${cards}\n    </div>\n    <p class="wrap recipes-more"><a href="${p}/ferramentas">${w.toolsLink}</a></p>\n`,
     jsonld: {
       "@context": "https://schema.org",
@@ -363,9 +372,9 @@ ${others}
       title: w.recipeTitle(r.title),
       description: describe(r.summary),
       active: "receitas",
-      head: `      <p class="crumbs"><a href="${p}/receitas">${w.crumbs}</a></p>\n      <h1>${esc(r.title)}</h1>\n      <p>${esc(r.summary)}</p>`,
+      head: `${trail(w, [[w.crumbs, `${p}/receitas`]]).html}      <h1>${esc(r.title)}</h1>\n      <p>${esc(r.summary)}</p>`,
       body,
-      jsonld: breadcrumbs([[w.crumbs, `${p}/receitas`], [r.title, `${p}/receitas/${recipeSlugs[i]}`]]),
+      jsonld: breadcrumbs([...trail(w, [[w.crumbs, `${p}/receitas`]]).all, [r.title, `${p}/receitas/${recipeSlugs[i]}`]]),
     }));
   });
 }
@@ -402,7 +411,7 @@ ${items}
     title: w.toolsTitle(n),
     description: w.toolsDesc(n),
     active: "ferramentas",
-    head: `      <h1>${w.toolsHead(n)}</h1>\n      <p>${w.toolsLead(n)}</p>`,
+    head: `${trail(w, []).html}      <h1>${w.toolsHead(n)}</h1>\n      <p>${w.toolsLead(n)}</p>`,
     body: `    <div class="wrap article tools-page">
       <nav class="tool-jump" aria-label="${w.groupsNav}">
         ${jump}
