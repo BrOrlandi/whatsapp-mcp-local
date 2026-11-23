@@ -468,7 +468,7 @@ func describe(err error) string {
 	switch {
 	case errors.Is(err, errMetadata):
 		return i18n.T("esse endereço não pode receber webhooks")
-	case errors.Is(err, syscall.ECONNREFUSED):
+	case errors.Is(err, errRefused):
 		return i18n.T("nenhum programa respondeu nesse endereço")
 	case errors.As(err, &dns):
 		return i18n.T("o endereço não foi encontrado")
