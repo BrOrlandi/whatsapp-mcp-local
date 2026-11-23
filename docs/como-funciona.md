@@ -85,8 +85,9 @@ celular precisa estar com internet, e cada pedido recua mais um trecho.
 ## Transcrição de áudios
 
 Os áudios são transcritos no próprio computador com o whisper.cpp e o modelo
-large-v3-turbo, usando a conversa como contexto (por padrão só os nomes; o
-[nível de contexto](transcricao.md#o-nível-de-contexto) é escolhido no painel),
+large-v3-turbo, usando os nomes da conversa como contexto (o
+[nível de contexto](transcricao.md#o-nível-de-contexto) só é escolhido no painel
+quando o áudio vai para um servidor ou para a OpenAI),
 e só quando você pede: na GPU
 do Mac, numa placa NVIDIA no Windows, ou no processador. O caminho completo, do pedido à revisão pelo Claude, está em
 [transcricao.md](transcricao.md).

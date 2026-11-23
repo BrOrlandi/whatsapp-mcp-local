@@ -590,11 +590,8 @@ func TestLogsDialog(t *testing.T) {
 func TestChangelogLinks(t *testing.T) {
 	for _, server := range []bool{false, true} {
 		var b strings.Builder
-		if err := parseTemplates().ExecuteTemplate(&b, "ajuda", struct {
-			layout
-			Prompts          []string
-			LocalUnavailable bool
-		}{layout: layout{Title: "Ajuda", Active: "ajuda", App: !server, ServerMode: server}}); err != nil {
+		if err := parseTemplates().ExecuteTemplate(&b, "ajuda", ajudaPage{layout: layout{Title: "Ajuda", Active: "ajuda", App: !server, ServerMode: server},
+			ASR: ajudaASROf(localasr.Settings{Mode: localasr.ModeLocal}, localasr.Status{Supported: true, Ready: true}, server)}); err != nil {
 			t.Fatal(err)
 		}
 		page := b.String()
@@ -604,11 +601,43 @@ func TestChangelogLinks(t *testing.T) {
 		if !strings.Contains(page, `href="https://whatsappmcp.com.br/changelog" target="_blank" rel="noopener noreferrer" data-changelog>Ver o que mudou em cada versão</a>`) {
 			t.Errorf("server=%v: Ajuda should link to every version's changes", server)
 		}
-		if !strings.Contains(page, `href="/configuracoes#transcricao"`) || !strings.Contains(page, "Abrir as configurações de transcrição") {
-			t.Errorf("server=%v: Ajuda's voice notes section should lead to the transcription settings", server)
+		if !strings.Contains(page, `<a class="btn btn--quiet btn--small" href="/configuracoes#asr-dialog">Trocar onde transcrever</a>`) {
+			t.Errorf("server=%v: Ajuda's voice notes section should open where to transcribe", server)
+		}
+		for _, gone := range []string{"Outros lugares para transcrever", "Contexto da conversa"} {
+			if strings.Contains(page, gone) {
+				t.Errorf("server=%v: Ajuda should not explain %q, the settings do", server, gone)
+			}
 		}
 		if strings.Contains(page, "github.com/BrOrlandi/whatsapp-mcp-local/releases") {
 			t.Errorf("server=%v: the page should link to the site, not to GitHub's releases", server)
+		}
+	}
+}
+
+// Ajuda says only where voice notes are transcribed now, in one sentence,
+// with the one button that changes it.
+func TestAjudaSaysWhereVoiceNotesGo(t *testing.T) {
+	local := localasr.Settings{Mode: localasr.ModeLocal}
+	for _, c := range []struct {
+		name   string
+		s      localasr.Settings
+		st     localasr.Status
+		server bool
+		line   string
+		href   string
+	}{
+		{"here", local, localasr.Status{Supported: true, Ready: true}, false, "Os áudios são transcritos neste computador, sem sair dele.", "/configuracoes#asr-dialog"},
+		{"server", local, localasr.Status{Supported: true, Ready: true}, true, "Os áudios são transcritos neste servidor, sem sair dele.", "/configuracoes#asr-dialog"},
+		{"not installed", local, localasr.Status{Supported: true}, false, "A transcrição ainda não está instalada.", "/configuracoes#transcricao"},
+		{"windows", local, localasr.Status{Supported: true, Unavailable: "windows-runtime"}, false, "A transcrição neste computador ainda não funciona no Windows. Escolha um servidor compatível com a OpenAI ou a OpenAI, ou peça à sua ferramenta de IA que transcreva os áudios do jeito dela.", "/configuracoes#asr-dialog"},
+		{"remote", localasr.Settings{Mode: localasr.ModeRemote, URL: "https://transcricao.exemplo.com/v1"}, localasr.Status{}, false, "Os áudios vão para o servidor de transcrição em transcricao.exemplo.com.", "/configuracoes#asr-dialog"},
+		{"openai", localasr.Settings{Mode: localasr.ModeOpenAI}, localasr.Status{}, false, "Os áudios vão para a OpenAI.", "/configuracoes#asr-dialog"},
+		{"from env", localasr.Settings{Mode: localasr.ModeOpenAI, FromEnv: true}, localasr.Status{}, true, "Os áudios vão para a OpenAI.", "/configuracoes#transcricao"},
+	} {
+		v := ajudaASROf(c.s, c.st, c.server)
+		if v.Line != c.line || v.Href != c.href || v.Action == "" {
+			t.Errorf("%s: %+v, want %q at %s", c.name, v, c.line, c.href)
 		}
 	}
 }

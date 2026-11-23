@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/localasr"
 )
 
 // What a dialog shows is a sentence for a person, saying what to do; a
@@ -45,11 +47,17 @@ func TestPanelDialogsSayWhatToDo(t *testing.T) {
 }
 
 // Mudar o contexto saves through the API too, and answers with what the card
-// shows, so the page changes it in place.
+// shows, so the page changes it in place. It is a choice only when voice
+// notes go to a server or to OpenAI.
 func TestContextSavesWithoutReloading(t *testing.T) {
 	d := startServerMode(t, true)
 	own := "http://127.0.0.1:" + strconv.Itoa(d.Port())
 	page := map[string]string{"Origin": own, "Sec-Fetch-Site": "same-origin", "Content-Type": "application/json"}
+	if rec := local(d, "POST", "/api/asr/contexto", `{"context":"messages"}`, page); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "só os nomes") {
+		t.Errorf("transcribing here, the context is not a choice: %d %s", rec.Code, rec.Body)
+	}
+	t.Setenv(localasr.EnvMode, localasr.ModeRemote)
+	t.Setenv(localasr.EnvRemoteURL, "http://127.0.0.1:9")
 	rec := local(d, "POST", "/api/asr/contexto", `{"context":"messages"}`, page)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("saving the context: %d %s", rec.Code, rec.Body)

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"mime/multipart"
 	"net"
@@ -98,7 +99,8 @@ func ParseContext(raw string) (level string, ok bool) {
 }
 
 // DefaultContext is the level when none was chosen: the names when voice
-// notes stay here, nothing when they go to another computer or to OpenAI.
+// notes stay here (where it is also the only level), nothing when they go to
+// another computer or to OpenAI.
 func DefaultContext(mode string) string {
 	if mode == ModeRemote || mode == ModeOpenAI {
 		return ContextNone
@@ -155,8 +157,13 @@ type Settings struct {
 // Offsite says voice notes go to another computer or to OpenAI.
 func (s Settings) Offsite() bool { return s.Mode == ModeRemote || s.Mode == ModeOpenAI }
 
-// ContextLevel is the context level in use: the one chosen, else the mode's.
+// ContextLevel is the context level in use. Transcribing here it is always
+// the names, which do not leave the computer; offsite, the one chosen, else
+// the mode's (nothing).
 func (s Settings) ContextLevel() string {
+	if !s.Offsite() {
+		return ContextNames
+	}
 	if s.Context != "" {
 		return s.Context
 	}
@@ -270,10 +277,21 @@ func NormalizeURL(raw string) (string, error) {
 // reaches a running app.
 func (e *Engine) Settings() Settings {
 	s := e.modeSettings()
-	// The context: the variable, else config.json, else the mode's. A value
-	// that does not read is as if unset, so it falls to the mode's default
-	// and never to sending more.
-	if level, ok := ParseContext(os.Getenv(EnvContext)); ok {
+	// The context is a choice only offsite: here it is always the names
+	// (ContextLevel), and a level kept in config.json waits, untouched, for
+	// the next time voice notes go elsewhere. Offsite: the variable, else
+	// config.json, else the mode's. A value that does not read is as if
+	// unset, so it falls to the mode's default and never to sending more.
+	level, envSet := ParseContext(os.Getenv(EnvContext))
+	if !s.Offsite() {
+		if envSet {
+			e.envContextIgnored.Do(func() {
+				log.Printf("transcription: %s is ignored: voice notes are transcribed here, where the context is always the names", EnvContext)
+			})
+		}
+		return s
+	}
+	if envSet {
 		s.Context, s.ContextFromEnv = level, true
 	} else if c, err := appconfig.Load(e.data); err == nil && c.Transcription != nil {
 		s.Context, _ = ParseContext(c.Transcription.Context)
@@ -437,12 +455,19 @@ func (e *Engine) Configure(ch Change) error {
 // ErrContextFromEnv means WHATSAPP_MCP_TRANSCRIPTION_CONTEXT sets the context.
 var ErrContextFromEnv = errors.New("the transcription context is set by " + EnvContext)
 
+// ErrContextLocal means voice notes are transcribed here, where the context
+// is always the names and not a choice.
+var ErrContextLocal = errors.New("voice notes are transcribed here, where the conversation context is always the names; it is a choice only for an OpenAI-compatible server or OpenAI")
+
 // SetContext keeps the context level in config.json: none, names or
-// messages, or empty ("auto") to follow the mode. The mode's own default is
-// kept as empty, so it keeps following the mode: names chosen here do not
-// go to OpenAI later.
+// messages, or empty ("auto") to follow the mode. It is a choice only when
+// voice notes go to a server or to OpenAI (ErrContextLocal otherwise). The
+// mode's own default is kept as empty, so it keeps following the mode.
 func (e *Engine) SetContext(level string) error {
 	s := e.Settings()
+	if !s.Offsite() {
+		return ErrContextLocal
+	}
 	if s.ContextFromEnv {
 		return ErrContextFromEnv
 	}

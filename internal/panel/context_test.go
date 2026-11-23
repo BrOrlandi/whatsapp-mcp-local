@@ -19,7 +19,8 @@ func TestContextLine(t *testing.T) {
 	}{
 		{localasr.Settings{Mode: localasr.ModeLocal}, false, "names", false, []string{"O nome da conversa e os das pessoas", "Nada sai deste computador."}},
 		{localasr.Settings{Mode: localasr.ModeLocal}, true, "names", false, []string{"Nada sai deste servidor."}},
-		{localasr.Settings{Mode: localasr.ModeLocal, Context: "messages"}, false, "messages", false, []string{"últimas mensagens", "Nada sai deste computador."}},
+		// Here a kept level does not count: always the names.
+		{localasr.Settings{Mode: localasr.ModeLocal, Context: "messages"}, false, "names", false, []string{"O nome da conversa e os das pessoas", "Nada sai deste computador."}},
 		{localasr.Settings{Mode: localasr.ModeOpenAI}, false, "none", false, []string{"Só o áudio vai para a transcrição"}},
 		{localasr.Settings{Mode: localasr.ModeRemote}, false, "none", false, []string{"Só o áudio"}},
 		{localasr.Settings{Mode: localasr.ModeOpenAI, Context: "names"}, false, "names", true, []string{"para a OpenAI", "Esse texto sai do computador."}},
@@ -34,6 +35,9 @@ func TestContextLine(t *testing.T) {
 			if !strings.Contains(v.Line, w) {
 				t.Errorf("%+v: line %q lacks %q", c.s, v.Line, w)
 			}
+		}
+		if v.Offsite != c.s.Offsite() {
+			t.Errorf("%+v: offsite %v", c.s, v.Offsite)
 		}
 		if v.Where == "" {
 			t.Errorf("%+v: no hint of where it goes", c.s)
@@ -78,11 +82,16 @@ func TestContextGroupInTheTranscriptionCard(t *testing.T) {
 	here := transcriptionView{Mode: localasr.ModeLocal}
 	here.Ctx = contextOf(localasr.Settings{Mode: localasr.ModeLocal}, false)
 	page = render(here)
-	if !strings.Contains(page, `<p class="muted" style="margin:0" data-asr-context-line>`) || !strings.Contains(page, `value="names" data-asr-context-level checked`) {
-		t.Error("here, the line is plain and names is chosen by default")
+	// Here the context is not a choice: the group is hidden (the script shows
+	// it when voice notes go elsewhere).
+	if !strings.Contains(page, `<div class="stack" data-asr-context hidden>`) {
+		t.Error("here, the context group should be hidden")
 	}
-	fixed := here
-	fixed.Ctx = contextOf(localasr.Settings{Mode: localasr.ModeLocal, Context: "none", ContextFromEnv: true}, false)
+	if strings.Contains(render(open), `data-asr-context hidden`) {
+		t.Error("offsite, the context group should show")
+	}
+	fixed := open
+	fixed.Ctx = contextOf(localasr.Settings{Mode: localasr.ModeOpenAI, Context: "none", ContextFromEnv: true}, false)
 	page = render(fixed)
 	if strings.Contains(page, "asr-contexto-dialog") || !strings.Contains(page, "WHATSAPP_MCP_TRANSCRIPTION_CONTEXT") {
 		t.Error("a context set by the variable has no dialog and says where it is set")

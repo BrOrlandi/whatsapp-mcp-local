@@ -56,8 +56,11 @@ type Engine struct {
 	data string // the data folder: the programs go in bin/, the model in models/
 	dir  string // where the model lives
 
-	mu      sync.Mutex
-	install Install
+	// envContextIgnored logs once that WHATSAPP_MCP_TRANSCRIPTION_CONTEXT
+	// does nothing while voice notes are transcribed here.
+	envContextIgnored sync.Once
+	mu                sync.Mutex
+	install           Install
 	// slot lets one transcription run at a time (the GPU, or the CPU, is
 	// shared); a caller waits for it only as long as its context allows.
 	slot chan struct{}

@@ -620,9 +620,9 @@ próprio servidor, se a transcrição estiver instalada nele
 ([Os três modos](transcricao.md#os-três-modos)). Do contexto da conversa, por
 padrão, nada vai com o áudio para fora; `WHATSAPP_MCP_TRANSCRIPTION_CONTEXT`
 escolhe `none` (só o áudio), `names` (o nome da conversa e os das pessoas) ou
-`messages` (também as últimas mensagens), e vale também para a transcrição no
-próprio servidor, onde o padrão é `names`. Sem a variável, dá para escolher no
-painel, em Contexto da conversa
+`messages` (também as últimas mensagens). Na transcrição no próprio servidor
+ela não vale (o log avisa): lá vão sempre só os nomes, que não saem dele. Sem
+a variável, dá para escolher no painel, em Contexto da conversa
 ([o nível de contexto](transcricao.md#o-nível-de-contexto)). Se a sua ferramenta de IA
 desiste de esperar antes de 4 minutos, `WHATSAPP_MCP_TRANSCRIPTION_WAIT` diz
 em quantos segundos a resposta passa a ser "ainda transcrevendo, chame de

@@ -18,7 +18,13 @@ func TestContextDefaultsFollowTheMode(t *testing.T) {
 		}
 	}
 	if got := (Settings{Mode: ModeOpenAI, Context: ContextMessages}).ContextLevel(); got != ContextMessages {
-		t.Errorf("a chosen level should win: %q", got)
+		t.Errorf("a chosen level should win offsite: %q", got)
+	}
+	// Here the context is not a choice: always the names.
+	for _, level := range []string{ContextNone, ContextMessages} {
+		if got := (Settings{Mode: ModeLocal, Context: level}).ContextLevel(); got != ContextNames {
+			t.Errorf("%q kept, in local: %q, want names", level, got)
+		}
 	}
 	for in, want := range map[string]string{"none": ContextNone, " Names ": ContextNames, "MESSAGES": ContextMessages, "nada": ContextNone} {
 		if got, ok := ParseContext(in); !ok || got != want {
@@ -67,52 +73,69 @@ func TestContextFromConfigAndVariable(t *testing.T) {
 	if s := e.Settings(); s.ContextFromEnv || s.ContextLevel() != ContextMessages {
 		t.Errorf("an unreadable variable should be as if unset: %+v", s)
 	}
-	// It also applies when the variables set the mode.
-	t.Setenv(EnvContext, "")
+	// In local, neither the variable nor the kept level counts: the names.
+	t.Setenv(EnvContext, "messages")
 	t.Setenv(EnvMode, ModeLocal)
-	if s := e.Settings(); !s.FromEnv || s.Mode != ModeLocal || s.ContextLevel() != ContextMessages {
-		t.Errorf("mode from the variable keeps the kept context: %+v", s)
+	if s := e.Settings(); !s.FromEnv || s.Mode != ModeLocal || s.ContextLevel() != ContextNames || s.ContextFromEnv || s.Context != "" {
+		t.Errorf("in local the context should be the names, whatever is set: %+v", s)
+	}
+	// The level kept for OpenAI is still there for when it is used again.
+	if c, _ := appconfig.Load(e.data); c.Transcription == nil || c.Transcription.Context != ContextMessages {
+		t.Errorf("the kept level should be left alone: %+v", c.Transcription)
 	}
 }
 
 func TestSetContext(t *testing.T) {
 	fakeTools(t)
 	e := engine(t, false)
+	// Here it is not a choice: nothing is kept, and the error says why.
+	if err := e.SetContext("messages"); !errors.Is(err, ErrContextLocal) {
+		t.Errorf("SetContext in local: %v", err)
+	}
+	if c, _ := appconfig.Load(e.data); c.Transcription != nil {
+		t.Errorf("nothing should be kept in local: %+v", c.Transcription)
+	}
+	// A config.json from 1.9.6 with a level chosen here: ignored, kept.
+	if err := os.WriteFile(appconfig.Path(e.data), []byte(`{"port":47821,"language":"","transcription":{"mode":"local","context":"messages"}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if s := e.Settings(); s.ContextLevel() != ContextNames {
+		t.Errorf("1.9.6 level in local: %+v", s)
+	}
+	if err := e.Configure(Change{Mode: ModeOpenAI, Token: "sk-test"}); err != nil {
+		t.Fatal(err)
+	}
 	if err := e.SetContext("tudo"); err == nil {
 		t.Error("an unknown level was kept")
 	}
-	// Here, choosing messages is kept even in local, where the config
-	// would otherwise be dropped.
 	if err := e.SetContext("messages"); err != nil {
 		t.Fatal(err)
 	}
-	c, _ := appconfig.Load(e.data)
-	if c.Transcription == nil || c.Transcription.Context != ContextMessages {
+	if c, _ := appconfig.Load(e.data); c.Transcription == nil || c.Transcription.Context != ContextMessages {
 		t.Fatalf("kept: %+v", c.Transcription)
 	}
-	// The mode's own default is kept as following the mode, so names chosen
-	// here do not reach OpenAI later; so is auto.
-	if err := e.SetContext("names"); err != nil {
+	// The mode's own default is kept as following the mode; so is auto.
+	if err := e.SetContext("none"); err != nil {
 		t.Fatal(err)
 	}
-	if c, _ := appconfig.Load(e.data); c.Transcription != nil {
-		t.Errorf("the default should leave nothing kept: %+v", c.Transcription)
+	if c, _ := appconfig.Load(e.data); c.Transcription == nil || c.Transcription.Context != "" {
+		t.Errorf("the default should keep no level: %+v", c.Transcription)
 	}
-	_ = e.SetContext("none")
+	_ = e.SetContext("names")
 	if err := e.SetContext("auto"); err != nil {
 		t.Fatal(err)
 	}
-	if s := e.Settings(); s.Context != "" || s.ContextLevel() != ContextNames {
+	if s := e.Settings(); s.Context != "" || s.ContextLevel() != ContextNone {
 		t.Errorf("auto: %+v", s)
 	}
 }
 
-// A context chosen for this computer is not carried to a server or OpenAI;
-// switching between local and back keeps it.
+// A context kept from an earlier version, or for another place, is not
+// carried to a server or OpenAI: switching there starts from nothing.
 func TestSwitchingOffsiteStartsWithNoContext(t *testing.T) {
 	fakeTools(t)
 	e := engine(t, false)
-	if err := e.SetContext("messages"); err != nil {
+	if err := os.WriteFile(appconfig.Path(e.data), []byte(`{"port":47821,"language":"","transcription":{"mode":"local","context":"messages"}}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := e.Configure(Change{Mode: ModeOpenAI, Token: "sk-test"}); err != nil {
@@ -134,7 +157,7 @@ func TestSwitchingOffsiteStartsWithNoContext(t *testing.T) {
 	if err := e.Configure(Change{Mode: ModeLocal}); err != nil {
 		t.Fatal(err)
 	}
-	if s := e.Settings(); s.ContextLevel() != ContextNames || s.Context != ContextNames {
+	if s := e.Settings(); s.ContextLevel() != ContextNames {
 		t.Errorf("back here: %+v", s)
 	}
 	if err := e.Configure(Change{Mode: ModeRemote, URL: "192.168.0.10:47823"}); err != nil {

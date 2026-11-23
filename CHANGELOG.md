@@ -6,6 +6,24 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ## [Não lançado]
 
+### Mudado
+
+- **Contexto da conversa só para fora.** Transcrevendo neste computador (ou
+  neste servidor), vão sempre só os nomes da conversa e das pessoas, que não
+  saem dele, e o card de *Transcrição de áudio* não pede mais essa escolha. O
+  *Contexto da conversa* aparece só quando os áudios vão para um servidor
+  compatível com a OpenAI ou para a OpenAI, e começa em **Nada**. Um nível
+  escolhido antes neste computador deixa de valer aqui, sem ser apagado. No
+  terminal, `whatsapp-mcp transcription context` e a variável
+  `WHATSAPP_MCP_TRANSCRIPTION_CONTEXT` passam a valer só nesses dois modos.
+- **Ajuda › Transcrever áudios** diz numa frase onde os seus áudios são
+  transcritos agora, com um botão para trocar (ou instalar), e mantém o
+  exemplo de como pedir. A explicação de cada opção foi para *Configurações ›
+  Transcrição de áudio › Trocar onde transcrever*, em "Para que serve cada
+  opção".
+- A versão no rodapé do painel e o novo card **Novidades**, na Ajuda, levam
+  ao que mudou em cada versão, em whatsappmcp.com.br/changelog.
+
 ## [1.9.6] - 2026-11-23
 
 O painel fica mais simples de usar, no computador e no servidor, e a

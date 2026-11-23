@@ -55,7 +55,9 @@ entre o app e a ferramenta, em qualquer nível.
 #### O nível de contexto
 
 Em Configurações › Transcrição de áudio › **Contexto da conversa** (desde a
-1.9.6), com três níveis:
+1.9.6), com três níveis. Desde a 1.9.7 é uma escolha **só quando o áudio vai
+para fora** (um servidor compatível ou a OpenAI); transcrevendo neste
+computador, o nível é sempre **Só os nomes**, e o card não mostra o contexto:
 
 | Nível | Valor | O que vai com o áudio |
 |---|---|---|
@@ -63,10 +65,13 @@ Em Configurações › Transcrição de áudio › **Contexto da conversa** (des
 | Só os nomes | `names` | o nome da conversa, de quem mandou e das pessoas que falam nas mensagens ao redor: até 6 nomes, cada um cortado em 4 palavras e 40 letras, sem números de telefone, até 200 caracteres no total. Nenhum texto de mensagem |
 | Nomes e mensagens recentes | `messages` | os nomes e as últimas mensagens de texto antes do áudio, até cerca de 600 caracteres delas e 800 no total (o que a 1.9.5 sempre mandava) |
 
-Sem escolha, o nível segue o modo: **Só os nomes** quando a transcrição é neste
-computador (nada sai dele de qualquer jeito) e **Nada** num servidor
-compatível ou na OpenAI, porque lá esse texto sai do computador. O painel diz
-o nível em uso no card e avisa quando o texto sai do computador. Trocar para
+No modo `local`, o nível é fixo em **Só os nomes**: nada sai do computador de
+qualquer jeito, e as mensagens recentes podem traduzir o áudio (abaixo). Um
+nível guardado no `config.json` (de uma escolha para fora, ou de uma 1.9.6) é
+ignorado, mas não apagado, e a variável e a linha de comando não valem ali
+(abaixo). Num servidor compatível ou na OpenAI, sem escolha, o nível é
+**Nada**, porque lá esse texto sai do computador; o card mostra a linha
+"Contexto da conversa" com "Mudar o contexto" e avisa quando o texto sai. Trocar para
 um servidor ou para a OpenAI, ou para outro endereço de servidor, pelo painel
 ou pela linha de comando, volta ao padrão (Nada), para um nível escolhido
 para outro lugar não ir junto sem a pessoa ver; escolher no painel o próprio
@@ -86,7 +91,10 @@ Onde fica: `"context"` no bloco `transcription` do `config.json` (`none`,
 continua valendo), `WHATSAPP_MCP_TRANSCRIPTION_CONTEXT` (vale sozinha, ganha do
 `config.json` e trava a escolha no painel) e `whatsapp-mcp transcription
 context none|names|messages|auto`. Um valor que não se lê conta como não
-definido: cai no padrão do modo, nunca em mandar mais.
+definido: cai no padrão do modo, nunca em mandar mais. Os três só valem nos
+modos `remote` e `openai`: no `local`, a variável é ignorada (o log diz isso
+uma vez) e `transcription context` responde numa linha que ali vão sempre os
+nomes, sem guardar nada.
 
 O `transcribe_audio` diz o nível usado (`context_level` e `context_sent`)
 quando transcreve, e o `whatsapp_status` diz o nível em uso

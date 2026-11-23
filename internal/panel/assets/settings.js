@@ -655,6 +655,9 @@
     // new place rewrites its line (a notice when the text leaves the
     // computer), the dialog's hint and the choice it opens with.
     var context = function (c) {
+      // Only a server or OpenAI has a context to choose; here it is the names.
+      var block = card.querySelector("[data-asr-context]");
+      if (block) block.hidden = !c.offsite;
       var line = card.querySelector("[data-asr-context-line]");
       if (line) {
         line.textContent = c.line;

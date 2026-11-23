@@ -131,6 +131,8 @@ func contextWords(s localasr.Settings) string {
 		what = "messages (the names and the latest text messages before the voice note)"
 	}
 	switch {
+	case !s.Offsite():
+		what += ", always when transcribing here"
 	case s.ContextFromEnv:
 		what += ", set by " + localasr.EnvContext
 	case s.Context == "":
@@ -149,7 +151,7 @@ func transcriptionContext(engine *localasr.Engine, args []string) error {
 		return fail(exitUsage, "usage: whatsapp-mcp transcription context none|names|messages|auto")
 	}
 	if err := engine.SetContext(args[0]); err != nil {
-		if errors.Is(err, localasr.ErrContextFromEnv) {
+		if errors.Is(err, localasr.ErrContextFromEnv) || errors.Is(err, localasr.ErrContextLocal) {
 			return err
 		}
 		return fail(exitUsage, "%v", err)

@@ -914,17 +914,60 @@ func (p *Panel) newcomer(ctx context.Context, now time.Time) bool {
 	return !first.IsZero() && now.Sub(first) < newcomerDays*24*time.Hour
 }
 
+// ajudaPage is Ajuda: the suggested prompts and where voice notes are
+// transcribed right now.
+type ajudaPage struct {
+	layout
+	Prompts []string
+	ASR     ajudaASR
+}
+
+// ajudaASR is the transcription as Ajuda says it: the place in use, in one
+// sentence, and the one button that changes it, in Configurações.
+type ajudaASR struct {
+	Line   string
+	Action string
+	Href   string
+}
+
 func (p *Panel) ajuda(w http.ResponseWriter, r *http.Request) (string, any) {
 	s := p.snapshot(r.Context())
-	unavailable := false
+	var st localasr.Status
+	set := localasr.Settings{Mode: localasr.ModeLocal}
 	if asr := p.Server.ASR(); asr != nil {
-		unavailable = asr.Status().Unavailable != ""
+		st, set = asr.Status(), asr.Settings()
 	}
-	return "ajuda", struct {
-		layout
-		Prompts          []string
-		LocalUnavailable bool // local transcription does not run on this Windows
-	}{p.layout(r, i18n.N("Ajuda"), "ajuda", s), suggestedPrompts, unavailable}
+	return "ajuda", ajudaPage{p.layout(r, i18n.N("Ajuda"), "ajuda", s), suggestedPrompts, ajudaASROf(set, st, p.serverPage(r))}
+}
+
+func ajudaASROf(s localasr.Settings, st localasr.Status, serverMode bool) ajudaASR {
+	v := ajudaASR{Action: i18n.T("Trocar onde transcrever"), Href: "/configuracoes#asr-dialog"}
+	switch {
+	case s.Mode == localasr.ModeOpenAI:
+		v.Line = i18n.T("Os áudios vão para a OpenAI.")
+	case s.Mode == localasr.ModeRemote:
+		host := s.URL
+		if u, err := url.Parse(s.URL); err == nil && u.Host != "" {
+			host = u.Host
+		}
+		v.Line = i18n.Tf("Os áudios vão para o servidor de transcrição em %s.", host)
+	case st.Unavailable != "":
+		v.Line = i18n.T("A transcrição neste computador ainda não funciona no Windows. Escolha um servidor compatível com a OpenAI ou a OpenAI, ou peça à sua ferramenta de IA que transcreva os áudios do jeito dela.")
+	case st.Ready && serverMode:
+		v.Line = i18n.T("Os áudios são transcritos neste servidor, sem sair dele.")
+	case st.Ready:
+		v.Line = i18n.T("Os áudios são transcritos neste computador, sem sair dele.")
+	case st.Supported:
+		v.Line = i18n.T("A transcrição ainda não está instalada.")
+		v.Action, v.Href = i18n.T("Instalar a transcrição"), "/configuracoes#transcricao"
+	default:
+		v.Line = i18n.T("A transcrição ainda não está disponível para este sistema.")
+	}
+	if s.FromEnv && v.Href == "/configuracoes#asr-dialog" {
+		// Set at installation: the settings say so, there is nothing to switch.
+		v.Action, v.Href = i18n.T("Abrir as configurações de transcrição"), "/configuracoes#transcricao"
+	}
+	return v
 }
 
 // guide is an AI tool the connect flow walks through.
@@ -1123,10 +1166,13 @@ type contextView struct {
 	Line    string `json:"line"`
 	Leaves  bool   `json:"leaves"`
 	Where   string `json:"where"`
+	// Offsite says voice notes go to a server or to OpenAI: only then is the
+	// context a choice, and the card shows it.
+	Offsite bool `json:"offsite"`
 }
 
 func contextOf(s localasr.Settings, serverMode bool) contextView {
-	v := contextView{Level: s.ContextLevel(), FromEnv: s.ContextFromEnv}
+	v := contextView{Level: s.ContextLevel(), FromEnv: s.ContextFromEnv, Offsite: s.Offsite()}
 	stays, leaves := i18n.T("Nada sai deste computador."), i18n.T("Esse texto sai do computador.")
 	v.Where = i18n.T("Vai junto com o áudio para este computador, onde ele é transcrito.")
 	if serverMode {
@@ -1294,6 +1340,9 @@ func (p *Panel) setContext(value string) (inDialog bool, err error) {
 	if err := asr.SetContext(level); err != nil {
 		if errors.Is(err, localasr.ErrContextFromEnv) {
 			return false, userError{i18n.T("O contexto da conversa foi definido na instalação e não pode ser trocado por aqui.")}
+		}
+		if errors.Is(err, localasr.ErrContextLocal) {
+			return false, userError{i18n.T("Transcrevendo aqui, vão sempre só os nomes. O contexto da conversa só se escolhe para um servidor compatível com a OpenAI ou para a OpenAI.")}
 		}
 		log.Printf("transcription: the context was not saved: %v", err)
 		return true, userError{i18n.T("Não foi possível salvar agora. Tente de novo.")}

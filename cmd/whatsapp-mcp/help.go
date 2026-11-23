@@ -299,18 +299,22 @@ OpenAI fails (off, asleep, slow, refused), voice notes are transcribed here,
 if install was run here. The variables WHATSAPP_MCP_TRANSCRIPTION_MODE,
 _URL, _TOKEN, _MODEL and _OPENAI_KEY win over these (Docker).
 
-context chooses how much of the conversation goes with each voice note to
-whatever transcribes it, to help it spell names and odd words:
-  none       only the audio
+context chooses, in remote and openai only, how much of the conversation
+goes with each voice note to the server or to OpenAI, to help it spell names
+and odd words:
+  none       only the audio (the default)
   names      the chat's name and the names of the people in it, no messages
   messages   the names and the latest text messages before the voice note;
              messages in another language can make the audio come out
-             translated (on whisper.cpp they outweigh the language asked for)
-  auto       the mode's default: names in local, none in remote and openai
-In remote and openai, anything but none leaves this computer with the audio.
-Switching to remote or openai goes back to auto. Voice notes already
-transcribed are kept as they were; transcribe_audio with refresh redoes one.
-WHATSAPP_MCP_TRANSCRIPTION_CONTEXT (none, names or messages) wins over it.
+             translated
+  auto       the default, none
+Anything but none leaves this computer with the audio. Switching to remote or
+openai goes back to auto. In local the context is always names, which stay
+here, and is not a choice: context then says so and changes nothing (a level
+already chosen waits for remote or openai). Voice notes already transcribed
+are kept as they were; transcribe_audio with refresh redoes one.
+WHATSAPP_MCP_TRANSCRIPTION_CONTEXT (none, names or messages) wins over it in
+remote and openai; in local it is ignored, and the log says so.
 
 serve makes this computer one such server, speaking OpenAI's API
 (POST /v1/audio/transcriptions, GET /v1/models): a Mac with
@@ -329,7 +333,7 @@ Examples:
   whatsapp-mcp transcription serve
   whatsapp-mcp transcription remote http://192.168.0.10:47823 < token-file
   whatsapp-mcp transcription openai --model gpt-4o-mini-transcribe
-  whatsapp-mcp transcription context names
+  whatsapp-mcp transcription context none
   whatsapp-mcp transcription status
 `,
 
