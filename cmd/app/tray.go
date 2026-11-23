@@ -9,8 +9,10 @@ import (
 	"image/png"
 	"runtime"
 	"sync"
+	"sync/atomic"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/daemon"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
@@ -49,6 +51,9 @@ type tray struct {
 	// the one the update line offers.
 	rendered bool
 	version  string
+	// started is set once GTK has started, on Linux: before it, the menu
+	// can be neither built nor sent to the main thread (refresh).
+	started atomic.Bool
 }
 
 func newTray(a *App) *tray {
@@ -76,6 +81,13 @@ func newTray(a *App) *tray {
 	})
 	t.menu.AddSeparator()
 	t.quit = t.menu.Add("").OnClick(func(*application.Context) { a.confirmQuit() })
+
+	if runtime.GOOS == "linux" {
+		a.wails.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+			t.started.Store(true)
+			t.refresh() // what changed while GTK was starting
+		})
+	}
 
 	t.icon = a.wails.SystemTray.New()
 	t.setIcon("warn")
@@ -111,11 +123,29 @@ func (t *tray) relabel() {
 		t.update.SetLabel(i18n.Tf("Instalar a versão %s…", version))
 	}
 	t.app.relabelMenu()
-	t.menu.Update()
+	t.refresh()
 	if d := t.app.current(); d != nil && rendered {
 		// The status reads the database: not on the request that changed
 		// the language.
 		go func() { t.render(d.Status()) }()
+	}
+}
+
+// refresh rebuilds the menu after its items changed. Wails rebuilds it on
+// the main thread on macOS and Windows, but on Linux it calls GTK from
+// whichever goroutine asks, and GTK used off its thread brings the whole app
+// down at random ("Can't create a GtkStyleContext without a display
+// connection", a SIGSEGV in gtk_menu_bar_new). The status comes from a
+// goroutine every half minute, and the language from a request, so on Linux
+// the update goes to the main thread, and waits for GTK to start: Wails
+// counts as running a moment before it, and can't dispatch before Run.
+func (t *tray) refresh() {
+	if runtime.GOOS != "linux" {
+		t.menu.Update()
+		return
+	}
+	if t.started.Load() {
+		application.InvokeSync(t.menu.Update)
 	}
 }
 
@@ -135,7 +165,7 @@ func (t *tray) render(st daemon.Status) {
 	}
 	t.icon.SetTooltip(platform.AppName + ": " + label)
 	t.status.SetLabel(label)
-	t.menu.Update()
+	t.refresh()
 }
 
 func (t *tray) setIcon(tone string) {
@@ -159,7 +189,7 @@ func (t *tray) offerUpdate(version string) {
 	t.version = version
 	t.mu.Unlock()
 	t.update.SetLabel(i18n.Tf("Instalar a versão %s…", version)).SetHidden(false)
-	t.menu.Update()
+	t.refresh()
 }
 
 // setAutostart keeps the menu's checkbox in step with the panel's.
@@ -168,7 +198,7 @@ func (t *tray) setAutostart(on bool) {
 		return
 	}
 	t.autostart.SetChecked(on)
-	t.menu.Update()
+	t.refresh()
 }
 
 // templateIcon is the glyph for the macOS menu bar, which colours it:

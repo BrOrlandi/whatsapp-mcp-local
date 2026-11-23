@@ -24,6 +24,11 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 - A versão no rodapé do painel e o novo card **Novidades**, na Ajuda, levam
   ao que mudou em cada versão, em whatsappmcp.com.br/changelog.
 
+### Corrigido
+
+- No Linux, o app podia fechar sozinho ao abrir ou quando o estado da
+  conexão mudava, por atualizar o menu do ícone da bandeja fora de hora.
+
 ## [1.9.6] - 2026-11-23
 
 O painel fica mais simples de usar, no computador e no servidor, e a
