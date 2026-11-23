@@ -87,25 +87,6 @@ type UpdateState struct {
 	CheckedAt time.Time `json:"checked_at,omitempty"`
 }
 
-// Notes is the site's page with what changed in the version found, for "Ver
-// o que mudou"; empty while none is. Page stays the release's own page, where
-// the package to install by hand is.
-func (u UpdateState) Notes() string {
-	if u.Latest == "" {
-		return ""
-	}
-	return brand.ChangelogURL(u.Latest)
-}
-
-// MarshalJSON adds Notes, which the page's script puts in "Ver o que mudou".
-func (u UpdateState) MarshalJSON() ([]byte, error) {
-	type plain UpdateState
-	return json.Marshal(struct {
-		plain
-		Notes string `json:"notes,omitempty"`
-	}{plain(u), u.Notes()})
-}
-
 func (p *Panel) registerApp(mux httpserver.Mux) {
 	mux.HandleFunc("POST /configuracoes/porta", p.form(p.savePort))
 	mux.HandleFunc("POST /configuracoes/encerrar", p.quit)

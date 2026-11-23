@@ -959,11 +959,6 @@
       page.hidden = !(u.state === "manual" && u.page);
       if (u.page) page.href = u.page;
     }
-    var notes = box.querySelector("[data-update-notes]");
-    if (notes) {
-      notes.hidden = !u.notes;
-      if (u.notes) notes.href = u.notes;
-    }
   }
 
   function renderBanner(u) {

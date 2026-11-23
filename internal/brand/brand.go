@@ -43,32 +43,7 @@ const (
 	// GitHub, for anything a person reads: when the repository changes name,
 	// only the site's redirects change.
 	SiteURL = "https://whatsappmcp.com.br"
-	// ChangelogBaseURL is the site's redirect to the release notes:
-	// /changelog lists every version, /changelog/1.9.6 one of them.
-	ChangelogBaseURL = SiteURL + "/changelog"
+	// ChangelogURL is the site's redirect to the release notes of every
+	// version.
+	ChangelogURL = SiteURL + "/changelog"
 )
-
-// ChangelogURL is the page with what changed in version (1.9.6 or v1.9.6).
-// A version that is not a release's, such as a development build's "dev",
-// gets the list of every version.
-func ChangelogURL(version string) string {
-	v := strings.TrimPrefix(strings.TrimSpace(version), "v")
-	if !releaseVersion(v) {
-		return ChangelogBaseURL
-	}
-	return ChangelogBaseURL + "/" + v
-}
-
-// releaseVersion reports whether v is a release's X.Y.Z.
-func releaseVersion(v string) bool {
-	parts := strings.Split(v, ".")
-	if len(parts) != 3 {
-		return false
-	}
-	for _, p := range parts {
-		if p == "" || strings.Trim(p, "0123456789") != "" {
-			return false
-		}
-	}
-	return true
-}

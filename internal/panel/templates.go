@@ -13,7 +13,7 @@ const pageSource = `
 <p class="colophon__line">
 <a class="colophon__link" href="{{repositoryURL}}" rel="noopener noreferrer" target="_blank">{{template "githubmark"}}<span>{{t "Código-fonte"}}</span></a>
 <span class="colophon__sep">&middot;</span>
-<a class="colophon__version" href="{{changelogURL version}}" rel="noopener noreferrer" target="_blank" title="{{t "Ver o que mudou nesta versão"}}">v{{version}}</a>
+<a class="colophon__version" href="{{changelogURL}}" rel="noopener noreferrer" target="_blank" title="{{t "Ver o que mudou em cada versão"}}">v{{version}}</a>
 {{with supportURL}}<span class="colophon__sep">&middot;</span>
 <a class="colophon__support" href="{{.}}" rel="noopener noreferrer" target="_blank">{{t "Apoie o projeto"}}</a>{{end}}
 </p>
@@ -55,7 +55,7 @@ const pageSource = `
 <p class="update-found__title">{{icon "check"}}{{t "Uma nova versão foi encontrada"}}</p>
 <p class="update-found__name">WhatsApp MCP <span data-update-latest>{{$u.Latest}}</span></p>
 {{if .App}}<p class="update-found__note" data-update-text{{if not (eq $u.State "available" "manual" "downloading" "ready")}} hidden{{end}}>{{if eq $u.State "available"}}{{t "O aplicativo será reiniciado após a instalação."}}{{else if eq $u.State "manual"}}{{t "Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez."}}{{else if eq $u.State "downloading"}}{{tf "Baixando a versão %s…" $u.Latest}} {{$u.Progress}}%{{else if eq $u.State "ready"}}{{tf "Versão %s pronta. O app está reiniciando." $u.Latest}}{{end}}</p>{{end}}
-<div class="actions">{{if .App}}<button class="btn btn--small" type="button" data-update-install{{if ne $u.State "available"}} hidden{{end}}>{{t "Instalar e reiniciar"}}</button><a class="btn btn--small" data-update-page href="{{if $u.Page}}{{$u.Page}}{{else}}#{{end}}" target="_blank" rel="noopener"{{if not (and (eq $u.State "manual") $u.Page)}} hidden{{end}}>{{t "Baixar a versão nova"}}</a>{{end}}<a class="btn btn--ghost btn--small" data-update-notes href="{{if $u.Notes}}{{$u.Notes}}{{else}}#{{end}}" target="_blank" rel="noopener"{{if not $u.Notes}} hidden{{end}}>{{t "Ver o que mudou"}}</a></div>
+<div class="actions">{{if .App}}<button class="btn btn--small" type="button" data-update-install{{if ne $u.State "available"}} hidden{{end}}>{{t "Instalar e reiniciar"}}</button><a class="btn btn--small" data-update-page href="{{if $u.Page}}{{$u.Page}}{{else}}#{{end}}" target="_blank" rel="noopener"{{if not (and (eq $u.State "manual") $u.Page)}} hidden{{end}}>{{t "Baixar a versão nova"}}</a>{{end}}<a class="btn btn--ghost btn--small" data-update-notes href="{{changelogURL}}" target="_blank" rel="noopener noreferrer">{{t "Ver o que mudou"}}</a></div>
 {{with .Release}}<div class="update-found__how" data-update-how>
 {{if .Container}}<p>{{t "Para atualizar, rode no servidor, na pasta da instalação:"}}</p>
 <div class="snippet"><pre data-copy><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
@@ -624,18 +624,24 @@ for, and disconnecting, red, on its own, asking once more before it acts
 <section class="card" id="transcrever">
 <div class="card__head"><h2 class="card__title">{{icon "mic"}}{{t "Transcrever áudios"}}</h2></div>
 <div class="card__body stack">
-<p class="muted">{{if .ServerMode}}{{t "Com a <a href='/configuracoes#transcricao'>transcrição de áudio</a> instalada, os áudios viram texto aqui mesmo: de graça, e o áudio não sai do servidor. Nada é transcrito sem você pedir. Os nomes da conversa e das pessoas entram como contexto (você escolhe o que vai junto em Contexto da conversa), e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho."}}{{else}}{{t "Com a <a href='/configuracoes#transcricao'>transcrição de áudio</a> instalada, os áudios viram texto aqui mesmo, com o Whisper: de graça, e o áudio não sai do computador. Nada é transcrito sem você pedir. Os nomes da conversa e das pessoas entram como contexto (você escolhe o que vai junto em Contexto da conversa), e a sua ferramenta de IA confere a transcrição contra a conversa e corrige o que soou estranho."}}{{end}}</p>
-<p class="muted">{{t "Peça algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve na hora, confere com a conversa e guarda a versão corrigida."}}</p>
+<p class="muted">{{if .ServerMode}}{{t "Com a transcrição de áudio instalada nas Configurações, os áudios viram texto neste servidor: de graça, e o áudio não sai dele. A instalação baixa cerca de 600 MB, uma vez só. Nada é transcrito sem você pedir, e áudios longos saem inteiros."}}{{else}}{{t "Com a transcrição de áudio instalada nas Configurações, os áudios viram texto neste computador: de graça, e o áudio não sai daqui. A instalação baixa cerca de 600 MB, uma vez só. Nada é transcrito sem você pedir, e áudios longos saem inteiros."}}{{end}}</p>
+{{if .LocalUnavailable}}<p class="note" style="margin:0">{{t "A transcrição neste computador ainda não funciona no Windows. Nas Configurações, escolha um servidor compatível com a OpenAI ou a OpenAI, ou peça à sua ferramenta de IA que transcreva os áudios do jeito dela."}}</p>{{end}}
+<h3 class="card__sub">{{t "Outros lugares para transcrever"}}</h3>
+<p class="muted" style="margin:0">{{t "Se preferir, os áudios podem ir para um servidor compatível com a OpenAI, em qualquer endereço, na internet ou na sua rede (você informa o endereço e a chave), ou para a OpenAI (basta a chave). Nesses dois casos, o áudio sai daqui para ser transcrito, por escolha sua."}}</p>
+<h3 class="card__sub">{{t "Contexto da conversa"}}</h3>
+<p class="muted" style="margin:0">{{if .ServerMode}}{{t "Junto com o áudio pode ir um pouco da conversa, para acertar nomes e palavras incomuns. Você escolhe: Nada (só o áudio), Só os nomes (o nome da conversa e os das pessoas nela, sem mensagens) ou Nomes e mensagens recentes. Neste servidor, o padrão é Só os nomes, que não saem dele; num servidor compatível ou na OpenAI, o padrão é Nada."}}{{else}}{{t "Junto com o áudio pode ir um pouco da conversa, para acertar nomes e palavras incomuns. Você escolhe: Nada (só o áudio), Só os nomes (o nome da conversa e os das pessoas nela, sem mensagens) ou Nomes e mensagens recentes. Neste computador, o padrão é Só os nomes, que não saem daqui; num servidor compatível ou na OpenAI, o padrão é Nada."}}{{end}}</p>
+<h3 class="card__sub">{{t "Como pedir"}}</h3>
+<p class="muted" style="margin:0">{{t "Peça algo como a mensagem abaixo. Os áudios já transcritos vêm junto das mensagens; os outros ela transcreve na hora, confere com a conversa e guarda a versão corrigida."}}</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Exemplo"}}</span></div>
 <pre class="plain" data-copy><code>{{t "Transcreva os áudios que recebi hoje no WhatsApp."}}</code></pre></div>
 <p class="muted" style="margin:0">{{t "Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado."}}</p>
-{{if .LocalUnavailable}}<p class="note" style="margin:0">{{t "A transcrição neste computador ainda não funciona no Windows. Em <a href='/configuracoes#transcricao'>Configurações</a>, escolha um servidor compatível com a OpenAI ou a OpenAI, ou peça à sua ferramenta de IA que transcreva os áudios do jeito dela."}}</p>{{end}}
+<div class="actions"><a class="btn btn--ghost btn--small" href="/configuracoes#transcricao">{{t "Abrir as configurações de transcrição"}}</a></div>
 </div></section>
 <section class="card" id="novidades">
 <div class="card__head"><h2 class="card__title">{{icon "bell"}}{{t "Novidades"}}</h2></div>
 <div class="card__body stack">
 <p class="muted" style="margin:0">{{t "Cada versão nova traz correções e melhorias. As notas de cada uma contam o que mudou."}}</p>
-<div class="actions"><a class="btn btn--ghost btn--small" href="{{changelogBase}}" target="_blank" rel="noopener noreferrer" data-changelog>{{t "Ver o que mudou em cada versão"}}</a></div>
+<div class="actions"><a class="btn btn--ghost btn--small" href="{{changelogURL}}" target="_blank" rel="noopener noreferrer" data-changelog>{{t "Ver o que mudou em cada versão"}}</a></div>
 </div></section>
 {{template "foot" .}}{{end}}
 

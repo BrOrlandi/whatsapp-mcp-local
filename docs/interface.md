@@ -56,7 +56,7 @@ Um card (`card`, `card__head`, `card__title`, `card__body`) tem esta ordem:
    diz o que aconteceu ("Uma nova versão foi encontrada",
    `update-found__title`), o nome da coisa ("WhatsApp MCP 1.8.0",
    `update-found__name`), um botão para saber mais ("Ver o que mudou", que abre
-   as notas da versão pelo site, `brand.ChangelogURL`) e a ação, ou o comando com "Copiar" quando é
+   as notas das versões pelo site, `brand.ChangelogURL`) e a ação, ou o comando com "Copiar" quando é
    um comando (`update-found__how`). Ação relacionada nunca fica solta ao lado
    de botões que não têm nada a ver com ela.
 

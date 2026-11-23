@@ -2,7 +2,6 @@ package panel
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -453,7 +452,7 @@ func TestSettingsOnAServer(t *testing.T) {
 		t.Error("with a new version out, the green box should show")
 	}
 	for _, want := range []string{"Uma nova versão foi encontrada", "WhatsApp MCP <span data-update-latest>1.9.1</span>", "Ver o que mudou",
-		`href="https://whatsappmcp.com.br/changelog/1.9.1" target="_blank"`, "docker compose pull &amp;&amp; docker compose up -d", "WHATSAPP_MCP_VERSION"} {
+		`href="https://whatsappmcp.com.br/changelog" target="_blank"`, "docker compose pull &amp;&amp; docker compose up -d", "WHATSAPP_MCP_VERSION"} {
 		if !strings.Contains(box, want) {
 			t.Errorf("the new version's box lacks %q", want)
 		}
@@ -586,14 +585,10 @@ func TestLogsDialog(t *testing.T) {
 	}
 }
 
-// The version in the footer opens what changed in it, on the site; a
-// development build, which is no release, opens the list of every version.
-// Ajuda links to that list too, in both modes.
+// The version in the footer and Ajuda open what changed in each version, on
+// the site (one address for every version), never GitHub's releases.
 func TestChangelogLinks(t *testing.T) {
-	render := func(version string, server bool) string {
-		saved := mcp.Version
-		mcp.Version = version
-		defer func() { mcp.Version = saved }()
+	for _, server := range []bool{false, true} {
 		var b strings.Builder
 		if err := parseTemplates().ExecuteTemplate(&b, "ajuda", struct {
 			layout
@@ -602,38 +597,18 @@ func TestChangelogLinks(t *testing.T) {
 		}{layout: layout{Title: "Ajuda", Active: "ajuda", App: !server, ServerMode: server}}); err != nil {
 			t.Fatal(err)
 		}
-		return b.String()
-	}
-	for _, server := range []bool{false, true} {
-		page := render("v1.9.6", server)
-		if !strings.Contains(page, `<a class="colophon__version" href="https://whatsappmcp.com.br/changelog/1.9.6" rel="noopener noreferrer" target="_blank"`) || !strings.Contains(page, ">v1.9.6</a>") {
-			t.Errorf("server=%v: the footer's version should link to its changelog", server)
+		page := b.String()
+		if !strings.Contains(page, `<a class="colophon__version" href="https://whatsappmcp.com.br/changelog" rel="noopener noreferrer" target="_blank"`) {
+			t.Errorf("server=%v: the footer's version should link to the changelog", server)
 		}
 		if !strings.Contains(page, `href="https://whatsappmcp.com.br/changelog" target="_blank" rel="noopener noreferrer" data-changelog>Ver o que mudou em cada versão</a>`) {
 			t.Errorf("server=%v: Ajuda should link to every version's changes", server)
 		}
+		if !strings.Contains(page, `href="/configuracoes#transcricao"`) || !strings.Contains(page, "Abrir as configurações de transcrição") {
+			t.Errorf("server=%v: Ajuda's voice notes section should lead to the transcription settings", server)
+		}
 		if strings.Contains(page, "github.com/BrOrlandi/whatsapp-mcp-local/releases") {
 			t.Errorf("server=%v: the page should link to the site, not to GitHub's releases", server)
 		}
-	}
-	if dev := render("dev", false); !strings.Contains(dev, `<a class="colophon__version" href="https://whatsappmcp.com.br/changelog" `) {
-		t.Error("a development build's version should link to the list of every version")
-	}
-}
-
-// What the page's script reads carries the site's notes for the version
-// found, next to the release's own page.
-func TestUpdateStateNotes(t *testing.T) {
-	b, err := json.Marshal(UpdateState{State: "available", Current: "1.9.5", Latest: "1.9.6", Page: "https://example.com/release"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, want := range []string{`"notes":"https://whatsappmcp.com.br/changelog/1.9.6"`, `"page":"https://example.com/release"`, `"latest":"1.9.6"`} {
-		if !strings.Contains(string(b), want) {
-			t.Errorf("%s lacks %s", b, want)
-		}
-	}
-	if b, _ := json.Marshal(UpdateState{State: "current", Current: "1.9.6"}); strings.Contains(string(b), "notes") {
-		t.Errorf("with no version found, %s should carry no notes", b)
 	}
 }
