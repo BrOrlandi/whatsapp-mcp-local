@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (function () {
+      var keep = /[?&]lang=pt\b/.test(location.search), lang = null;
+      try {
+        if (keep) localStorage.setItem("lang", "pt-BR");
+        lang = localStorage.getItem("lang");
+      } catch (e) {}
+      if (keep || /bot|crawl|spider|slurp/i.test(navigator.userAgent)) return;
+      if (lang !== "pt-BR" && lang !== "es" && lang !== "en") {
+        lang = null;
+        var wanted = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || ""];
+        for (var i = 0; i < wanted.length && !lang; i++) {
+          var code = String(wanted[i]).slice(0, 2).toLowerCase();
+          lang = code === "pt" ? "pt-BR" : code === "es" || code === "en" ? code : null;
+        }
+      }
+      if (lang === "es" || lang === "en") location.replace("/" + lang + location.pathname.replace(/\/+$/, "") + location.search + location.hash);
+    })();
+  </script>
+  <title>As 40 ferramentas do WhatsApp MCP</title>
+  <meta name="description" content="As 40 ferramentas do WhatsApp MCP explicadas em palavras simples: ler e procurar conversas, enviar e responder, transcrever áudios, organizar e administrar grupos.">
+  <link rel="canonical" href="https://whatsappmcp.com.br/ferramentas">
+  <link rel="alternate" hreflang="pt-BR" href="https://whatsappmcp.com.br/ferramentas">
+  <link rel="alternate" hreflang="es" href="https://whatsappmcp.com.br/es/ferramentas">
+  <link rel="alternate" hreflang="en" href="https://whatsappmcp.com.br/en/ferramentas">
+  <link rel="alternate" hreflang="x-default" href="https://whatsappmcp.com.br/ferramentas">
+  <meta name="theme-color" content="#073d35">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="WhatsApp MCP">
+  <meta property="og:title" content="As 40 ferramentas do WhatsApp MCP">
+  <meta property="og:description" content="As 40 ferramentas do WhatsApp MCP explicadas em palavras simples: ler e procurar conversas, enviar e responder, transcrever áudios, organizar e administrar grupos.">
+  <meta property="og:url" content="https://whatsappmcp.com.br/ferramentas">
+  <meta property="og:image" content="https://whatsappmcp.com.br/assets/og.png?v=2">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="/assets/site.css">
+  <script src="/assets/site.js" defer></script>
+</head>
+<body>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="flag-br" viewBox="0 0 20 14"><rect width="20" height="14" fill="#009b3a"/><path d="M10 1.6 18.2 7 10 12.4 1.8 7z" fill="#fedf00"/><circle cx="10" cy="7" r="3.1" fill="#002776"/><path d="M7 6.3c2-.6 4.2-.4 6 .7" stroke="#fff" stroke-width=".7" fill="none"/></symbol>
+    <symbol id="flag-es" viewBox="0 0 20 14"><rect width="20" height="14" fill="#aa151b"/><rect y="3.5" width="20" height="7" fill="#f1bf00"/></symbol>
+    <symbol id="flag-us" viewBox="0 0 20 14"><rect width="20" height="14" fill="#fff"/><path d="M0 0h20v1.08H0zm0 2.15h20v1.08H0zm0 2.16h20v1.07H0zm0 2.15h20v1.08H0zm0 2.15h20v1.08H0zm0 2.16h20v1.07H0zm0 2.15h20V14H0z" fill="#b22234"/><rect width="8.6" height="7.54" fill="#3c3b6e"/><g fill="#fff"><circle cx="1.5" cy="1.3" r=".45"/><circle cx="4.3" cy="1.3" r=".45"/><circle cx="7.1" cy="1.3" r=".45"/><circle cx="2.9" cy="2.8" r=".45"/><circle cx="5.7" cy="2.8" r=".45"/><circle cx="1.5" cy="4.3" r=".45"/><circle cx="4.3" cy="4.3" r=".45"/><circle cx="7.1" cy="4.3" r=".45"/><circle cx="2.9" cy="5.8" r=".45"/><circle cx="5.7" cy="5.8" r=".45"/></g></symbol>
+    <symbol id="i-logo" viewBox="0 0 64 64"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 9h24a12 12 0 0 1 12 12v11a12 12 0 0 1-12 12H26L15 54.5V43a12 12 0 0 1-7-11V21A12 12 0 0 1 20 9Z"/><path d="M19 21l13 6 13-6M32 27v8.5" stroke-width="3.6"/></g><g fill="currentColor"><circle cx="19" cy="21" r="3.6"/><circle cx="45" cy="21" r="3.6"/><circle cx="32" cy="35.5" r="3.6"/><circle cx="32" cy="27" r="4.4"/></g></symbol>
+    <symbol id="i-github" viewBox="0 0 24 24"><path fill="currentColor" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7 10.5l5 5 5-5M5 20h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></g></symbol>
+  </svg>
+
+  <a class="skip" href="#conteudo">Pular para o conteúdo</a>
+
+  <div class="top">
+    <nav class="wrap langs" aria-label="Idioma">
+      <svg class="langs__icon" viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></g></svg>
+      <a href="/ferramentas?lang=pt" lang="pt-BR" hreflang="pt-BR" aria-current="true"><svg class="langs__flag" aria-hidden="true" focusable="false"><use href="#flag-br"/></svg>Português</a>
+      <a href="/es/ferramentas" lang="es" hreflang="es"><svg class="langs__flag" aria-hidden="true" focusable="false"><use href="#flag-es"/></svg>Español</a>
+      <a href="/en/ferramentas" lang="en" hreflang="en"><svg class="langs__flag" aria-hidden="true" focusable="false"><use href="#flag-us"/></svg>English</a>
+    </nav>
+    <header class="wrap bar">
+      <a class="brand" href="/"><svg viewBox="0 0 64 64" aria-hidden="true"><use href="#i-logo"/></svg>WhatsApp MCP</a>
+      <nav class="nav" aria-label="Principal">
+        <a class="nav__link nav__link--page nav__link--mid" href="/#como-funciona">Como funciona</a>
+        <a class="nav__link nav__link--page" href="/receitas">Receitas</a>
+        <a class="nav__link nav__link--page" href="/ferramentas" aria-current="page">Ferramentas</a>
+        <a class="nav__link nav__link--page nav__link--wide" href="/ajuda">Ajuda</a>
+        <a class="nav__link nav__link--page" href="/servidor">Versão servidor</a>
+        <a class="nav__link nav__link--gh" href="https://github.com/BrOrlandi/whatsapp-mcp-local"><svg aria-hidden="true"><use href="#i-github"/></svg><span>GitHub</span></a>
+        <a class="btn btn--mint btn--sm" href="/download">Baixar</a>
+      </nav>
+    </header>
+    <div class="wrap page-head page-head--short" id="conteudo">
+      <h1>O que a sua IA pode fazer no WhatsApp</h1>
+      <p>As 40 ferramentas que o WhatsApp MCP dá à sua ferramenta de IA, em palavras simples. Ela escolhe qual usar a partir do que você pede.</p>
+    </div>
+  </div>
+
+  <main>
+    <div class="wrap article tools-page">
+      <nav class="tool-jump" aria-label="Grupos de ferramentas">
+        <a href="#ler">Ler e procurar</a>
+        <a href="#organizar">Organizar</a>
+        <a href="#enviar">Enviar e responder</a>
+        <a href="#arquivos">Áudios, fotos e arquivos</a>
+        <a href="#grupos">Administrar grupos</a>
+        <a href="#conexao">Conferir a conexão</a>
+      </nav>
+      <section class="tool-group" id="ler">
+        <h2>Ler e procurar</h2>
+        <p class="tool-group__intro">A IA lê o que já chegou a este computador. Quanto mais tempo o app fica ligado, mais história ela tem para consultar.</p>
+        <article class="tool-item" id="list_chats">
+          <h3>Listar conversas</h3>
+          <p>As conversas mais recentes primeiro, com as fixadas no topo, como no celular.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>list_chats</code></span> <span>Nas receitas: <a href="/receitas/vigiar-palavras-chave">Vigiar palavras-chave</a></span></p>
+        </article>
+        <article class="tool-item" id="get_chat_messages">
+          <h3>Ler uma conversa</h3>
+          <p>As mensagens de uma conversa num período, para a IA resumir. Os áudios já transcritos vêm com o texto. Num período longo, ela pode contar as mensagens antes de ler.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>get_chat_messages</code></span> <span>Nas receitas: <a href="/receitas/vigiar-palavras-chave">Vigiar palavras-chave</a>, <a href="/receitas/resumo-do-dia-de-um-grupo">Resumo do dia de um grupo</a>, <a href="/receitas/ler-o-documento-ou-a-foto-que-chegou">Ler o documento ou a foto que chegou</a>, <a href="/receitas/arquivo-do-que-foi-combinado">Arquivo do que foi combinado</a></span></p>
+        </article>
+        <article class="tool-item" id="search_messages">
+          <h3>Procurar mensagens</h3>
+          <p>Busca por palavras em todas as mensagens guardadas e nos áudios já transcritos, numa conversa ou em todas, num período ou em qualquer data. Diz também até quando as mensagens guardadas voltam, para um resultado vazio não ser confundido com conversa que não existiu.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>search_messages</code></span> <span>Nas receitas: <a href="/receitas/vigiar-palavras-chave">Vigiar palavras-chave</a>, <a href="/receitas/arquivo-do-que-foi-combinado">Arquivo do que foi combinado</a></span></p>
+        </article>
+        <article class="tool-item" id="get_message_context">
+          <h3>Ver o contexto de uma mensagem</h3>
+          <p>As mensagens logo antes e logo depois de uma, por exemplo de um resultado da busca, para entender a que ela respondia.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>get_message_context</code></span></p>
+        </article>
+        <article class="tool-item" id="list_unread">
+          <h3>Ver o que não foi lido</h3>
+          <p>As conversas com mensagens não lidas, como o celular mostra, com as últimas mensagens de cada uma. Ler no celular limpa daqui também.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>list_unread</code></span></p>
+        </article>
+        <article class="tool-item" id="list_unanswered">
+          <h3>Ver quem espera resposta</h3>
+          <p>As conversas em que a última mensagem é da outra pessoa, com quantas mensagens esperam e desde quando. Por padrão, só as individuais; os grupos, quando pedidos, ou só aqueles em que alguém mencionou você. Um &quot;ok&quot;, um &quot;obrigado&quot; ou um 👍 não contam como espera.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>list_unanswered</code></span> <span>Nas receitas: <a href="/receitas/resumo-do-que-ficou-sem-resposta">Resumo do que ficou sem resposta</a></span></p>
+        </article>
+        <article class="tool-item" id="list_mentions">
+          <h3>Ver onde mencionaram você</h3>
+          <p>As mensagens em que alguém mencionou você num grupo (o @ com o seu nome), das mais novas para as mais antigas, cada uma dizendo se você escreveu na conversa depois.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>list_mentions</code></span></p>
+        </article>
+        <article class="tool-item" id="list_contacts">
+          <h3>Listar contatos</h3>
+          <p>A agenda da conta conectada, como chegou a este computador, com filtro por nome ou número.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>list_contacts</code></span></p>
+        </article>
+        <article class="tool-item" id="list_groups">
+          <h3>Listar grupos</h3>
+          <p>Os grupos de que a conta participa.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>list_groups</code></span> <span>Nas receitas: <a href="/receitas/resumo-do-dia-de-um-grupo">Resumo do dia de um grupo</a></span></p>
+        </article>
+        <article class="tool-item" id="get_group">
+          <h3>Ver um grupo</h3>
+          <p>Um grupo com os participantes, com busca por uma pessoa num grupo grande. Também pode buscar o grupo atualizado direto no WhatsApp.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>get_group</code></span></p>
+        </article>
+        <article class="tool-item" id="message_stats">
+          <h3>Contar mensagens</h3>
+          <p>Conta mensagens por conversa, por pessoa, por dia ou por mês, sem ler o conteúdo: quem fala mais, como um grupo andou mês a mês, o tamanho de um trabalho antes de começar.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>message_stats</code></span></p>
+        </article>
+        <article class="tool-item" id="export_messages">
+          <h3>Exportar mensagens para um arquivo</h3>
+          <p>Grava mensagens num arquivo neste computador, das mais antigas para as mais novas, para analisar um arquivo inteiro com um programa ou uma ferramenta que lê arquivos, sem colocar tudo na conversa. Os áudios transcritos vão com o texto.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>export_messages</code></span></p>
+        </article>
+        <article class="tool-item" id="sync_history">
+          <h3>Trazer mensagens mais antigas</h3>
+          <p>Pede ao celular mensagens mais antigas do que as guardadas, uma conversa de cada vez, voltando no tempo. O celular precisa estar com internet, e o próprio WhatsApp limita até onde dá para voltar.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>sync_history</code></span></p>
+        </article>
+      </section>
+      <section class="tool-group" id="organizar">
+        <h2>Organizar</h2>
+        <p class="tool-group__intro">Marcas que ficam só com você: a outra pessoa não vê nada.</p>
+        <article class="tool-item" id="mark_handled">
+          <h3>Marcar como resolvida</h3>
+          <p>Diz que uma conversa já foi tratada, e ela sai da lista de quem espera resposta e da de não lidas até alguém escrever nela de novo. Fica só neste computador: nada é enviado.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>mark_handled</code></span> <span>Nas receitas: <a href="/receitas/resumo-do-que-ficou-sem-resposta">Resumo do que ficou sem resposta</a></span></p>
+        </article>
+        <article class="tool-item" id="snooze_chat">
+          <h3>Lembrar depois</h3>
+          <p>Tira uma conversa dessas listas até uma hora marcada, ou até alguém escrever nela antes. Fica só neste computador.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>snooze_chat</code></span> <span>Nas receitas: <a href="/receitas/resumo-do-que-ficou-sem-resposta">Resumo do que ficou sem resposta</a></span></p>
+        </article>
+        <article class="tool-item" id="organise_chat">
+          <h3>Arquivar, fixar ou silenciar</h3>
+          <p>Arquiva, fixa ou silencia uma conversa, ou desfaz isso. Muda só como o seu WhatsApp mostra a conversa: nada é enviado, e a outra pessoa não vê nada.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>organise_chat</code></span></p>
+        </article>
+        <article class="tool-item" id="mark_chat_read">
+          <h3>Marcar como lida</h3>
+          <p>Marca uma conversa como lida em todos os seus aparelhos, como abrir no celular. Por padrão, a pessoa recebe a confirmação de leitura (os tiques azuis), se a sua privacidade permitir; também dá para marcar só aqui.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>mark_chat_read</code></span></p>
+        </article>
+      </section>
+      <section class="tool-group" id="enviar">
+        <h2>Enviar e responder</h2>
+        <p class="tool-group__intro">A IA só envia o que você pedir. Uma instrução escrita dentro de uma mensagem recebida não é um pedido seu.</p>
+        <article class="tool-item" id="send_text_message">
+          <h3>Enviar uma mensagem</h3>
+          <p>Envia um texto, também como resposta que cita uma mensagem anterior e com menções (@) nos grupos. Pode mostrar o rascunho e para quem vai antes de enviar.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>send_text_message</code></span> <span>Nas receitas: <a href="/receitas/agendar-uma-mensagem">Agendar uma mensagem</a></span></p>
+        </article>
+        <article class="tool-item" id="send_media_message">
+          <h3>Enviar foto, vídeo, áudio, documento ou figurinha</h3>
+          <p>Envia um arquivo de um endereço na internet ou deste computador. A figurinha é uma imagem WebP, parada ou animada; as que você já recebeu ou mandou podem ser reaproveitadas.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>send_media_message</code></span></p>
+        </article>
+        <article class="tool-item" id="send_location">
+          <h3>Enviar uma localização</h3>
+          <p>Envia um ponto no mapa, com nome e endereço se quiser.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>send_location</code></span></p>
+        </article>
+        <article class="tool-item" id="send_poll">
+          <h3>Enviar uma enquete</h3>
+          <p>Envia uma enquete com de duas a doze opções.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>send_poll</code></span> <span>Nas receitas: <a href="/receitas/enquete-e-apuracao">Enquete e apuração</a></span></p>
+        </article>
+        <article class="tool-item" id="get_poll_results">
+          <h3>Ver o resultado de uma enquete</h3>
+          <p>A contagem de uma enquete, opção por opção, com quem votou em cada uma quando o WhatsApp mostra.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>get_poll_results</code></span> <span>Nas receitas: <a href="/receitas/enquete-e-apuracao">Enquete e apuração</a></span></p>
+        </article>
+        <article class="tool-item" id="react_to_message">
+          <h3>Reagir a uma mensagem</h3>
+          <p>Reage com um emoji a qualquer mensagem, ou tira a sua reação.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>react_to_message</code></span></p>
+        </article>
+        <article class="tool-item" id="forward_message">
+          <h3>Encaminhar uma mensagem</h3>
+          <p>Encaminha uma mensagem para outra conversa como o celular faz: ela chega marcada como encaminhada, com a mídia junto. Pode mostrar antes o que vai para onde.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>forward_message</code></span></p>
+        </article>
+        <article class="tool-item" id="edit_message">
+          <h3>Editar uma mensagem enviada</h3>
+          <p>Troca o texto de uma mensagem sua. O WhatsApp só deixa por um tempo depois de enviar.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>edit_message</code></span></p>
+        </article>
+        <article class="tool-item" id="delete_message">
+          <h3>Apagar uma mensagem</h3>
+          <p>Apaga uma mensagem sua para todos, ou qualquer mensagem só para você. São dois passos: primeiro mostra a conversa, a hora e o texto para você conferir; só apaga com a confirmação. Não dá para desfazer.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>delete_message</code></span></p>
+        </article>
+        <article class="tool-item" id="send_typing">
+          <h3>Mostrar &quot;digitando…&quot;</h3>
+          <p>Mostra &quot;digitando…&quot; ou &quot;gravando áudio…&quot; numa conversa enquanto uma resposta é preparada, ou para de mostrar.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>send_typing</code></span></p>
+        </article>
+        <article class="tool-item" id="check_numbers">
+          <h3>Conferir números</h3>
+          <p>Diz quais números de telefone têm WhatsApp, antes de enviar para um número digitado.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>check_numbers</code></span> <span>Nas receitas: <a href="/receitas/agendar-uma-mensagem">Agendar uma mensagem</a></span></p>
+        </article>
+      </section>
+      <section class="tool-group" id="arquivos">
+        <h2>Áudios, fotos e arquivos</h2>
+        <p class="tool-group__intro">Os arquivos chegam do jeito que vieram, e os áudios viram texto quando você pede.</p>
+        <article class="tool-item" id="transcribe_audio">
+          <h3>Transcrever um áudio</h3>
+          <p>Transforma um áudio em texto quando você pede. Há três lugares para isso, escolhidos nas configurações: neste computador, de graça, sem o áudio sair dele (num Mac com chip Apple leva segundos; no Windows, ainda não funciona em todo computador); num servidor seu compatível com a OpenAI; ou na OpenAI, com a sua chave, e aí o áudio vai para lá. Um áudio já transcrito volta na hora.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>transcribe_audio</code></span></p>
+        </article>
+        <article class="tool-item" id="save_transcript">
+          <h3>Corrigir uma transcrição</h3>
+          <p>Guarda a transcrição de um áudio: a correção de uma já feita, por exemplo um nome que o programa ouviu errado, ou uma feita de outro jeito. Daí em diante, a busca e a leitura usam esse texto.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>save_transcript</code></span></p>
+        </article>
+        <article class="tool-item" id="download_media">
+          <h3>Abrir uma foto, um PDF ou outro arquivo</h3>
+          <p>Baixa para este computador o arquivo de uma mensagem, exatamente como chegou, para a IA ler. Um arquivo grande vem como um link deste computador, que vale por dez minutos.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>download_media</code></span> <span>Nas receitas: <a href="/receitas/ler-o-documento-ou-a-foto-que-chegou">Ler o documento ou a foto que chegou</a></span></p>
+        </article>
+        <article class="tool-item" id="get_profile_picture">
+          <h3>Ver a foto de perfil</h3>
+          <p>O endereço da foto de perfil de um contato ou de um grupo, num link que o WhatsApp mantém por pouco tempo.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>get_profile_picture</code></span></p>
+        </article>
+        <article class="tool-item" id="media_stats">
+          <h3>Ver o espaço ocupado</h3>
+          <p>Quanto espaço os arquivos baixados ocupam neste computador: no total, por tipo, por conversa, e quanto é o mesmo arquivo guardado duas vezes.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>media_stats</code></span></p>
+        </article>
+        <article class="tool-item" id="purge_media">
+          <h3>Liberar espaço</h3>
+          <p>Apaga arquivos baixados neste computador: todos, os de uma conversa, os mais antigos ou os maiores. As mensagens ficam, e um arquivo pode ser baixado de novo enquanto o WhatsApp ainda o tiver. Primeiro mostra o que vai sair.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>purge_media</code></span></p>
+        </article>
+      </section>
+      <section class="tool-group" id="grupos">
+        <h2>Administrar grupos</h2>
+        <p class="tool-group__intro">Para os grupos em que você é administrador. O que é difícil de desfazer pede confirmação.</p>
+        <article class="tool-item" id="manage_group_participants">
+          <h3>Adicionar ou remover pessoas</h3>
+          <p>Adiciona, remove, promove a administrador ou rebaixa pessoas num grupo que você administra. O WhatsApp avisa o grupo. Remover tem dois passos: primeiro mostra quem sairia.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>manage_group_participants</code></span></p>
+        </article>
+        <article class="tool-item" id="update_group">
+          <h3>Mudar o nome ou a descrição</h3>
+          <p>Muda o nome de um grupo, a descrição, ou as duas coisas.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>update_group</code></span></p>
+        </article>
+        <article class="tool-item" id="get_group_invite_link">
+          <h3>Pegar o link de convite</h3>
+          <p>O link de convite de um grupo. Pode gerar um novo, e aí o antigo para de funcionar para todo mundo que o tem; por isso pede confirmação.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>get_group_invite_link</code></span></p>
+        </article>
+        <article class="tool-item" id="leave_group">
+          <h3>Sair de um grupo</h3>
+          <p>Sai de um grupo. Primeiro mostra qual é, para conferir; voltar depende de um novo convite.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>leave_group</code></span></p>
+        </article>
+      </section>
+      <section class="tool-group" id="conexao">
+        <h2>Conferir a conexão</h2>
+        <p class="tool-group__intro">Para a IA saber se pode confiar no que lê.</p>
+        <article class="tool-item" id="health">
+          <h3>Ver se está tudo funcionando</h3>
+          <p>Um veredito só (tudo certo, atenção ou falha), com o que foi conferido: se o WhatsApp está conectado, se as mensagens estão chegando e se falta algum período nas mensagens guardadas. O que não estiver bem vem com o que fazer.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>health</code></span></p>
+        </article>
+        <article class="tool-item" id="whatsapp_status">
+          <h3>Ver o estado da conexão</h3>
+          <p>Os detalhes: qual número está conectado e o nome que você deu a ele, até quando as mensagens guardadas voltam, períodos que podem estar faltando, qualquer problema que precise de atenção e os webhooks que avisam programas seus.</p>
+          <p class="tool-item__meta"><span title="O nome que a IA vê"><code>whatsapp_status</code></span></p>
+        </article>
+      </section>
+      <p class="article__more">Para ver as ferramentas trabalhando juntas, veja as <a href="/receitas">receitas</a>.</p>
+    </div>
+
+    <section class="cta">
+      <div class="wrap cta__inner">
+        <div>
+          <h2>Baixe o WhatsApp MCP Local</h2>
+          <p>Grátis, para macOS, Windows e Linux.</p>
+        </div>
+        <a class="btn btn--mint btn--lg" href="/download"><svg aria-hidden="true"><use href="#i-download"/></svg>Baixar o app</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__grid">
+      <p>Código aberto, licença MIT. Feito por <a href="https://github.com/BrOrlandi">Bruno Orlandi</a>.</p>
+      <nav aria-label="Rodapé">
+        <a href="https://github.com/BrOrlandi/whatsapp-mcp-local">GitHub</a>
+        <a href="/ajuda">Ajuda</a>
+        <a href="/receitas">Receitas</a>
+        <a href="/ferramentas">Ferramentas</a>
+        <a href="https://github.com/BrOrlandi/whatsapp-mcp-local/blob/main/CHANGELOG.md">O que mudou</a>
+        <a href="/servidor">Versão servidor</a>
+        <a href="https://donate.stripe.com/8x200jdhA6c1d375jF9Ve06">Apoie o projeto</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

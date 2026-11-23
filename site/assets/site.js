@@ -260,6 +260,170 @@
     });
   });
 
+  // The setup demo on the home page: the app's screens, the phone, Claude
+  // Desktop. The HTML holds the last scene; this plays the way there once, when
+  // the figure comes into view, pausing while it is out of view. Whoever asked
+  // for less motion keeps the last scene, still.
+  const demo = document.querySelector("[data-demo]");
+  if (demo && !reduceMotion && "IntersectionObserver" in window) {
+    const control = demo.querySelector("[data-demo-control]");
+    const label = control.querySelector("span");
+    const steps = document.querySelectorAll(".how .steps > li");
+    const stage = demo.querySelector(".demo__stage");
+    const pointer = demo.querySelector(".demo-pointer");
+    const typed = demo.querySelector("[data-type]");
+    const fullAsk = typed.textContent;
+    const parts = demo.querySelectorAll(".dc-answer > *");
+    let paused = false;
+    let visible = false;
+    let playing = false;
+    let take = 0;
+
+    // Waits that stand still while paused or out of view, and give up when a newer take started.
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    async function wait(ms, id) {
+      let left = ms;
+      while (left > 0) {
+        if (id !== take) throw new Error("stale");
+        await sleep(50);
+        if (!paused && visible) left -= 50;
+      }
+      if (id !== take) throw new Error("stale");
+    }
+    const scene = (name) => (demo.dataset.scene = name);
+    const step = (n) => steps.forEach((li, i) => li.classList.toggle("is-now", i === n));
+    function aim(el, dx = 0.3, dy = 0.55) {
+      const s = stage.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      pointer.style.setProperty("--x", ((r.left - s.left + r.width * dx) / s.width) * 100 + "%");
+      pointer.style.setProperty("--y", ((r.top - s.top + r.height * dy) / s.height) * 100 + "%");
+    }
+    async function press(el, id) {
+      pointer.style.transform = "scale(0.85)";
+      el.classList.add("is-pressed");
+      await wait(160, id);
+      pointer.style.transform = "";
+      el.classList.remove("is-pressed");
+    }
+    function setControl(state) {
+      control.dataset.state = state;
+      label.textContent = control.dataset[state];
+      control.hidden = false;
+    }
+
+    async function play() {
+      const id = ++take;
+      playing = true;
+      paused = false;
+      setControl("pause");
+      steps[0].parentElement.classList.add("is-playing");
+      parts.forEach((p) => p.classList.remove("is-in"));
+      typed.textContent = fullAsk;
+      try {
+        step(0);
+        scene("qr");
+        await wait(1800, id);
+        step(1);
+        scene("scan");
+        await wait(2400, id);
+        scene("paired");
+        await wait(1900, id);
+        step(2);
+        const target = demo.querySelector(".dp-pick--target");
+        pointer.style.transition = "none";
+        pointer.style.setProperty("--x", "70%");
+        pointer.style.setProperty("--y", "92%");
+        scene("pick");
+        void pointer.offsetWidth;
+        pointer.style.transition = "";
+        aim(target);
+        await wait(1100, id);
+        await press(target, id);
+        scene("add");
+        const button = demo.querySelector(".dp-btn--add");
+        aim(button, 0.4, 0.6);
+        await wait(1000, id);
+        await press(button, id);
+        scene("wait");
+        await wait(1700, id);
+        scene("ok");
+        await wait(1900, id);
+        step(-1);
+        steps[0].parentElement.classList.remove("is-playing");
+        typed.textContent = "";
+        scene("ask");
+        await wait(700, id);
+        for (let i = 1; i <= fullAsk.length; i++) {
+          typed.textContent = fullAsk.slice(0, i);
+          await wait(38, id);
+        }
+        await wait(500, id);
+        scene("tool");
+        await wait(1500, id);
+        scene("answer");
+        for (const p of parts) {
+          p.classList.add("is-in");
+          await wait(500, id);
+        }
+        scene("end");
+        playing = false;
+        setControl("again");
+      } catch {
+        // A newer take started.
+      }
+    }
+
+    control.addEventListener("click", () => {
+      if (!playing) return play();
+      paused = !paused;
+      setControl(paused ? "play" : "pause");
+    });
+    let started = false;
+    new IntersectionObserver(
+      (entries) => {
+        visible = entries[0].isIntersecting;
+        if (visible && !started) {
+          started = true;
+          play();
+        }
+      },
+      { threshold: 0.45 },
+    ).observe(stage);
+  }
+
+  // The app's screens: a tab list (arrows move between tabs); without JS every
+  // screen shows, one under the other.
+  const screens = document.querySelector("[data-screens]");
+  if (screens) {
+    const tabs = [...screens.querySelectorAll('[role="tab"]')];
+    const show = (tab, focus) => {
+      tabs.forEach((t) => {
+        const on = t === tab;
+        t.setAttribute("aria-selected", String(on));
+        t.tabIndex = on ? 0 : -1;
+        document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+      });
+      if (focus) tab.focus();
+      // On a phone the tabs scroll sideways: keep the picked one in sight.
+      tab.scrollIntoView({ block: "nearest", inline: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+    };
+    tabs.forEach((tab, i) => {
+      tab.addEventListener("click", () => show(tab, false));
+      tab.addEventListener("keydown", (event) => {
+        const next = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[event.key];
+        if (next) {
+          event.preventDefault();
+          show(tabs[(i + next + tabs.length) % tabs.length], true);
+        } else if (event.key === "Home" || event.key === "End") {
+          event.preventDefault();
+          show(tabs[event.key === "Home" ? 0 : tabs.length - 1], true);
+        }
+      });
+    });
+    tabs.forEach((t, i) => (document.getElementById(t.getAttribute("aria-controls")).hidden = i !== 0));
+    screens.classList.add("is-ready");
+  }
+
   if (!chat) return;
 
   const scenarios = {
@@ -290,7 +454,7 @@
         title: "Áudio do Marcos",
         ask: "Transcreve o áudio que o Marcos mandou agora",
         working: "Transcrevendo um áudio de 1:42 neste computador",
-        done: "Transcreveu um áudio de 1:42 sem tirar do computador",
+        done: "Transcreveu um áudio de 1:42 neste computador",
         reply: [
           "<p>O Marcos disse:</p>",
           "<blockquote>Fala! Consegui adiantar a reunião com o cliente para quinta, às 10h. Se puder, leva o contrato impresso, que eles querem assinar lá mesmo.</blockquote>",
@@ -325,7 +489,7 @@
         title: "Audio de Marcos",
         ask: "Transcribe el audio que Marcos acaba de mandar",
         working: "Transcribiendo un audio de 1:42 en esta computadora",
-        done: "Transcribió un audio de 1:42 sin sacarlo de la computadora",
+        done: "Transcribió un audio de 1:42 en esta computadora",
         reply: [
           "<p>Marcos dijo:</p>",
           "<blockquote>¡Hola! Logré adelantar la reunión con el cliente para el jueves a las 10. Si puedes, lleva el contrato impreso, que lo quieren firmar ahí mismo.</blockquote>",
@@ -360,7 +524,7 @@
         title: "Voice message from Marcos",
         ask: "Transcribe the voice message Marcos just sent",
         working: "Transcribing a 1:42 voice message on this computer",
-        done: "Transcribed a 1:42 voice message without it leaving the computer",
+        done: "Transcribed a 1:42 voice message on this computer",
         reply: [
           "<p>Marcos said:</p>",
           "<blockquote>Hey! I managed to move the client meeting up to Thursday at 10. If you can, bring a printed copy of the contract, they want to sign it right there.</blockquote>",
