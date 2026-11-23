@@ -663,7 +663,6 @@
  "Versão %s do WhatsApp MCP disponível": "WhatsApp MCP %s is available",
  "Versão %s pronta. O app está reiniciando.": "Version %s is ready. The app is restarting.",
  "Versão e atualizações": "Version and updates",
- "Versão em execução": "Running version",
  "Versão instalada": "Installed version",
  "wacli %s": "wacli %s",
  "Vigiar palavras-chave": "Watch for keywords",
@@ -1190,5 +1189,9 @@
  "Os webhooks também se criam e se apagam por programa, pela API local do servidor:": "Webhooks can also be created and deleted from a program, through the server's local API:",
  "Escreva o endereço completo, começando com http:// ou https://.": "Type the full address, starting with http:// or https://.",
  "Estes passos não servem para o Claude pelo navegador ou pelo celular, nem para o ChatGPT na web: para eles, use o endereço do servidor, no alto da página.": "These steps don't work for Claude in the browser or on the phone, or for ChatGPT on the web: for those, use the server's address at the top of the page.",
- "Numa pasta deste servidor, que aparece em <a href='/configuracoes#dados'>Configurações › Dados</a>. Lá também dá para abrir a pasta ou apagar tudo.": "In a folder on this server, shown in <a href='/configuracoes#dados'>Settings › Data</a>. There you can also open the folder or delete everything."
+ "Numa pasta deste servidor, que aparece em <a href='/configuracoes#dados'>Configurações › Dados</a>. Lá também dá para abrir a pasta ou apagar tudo.": "In a folder on this server, shown in <a href='/configuracoes#dados'>Settings › Data</a>. There you can also open the folder or delete everything.",
+ "Ver o que mudou nesta versão": "See what changed in this version",
+ "Novidades": "What's new",
+ "Cada versão nova traz correções e melhorias. As notas de cada uma contam o que mudou.": "Each new version brings fixes and improvements. Its notes tell what changed.",
+ "Ver o que mudou em cada versão": "See what changed in each version"
 }

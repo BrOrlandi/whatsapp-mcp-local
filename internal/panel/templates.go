@@ -13,7 +13,7 @@ const pageSource = `
 <p class="colophon__line">
 <a class="colophon__link" href="{{repositoryURL}}" rel="noopener noreferrer" target="_blank">{{template "githubmark"}}<span>{{t "Código-fonte"}}</span></a>
 <span class="colophon__sep">&middot;</span>
-<span class="colophon__version" title="{{t "Versão em execução"}}">v{{version}}</span>
+<a class="colophon__version" href="{{changelogURL version}}" rel="noopener noreferrer" target="_blank" title="{{t "Ver o que mudou nesta versão"}}">v{{version}}</a>
 {{with supportURL}}<span class="colophon__sep">&middot;</span>
 <a class="colophon__support" href="{{.}}" rel="noopener noreferrer" target="_blank">{{t "Apoie o projeto"}}</a>{{end}}
 </p>
@@ -55,7 +55,7 @@ const pageSource = `
 <p class="update-found__title">{{icon "check"}}{{t "Uma nova versão foi encontrada"}}</p>
 <p class="update-found__name">WhatsApp MCP <span data-update-latest>{{$u.Latest}}</span></p>
 {{if .App}}<p class="update-found__note" data-update-text{{if not (eq $u.State "available" "manual" "downloading" "ready")}} hidden{{end}}>{{if eq $u.State "available"}}{{t "O aplicativo será reiniciado após a instalação."}}{{else if eq $u.State "manual"}}{{t "Neste sistema, ela é instalada pelo pacote: baixe e instale como da primeira vez."}}{{else if eq $u.State "downloading"}}{{tf "Baixando a versão %s…" $u.Latest}} {{$u.Progress}}%{{else if eq $u.State "ready"}}{{tf "Versão %s pronta. O app está reiniciando." $u.Latest}}{{end}}</p>{{end}}
-<div class="actions">{{if .App}}<button class="btn btn--small" type="button" data-update-install{{if ne $u.State "available"}} hidden{{end}}>{{t "Instalar e reiniciar"}}</button><a class="btn btn--small" data-update-page href="{{if $u.Page}}{{$u.Page}}{{else}}#{{end}}" target="_blank" rel="noopener"{{if not (and (eq $u.State "manual") $u.Page)}} hidden{{end}}>{{t "Baixar a versão nova"}}</a>{{end}}<a class="btn btn--ghost btn--small" data-update-notes href="{{if $u.Page}}{{$u.Page}}{{else}}#{{end}}" target="_blank" rel="noopener"{{if or (not $u.Page) (and .App (eq $u.State "manual"))}} hidden{{end}}>{{t "Ver o que mudou"}}</a></div>
+<div class="actions">{{if .App}}<button class="btn btn--small" type="button" data-update-install{{if ne $u.State "available"}} hidden{{end}}>{{t "Instalar e reiniciar"}}</button><a class="btn btn--small" data-update-page href="{{if $u.Page}}{{$u.Page}}{{else}}#{{end}}" target="_blank" rel="noopener"{{if not (and (eq $u.State "manual") $u.Page)}} hidden{{end}}>{{t "Baixar a versão nova"}}</a>{{end}}<a class="btn btn--ghost btn--small" data-update-notes href="{{if $u.Notes}}{{$u.Notes}}{{else}}#{{end}}" target="_blank" rel="noopener"{{if not $u.Notes}} hidden{{end}}>{{t "Ver o que mudou"}}</a></div>
 {{with .Release}}<div class="update-found__how" data-update-how>
 {{if .Container}}<p>{{t "Para atualizar, rode no servidor, na pasta da instalação:"}}</p>
 <div class="snippet"><pre data-copy><code>docker compose pull &amp;&amp; docker compose up -d</code></pre></div>
@@ -630,6 +630,12 @@ for, and disconnecting, red, on its own, asking once more before it acts
 <pre class="plain" data-copy><code>{{t "Transcreva os áudios que recebi hoje no WhatsApp."}}</code></pre></div>
 <p class="muted" style="margin:0">{{t "Cada áudio é transcrito uma vez: pedir de novo devolve o texto guardado."}}</p>
 {{if .LocalUnavailable}}<p class="note" style="margin:0">{{t "A transcrição neste computador ainda não funciona no Windows. Em <a href='/configuracoes#transcricao'>Configurações</a>, escolha um servidor compatível com a OpenAI ou a OpenAI, ou peça à sua ferramenta de IA que transcreva os áudios do jeito dela."}}</p>{{end}}
+</div></section>
+<section class="card" id="novidades">
+<div class="card__head"><h2 class="card__title">{{icon "bell"}}{{t "Novidades"}}</h2></div>
+<div class="card__body stack">
+<p class="muted" style="margin:0">{{t "Cada versão nova traz correções e melhorias. As notas de cada uma contam o que mudou."}}</p>
+<div class="actions"><a class="btn btn--ghost btn--small" href="{{changelogBase}}" target="_blank" rel="noopener noreferrer" data-changelog>{{t "Ver o que mudou em cada versão"}}</a></div>
 </div></section>
 {{template "foot" .}}{{end}}
 

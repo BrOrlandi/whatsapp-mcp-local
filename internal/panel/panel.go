@@ -1653,6 +1653,8 @@ func funcs() template.FuncMap {
 		"logo":          brand.LogoSVG,
 		"repositoryURL": func() string { return brand.RepositoryURL },
 		"supportURL":    func() string { return brand.SupportURL },
+		"changelogURL":  brand.ChangelogURL,
+		"changelogBase": func() string { return brand.ChangelogBaseURL },
 		"version":       func() string { return strings.TrimPrefix(mcp.Version, "v") },
 		"serverName":    func() string { return ServerName },
 		"tray":          trayName,

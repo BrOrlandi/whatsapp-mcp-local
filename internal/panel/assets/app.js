@@ -961,9 +961,8 @@
     }
     var notes = box.querySelector("[data-update-notes]");
     if (notes) {
-      // In the manual state the download opens the same page, with the notes.
-      notes.hidden = !u.page || (!server && u.state === "manual");
-      if (u.page) notes.href = u.page;
+      notes.hidden = !u.notes;
+      if (u.notes) notes.href = u.notes;
     }
   }
 

@@ -401,7 +401,8 @@ pre.plain,pre.plain code{font-family:inherit}
 .update--rollback .update__version{color:var(--danger)}
 .update form{margin:0}
 .progress{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;color:var(--text-soft);max-height:260px;overflow:auto;background:var(--surface-soft);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px}
-.colophon__version{font-variant-numeric:tabular-nums}
+.colophon__version{font-variant-numeric:tabular-nums;color:var(--muted);text-decoration:none}
+.colophon__version:hover{color:var(--brand-strong);text-decoration:underline}
 /* ---- password reveal ---- */
 .reveal{position:relative;display:block}
 .reveal input{width:100%;padding-right:44px}
