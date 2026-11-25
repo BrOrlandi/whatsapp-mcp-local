@@ -519,7 +519,7 @@ termina com sucesso; para trocar de número, `whatsapp-mcp logout` antes.
 | `update [--check]` | Baixa a versão mais recente, confere o sha256 e reinicia o serviço |
 | `config` | Como configurar o Claude Code e o Claude Desktop |
 
-`webhooks add` aceita `--events message,reaction,receipt,online`, `--include-own` e
+`webhooks add` aceita `--events message,reaction,receipt,poll_vote,online`, `--include-own` e
 `--chats <jid>,<jid>`, os mesmos campos da [API](api.md#webhooks). O segredo
 que assina as entregas aparece uma vez, na criação.
 

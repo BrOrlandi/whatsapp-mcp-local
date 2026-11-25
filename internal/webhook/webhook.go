@@ -40,16 +40,17 @@ import (
 )
 
 // Events a webhook can receive.
-var Events = []string{"message", "reaction", "receipt", "online"}
+var Events = []string{"message", "reaction", "receipt", "poll_vote", "online"}
 
 // Event is one thing that happened, as webhooks receive it.
 type Event struct {
-	Kind    string    `json:"event"`
-	ID      string    `json:"delivery_id"`
-	At      time.Time `json:"sent_at"`
-	Message *Message  `json:"message,omitempty"`
-	Receipt *Receipt  `json:"receipt,omitempty"`
-	Online  *Online   `json:"online,omitempty"`
+	Kind     string    `json:"event"`
+	ID       string    `json:"delivery_id"`
+	At       time.Time `json:"sent_at"`
+	Message  *Message  `json:"message,omitempty"`
+	Receipt  *Receipt  `json:"receipt,omitempty"`
+	PollVote *PollVote `json:"poll_vote,omitempty"`
+	Online   *Online   `json:"online,omitempty"`
 	// Account is the WhatsApp number the event happened on, so one script
 	// can serve several numbers.
 	Account *account.Info `json:"account,omitempty"`

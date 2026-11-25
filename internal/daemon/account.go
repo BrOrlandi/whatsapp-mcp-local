@@ -145,6 +145,12 @@ func (a *Account) startWebhooks(ctx context.Context, wacliBin string) {
 		_ = relay.Close()
 		return
 	}
+	relay.SetPolls(func(ctx context.Context, chat, id string) (webhook.Poll, error) {
+		var p webhook.Poll
+		// Read-only takes no store lock, so it runs while sync does.
+		err := a.cli.Decode(ctx, &p, "--read-only", "poll", "show", "--to", chat, "--id", id)
+		return p, err
+	})
 	a.relay, a.webhooksOn = relay, true
 	a.sup.SetWebhook(relay.URL(), relay.Secret())
 	if err := a.hooks.Start(ctx); err != nil {

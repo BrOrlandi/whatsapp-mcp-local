@@ -129,7 +129,7 @@ curl -s -X POST -H 'Content-Type: application/json' \
 | Campo | O que é |
 |---|---|
 | `url` | O endereço, `http://` ou `https://` (obrigatório) |
-| `events` | O que ele recebe: `message` (mensagens novas, o padrão), `reaction` (reações), `receipt` (as suas mensagens entregues, lidas ou ouvidas) e `online` (o WhatsApp voltou a ficar acessível neste computador) |
+| `events` | O que ele recebe: `message` (mensagens novas, o padrão), `reaction` (reações), `receipt` (as suas mensagens entregues, lidas ou ouvidas), `poll_vote` (votos em enquetes, com o placar) e `online` (o WhatsApp voltou a ficar acessível neste computador) |
 | `include_own` | `true` também entrega as mensagens que a própria conta manda, do celular ou pelas ferramentas |
 | `chats` | Só estas conversas (JIDs); vazio, todas |
 | `enabled` | `false` desliga sem apagar |
@@ -137,7 +137,7 @@ curl -s -X POST -H 'Content-Type: application/json' \
 A resposta traz o `secret`, uma única vez: ele assina cada entrega. Cada
 entrega é um `POST` com JSON e estes cabeçalhos:
 
-- `X-WhatsApp-MCP-Event`: `message`, `reaction`, `receipt` ou `online`;
+- `X-WhatsApp-MCP-Event`: `message`, `reaction`, `receipt`, `poll_vote` ou `online`;
 - `X-WhatsApp-MCP-Delivery`: o id da entrega;
 - `X-WhatsApp-MCP-Signature`: `sha256=` seguido do HMAC-SHA256 do corpo com o
   segredo, em hexadecimal. Confira antes de confiar no conteúdo.

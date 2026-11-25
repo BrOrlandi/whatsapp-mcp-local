@@ -185,7 +185,7 @@ Example:
 `,
 
 	"webhooks": `Usage: whatsapp-mcp webhooks [list] [--json]
-       whatsapp-mcp webhooks add <url> [--events message,reaction,receipt,online]
+       whatsapp-mcp webhooks add <url> [--events message,reaction,receipt,poll_vote,online]
                                  [--include-own] [--chats <jid>,<jid>] [--json]
        whatsapp-mcp webhooks remove|enable|disable|test <id> [--json]
 
