@@ -387,16 +387,19 @@ var verifyPassword = verify
 
 // signedIn reports whether the request carries a live panel session, made
 // with the password in force.
-func (s *Server) signedIn(r *http.Request) bool {
+func (s *Server) signedIn(r *http.Request) bool { return s.sessionID(r) != "" }
+
+// sessionID is the id of the request's live panel session, or "".
+func (s *Server) sessionID(r *http.Request) string {
 	c, err := r.Cookie(CookieName)
 	if err != nil {
-		return false
+		return ""
 	}
 	hash, err := s.cfg.Password.Current()
-	if err != nil {
-		return false
+	if err != nil || !s.sessions.valid(c.Value, fingerprint(hash)) {
+		return ""
 	}
-	return s.sessions.valid(c.Value, fingerprint(hash))
+	return c.Value
 }
 
 // fromOwnPage reports whether a sign-in or sign-out was sent by the panel's
@@ -442,11 +445,19 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request, pr peer) {
 		s.loginPage(w, r, i18n.T("Senha errada."), 0, http.StatusUnauthorized)
 		return
 	}
+	s.startSession(w, hash)
+	s.logger.Info("panel sign-in", "client", pr.client)
+	http.Redirect(w, r, safeReturn(r.PostFormValue("next")), http.StatusSeeOther)
+}
+
+// startSession signs the browser in to the panel, for the password whose
+// hash is given, and returns the session's id (the cookie's value). The
+// sign-in page and the first step of an app's access request both use it.
+func (s *Server) startSession(w http.ResponseWriter, hash string) string {
 	id := s.sessions.create(fingerprint(hash))
 	http.SetCookie(w, &http.Cookie{Name: CookieName, Value: id, Path: "/", HttpOnly: true, Secure: s.cfg.HTTPS(),
 		SameSite: http.SameSiteLaxMode, MaxAge: int(sessionMaxAge / time.Second)})
-	s.logger.Info("panel sign-in", "client", pr.client)
-	http.Redirect(w, r, safeReturn(r.PostFormValue("next")), http.StatusSeeOther)
+	return id
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {

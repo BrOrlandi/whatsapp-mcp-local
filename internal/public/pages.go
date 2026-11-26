@@ -55,7 +55,8 @@ legend{font-weight:700;padding:0;margin:0 0 8px}
 .choice input{accent-color:var(--brand);margin:5px 0 0;flex:none}
 label.field{display:block;font-weight:700;margin:0 0 6px}
 input[type=password]{display:block;width:100%;padding:10px 12px;font:inherit;color:inherit;background:var(--surface);border:1px solid var(--border-strong);border-radius:10px;margin:0 0 16px}
-.actions{display:flex;gap:10px}
+.actions{display:flex;flex-direction:row-reverse;gap:10px}
+.step{margin:0 0 6px;font-size:.8125rem;font-weight:700;letter-spacing:.02em;color:var(--muted)}
 button{flex:1;min-height:44px;padding:10px 14px;font:inherit;font-weight:700;border-radius:10px;cursor:pointer}
 .allow{border:1px solid var(--brand);background:var(--brand);color:var(--brand-ink)}
 .deny{border:1px solid var(--border-strong);background:transparent;color:var(--text)}

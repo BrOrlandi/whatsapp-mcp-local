@@ -1007,6 +1007,8 @@
  "Permitir": "Allow",
  "Recusar": "Refuse",
  "Senha do painel": "Panel password",
+ "Continuar": "Continue",
+ "Para continuar, digite a senha do painel. Depois você vê o número e escolhe o que este aplicativo pode fazer.": "To go on, type the panel password. Then you see the number and choose what this app may do.",
  "Tudo: ler, buscar, enviar e organizar": "Everything: read, search, send and organise",
  "Você pode cortar este acesso quando quiser, no painel, em Conexões.": "You can cut off this access at any time, in the panel, under Connections.",
  "o endereço de retorno deste pedido não é um dos que o aplicativo declarou; por segurança, o acesso não continua": "this request's return address is not one the app declared; for safety, access does not go on",

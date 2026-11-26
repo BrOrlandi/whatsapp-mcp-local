@@ -62,12 +62,15 @@ type pending struct {
 type oauthState struct {
 	mu    sync.Mutex
 	codes map[string]*pending // by the code's hash
+	// passwords are the access requests whose first step, the panel's
+	// password, was just passed: by confirmKey, until when it counts.
+	passwords map[[32]byte]time.Time
 	// registrations counts recent registrations by client address.
 	registrations *window
 }
 
 func newOAuthState() *oauthState {
-	return &oauthState{codes: map[string]*pending{}, registrations: newWindow(4096)}
+	return &oauthState{codes: map[string]*pending{}, passwords: map[[32]byte]time.Time{}, registrations: newWindow(4096)}
 }
 
 func (s *Server) resourceURL() string { return s.cfg.Origin + "/mcp" }
@@ -236,6 +239,28 @@ type authRequest struct {
 	ClientID, RedirectURI, State, Challenge, Method, Resource, ResponseType string
 }
 
+// fields is the request as the consent page carries it on, leaving out
+// what it did not have.
+func (ar authRequest) fields() map[string]string {
+	f := map[string]string{}
+	for k, x := range map[string]string{"client_id": ar.ClientID, "redirect_uri": ar.RedirectURI, "state": ar.State,
+		"code_challenge": ar.Challenge, "code_challenge_method": ar.Method, "resource": ar.Resource, "response_type": ar.ResponseType} {
+		if x != "" {
+			f[k] = x
+		}
+	}
+	return f
+}
+
+// values is the request as a query string.
+func (ar authRequest) values() url.Values {
+	v := url.Values{}
+	for k, x := range ar.fields() {
+		v.Set(k, x)
+	}
+	return v
+}
+
 func readAuthRequest(v url.Values) authRequest {
 	return authRequest{ClientID: v.Get("client_id"), RedirectURI: v.Get("redirect_uri"), State: v.Get("state"),
 		Challenge: v.Get("code_challenge"), Method: v.Get("code_challenge_method"), Resource: v.Get("resource"),
@@ -326,7 +351,10 @@ func requestProblem(code string) string {
 	return i18n.T("o pedido de acesso não usa a proteção que este servidor exige (PKCE S256)")
 }
 
-// authorize is the consent form's answer.
+// authorize answers the consent page's two steps. The first, for someone
+// not signed in, is the panel's password: it signs the browser in and
+// brings it back to the second, the permission itself, which shows the
+// number and is answered only by a signed-in browser.
 func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 	if !s.fromOwnPage(r) {
 		http.Error(w, "forbidden", http.StatusForbidden)
@@ -347,9 +375,28 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 		s.consentError(w, requestProblem(backErr))
 		return
 	}
-	if r.PostFormValue("decision") != "allow" {
+	if r.PostFormValue("decision") == "deny" {
 		s.logger.Info("oauth: access refused by the person", "client", c.Name)
 		s.sendBack(w, r, ar, url.Values{"error": {"access_denied"}})
+		return
+	}
+	hash, err := s.cfg.Password.Current()
+	if err != nil {
+		http.Error(w, "the panel password is not set up", http.StatusServiceUnavailable)
+		return
+	}
+	if r.PostFormValue("step") == "password" {
+		s.passwordStep(w, r, pr, ar, c, hash)
+		return
+	}
+	if r.PostFormValue("decision") != "allow" {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	// The permission is only for a signed-in browser: anyone else is shown
+	// the first step again, which says nothing about the account.
+	if !s.signedIn(r) {
+		s.consent(w, r, ar, c, "", http.StatusUnauthorized)
 		return
 	}
 	// The person chooses what the app may do: nothing is preselected.
@@ -358,29 +405,12 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 		s.consent(w, r, ar, c, i18n.T("Escolha o que este aplicativo pode fazer: tudo, ou só ler."), http.StatusBadRequest)
 		return
 	}
-	hash, err := s.cfg.Password.Current()
-	if err != nil {
-		http.Error(w, "the panel password is not set up", http.StatusServiceUnavailable)
-		return
-	}
-	// The password, unless signed in and this client was approved to come
-	// back to this host before: a registered client chooses its own name,
-	// so a session alone never lets in one the person has not seen yet.
-	if s.needsPassword(r, ar) {
-		known := s.knownBrowser(r, hash)
-		if wait := s.throttle.tryUnless(known != "", pr.client, pr.shared); wait > 0 {
-			s.consent(w, r, ar, c, i18n.Tf("Muitas tentativas com a senha errada. Tente de novo em %d segundos.", int(wait/time.Second)+1), http.StatusTooManyRequests)
-			return
-		}
-		right, busy := s.checkPassword(w, r, pr, hash, r.PostFormValue("password"), known)
-		if busy {
-			w.Header().Set("Retry-After", "5")
-			s.consent(w, r, ar, c, i18n.T("O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos."), http.StatusTooManyRequests)
-			return
-		}
-		if !right {
-			s.logger.Warn("oauth: wrong password on the consent page", "client", pr.client)
-			s.consent(w, r, ar, c, i18n.T("Senha errada."), http.StatusUnauthorized)
+	// The password again, unless it was just typed at the first step for
+	// this request, or this client was approved to come back to this host
+	// before: a registered client chooses its own name, so a session alone
+	// never lets in one the person has not seen yet.
+	if s.needsPassword(r, ar) && !s.passwordPassed(r, ar) {
+		if !s.checkTypedPassword(w, r, pr, ar, c, hash) {
 			return
 		}
 	}
@@ -394,10 +424,80 @@ func (s *Server) authorize(w http.ResponseWriter, r *http.Request, pr peer) {
 	}
 	s.oauth.codes[hashSecret(code)] = &pending{clientID: c.ID, clientName: c.Name, redirectURI: ar.RedirectURI,
 		challenge: ar.Challenge, resource: ar.Resource, readOnly: access == "read", expires: now.Add(codeTTL)}
+	delete(s.oauth.passwords, confirmKey(s.sessionID(r), ar))
 	s.oauth.mu.Unlock()
 	_ = s.state.Approve(r.Context(), c.ID, redirectHost(ar.RedirectURI), passwordFingerprint(hash), now)
 	s.logger.Info("oauth: access approved", "client", c.Name, "host", clientHost(c, ar.RedirectURI), "read_only", access == "read", "address", pr.client)
 	s.sendBack(w, r, ar, url.Values{"code": {code}})
+}
+
+// passwordStep is the first step's answer: the right password signs the
+// browser in, as the sign-in page does, and sends it back to this request,
+// now at the second step; a wrong one shows the first step again.
+func (s *Server) passwordStep(w http.ResponseWriter, r *http.Request, pr peer, ar authRequest, c client, hash string) {
+	if !s.checkTypedPassword(w, r, pr, ar, c, hash) {
+		return
+	}
+	id := s.startSession(w, hash)
+	s.oauth.mu.Lock()
+	now := s.now()
+	for k, until := range s.oauth.passwords {
+		if now.After(until) {
+			delete(s.oauth.passwords, k)
+		}
+	}
+	s.oauth.passwords[confirmKey(id, ar)] = now.Add(passwordStepTTL)
+	s.oauth.mu.Unlock()
+	s.logger.Info("oauth: panel password typed on the access request", "client", c.Name, "address", pr.client)
+	// Back to this page, with the request as it came: only what was
+	// checked above, and the path is this server's own.
+	http.Redirect(w, r, AuthorizePath+"?"+ar.values().Encode(), http.StatusSeeOther)
+}
+
+// checkTypedPassword checks the password the form carries, in its turn and
+// within the address's tries, and shows the step again with what went
+// wrong when it is not right.
+func (s *Server) checkTypedPassword(w http.ResponseWriter, r *http.Request, pr peer, ar authRequest, c client, hash string) bool {
+	known := s.knownBrowser(r, hash)
+	if wait := s.throttle.tryUnless(known != "", pr.client, pr.shared); wait > 0 {
+		s.consent(w, r, ar, c, i18n.Tf("Muitas tentativas com a senha errada. Tente de novo em %d segundos.", int(wait/time.Second)+1), http.StatusTooManyRequests)
+		return false
+	}
+	right, busy := s.checkPassword(w, r, pr, hash, r.PostFormValue("password"), known)
+	if busy {
+		w.Header().Set("Retry-After", "5")
+		s.consent(w, r, ar, c, i18n.T("O servidor está recebendo muitas tentativas de senha agora. Tente de novo em alguns segundos."), http.StatusTooManyRequests)
+		return false
+	}
+	if !right {
+		s.logger.Warn("oauth: wrong password on the consent page", "client", pr.client)
+		s.consent(w, r, ar, c, i18n.T("Senha errada."), http.StatusUnauthorized)
+		return false
+	}
+	return true
+}
+
+// passwordStepTTL is how long the password typed at the first step stands
+// for the second.
+const passwordStepTTL = 10 * time.Minute
+
+// confirmKey ties the first step to the session it started and to the one
+// request it was typed for.
+func confirmKey(session string, ar authRequest) [32]byte {
+	return sha256.Sum256([]byte(session + "\x00" + ar.ClientID + "\x00" + ar.RedirectURI + "\x00" + ar.Challenge))
+}
+
+// passwordPassed reports whether this browser's session typed the password
+// at the first step of this very request, a short while ago.
+func (s *Server) passwordPassed(r *http.Request, ar authRequest) bool {
+	id := s.sessionID(r)
+	if id == "" {
+		return false
+	}
+	s.oauth.mu.Lock()
+	defer s.oauth.mu.Unlock()
+	until, ok := s.oauth.passwords[confirmKey(id, ar)]
+	return ok && !s.now().After(until)
 }
 
 // token is the token endpoint: a code for the first tokens, a refresh token
@@ -534,6 +634,7 @@ func (s *Server) tokens(w http.ResponseWriter, ctx context.Context, connection s
 // ---- the consent page ----
 
 var consentTemplate = page("consent", `<main>
+{{if .Step}}<p class="step">{{.Step}}</p>{{end}}
 <h1>{{.Title}}</h1>
 {{if .Problem}}<div class="error" role="alert">{{.Problem}}</div>{{else}}
 <p class="lead"><strong>{{.Lead}}</strong></p>
@@ -550,10 +651,30 @@ var consentTemplate = page("consent", `<main>
 </fieldset>
 {{if .AskPassword}}<label class="field" for="password">{{.PasswordLabel}}</label>
 <input id="password" name="password" type="password" autocomplete="current-password" autofocus>{{end}}
-<div class="actions"><button class="deny" type="submit" name="decision" value="deny" formnovalidate>{{.Deny}}</button>
-<button class="allow" type="submit" name="decision" value="allow">{{.Allow}}</button></div>
+<div class="actions"><button class="allow" type="submit" name="decision" value="allow">{{.Allow}}</button>
+<button class="deny" type="submit" name="decision" value="deny" formnovalidate>{{.Deny}}</button></div>
 </form>
 <p class="muted note">{{.Note}}</p>{{end}}
+</main>`)
+
+// passwordStepTemplate is the first step, for a browser not signed in to
+// the panel: who is asking, and the password. Nothing about the account
+// (not even whether a number is connected) is on it.
+var passwordStepTemplate = page("consent-password", `<main>
+<p class="step">{{.Step}}</p>
+<h1>{{.Title}}</h1>
+<p class="lead"><strong>{{.Lead}}</strong></p>
+<div class="who">{{.From}}</div>
+<p>{{.Ask}}</p>
+{{if .Error}}<div class="error" role="alert">{{.Error}}</div>{{end}}
+<form method="post" action="`+AuthorizePath+`">
+{{range $k, $v := .Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}
+<input type="hidden" name="step" value="password">
+<label class="field" for="password">{{.PasswordLabel}}</label>
+<input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+<div class="actions"><button class="allow" type="submit">{{.Continue}}</button>
+<button class="deny" type="submit" name="decision" value="deny" formnovalidate>{{.Deny}}</button></div>
+</form>
 </main>`)
 
 func pageHeaders(w http.ResponseWriter, status int) {
@@ -614,32 +735,54 @@ func (s *Server) needsPassword(r *http.Request, ar authRequest) bool {
 	return err != nil || !ok
 }
 
+// consent draws the step this browser is at: the password, when it is not
+// signed in to the panel (nothing about the account shows there), or the
+// permission, with the number.
 func (s *Server) consent(w http.ResponseWriter, r *http.Request, ar authRequest, c client, problem string, status int) {
-	back := ar.RedirectURI
-	if u, err := url.Parse(ar.RedirectURI); err == nil {
-		back = asciiHost(u.Host)
+	host := clientHost(c, ar.RedirectURI)
+	data := map[string]any{
+		"Lang": i18n.Lang(), "Title": i18n.T("Permitir acesso ao seu WhatsApp"),
+		"Lead":   i18n.Tf("%s quer usar o seu WhatsApp por este servidor.", host),
+		"From":   i18n.Tf("O aplicativo se apresenta como “%s”: esse nome é dele e não é verificado.", cleanName(c.Name, host)),
+		"Error":  problem,
+		"Deny":   i18n.T("Recusar"),
+		"Hidden": ar.fields(),
+	}
+	tmpl := consentTemplate
+	if !s.signedIn(r) {
+		tmpl = passwordStepTemplate
+		data["Step"] = i18n.Tf("Passo %d de %d", 1, 2)
+		data["Ask"] = i18n.T("Para continuar, digite a senha do painel. Depois você vê o número e escolhe o que este aplicativo pode fazer.")
+		data["PasswordLabel"] = i18n.T("Senha do painel")
+		data["Continue"] = i18n.T("Continuar")
+	} else {
+		back := ar.RedirectURI
+		if u, err := url.Parse(ar.RedirectURI); err == nil {
+			back = asciiHost(u.Host)
+		}
+		passed := s.passwordPassed(r, ar)
+		if passed {
+			data["Step"] = i18n.Tf("Passo %d de %d", 2, 2)
+		}
+		for k, v := range map[string]any{
+			"Back":            i18n.Tf("Depois de aprovar, você volta para: %s", back),
+			"NumberLabel":     i18n.T("Número do WhatsApp"),
+			"Number":          account.MaskPhone(s.ownPhone(r.Context())),
+			"NoNumber":        i18n.T("Nenhum número conectado ainda"),
+			"Loopback":        loopbackOnly(c),
+			"LoopbackWarning": i18n.T("Este aplicativo volta para um programa no computador de quem está conectando. Qualquer programa ali pode usar esse nome: só aprove se foi você que pediu agora."),
+			"AccessLabel":     i18n.T("O que ele pode fazer"),
+			"Full":            i18n.T("Tudo: ler, buscar, enviar e organizar"),
+			"Read":            i18n.T("Só ler: vê e busca, mas não envia, não apaga e não mexe em grupos"),
+			"AskPassword":     s.needsPassword(r, ar) && !passed, "PasswordLabel": i18n.T("Senha do painel"),
+			"Allow": i18n.T("Permitir"),
+			"Note":  i18n.T("Você pode cortar este acesso quando quiser, no painel, em Conexões."),
+		} {
+			data[k] = v
+		}
 	}
 	var body bytes.Buffer
-	_ = consentTemplate.Execute(&body, map[string]any{
-		"Lang": i18n.Lang(), "Title": i18n.T("Permitir acesso ao seu WhatsApp"),
-		"Lead":            i18n.Tf("%s quer usar o seu WhatsApp por este servidor.", clientHost(c, ar.RedirectURI)),
-		"From":            i18n.Tf("O aplicativo se apresenta como “%s”: esse nome é dele e não é verificado.", cleanName(c.Name, clientHost(c, ar.RedirectURI))),
-		"Back":            i18n.Tf("Depois de aprovar, você volta para: %s", back),
-		"NumberLabel":     i18n.T("Número do WhatsApp"),
-		"Number":          account.MaskPhone(s.ownPhone(r.Context())),
-		"NoNumber":        i18n.T("Nenhum número conectado ainda"),
-		"Loopback":        loopbackOnly(c),
-		"LoopbackWarning": i18n.T("Este aplicativo volta para um programa no computador de quem está conectando. Qualquer programa ali pode usar esse nome: só aprove se foi você que pediu agora."),
-		"Error":           problem,
-		"AccessLabel":     i18n.T("O que ele pode fazer"),
-		"Full":            i18n.T("Tudo: ler, buscar, enviar e organizar"),
-		"Read":            i18n.T("Só ler: vê e busca, mas não envia, não apaga e não mexe em grupos"),
-		"AskPassword":     s.needsPassword(r, ar), "PasswordLabel": i18n.T("Senha do painel"),
-		"Allow": i18n.T("Permitir"), "Deny": i18n.T("Recusar"),
-		"Note": i18n.T("Você pode cortar este acesso quando quiser, no painel, em Conexões."),
-		"Hidden": map[string]string{"client_id": ar.ClientID, "redirect_uri": ar.RedirectURI, "state": ar.State,
-			"code_challenge": ar.Challenge, "code_challenge_method": ar.Method, "resource": ar.Resource, "response_type": ar.ResponseType},
-	})
+	_ = tmpl.Execute(&body, data)
 	pageHeaders(w, status)
 	_, _ = w.Write(body.Bytes())
 }

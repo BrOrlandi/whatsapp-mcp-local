@@ -228,16 +228,28 @@ func (c oauthClient) authorizeQuery(challenge, redirect string) url.Values {
 		"code_challenge": {challenge}, "code_challenge_method": {"S256"}, "resource": {origin + "/mcp"}}
 }
 
-// approve posts the consent form and returns the redirect's query.
+// approve goes through both steps of the consent page: the password, which
+// signs the browser in, then the permission with that session. A wrong
+// password stops at the first step, whose answer is returned.
 func (c oauthClient) approve(q url.Values, password, access string) (*httptest.ResponseRecorder, url.Values) {
 	form := url.Values{}
 	for k, v := range q {
 		form[k] = v
 	}
+	form.Set("step", "password")
 	form.Set("password", password)
+	rec := serve(c.s, fromTunnel("POST", "/oauth/authorize", map[string]string{"Origin": origin}, form.Encode()))
+	if rec.Code != http.StatusSeeOther {
+		return rec, url.Values{}
+	}
+	cookie := sessionCookie(c.t, rec)
+	form = url.Values{}
+	for k, v := range q {
+		form[k] = v
+	}
 	form.Set("access", access)
 	form.Set("decision", "allow")
-	rec := serve(c.s, fromTunnel("POST", "/oauth/authorize", map[string]string{"Origin": origin}, form.Encode()))
+	rec = serve(c.s, fromTunnel("POST", "/oauth/authorize", map[string]string{"Origin": origin, "Cookie": CookieName + "=" + cookie.Value}, form.Encode()))
 	loc, _ := url.Parse(rec.Header().Get("Location"))
 	return rec, loc.Query()
 }

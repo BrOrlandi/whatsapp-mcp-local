@@ -10,9 +10,12 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 - **Servidor: a página de permitir acesso tem a cara do WhatsApp MCP.** Quando
   uma ferramenta de IA pede acesso ao seu WhatsApp pelo servidor, a página
-  agora vem no verde escuro do site, com o logo, e mostra o número que vai ser
-  conectado, com o meio escondido (como +55 (16) 9••••-6892). A página de
-  entrar no painel ganhou o mesmo visual. A tela de "pronto" que aparece
+  agora vem no verde escuro do site, com o logo, e é feita em dois passos:
+  primeiro você digita a senha do painel; depois vê o número que vai ser
+  conectado, com o meio escondido (como +55 (16) 9••••-6892), e escolhe o que a
+  ferramenta pode fazer. Quem não sabe a senha não chega a ver o número. Se você
+  já entrou no painel nesse navegador, vai direto para o segundo passo. A página
+  de entrar no painel ganhou o mesmo visual. A tela de "pronto" que aparece
   depois de aprovar é da própria ferramenta de IA, não do servidor.
 - **Servidor: a ferramenta que entra pelo login aparece com o próprio nome.**
   Em *Suas conexões*, uma ferramenta conectada pelo login (como o Orca) vem

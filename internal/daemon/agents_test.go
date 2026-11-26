@@ -60,9 +60,26 @@ func accessToken(t *testing.T, h http.Handler, access string) string {
 	sum := sha256.Sum256([]byte(verifier))
 	form := url.Values{"response_type": {"code"}, "client_id": {reg.ClientID}, "redirect_uri": {redirect}, "state": {"s"},
 		"code_challenge": {base64.RawURLEncoding.EncodeToString(sum[:])}, "code_challenge_method": {"S256"},
-		"resource": {publicURL + "/mcp"}, "password": {publicPassword}, "access": {access}, "decision": {"allow"}}
+		"resource": {publicURL + "/mcp"}, "step": {"password"}, "password": {publicPassword}}
+	// The consent's two steps: the password signs the browser in, then the
+	// permission with that session.
 	rec = serveAgent(h, outsideRequest("POST", public.AuthorizePath, form.Encode(),
 		map[string]string{"Origin": publicURL, "Content-Type": "application/x-www-form-urlencoded"}))
+	var session string
+	for _, c := range rec.Result().Cookies() {
+		if c.Name == public.CookieName {
+			session = c.Name + "=" + c.Value
+		}
+	}
+	if rec.Code != http.StatusSeeOther || session == "" {
+		t.Fatalf("the consent's password: %d", rec.Code)
+	}
+	form.Del("step")
+	form.Del("password")
+	form.Set("access", access)
+	form.Set("decision", "allow")
+	rec = serveAgent(h, outsideRequest("POST", public.AuthorizePath, form.Encode(),
+		map[string]string{"Origin": publicURL, "Content-Type": "application/x-www-form-urlencoded", "Cookie": session}))
 	loc, _ := url.Parse(rec.Header().Get("Location"))
 	code := loc.Query().Get("code")
 	if code == "" {

@@ -264,8 +264,35 @@ func TestServerMode(t *testing.T) {
 		sum := sha256.Sum256([]byte(verifier))
 		form := url.Values{"response_type": {"code"}, "client_id": {reg.ClientID}, "redirect_uri": {redirect}, "state": {"s"},
 			"code_challenge": {base64.RawURLEncoding.EncodeToString(sum[:])}, "code_challenge_method": {"S256"},
-			"resource": {srvOrigin + "/mcp"}, "password": {s.password}, "access": {"read"}, "decision": {"allow"}}
-		resp, _ = s.do("POST", "/oauth/authorize", form.Encode(), map[string]string{"Origin": srvOrigin, "Content-Type": "application/x-www-form-urlencoded"})
+			"resource": {srvOrigin + "/mcp"}}
+		// The consent's first step asks only for the password; the right
+		// one signs the browser in and comes back to the same request.
+		if resp, body := s.do("GET", "/oauth/authorize?"+form.Encode(), "", nil); resp.StatusCode != 200 ||
+			!strings.Contains(body, `name="step" value="password"`) || strings.Contains(body, `name="access"`) {
+			t.Fatalf("the consent's first step: %d %.300s", resp.StatusCode, body)
+		}
+		step := url.Values{"step": {"password"}, "password": {s.password}}
+		for k, v := range form {
+			step[k] = v
+		}
+		resp, _ = s.do("POST", "/oauth/authorize", step.Encode(), map[string]string{"Origin": srvOrigin, "Content-Type": "application/x-www-form-urlencoded"})
+		var session string
+		for _, c := range resp.Cookies() {
+			if c.Name == "whatsapp_mcp_session" {
+				session = c.Name + "=" + c.Value
+			}
+		}
+		if resp.StatusCode != http.StatusSeeOther || session == "" || !strings.HasPrefix(resp.Header.Get("Location"), "/oauth/authorize?") {
+			t.Fatalf("the consent's password: %d %q", resp.StatusCode, resp.Header.Get("Location"))
+		}
+		// The second step, with that session: the choices, and the code.
+		if resp, body := s.do("GET", resp.Header.Get("Location"), "", map[string]string{"Cookie": session}); resp.StatusCode != 200 ||
+			!strings.Contains(body, `name="access"`) || strings.Contains(body, `type="password"`) {
+			t.Fatalf("the consent's second step: %d %.300s", resp.StatusCode, body)
+		}
+		form.Set("access", "read")
+		form.Set("decision", "allow")
+		resp, _ = s.do("POST", "/oauth/authorize", form.Encode(), map[string]string{"Origin": srvOrigin, "Content-Type": "application/x-www-form-urlencoded", "Cookie": session})
 		loc, _ := url.Parse(resp.Header.Get("Location"))
 		if loc == nil || loc.Query().Get("code") == "" || loc.Query().Get("iss") != srvOrigin {
 			t.Fatalf("consent: %d %q", resp.StatusCode, resp.Header.Get("Location"))
