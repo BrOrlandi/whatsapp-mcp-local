@@ -6,6 +6,13 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ## [Não lançado]
 
+### Adicionado
+
+- **Áudio como mensagem de voz.** O `send_media_message` aceita
+  `voice_note: true` num áudio OGG/Opus, e ele chega como um áudio gravado
+  no celular (com a onda e o player de voz), não como um arquivo de áudio.
+  Outro formato é recusado com uma mensagem clara, também no `dry_run`.
+
 ### Mudado
 
 - **Contexto da conversa só para fora.** Transcrevendo neste computador (ou

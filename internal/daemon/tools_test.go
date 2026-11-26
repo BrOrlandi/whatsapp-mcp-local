@@ -196,6 +196,25 @@ func TestNewToolsReachWacliTheRightWay(t *testing.T) {
 		t.Error("a sticker with a caption should be refused")
 	}
 
+	// An OGG audio goes as a voice note when asked; anything else is refused.
+	ogg := filepath.Join(root, "voz.ogg")
+	_ = os.WriteFile(ogg, []byte("OggS\x00\x02\x00\x00OpusHead"), 0o600)
+	if res, isErr := callTool(t, port, "send_media_message", map[string]any{"to": testMae, "type": "audio", "url": ogg, "voice_note": true}); isErr {
+		t.Fatalf("voice note: %v", res)
+	}
+	if log := argsLog(); !strings.Contains(log, "send file --to "+testMae+" --file "+ogg+" --as audio --ptt") {
+		t.Errorf("voice note not sent as one:\n%s", log)
+	}
+	if _, isErr := callTool(t, port, "send_media_message", map[string]any{"to": testMae, "type": "audio", "url": notWebP, "voice_note": true}); !isErr {
+		t.Error("a voice note that is not OGG should be refused")
+	}
+	if _, isErr := callTool(t, port, "send_media_message", map[string]any{"to": testMae, "type": "document", "url": ogg, "voice_note": true}); !isErr {
+		t.Error("voice_note on a document should be refused")
+	}
+	if res, isErr := callTool(t, port, "send_media_message", map[string]any{"to": testMae, "type": "audio", "url": notWebP, "voice_note": true, "dry_run": true}); !isErr {
+		t.Errorf("a dry run should check the voice note's format too: %v", res)
+	}
+
 	// Forwarding and deleting for me need the store: sync pauses.
 	if res, isErr := callTool(t, port, "forward_message", map[string]any{"message_id": "M1", "to": testLucas}); isErr {
 		t.Fatalf("forward: %v", res)
