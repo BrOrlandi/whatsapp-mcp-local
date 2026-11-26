@@ -100,7 +100,7 @@ func (s *Server) noteInitialize(ctx context.Context, params json.RawMessage) {
 		} `json:"clientInfo"`
 	}
 	_ = json.Unmarshal(params, &p)
-	name := truncate(strings.TrimSpace(p.ClientInfo.Name), 60)
+	name := clientName(ctx, truncate(strings.TrimSpace(p.ClientInfo.Name), 60))
 	if name == "" {
 		return
 	}
@@ -120,7 +120,21 @@ func (s *Server) noteUse(ctx context.Context) {
 	s.clientsMu.Lock()
 	name := s.clients[hint]
 	s.clientsMu.Unlock()
+	if name == "" {
+		name = clientName(ctx, "")
+	}
 	s.seeClient(ctx, name, "")
+}
+
+// clientName is the name a client's use is recorded under. A tool that
+// signed in with OAuth goes by the name the person approved on the consent
+// page: the name it gives at initialize is often its MCP library's or the
+// server entry's ("mcp"), which says nothing.
+func clientName(ctx context.Context, given string) string {
+	if c := caller.From(ctx); c.Kind == caller.OAuth && c.ConnectionName != "" {
+		return truncate(c.ConnectionName, 60)
+	}
+	return given
 }
 
 func truncate(v string, n int) string {

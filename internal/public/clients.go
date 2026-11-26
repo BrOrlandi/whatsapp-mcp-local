@@ -158,10 +158,31 @@ func cleanName(name, fallback string) string {
 	if r := []rune(name); len(r) > 60 {
 		name = string(r[:60])
 	}
-	if name == "" {
+	if name == "" || genericName(name) {
 		return fallback
 	}
 	return name
+}
+
+// genericName reports a name that says only that the app speaks MCP, which
+// some libraries send when the app gives none: the host it came from says
+// more.
+func genericName(name string) bool {
+	switch strings.ToLower(strings.NewReplacer("-", " ", "_", " ").Replace(name)) {
+	case "mcp", "mcp client", "mcp oauth client", "client", "oauth client":
+		return true
+	}
+	return false
+}
+
+// nameFallback is what a registered client goes by when it gives no name
+// of its own: the host it goes back to, or, for a program on the person's
+// computer, whose host says nothing, "Conector".
+func nameFallback(host string) string {
+	if host == "" || loopbackHost(host) {
+		return i18n.T("Conector")
+	}
+	return asciiHost(host)
 }
 
 // resolveClient is the client a client_id names.

@@ -216,7 +216,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request, pr peer) {
 	if u, err := url.Parse(req.RedirectURIs[0]); err == nil {
 		host = u.Hostname()
 	}
-	c := registeredClient(cleanName(req.ClientName, host), req.RedirectURIs, now)
+	c := registeredClient(cleanName(req.ClientName, nameFallback(host)), req.RedirectURIs, now)
 	c.From = from
 	if err := s.state.AddOAuthClient(ctx, c); err != nil {
 		oauthError(w, http.StatusInternalServerError, "server_error", "could not register the client")

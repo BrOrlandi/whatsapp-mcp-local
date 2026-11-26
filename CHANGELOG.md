@@ -14,6 +14,11 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
   conectado, com o meio escondido (como +55 (16) 9••••-6892). A página de
   entrar no painel ganhou o mesmo visual. A tela de "pronto" que aparece
   depois de aprovar é da própria ferramenta de IA, não do servidor.
+- **Servidor: a ferramenta que entra pelo login aparece com o próprio nome.**
+  Em *Suas conexões*, uma ferramenta conectada pelo login (como o Orca) vem
+  com o nome que a página de permitir acesso mostrou, em vez de "mcp". Sem
+  nome, ela aparece pelo endereço de onde veio, ou como "Conector". Uma linha
+  antiga com o nome "mcp" continua lá até você removê-la em *Gerenciar*.
 - **Contexto da conversa só para fora.** Transcrevendo neste computador (ou
   neste servidor), vão sempre só os nomes da conversa e das pessoas, que não
   saem dele, e o card de *Transcrição de áudio* não pede mais essa escolha. O
