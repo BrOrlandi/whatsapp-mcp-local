@@ -1,8 +1,12 @@
 package public
 
 import (
+	"context"
+	"html"
 	"strings"
 	"testing"
+
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 )
 
 // Hosts show in their ASCII form: a look-alike written in another alphabet
@@ -48,5 +52,33 @@ func TestTheConsentPageShowsWhatIsThere(t *testing.T) {
 	if !strings.Contains(page, "xn--80ak6aa92e.example quer usar") || !strings.Contains(page, "volta para: xn--80ak6aa92e.example") ||
 		strings.Contains(page, "аррӏе.example quer") || strings.ContainsAny(page, "\u200b\u202e") {
 		t.Fatalf("the consent page:\n%s", page)
+	}
+}
+
+// The consent page says which number the app will reach, masked: anyone who
+// registers an app can open it, so the whole number is never in the page.
+func TestTheConsentPageShowsTheNumberMasked(t *testing.T) {
+	const phone = "5516999996892"
+	s, _, _ := agentServer(t)
+	c := registerClient(t, s, "https://claude.example/cb")
+	_, challenge := pkce("m")
+	open := func() string {
+		return html.UnescapeString(serve(s, fromTunnel("GET", "/oauth/authorize?"+c.authorizeQuery(challenge, c.redirect).Encode(), nil, "")).Body.String())
+	}
+	if page := open(); !strings.Contains(page, "Nenhum número conectado ainda") {
+		t.Fatalf("with no number paired, the page does not say so:\n%s", page)
+	}
+	s.UsePhone(func(context.Context) string { return phone })
+	page := open()
+	if !strings.Contains(page, "+55 (16) 9••••-6892") {
+		t.Fatalf("the masked number is not on the page:\n%s", page)
+	}
+	for _, whole := range []string{phone, "99999-6892", "999996892", account.FormatPhone(phone)} {
+		if strings.Contains(page, whole) {
+			t.Errorf("the page has %q", whole)
+		}
+	}
+	if strings.Contains(page, "Nenhum número conectado ainda") {
+		t.Error("the page says no number is connected")
 	}
 }

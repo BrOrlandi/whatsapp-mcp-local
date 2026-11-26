@@ -1,6 +1,9 @@
 package account
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestCleanLabel(t *testing.T) {
 	for in, want := range map[string]string{
@@ -34,6 +37,47 @@ func TestFormatPhone(t *testing.T) {
 	} {
 		if got := FormatPhone(in); got != want {
 			t.Errorf("FormatPhone(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestMaskPhone(t *testing.T) {
+	for in, want := range map[string]string{
+		"5516999996892":       "+55 (16) 9••••-6892",
+		"+55 (16) 99999-6892": "+55 (16) 9••••-6892",
+		"551633336892":        "+55 (16) ••••-6892",
+		"14155550123":         "+••••••• 0123",
+		"447700900123":        "+•••••••• 0123",
+		"5512345":             "+•••••••",
+		"1234":                "+••••",
+		"":                    "",
+		"abc":                 "",
+	} {
+		if got := MaskPhone(in); got != want {
+			t.Errorf("MaskPhone(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// Whatever its length, a masked number never shows the whole number, hides
+// at least four digits (or all of a shorter one) and keeps the last four of
+// a full-length one, for the person to recognise it.
+func TestMaskPhoneHidesTheMiddle(t *testing.T) {
+	digits := "551699999689212345"
+	for n := 1; n <= len(digits); n++ {
+		d := digits[:n]
+		got := MaskPhone(d)
+		shown := strings.Map(func(r rune) rune {
+			if r >= '0' && r <= '9' {
+				return r
+			}
+			return -1
+		}, got)
+		if hidden := strings.Count(got, "•"); strings.Contains(shown, d) || hidden < min(n, 4) || hidden+len(shown) != n {
+			t.Errorf("MaskPhone(%q) = %q shows too much", d, got)
+		}
+		if n >= 8 && !strings.HasSuffix(shown, d[n-4:]) {
+			t.Errorf("MaskPhone(%q) = %q lost the last digits", d, got)
 		}
 	}
 }

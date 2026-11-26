@@ -16,6 +16,17 @@ var logo string
 // trusted markup shipped with the binary, never user input.
 func LogoSVG() template.HTML { return template.HTML(strings.TrimSpace(logo)) }
 
+// LogoMarkSVG is the logo in one colour, the text's (currentColor), and
+// hidden from screen readers: the site's header mark, for a page that writes
+// "WhatsApp MCP" beside it on the dark green, where the gradient's darker end
+// would vanish.
+func LogoMarkSVG() template.HTML {
+	s := strings.ReplaceAll(strings.TrimSpace(logo), "url(#wamcp-mark)", "currentColor")
+	s = strings.Replace(s, `role="img"`, `aria-hidden="true" focusable="false"`, 1)
+	s = strings.Replace(s, "<title>WhatsApp MCP</title>", "", 1)
+	return template.HTML(s)
+}
+
 //go:embed favicon.svg
 var faviconSVG []byte
 

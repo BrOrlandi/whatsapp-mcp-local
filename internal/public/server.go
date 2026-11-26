@@ -3,7 +3,6 @@ package public
 import (
 	"bytes"
 	"context"
-	"html/template"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -63,7 +62,10 @@ type Server struct {
 	// mediaLink reports whether a /media/ path is a live link, which its
 	// own secret opens.
 	mediaLink func(path string) bool
-	now       func() time.Time
+	// phone is the paired number's digits, which the consent page shows
+	// masked; nil or empty, it says no number is connected.
+	phone func(ctx context.Context) string
+	now   func() time.Time
 }
 
 // New is the public listener's handler in front of the daemon's routes.
@@ -105,6 +107,17 @@ func (s *Server) Logins(ctx context.Context) ([]state.Connection, error) {
 
 // UseMediaLinks lets a download_media link through by its own secret.
 func (s *Server) UseMediaLinks(live func(path string) bool) { s.mediaLink = live }
+
+// UsePhone tells the consent page which number it gives access to: phone
+// returns its digits, empty while none is paired. The page shows it masked.
+func (s *Server) UsePhone(phone func(ctx context.Context) string) { s.phone = phone }
+
+func (s *Server) ownPhone(ctx context.Context) string {
+	if s.phone == nil {
+		return ""
+	}
+	return s.phone(ctx)
+}
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	pr := s.cfg.proxies.read(r)
@@ -464,28 +477,15 @@ func safeReturn(to string) string {
 	return to
 }
 
-var loginTemplate = template.Must(template.New("login").Parse(`<!doctype html>
-<html lang="{{.Lang}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{.Title}}</title><link rel="icon" href="/favicon.svg">
-<style>
-body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:#f4f1ea;color:#1f2a24}
-main{width:min(360px,calc(100% - 32px));background:#fff;border-radius:14px;padding:28px;box-shadow:0 2px 14px rgba(0,0,0,.08)}
-h1{font-size:20px;margin:0 0 4px}p{margin:0 0 18px;color:#5b6660}
-label{display:block;font-weight:600;margin-bottom:6px}
-input{box-sizing:border-box;width:100%;padding:10px 12px;font:inherit;border:1px solid #c9cfc9;border-radius:8px}
-button{margin-top:16px;width:100%;padding:11px;font:inherit;font-weight:600;border:0;border-radius:8px;background:#1f7a4d;color:#fff;cursor:pointer}
-.error{background:#fbeed2;color:#6b4a00;border-radius:8px;padding:10px 12px;margin-bottom:14px}
-@media (prefers-color-scheme:dark){body{background:#151a17;color:#e6ebe7}main{background:#1f2622;box-shadow:none}p{color:#a6b0aa}input{background:#151a17;color:inherit;border-color:#3a443e}}
-</style></head>
-<body><main>
-<h1>{{.Title}}</h1><p>{{.Lead}}</p>
+var loginTemplate = page("login", `<main class="narrow">
+<h1>{{.Title}}</h1><p class="lead">{{.Lead}}</p>
 {{if .Error}}<div class="error" role="alert">{{.Error}}</div>{{end}}
-<form method="post" action="` + LoginPath + `">
+<form method="post" action="`+LoginPath+`">
 <input type="hidden" name="next" value="{{.Return}}">
-<label for="password">{{.Label}}</label>
+<label class="field" for="password">{{.Label}}</label>
 <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
-<button type="submit">{{.Button}}</button>
-</form></main></body></html>`))
+<button class="allow wide" type="submit">{{.Button}}</button>
+</form></main>`)
 
 func (s *Server) loginPage(w http.ResponseWriter, r *http.Request, problem string, wait time.Duration, status int) {
 	if wait > 0 {

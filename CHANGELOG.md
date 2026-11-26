@@ -8,6 +8,12 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ### Mudado
 
+- **Servidor: a página de permitir acesso tem a cara do WhatsApp MCP.** Quando
+  uma ferramenta de IA pede acesso ao seu WhatsApp pelo servidor, a página
+  agora vem no verde escuro do site, com o logo, e mostra o número que vai ser
+  conectado, com o meio escondido (como +55 (16) 9••••-6892). A página de
+  entrar no painel ganhou o mesmo visual. A tela de "pronto" que aparece
+  depois de aprovar é da própria ferramenta de IA, não do servidor.
 - **Contexto da conversa só para fora.** Transcrevendo neste computador (ou
   neste servidor), vão sempre só os nomes da conversa e das pessoas, que não
   saem dele, e o card de *Transcrição de áudio* não pede mais essa escolha. O

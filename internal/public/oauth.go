@@ -7,13 +7,13 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
-	"html/template"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/account"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
 )
@@ -533,43 +533,28 @@ func (s *Server) tokens(w http.ResponseWriter, ctx context.Context, connection s
 
 // ---- the consent page ----
 
-var consentTemplate = template.Must(template.New("consent").Parse(`<!doctype html>
-<html lang="{{.Lang}}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{{.Title}}</title><link rel="icon" href="/favicon.svg">
-<style>
-body{margin:0;min-height:100vh;display:grid;place-items:center;font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;background:#f4f1ea;color:#1f2a24}
-main{width:min(440px,calc(100% - 32px));background:#fff;border-radius:14px;padding:28px;box-shadow:0 2px 14px rgba(0,0,0,.08);margin:24px 0}
-h1{font-size:20px;margin:0 0 8px}p{margin:0 0 14px}.muted{color:#5b6660;font-size:14px}
-.who{background:#f4f1ea;border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:14px;overflow-wrap:anywhere}
-fieldset{border:1px solid #c9cfc9;border-radius:8px;margin:0 0 14px;padding:8px 12px}legend{font-weight:600;padding:0 4px}
-fieldset label{display:block;margin:6px 0;font-weight:400}
-label.field{display:block;font-weight:600;margin-bottom:6px}
-input[type=password]{box-sizing:border-box;width:100%;padding:10px 12px;font:inherit;border:1px solid #c9cfc9;border-radius:8px;margin-bottom:14px}
-.actions{display:flex;gap:10px}button{flex:1;padding:11px;font:inherit;font-weight:600;border-radius:8px;cursor:pointer}
-.allow{border:0;background:#1f7a4d;color:#fff}.deny{border:1px solid #c9cfc9;background:transparent;color:inherit}
-.error,.warn{background:#fbeed2;color:#6b4a00;border-radius:8px;padding:10px 12px;margin-bottom:14px}
-@media (prefers-color-scheme:dark){body{background:#151a17;color:#e6ebe7}main{background:#1f2622;box-shadow:none}.muted{color:#a6b0aa}.who{background:#151a17}input{background:#151a17;color:inherit;border-color:#3a443e}}
-</style></head>
-<body><main>
+var consentTemplate = page("consent", `<main>
 <h1>{{.Title}}</h1>
 {{if .Problem}}<div class="error" role="alert">{{.Problem}}</div>{{else}}
 <p class="lead"><strong>{{.Lead}}</strong></p>
-<div class="who">{{.Back}}<br><span class="muted">{{.From}}</span></div>
+<div class="number"><span class="number__icon">{{phone}}</span><span><span class="number__label">{{.NumberLabel}}</span>
+<span class="number__value">{{if .Number}}{{.Number}}{{else}}{{.NoNumber}}{{end}}</span></span></div>
+<div class="who">{{.Back}}<span class="muted">{{.From}}</span></div>
 {{if .Loopback}}<div class="warn">{{.LoopbackWarning}}</div>{{end}}
 {{if .Error}}<div class="error" role="alert">{{.Error}}</div>{{end}}
-<form method="post" action="` + AuthorizePath + `">
+<form method="post" action="`+AuthorizePath+`">
 {{range $k, $v := .Hidden}}<input type="hidden" name="{{$k}}" value="{{$v}}">{{end}}
 <fieldset><legend>{{.AccessLabel}}</legend>
-<label><input type="radio" name="access" value="full" required> {{.Full}}</label>
-<label><input type="radio" name="access" value="read" required> {{.Read}}</label>
+<label class="choice"><input type="radio" name="access" value="full" required> <span>{{.Full}}</span></label>
+<label class="choice"><input type="radio" name="access" value="read" required> <span>{{.Read}}</span></label>
 </fieldset>
 {{if .AskPassword}}<label class="field" for="password">{{.PasswordLabel}}</label>
 <input id="password" name="password" type="password" autocomplete="current-password" autofocus>{{end}}
 <div class="actions"><button class="deny" type="submit" name="decision" value="deny" formnovalidate>{{.Deny}}</button>
 <button class="allow" type="submit" name="decision" value="allow">{{.Allow}}</button></div>
 </form>
-<p class="muted" style="margin-top:14px">{{.Note}}</p>{{end}}
-</main></body></html>`))
+<p class="muted note">{{.Note}}</p>{{end}}
+</main>`)
 
 func pageHeaders(w http.ResponseWriter, status int) {
 	h := w.Header()
@@ -640,6 +625,9 @@ func (s *Server) consent(w http.ResponseWriter, r *http.Request, ar authRequest,
 		"Lead":            i18n.Tf("%s quer usar o seu WhatsApp por este servidor.", clientHost(c, ar.RedirectURI)),
 		"From":            i18n.Tf("O aplicativo se apresenta como “%s”: esse nome é dele e não é verificado.", cleanName(c.Name, clientHost(c, ar.RedirectURI))),
 		"Back":            i18n.Tf("Depois de aprovar, você volta para: %s", back),
+		"NumberLabel":     i18n.T("Número do WhatsApp"),
+		"Number":          account.MaskPhone(s.ownPhone(r.Context())),
+		"NoNumber":        i18n.T("Nenhum número conectado ainda"),
 		"Loopback":        loopbackOnly(c),
 		"LoopbackWarning": i18n.T("Este aplicativo volta para um programa no computador de quem está conectando. Qualquer programa ali pode usar esse nome: só aprove se foi você que pediu agora."),
 		"Error":           problem,

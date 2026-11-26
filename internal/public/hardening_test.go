@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -291,7 +292,7 @@ func TestTheConsentPageCannotBeImpersonated(t *testing.T) {
 	if !strings.Contains(page, "não é verificado") {
 		t.Error("the app's own name is not marked as unverified")
 	}
-	if strings.Contains(page, "checked") {
+	if regexp.MustCompile(`<input[^>]*\bchecked\b`).MatchString(page) {
 		t.Error("an access level is preselected")
 	}
 	if !strings.Contains(page, `type="password"`) {

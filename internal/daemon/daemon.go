@@ -192,6 +192,7 @@ func Start(cfg Config) (*Daemon, error) {
 			logger.Info("kept the API keys of the earlier version", "keys", added)
 		}
 		d.public.UseMediaLinks(primary.server.Links().Live)
+		d.public.UsePhone(func(ctx context.Context) string { phone, _ := primary.idx.Names.Own(ctx); return phone })
 		d.panel.Logins = d.public.Logins
 		d.publicSrv, d.publicAddr = public.NewHTTPServer(d.public), publicLn.Addr().String()
 		go func() {

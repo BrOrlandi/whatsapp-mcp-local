@@ -62,3 +62,34 @@ func FormatPhone(p string) string {
 	}
 	return "+" + d
 }
+
+// MaskPhone writes a number with its middle hidden, for a page anyone with
+// the link may see. A Brazilian one keeps the country and area codes and the
+// last four digits, as FormatPhone writes them ("+55 (16) 9••••-6892");
+// another keeps only the last four, since where its country code ends is not
+// known here. One too short to be a phone number is hidden whole. Empty when
+// there is no number.
+func MaskPhone(p string) string {
+	d := strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, p)
+	n := len(d)
+	switch {
+	case n == 0:
+		return ""
+	case strings.HasPrefix(d, "55") && (n == 12 || n == 13):
+		local := d[4:]
+		lead := ""
+		if len(local) == 9 {
+			// The 9 every Brazilian mobile starts with says nothing.
+			lead = local[:1]
+		}
+		return fmt.Sprintf("+55 (%s) %s••••-%s", d[2:4], lead, local[len(local)-4:])
+	case n >= 8:
+		return "+" + strings.Repeat("•", n-4) + " " + d[n-4:]
+	}
+	return "+" + strings.Repeat("•", n)
+}
