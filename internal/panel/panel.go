@@ -1690,7 +1690,7 @@ func (p *Panel) qr(w http.ResponseWriter, r *http.Request) {
 
 func funcs() template.FuncMap {
 	return template.FuncMap{
-		"css":           func() template.CSS { return template.CSS(stylesheet) },
+		"css":           func(app bool) template.CSS { return template.CSS(pageStylesheet(app)) },
 		"t":             translate,
 		"tf":            translatef,
 		"lang":          i18n.Lang,

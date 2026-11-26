@@ -1,6 +1,9 @@
 package panel
 
-import "strings"
+import (
+	"runtime"
+	"strings"
+)
 
 // The stylesheet is v1's, unchanged, so the local panel and the hosted one
 // look like the same product; extraCSS adds only what v1 has no page for: the
@@ -21,6 +24,29 @@ const darkPalette = `
 const darkMarker = "/*dark-palette*/"
 
 var stylesheet = strings.NewReplacer(darkMarker, darkPalette).Replace(baseCSS + extraCSS)
+
+// pageStylesheet is the stylesheet a page carries; app is true for the
+// desktop app's own pages.
+func pageStylesheet(app bool) string {
+	return stylesheet + pageTransition(runtime.GOOS, app)
+}
+
+// pageTransition cross-fades a language change into the same page in the new
+// language, where the browser can (theme.js lets no other navigation do it).
+//
+// Not in the desktop app on Linux: its window is WebKitGTK, which crashes the
+// whole app (SIGSEGV inside libwebkit2gtk, seen on 2.50.4 and 2.52.6) on any
+// navigation while a cross-document view transition is on, the language
+// change's own included, and on the ones theme.js skips. Every link in the
+// panel closed the app. There the new page fades in instead, a plain
+// animation on the mark theme.js sets before the first paint after a language
+// change. The server version, opened in a browser, keeps the cross-fade.
+func pageTransition(goos string, app bool) string {
+	if goos == "linux" && app {
+		return "@media (prefers-reduced-motion:no-preference){[data-language-fade] body{animation:language-fade .2s ease-out}}@keyframes language-fade{from{opacity:0}}\n"
+	}
+	return "@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}::view-transition-group(root){animation-duration:.2s}}\n"
+}
 
 const baseCSS = `*,*::before,*::after{box-sizing:border-box}
 :root{
@@ -417,9 +443,6 @@ const extraCSS = `
    first paint, so the card never appears late and shoves the rest down. */
 [data-theme-switch]{display:none}
 [data-themes] [data-theme-switch]{display:block}
-/* A language change cross-fades into the same page in the new language,
-   where the browser can (theme.js lets no other navigation do it). */
-@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}::view-transition-group(root){animation-duration:.2s}}
 .icon{display:block;flex:none}
 /* ---- help ---- */
 .faq{border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}

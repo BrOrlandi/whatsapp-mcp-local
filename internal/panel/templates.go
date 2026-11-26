@@ -6,7 +6,7 @@ package panel
 // rather than instances, no login, and a chat preview to confirm the sync.
 const pageSource = `
 {{define "head"}}<!doctype html>
-<html lang="{{lang}}"{{if .App}} data-app{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="alternate icon" href="/favicon.ico" sizes="16x16 32x32 48x48"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><script src="/assets/i18n.js"></script><script src="/assets/theme.js"></script><title>{{t .Title}} · WhatsApp MCP</title><style>{{css}}</style></head><body><div class="shell">{{end}}
+<html lang="{{lang}}"{{if .App}} data-app{{end}}><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="alternate icon" href="/favicon.ico" sizes="16x16 32x32 48x48"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><script src="/assets/i18n.js"></script><script src="/assets/theme.js"></script><title>{{t .Title}} · WhatsApp MCP</title><style>{{css .App}}</style></head><body><div class="shell">{{end}}
 
 {{define "foot"}}
 <footer class="colophon">

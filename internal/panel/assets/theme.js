@@ -69,12 +69,15 @@
       return false;
     }
   }
-  // The stylesheet cross-fades panel pages where the browser can; only a
-  // language change keeps it, every other page opens as it always did.
+  // The stylesheet cross-fades panel pages where the browser can (not in
+  // the app on Linux, see pageTransition in style.go); only a language change keeps
+  // it, every other page opens as it always did.
   window.addEventListener("pageswap", function (event) {
     if (event.viewTransition && !switching()) event.viewTransition.skipTransition();
   });
   var anchor = take();
+  // Where the stylesheet has no cross-fade (Linux), the new page fades in.
+  if (anchor) root.setAttribute("data-language-fade", "");
   window.addEventListener("pagereveal", function (event) {
     if (event.viewTransition && !anchor) event.viewTransition.skipTransition();
   });
