@@ -26,12 +26,19 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ### Corrigido
 
+- No Linux, o app fechava ao trocar de página (abrir a Ajuda, as
+  Configurações ou qualquer aba) com as animações do GNOME ligadas, desde a
+  1.9.6. A transição entre as páginas fica desligada só no app do Linux; no
+  macOS, no Windows e no navegador ela continua. Obrigado ao Lucas Ogawa, que
+  achou a causa e mandou a correção.
 - No Linux, o app podia fechar sozinho ao abrir ou quando o estado da
   conexão mudava, por atualizar o menu do ícone da bandeja fora de hora.
 - O servidor de transcrição (`whatsapp-mcp transcription serve`) rodando na
   imagem Docker falhava em todo áudio, com "stat /data/tmp". Agora transcreve
   sem configuração extra; até a 1.9.6, o contorno é `TMPDIR=/tmp` no
   contêiner ([Servidor de transcrição](docs/servidor-de-transcricao.md)).
+
+Inclui o wacli 0.26.1.
 
 ## [1.9.6] - 2026-11-23
 
