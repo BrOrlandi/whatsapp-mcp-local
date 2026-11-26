@@ -27,6 +27,7 @@ type Relay struct {
 	secret string
 	ln     net.Listener
 	srv    *http.Server
+	polls  PollReader // reads a poll for poll_vote events; nil leaves them off
 }
 
 // NewRelay opens the relay. Sync is pointed at URL with Secret.
@@ -111,6 +112,7 @@ type wacliPayload struct {
 		Options         []string
 		SelectableCount uint32
 	}
+	PollVote *pollVotePayload
 
 	Sender     string
 	MessageIDs []string
@@ -177,8 +179,13 @@ func (r *Relay) event(ctx context.Context, body []byte) (Event, error) {
 	if p.ReactionToID != "" {
 		ev.Kind = "reaction"
 		m.Reaction = &Reaction{To: p.ReactionToID, Emoji: p.ReactionEmoji}
+	} else if p.PollVote != nil && p.PollVote.PollMessageID != "" {
+		// The choice is still encrypted here: read it from the store once
+		// sync has it, and send poll_vote then.
+		go r.pollVote(p, m.ChatName, m.SenderName)
+		return ev, errSkip
 	} else if m.Text == "" && m.Media == nil && m.Location == nil && m.Poll == nil && !m.Revoked {
-		return ev, errSkip // a protocol message, a poll vote, a call: nothing to read
+		return ev, errSkip // a protocol message, a call: nothing to read
 	}
 	return ev, nil
 }

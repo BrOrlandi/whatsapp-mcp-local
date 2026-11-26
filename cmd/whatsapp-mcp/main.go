@@ -235,7 +235,7 @@ Settings:
   apikey [list|create --name <name> [--read-only]|revoke <id>]   keys for agents on other computers (server mode)
   server [status|setup|off] the server mode without Docker: public address, password, service
   webhooks [list|add <url>|remove <id>|enable <id>|disable <id>|test <id>]
-      add: [--events message,reaction,receipt,online] [--include-own] [--chats <jid>,<jid>]
+      add: [--events message,reaction,receipt,poll_vote,online] [--include-own] [--chats <jid>,<jid>]
   config                    print the configuration for Claude Code and Claude Desktop
   transcription install     set up voice-note transcription on this computer (whisper.cpp)
   transcription serve       transcribe for another computer (a Mac with a GPU, say)

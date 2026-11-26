@@ -236,8 +236,8 @@ func TestWebhooksCardOpensADialog(t *testing.T) {
 		if title, box := strings.Index(dialog, ">Eventos<"), strings.Index(dialog, "data-webhook-event"); title < 0 || box < title {
 			t.Errorf("server mode %v: the Eventos title should come before the event choices", l.ServerMode)
 		}
-		if n := strings.Count(dialog, "data-webhook-event"); n != 4 {
-			t.Errorf("server mode %v: the dialog offers %d events, want 4", l.ServerMode, n)
+		if n := strings.Count(dialog, "data-webhook-event"); n != 5 {
+			t.Errorf("server mode %v: the dialog offers %d events, want 5", l.ServerMode, n)
 		}
 		// Deleting lives in the dialog only, in red, hidden until a webhook
 		// is being changed, and asks once more before it happens.

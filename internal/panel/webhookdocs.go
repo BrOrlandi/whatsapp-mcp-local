@@ -93,7 +93,7 @@ func webhookExamples(server bool) []webhookExampleGroup {
 			{ID: "documento", Title: i18n.T("Documento"), JSON: event("message", "3d9015e4c6b27f8a", document)},
 			{ID: "audio", Title: i18n.T("Áudio"), Note: i18n.T("Áudios de voz chegam assim, sem transcrição: a transcrição acontece quando a sua ferramenta de IA pede."), JSON: event("message", "4ea126f5d7c3809b", voice)},
 			{ID: "localizacao", Title: i18n.T("Localização"), JSON: event("message", "5fb23706e8d491ac", place)},
-			{ID: "enquete", Title: i18n.T("Enquete"), Note: i18n.T("Os votos não chegam como avisos; o resultado se lê com get_poll_results."), JSON: event("message", "60c34817f9e5a2bd", poll)},
+			{ID: "enquete", Title: i18n.T("Enquete"), Note: i18n.T("Cada voto chega depois como poll_vote, com o placar."), JSON: event("message", "60c34817f9e5a2bd", poll)},
 			{ID: "encaminhada", Title: i18n.T("Mensagem encaminhada"), JSON: event("message", "71d45928a0f6b3ce", forwarded)},
 			{ID: "editada", Title: i18n.T("Mensagem editada"), Note: i18n.T("Chega de novo com o id da mensagem original, edited true e o texto novo."), JSON: event("message", "82e56a39b107c4df", edited)},
 			{ID: "apagada", Title: i18n.T("Mensagem apagada para todos"), Note: i18n.T("Chega com o id da mensagem apagada, revoked true e sem texto."), JSON: event("message", "93f67b4ac218d5e0", revoked)},
@@ -107,6 +107,13 @@ func webhookExamples(server bool) []webhookExampleGroup {
 			{ID: "lida", Title: i18n.T("Lida"), Note: i18n.T("type é delivered (entregue), read (lida) ou played (áudio ouvido). Num grupo, sender_jid é quem leu."),
 				JSON: exampleJSON(webhook.Event{Kind: "receipt", ID: "d73abf8e065c1924", At: sent, Account: number, Receipt: &webhook.Receipt{ChatJID: maria, SenderJID: maria,
 					MessageIDs: []string{"3EB0B1C2D3E4F5A6B7C8", "3EB0B1C2D3E4F5A6B7C9"}, Type: "read", Timestamp: at}})},
+		}},
+		{ID: "poll_vote", Title: i18n.T("Votos em enquetes (poll_vote)"), Intro: i18n.T("Alguém votou numa enquete, trocou o voto ou tirou. Vem com o que a pessoa escolheu e o placar completo depois do voto, como get_poll_results lê."), Examples: []webhookExample{
+			{ID: "voto", Title: i18n.T("Voto"), Note: i18n.T("poll_id é o id da mensagem da enquete. selected vazio quer dizer que a pessoa tirou o voto. question, options, tally e voters ficam de fora quando a enquete não está neste computador (foi mandada antes de conectar)."),
+				JSON: exampleJSON(webhook.Event{Kind: "poll_vote", ID: "a1c2e3f405b6d7e8", At: sent, Account: number, PollVote: &webhook.PollVote{PollID: "3EB0A2B3C4D5E6F7A8B9",
+					ChatJID: "120363000000000001@g.us", ChatName: "Família", Group: true, VoterJID: maria, VoterName: "Maria Silva", Selected: []string{"Sim"}, VotedAt: at,
+					Question: "Churrasco no sábado?", Options: []string{"Sim", "Não", "Talvez"}, Tally: map[string]int{"Sim": 2, "Não": 0, "Talvez": 1},
+					Voters: []webhook.PollVoter{{JID: maria, Name: "Maria Silva", Selected: []string{"Sim"}, VotedAt: at}, {JID: "5511912345678@s.whatsapp.net", Name: "João", Selected: []string{"Sim"}, VotedAt: at.Add(-time.Minute)}, {JID: "5511923456789@s.whatsapp.net", Name: "Ana", Selected: []string{"Talvez"}, VotedAt: at.Add(-2 * time.Minute)}}}})},
 		}},
 		{ID: "online", Title: i18n.T("De volta on-line (online)"), Intro: onlineIntro, Examples: []webhookExample{
 			{ID: "acordou", Title: i18n.T("O computador acordou"), Note: i18n.T("Para rodar uma tarefa da sua ferramenta de IA nessa hora, o programa que recebe pode chamá-la, por exemplo com claude -p, e responder na hora sem esperar ela terminar. Os despertares curtos do macOS (Power Nap) também podem mandar woke: guarde um intervalo mínimo entre uma tarefa e outra."),
@@ -141,7 +148,7 @@ const webhookDocsSource = `{{define "webhookdocs"}}{{template "head" .}}{{templa
 <div class="card__body stack">
 <ul class="rows">
 <li class="row"><span class="row__main"><span class="row__title mono">Content-Type: application/json</span><span class="row__meta">{{t "O corpo é o aviso, em UTF-8."}}</span></span></li>
-<li class="row"><span class="row__main"><span class="row__title mono">X-WhatsApp-MCP-Event</span><span class="row__meta">{{t "O tipo do aviso: message, reaction, receipt ou online. É o mesmo campo event do corpo."}}</span></span></li>
+<li class="row"><span class="row__main"><span class="row__title mono">X-WhatsApp-MCP-Event</span><span class="row__meta">{{t "O tipo do aviso: message, reaction, receipt, poll_vote ou online. É o mesmo campo event do corpo."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">X-WhatsApp-MCP-Delivery</span><span class="row__meta">{{t "O id do aviso, o mesmo delivery_id do corpo. Uma nova tentativa do mesmo aviso repete o id: use-o para não processar duas vezes."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">X-WhatsApp-MCP-Signature</span><span class="row__meta">{{t "sha256= seguido do HMAC-SHA256 do corpo com a chave do webhook, em hexadecimal."}}</span></span></li>
 </ul>
@@ -176,7 +183,7 @@ function assinaturaValida(corpo, cabecalho, chave) {
 <div class="card__body stack">
 <h3 class="card__sub" style="border:0;padding:0">{{t "Em todo aviso"}}</h3>
 <ul class="rows">
-<li class="row"><span class="row__main"><span class="row__title mono">event</span><span class="row__meta">{{t "message, reaction, receipt ou online."}}</span></span></li>
+<li class="row"><span class="row__main"><span class="row__title mono">event</span><span class="row__meta">{{t "message, reaction, receipt, poll_vote ou online."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">delivery_id</span><span class="row__meta">{{t "O id do aviso; repete nas novas tentativas."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">sent_at</span><span class="row__meta">{{t "Quando o aviso foi montado, em UTC."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">test</span><span class="row__meta">{{t "true no aviso do botão Testar; ausente nos outros."}}</span></span></li>
@@ -200,6 +207,13 @@ function assinaturaValida(corpo, cabecalho, chave) {
 <li class="row"><span class="row__main"><span class="row__title mono">chat_jid · sender_jid</span><span class="row__meta">{{t "A conversa e quem recebeu, leu ou ouviu."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">message_ids</span><span class="row__meta">{{t "Os ids das suas mensagens a que o aviso se refere."}}</span></span></li>
 <li class="row"><span class="row__main"><span class="row__title mono">type · timestamp</span><span class="row__meta">{{t "delivered, read ou played, e quando."}}</span></span></li>
+</ul>
+<h3 class="card__sub">poll_vote</h3>
+<ul class="rows">
+<li class="row"><span class="row__main"><span class="row__title mono">poll_id · chat_jid · chat_name · group</span><span class="row__meta">{{t "A enquete (o id da mensagem dela) e a conversa."}}</span></span></li>
+<li class="row"><span class="row__main"><span class="row__title mono">voter_jid · voter_name · from_me</span><span class="row__meta">{{t "Quem votou. from_me é true quando foi a própria conta."}}</span></span></li>
+<li class="row"><span class="row__main"><span class="row__title mono">selected · voted_at</span><span class="row__meta">{{t "O que a pessoa escolheu agora (vazio quando tirou o voto) e quando."}}</span></span></li>
+<li class="row"><span class="row__main"><span class="row__title mono">question · options · tally · voters</span><span class="row__meta">{{t "A enquete e o placar depois deste voto: os votos por opção e o voto atual de cada pessoa."}}</span></span></li>
 </ul>
 <h3 class="card__sub">online</h3>
 <ul class="rows">

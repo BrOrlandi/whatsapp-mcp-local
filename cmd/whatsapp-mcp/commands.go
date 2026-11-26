@@ -392,7 +392,7 @@ func webhooksCmd(cfg config, args []string) error {
 		return nil
 	case "add":
 		if len(rest) != 1 {
-			return fail(exitUsage, "%s", i18n.T("uso: whatsapp-mcp webhooks add <url> [--events message,reaction,receipt,online] [--include-own] [--chats <jid>,<jid>]"))
+			return fail(exitUsage, "%s", i18n.T("uso: whatsapp-mcp webhooks add <url> [--events message,reaction,receipt,poll_vote,online] [--include-own] [--chats <jid>,<jid>]"))
 		}
 		body := map[string]any{"url": rest[0], "include_own": *includeOwn}
 		if *events != "" {
