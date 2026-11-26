@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BrOrlandi/whatsapp-mcp-local/internal/caller"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/i18n"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/platform"
 	"github.com/BrOrlandi/whatsapp-mcp-local/internal/state"
@@ -109,6 +110,13 @@ type setup struct {
 	Code           clientInfo
 	Codex          clientInfo
 	Cursor         clientInfo
+	// Remote is a page of the server mode seen on its public address: the
+	// tool is on the person's own computer, not on the server, so the steps
+	// use the public address and a key from Conexões (or the login, for
+	// Claude), and nothing is run or read on the server.
+	Remote bool
+	// Key stands for that key in the snippets, which the person replaces.
+	Key string
 }
 
 // Connection is one row of "Suas conexões": a client that is configured here,
@@ -365,6 +373,9 @@ func (p *Panel) desktopInfo() clientInfo {
 }
 
 func (p *Panel) setup(ctx context.Context) setup {
+	if p.PublicURL != "" && caller.From(ctx).Kind != caller.Local {
+		return p.remoteSetup()
+	}
 	snippet, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{ServerName: p.desktopEntry()}}, "", "  ")
 	cursor, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{ServerName: p.cursorEntry()}}, "", "  ")
 	return setup{
@@ -385,6 +396,31 @@ func (p *Panel) setup(ctx context.Context) setup {
 		Code:           p.codeInfo(ctx, false),
 		Codex:          p.codexInfo(ctx, false),
 		Cursor:         p.cursorInfo(),
+	}
+}
+
+// remoteSetup is the steps for a tool on another computer, reaching the
+// server by its public address with a key created in Conexões. The paths are
+// the ones on that computer, written the way its owner knows them; the
+// server's own files and programs are never looked at.
+func (p *Panel) remoteSetup() setup {
+	addr := p.PublicURL + "/mcp"
+	key := i18n.T("SUA_CHAVE")
+	bearer := "Bearer " + key
+	cursor, _ := json.MarshalIndent(map[string]any{"mcpServers": map[string]any{ServerName: map[string]any{
+		"url": addr, "headers": map[string]string{"Authorization": bearer}}}}, "", "  ")
+	return setup{
+		Remote:   true,
+		Key:      key,
+		Endpoint: addr,
+		Command:  "claude " + shellJoin([]string{"mcp", "add", "--scope", "user", "--transport", "http", ServerName, addr, "--header", "Authorization: " + bearer}),
+		// The ChatGPT and Codex apps do not see a variable set in a terminal,
+		// so the key goes in the file, as a header.
+		CodexTOML:   "[mcp_servers." + ServerName + "]\nurl = \"" + addr + "\"\nhttp_headers = { \"Authorization\" = \"" + bearer + "\" }\n",
+		CodexPath:   "~/.codex/config.toml",
+		CursorJSON:  string(cursor),
+		CursorPath:  "~/.cursor/mcp.json",
+		AgentPrompt: remoteAgentPrompt(addr, key),
 	}
 }
 

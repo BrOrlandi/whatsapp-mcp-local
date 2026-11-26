@@ -78,8 +78,7 @@ const pageSource = `
 {{define "remotenote"}}{{if .Remote}}<div class="note" role="note"><p><strong>{{t "Você está vendo este painel de fora do servidor."}}</strong> {{t "Para usar o WhatsApp numa ferramenta de IA em outro computador ou no celular, use o endereço do servidor:"}}</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço do MCP"}}</span></div><pre data-copy><code>{{.PublicMCP}}</code></pre></div>
 <p>{{t "Pelo login: cole o endereço no conector do Claude (navegador, celular ou app) ou do ChatGPT. Ele abre uma página deste servidor que pede a senha do painel."}}</p>
-<p>{{t "Com uma chave: para o Claude Code, o Codex ou um script, crie uma chave em <a href='/conexoes'>Conexões</a> e mande no cabeçalho Authorization: Bearer."}}</p>
-<p class="muted" style="margin-bottom:0">{{t "Os passos abaixo ligam ferramentas instaladas no próprio servidor."}}</p></div>{{end}}{{end}}
+<p style="margin-bottom:0">{{t "Com uma chave: para o Claude Code, o Codex ou um script, crie uma chave em <a href='/conexoes'>Conexões</a> e mande no cabeçalho Authorization: Bearer."}}</p></div>{{end}}{{end}}
 
 {{define "brandmark"}}<span class="brand__mark">{{logo}}</span><span class="brand__name">WhatsApp MCP</span>{{end}}
 
@@ -148,14 +147,13 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="lead">{{t "Onde você vai usar o seu WhatsApp?"}}</p>
 {{template "remotenote" .}}
 {{template "toolpicks" .Tools}}
-<p class="muted flow__note">{{if .ServerMode}}{{t "Estes passos não servem para o Claude pelo navegador ou pelo celular, nem para o ChatGPT na web: para eles, use o endereço do servidor, no alto da página."}}{{else}}{{t "Não funciona no Claude pelo navegador ou pelo celular, nem no ChatGPT na web: só em programas instalados neste computador."}}{{end}}</p>
+<p class="muted flow__note">{{if .ServerMode}}{{t "Para o ChatGPT na web, cole o endereço do servidor, no alto da página, num conector dele."}}{{else}}{{t "Não funciona no Claude pelo navegador ou pelo celular, nem no ChatGPT na web: só em programas instalados neste computador."}}{{end}}</p>
 </div>
 {{template "foot" .}}{{end}}
 
 {{define "conectarferramenta"}}{{template "head" .}}{{template "flowhead" .}}
 {{if not .Done}}<a class="flow__back" href="/conectar">{{icon "back"}}{{t "Escolher outra ferramenta"}}</a>{{end}}
 <div class="flow__title"><span class="toolpick__icon">{{toolmark .Tool.Mark}}</span><h1>{{t .Tool.Title}}</h1></div>
-{{template "remotenote" .}}
 
 {{if .Done}}
 <section class="card card--accent" data-connected>
@@ -171,7 +169,18 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <section class="card">
 <div class="card__body">
 <ol class="flowsteps">
-{{if eq .Tool.Key "claude-desktop"}}
+{{if and (eq .Tool.Key "claude-desktop") .Setup.Remote}}
+<li class="flowstep"><h2 class="flowstep__title">{{t "Adicione o WhatsApp como conector do Claude"}}</h2>
+<p class="muted">{{t "No Claude, abra Configurações › Conectores e clique em Adicionar conector personalizado. Dê o nome WhatsApp e cole este endereço:"}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Endereço do MCP"}}</span></div><pre data-copy><code>{{.Setup.Endpoint}}</code></pre></div>
+<p class="muted">{{t "O conector vale ao mesmo tempo no app do Claude para computador, no navegador e no celular."}}</p></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Entre com a senha do painel"}}</h2>
+<p class="muted">{{t "Clique em Conectar no conector novo. O Claude abre uma página deste servidor: confira que ela diz que você volta para claude.ai, escolha o que ele pode fazer, digite a senha do painel e aprove."}}</p></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Pergunte ao Claude se o WhatsApp está conectado"}}</h2>
+<p class="muted">{{t "Numa conversa nova do Claude, mande o texto abaixo. Ele deve responder com o seu número e as suas conversas recentes."}}</p>
+<div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
+{{template "waittool" .}}</li>
+{{else if eq .Tool.Key "claude-desktop"}}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Adicione o WhatsApp ao Claude Desktop"}}</h2>
 {{if not .Setup.Desktop.Found}}<p class="note">{{t "O Claude Desktop não parece estar instalado neste computador."}} <a href="https://claude.ai/download" target="_blank" rel="noopener">{{t "Baixar o Claude Desktop"}}</a></p>{{end}}
 {{if .Setup.DesktopReopens}}<p class="muted">{{t "O Claude Desktop vai fechar e abrir de novo sozinho, para carregar o WhatsApp. Se houver alguma conversa sendo escrita nele, termine antes."}}</p>{{end}}
@@ -195,6 +204,14 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <p class="muted">{{t "Numa conversa nova do Claude Desktop, mande o texto abaixo. Ele deve responder com o seu número e as suas conversas recentes."}}</p>
 <div class="snippet"><pre class="plain" data-copy><code>{{t .Verification}}</code></pre></div>
 {{template "waittool" .}}</li>
+{{else if and (eq .Tool.Key "claude-code") .Setup.Remote}}
+{{template "keystep" .}}
+<li class="flowstep"><h2 class="flowstep__title">{{t "Adicione o WhatsApp ao Claude Code"}}</h2>
+<p class="muted">{{tf "No terminal do seu computador, rode este comando, trocando %s pela chave que você criou:" .Setup.Key}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Comando"}}</span></div>
+<pre data-copy><code>{{.Setup.Command}}</code></pre></div></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Abra uma sessão nova do Claude Code"}}</h2>
+<p class="muted">{{t "Uma sessão que já estava aberta não vê o WhatsApp."}}</p></li>
 {{else if eq .Tool.Key "claude-code"}}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Adicione o WhatsApp ao Claude Code"}}</h2>
 <div class="actions"><button class="btn" type="button" data-add-client="claude-code"{{if not .Setup.Code.Found}} disabled title="{{t "O comando claude não foi encontrado neste computador"}}"{{end}}>{{if .Setup.Code.Configured}}{{t "Configurar de novo"}}{{else}}{{t "Adicionar ao Claude Code"}}{{end}}</button></div>
@@ -206,6 +223,14 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </details></li>
 <li class="flowstep"><h2 class="flowstep__title">{{t "Abra uma sessão nova do Claude Code"}}</h2>
 <p class="muted">{{t "Uma sessão que já estava aberta não vê o WhatsApp."}}</p></li>
+{{else if and (eq .Tool.Key "codex") .Setup.Remote}}
+{{template "keystep" .}}
+<li class="flowstep"><h2 class="flowstep__title">{{t "Adicione o WhatsApp ao Codex"}}</h2>
+<p class="muted">{{tf "No seu computador, acrescente este trecho ao arquivo de configuração do Codex, trocando %s pela chave que você criou. Ele vale para o app do ChatGPT, o app do Codex, o terminal e o editor de código." .Setup.Key}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{.Setup.CodexPath}}</span></div>
+<pre data-copy><code>{{.Setup.CodexTOML}}</code></pre></div></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Abra uma conversa nova no Codex"}}</h2>
+<p class="muted">{{t "Pode ser no app do ChatGPT, no app do Codex, no terminal ou no editor. Se o app estiver aberto, feche e abra de novo."}}</p></li>
 {{else if eq .Tool.Key "codex"}}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Adicione o WhatsApp ao Codex"}}</h2>
 <div class="actions"><button class="btn" type="button" data-add-client="codex"{{if not .Setup.Codex.Found}} disabled title="{{t "O comando codex não foi encontrado neste computador"}}"{{end}}>{{if .Setup.Codex.Configured}}{{t "Configurar de novo"}}{{else}}{{t "Adicionar ao Codex"}}{{end}}</button></div>
@@ -220,6 +245,14 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 </details></li>
 <li class="flowstep"><h2 class="flowstep__title">{{t "Abra uma conversa nova no Codex"}}</h2>
 <p class="muted">{{t "Pode ser no app do ChatGPT, no app do Codex, no terminal ou no editor. Se o app estiver aberto, feche e abra de novo."}}</p></li>
+{{else if and (eq .Tool.Key "cursor") .Setup.Remote}}
+{{template "keystep" .}}
+<li class="flowstep"><h2 class="flowstep__title">{{t "Adicione o WhatsApp ao Cursor"}}</h2>
+<p class="muted">{{tf "No seu computador, abra o arquivo abaixo, que o Cursor também abre pelas configurações de MCP dele, e cole o texto, trocando %s pela chave que você criou. Se já houver outros servidores no arquivo, acrescente só o trecho <code>\"%s\"</code> dentro de <code>mcpServers</code>, sem apagar o resto." .Setup.Key serverName}}</p>
+<div class="snippet"><div class="snippet__head"><span class="snippet__title">{{.Setup.CursorPath}}</span></div>
+<pre data-copy><code>{{.Setup.CursorJSON}}</code></pre></div></li>
+<li class="flowstep"><h2 class="flowstep__title">{{t "Feche o Cursor e abra de novo"}}</h2>
+<p class="muted">{{t "Depois, peça ao agente do Cursor o que quiser do seu WhatsApp."}}</p></li>
 {{else if eq .Tool.Key "cursor"}}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Adicione o WhatsApp ao Cursor"}}</h2>
 {{if not .Setup.Cursor.Found}}<p class="note">{{t "O Cursor não parece estar instalado neste computador."}} <a href="https://cursor.com/download" target="_blank" rel="noopener">{{t "Baixar o Cursor"}}</a></p>{{end}}
@@ -233,8 +266,9 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Feche o Cursor e abra de novo"}}</h2>
 <p class="muted">{{t "Depois, peça ao agente do Cursor o que quiser do seu WhatsApp."}}</p></li>
 {{else}}
+{{if .Setup.Remote}}{{template "keystep" .}}{{end}}
 <li class="flowstep"><h2 class="flowstep__title">{{t "Peça para a sua ferramenta se configurar"}}</h2>
-<p class="muted">{{t "Serve para o Windsurf e qualquer outra que aceite MCP. Copie o texto abaixo e mande no chat dela."}}</p>
+<p class="muted">{{if .Setup.Remote}}{{tf "Serve para o Windsurf e qualquer outra que aceite MCP. Copie o texto abaixo, troque %s pela chave que você criou e mande no chat dela." .Setup.Key}}{{else}}{{t "Serve para o Windsurf e qualquer outra que aceite MCP. Copie o texto abaixo e mande no chat dela."}}{{end}}</p>
 <div class="snippet"><div class="snippet__head"><span class="snippet__title">{{t "Copie e mande para a sua ferramenta"}}</span></div>
 <pre class="plain" data-copy><code>{{.Setup.AgentPrompt}}</code></pre></div></li>
 <li class="flowstep"><h2 class="flowstep__title">{{t "Reinicie a ferramenta"}}</h2>
@@ -242,7 +276,7 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{end}}
 {{if ne .Tool.Key "claude-desktop"}}<li class="flowstep"><h2 class="flowstep__title">{{t "Espere a conexão"}}</h2>{{template "waittool" .}}</li>{{end}}
 </ol>
-{{if eq .Tool.Key "claude-desktop"}}
+{{if and (eq .Tool.Key "claude-desktop") (not .Setup.Remote)}}
 <div class="note waithelp" data-wait-help hidden>
 <p><strong>{{t "Ainda não conectou?"}}</strong> {{t "Confira se fechou o Claude Desktop por completo, não só a janela. Se mesmo assim não der certo, peça para o próprio Claude configurar: ele testa a conexão e corrige o que faltar."}}</p>
 <div class="actions"><button class="btn btn--ghost btn--small" type="button" data-open-manual>{{t "Pedir para o Claude configurar"}}</button></div>
@@ -252,6 +286,12 @@ focus. Hidden from screen readers, which read the name in itself, with lang. */}
 {{end}}
 </div>
 {{template "foot" .}}{{end}}
+
+{{/* On the server's public address, a tool on another computer enters with a
+key, made in Conexões, which opens beside these steps. */}}
+{{define "keystep"}}<li class="flowstep"><h2 class="flowstep__title">{{t "Crie uma chave para esta ferramenta"}}</h2>
+<p class="muted">{{t "Em Conexões, crie uma chave com o nome da ferramenta e copie. Ela aparece uma vez só."}} <span class="tip" tabindex="0" aria-describedby="tip-chave-passo"><span aria-hidden="true">?</span><span class="tip__body" role="tooltip" id="tip-chave-passo">{{t "A ferramenta manda a chave em cada pedido, no cabeçalho Authorization: Bearer. Em Conexões, dá para cortar o acesso dela quando quiser."}}</span></span></p>
+<div class="actions"><a class="btn btn--ghost" href="/conexoes#chave-dialog" target="_blank" rel="noopener">{{t "Criar uma chave"}}</a></div></li>{{end}}
 
 {{define "waittool"}}<p class="busy" role="status" data-wait-tool="{{.Tool.Client}}" data-wait-known="{{.Known}}" data-wait-since="{{.Since}}" data-wait-who="{{t .Tool.Who}}"><span class="spinner" aria-hidden="true"></span>{{tf "Esta tela avisa quando %s se conectar." (t .Tool.Who)}}</p>
 <div class="actions waitactions"><button class="btn btn--ghost btn--small" type="button" data-wait-check>{{t "Checar de novo"}}</button>{{if .InSetup}}<form method="post" action="/instalacao/avancar"><input type="hidden" name="to" value="done"><button class="btn btn--ghost btn--small" type="submit">{{t "Pular e ir para o painel"}}</button></form>{{else}}<a class="btn btn--ghost btn--small" href="/">{{t "Voltar para o início"}}</a>{{end}}</div>

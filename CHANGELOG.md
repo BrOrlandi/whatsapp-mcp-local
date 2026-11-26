@@ -32,6 +32,13 @@ O que muda para quem usa o WhatsApp MCP, versão a versão. Formato baseado no
 
 ### Corrigido
 
+- **Servidor: os passos de conexão usam o endereço do servidor.** Vistos de
+  fora do servidor, os passos de *Conectar MCP* mostravam o endereço interno
+  (`127.0.0.1`), arquivos de dentro do servidor e um botão que não podia
+  funcionar ali. Agora o Claude Code, o ChatGPT / Codex, o Cursor e as outras
+  ferramentas usam o endereço público do servidor com uma chave criada em
+  *Conexões*, nos arquivos do seu computador, e o Claude Desktop entra como
+  conector, com a senha do painel.
 - No Linux, o app fechava ao trocar de página (abrir a Ajuda, as
   Configurações ou qualquer aba) com as animações do GNOME ligadas, desde a
   1.9.6. A transição entre as páginas fica desligada só no app do Linux; no

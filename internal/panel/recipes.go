@@ -173,6 +173,20 @@ Se você só aceitar servidores que rodam por linha de comando (stdio), use esta
 Quando terminar, liste as ferramentas do servidor "%s" e me diga quantas são e qual é o número de telefone conectado.`, ServerName, endpoint, config, ServerName)
 }
 
+// remoteAgentPrompt is agentPrompt for a tool on another computer, reaching
+// the server mode by its public address with a key from Conexões.
+func remoteAgentPrompt(endpoint, key string) string {
+	return i18n.Tf(`Quero conectar um servidor MCP (Model Context Protocol) em você, para que você possa ler e usar o meu WhatsApp. Configure isso para mim. Se você não puder se configurar sozinho, me explique o passo a passo, bem devagar, para eu fazer na mão.
+
+Dados da conexão:
+- Nome do servidor: %s
+- Transporte: HTTP (streamable HTTP)
+- URL: %s
+- Autenticação: o cabeçalho "Authorization: Bearer %s" em cada pedido. Se eu não tiver trocado %s pela chave, me peça a chave antes de configurar.
+
+Quando terminar, liste as ferramentas do servidor "%s" e me diga quantas são e qual é o número de telefone conectado.`, ServerName, endpoint, key, key, ServerName)
+}
+
 // desktopPrompt is for when the Desktop button did not get the WhatsApp to
 // connect: Claude itself checks the app, tests the program Claude Desktop
 // starts, edits the configuration and says what is left. Where Claude cannot
